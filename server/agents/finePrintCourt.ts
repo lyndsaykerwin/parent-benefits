@@ -174,7 +174,12 @@ export async function judgeOffers(
   for (const offer of picked) {
     const { ruling, usedFallback } = await judgeOne(ctx, offer, '');
     if (ruling.verdict === 'approve') out.push(toCandidate(ctx, offer, ruling, 0, sql, usedFallback));
-    else ctx.blocked?.push(toBlockedCard(ctx, offer, ruling));
+    else if (ctx.blocked) {
+      // A retried run must not list the same offer twice: replace any earlier entry for it.
+      const card = toBlockedCard(ctx, offer, ruling);
+      const at = ctx.blocked.findIndex((b) => b.id === card.id);
+      if (at >= 0) ctx.blocked[at] = card; else ctx.blocked.push(card);
+    }
   }
   return out;
 }

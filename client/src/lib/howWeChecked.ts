@@ -24,7 +24,8 @@ export function sourceNames(sql: string): string[] {
 export function redactSql(sql: string): string {
   return sql
     .replace(/'(?:[^']|'')*'?/g, "'?'")
-    .replace(/\b\w*income\w*\b/gi, '[hidden]');
+    .replace(/\b\w*income\w*\b/gi, '[hidden]')
+    .replace(/(?<![\w.])\d+(?:\.\d+)?(?![\w.])/g, '?');
 }
 
 const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');

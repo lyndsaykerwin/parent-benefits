@@ -75,6 +75,15 @@ describe('fine print court', () => {
     expect(JSON.stringify(b)).not.toMatch(/income/i);
   });
 
+  it('judging the same offers twice lists each blocked offer once', async () => {
+    const llm = new FakeGenerator(['pro', 'con', REJECT, 'pro', 'con', REJECT]);
+    const { ctx } = setup([trap], llm);
+    ctx.blocked = [];
+    await judgeOffers(ctx, IN);
+    await judgeOffers(ctx, IN);
+    expect(ctx.blocked.map((b) => b.id)).toEqual([`blocked-${trap.id}`]);
+  });
+
   it('makes exactly 3 LLM calls and 3 trace lines per offer', async () => {
     const llm = new FakeGenerator(['pro', 'con', APPROVE]);
     const { ctx, trace } = setup([offer(1), offer(2)], llm);

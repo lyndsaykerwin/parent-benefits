@@ -208,6 +208,11 @@ export function describeLine(l: TraceLine): string {
     if (l.status === 'retry') return `Fact-Checker sent 1 back: ${clip(l.output_summary, 70)}`;
     return `Fact-Checker dropped a ${kind} card: ${clip(l.output_summary, 60)}`;
   }
+  if (l.agent_name === 'memory' && l.action === 'rule_recalled') {
+    const [id, conf] = l.output_summary.split('|');
+    const pct = Number.isFinite(Number(conf)) && conf !== '' ? ` (${Math.round(Number(conf) * 100)}%)` : '';
+    return id ? `Memory recalled rule ${id}${pct}` : 'Memory recalled a rule';
+  }
   if (l.agent_name === 'judge') return `Judge ruled on ${l.input_summary}: ${clip(l.output_summary.split(':')[0], 40)}`;
   if (l.action === 'explain') return `${who} wrote a plain-English explanation`;
   if (l.action === 'assemble') return `Built your feed: ${l.output_summary}`;

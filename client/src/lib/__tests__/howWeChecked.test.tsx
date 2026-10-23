@@ -31,6 +31,13 @@ describe('redactSql', () => {
   });
 });
 
+describe('redactSql numbers', () => {
+  it('masks bare numeric literals but keeps table and column names', () => {
+    const out = redactSql('SELECT amount_cents FROM bundle_pg.v_x2 WHERE id = 1191 AND household_size = 3 AND r = 2.5 LIMIT 1000');
+    expect(out).toBe("SELECT amount_cents FROM bundle_pg.v_x2 WHERE id = ? AND household_size = ? AND r = ? LIMIT ?");
+  });
+});
+
 describe('zetarisForCard', () => {
   const lines = [
     z("SELECT i.item_text FROM bundle_pg.v_recall_orders i JOIN bundle_live.cpsc_recalls r ON 1=1"),

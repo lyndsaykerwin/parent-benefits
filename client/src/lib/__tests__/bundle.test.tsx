@@ -1,5 +1,5 @@
 import type { FeedCard } from '@shared/bundle';
-import { groupCards, amountCaption, UNCHECKED_DEALS_SECTION, traceForCard, familyChip, fmtUsdShort, type TraceLine } from '../bundle';
+import { groupCards, amountCaption, UNCHECKED_DEALS_SECTION, traceForCard, describeLine, familyChip, fmtUsdShort, type TraceLine } from '../bundle';
 
 const c = (id: string, kind: FeedCard['kind'], traceId = ''): FeedCard => ({
   id, kind, title: id, body: '', amountCents: null, deadline: null, verdict: 'verified', sources: [], traceId,
@@ -65,5 +65,12 @@ describe('formatting', () => {
     expect(familyChip({ name: 'Maya (sample family)', birthDate: '2026-10-03', dueDate: null }, '2026-10-23')).toBe('Baby Maya · day 20');
     expect(fmtUsdShort(364000)).toBe('$3,640');
     expect(fmtUsdShort(4899)).toBe('$48.99');
+  });
+});
+
+describe('describeLine for memory rules', () => {
+  it('says which rule was recalled in plain English, not raw pipe text', () => {
+    const l = line('t', 'memory', 'rule_recalled', 'offer 1190');
+    expect(describeLine({ ...l, output_summary: 'mem-1|0.70|2|Reject offers whose trial auto-renews' })).toBe('Memory recalled rule mem-1 (70%)');
   });
 });
