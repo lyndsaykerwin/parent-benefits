@@ -52,6 +52,17 @@ describe('fine print court', () => {
     expect(judgePrompt).toContain(id);
   });
 
+  it('traces each recalled rule for the offer: id, confidence, parent reports, text (no family data)', async () => {
+    const llm = new FakeGenerator(['pro', 'con', REJECT]);
+    const { ctx, mem, trace } = setup([trap], llm);
+    const id = mem.addRule('free trials that auto-renew into paid memberships are not free', 'case_law:1', 0.8, ['f1', 'f2']);
+    await judgeOffers(ctx, IN);
+    const l = trace.lines().find((x) => x.agent_name === 'memory' && x.action === 'rule_recalled')!;
+    expect(l.input_summary).toBe(`offer ${trap.id}`);
+    expect(l.output_summary.startsWith(`${id}|0.80|2|`)).toBe(true);
+    expect(l.output_summary).toContain('free trials that auto-renew');
+  });
+
   it('makes exactly 3 LLM calls and 3 trace lines per offer', async () => {
     const llm = new FakeGenerator(['pro', 'con', APPROVE]);
     const { ctx, trace } = setup([offer(1), offer(2)], llm);

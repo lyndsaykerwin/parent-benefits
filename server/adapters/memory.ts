@@ -40,7 +40,7 @@ export class BundleMemory {
     return rec.id;
   }
 
-  recallRules(query: string, topN = 5): { id: string; text: string; confidence: number; score: number }[] {
+  recallRules(query: string, topN = 5): { id: string; text: string; confidence: number; score: number; reports: number }[] {
     // H-MEM's default cut-off (0.35) is tuned for a real embedder; its built-in
     // hash embedder scores short rules lower, so use 0.15 and then require at least
     // one shared word so unrelated queries return nothing.
@@ -50,6 +50,7 @@ export class BundleMemory {
       .filter((m) => tokenize(m.memory.content).some((w) => words.has(w)))
       .map((m) => ({
       id: m.memory.id, text: m.memory.content, confidence: m.memory.confidence, score: m.relevance,
+      reports: m.memory.provenance?.refs?.length ?? 0,
     }));
     this.log('recall_rules', query, `${out.length} rule(s)`, out[0]?.confidence ?? null);
     return out;

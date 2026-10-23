@@ -3,6 +3,7 @@ import { Link, useParams, useSearch } from 'wouter';
 import AppShell from '@/components/AppShell';
 import FeedCardView from '@/components/FeedCardView';
 import { PLAID_TILE, safeSources, agentLabel, api, familyChip, loadRun, saveRun, traceForCard, type SavedRun, type TraceLine } from '@/lib/bundle';
+import { ZetarisSection, MemorySection } from '@/components/HowWeCheckedSections';
 import { cn } from '@/lib/utils';
 
 const STATUS_TEXT: Record<TraceLine['status'], { label: string; cls: string }> = {
@@ -85,7 +86,8 @@ export default function CardDetail() {
     );
   }
 
-  const steps = lines ? traceForCard(card, lines) : [];
+  // rule_recalled lines are shown in the Memory section below, not as a raw step.
+  const steps = lines ? traceForCard(card, lines).filter((l) => l.action !== 'rule_recalled') : [];
 
   async function send(kind: 'got_it' | 'issue') {
     setBusy(true);
@@ -146,6 +148,9 @@ export default function CardDetail() {
             })}
           </ol>
         )}
+
+        {lines !== null && <ZetarisSection card={card} lines={lines} />}
+        {lines !== null && <MemorySection card={card} lines={lines} />}
 
         {safeSources(card.sources).length > 0 && (
           <>

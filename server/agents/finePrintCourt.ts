@@ -83,7 +83,10 @@ async function argue(ctx: AgentContext, who: 'deal_hunter' | 'fine_print_lawyer'
 }
 
 async function judgeOne(ctx: AgentContext, offer: Offer, note: string): Promise<{ ruling: CourtRuling; usedFallback: boolean }> {
-  const rules: Rule[] = ctx.memory.recallRules(offer.finePrint).map((r) => ({ id: r.id, text: r.text, confidence: r.confidence }));
+  const recalled = ctx.memory.recallRules(offer.finePrint);
+  const rules: Rule[] = recalled.map((r) => ({ id: r.id, text: r.text, confidence: r.confidence }));
+  // One line per rule so the app can show which learned rule applied to which offer (id|confidence|parent reports|text).
+  for (const r of recalled) log(ctx, 'memory', 'rule_recalled', `offer ${offer.id}`, `${r.id}|${r.confidence.toFixed(2)}|${r.reports}|${r.text}`);
   const extra = note ? `\nSend-back reason: ${note}` : '';
   const hunter = await argue(ctx, 'deal_hunter', offer, extra);
   const lawyer = await argue(ctx, 'fine_print_lawyer', offer, extra);
