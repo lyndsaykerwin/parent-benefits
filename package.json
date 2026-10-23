@@ -13,7 +13,9 @@
     "start": "NODE_ENV=production node dist/index.js",
     "check": "tsc",
     "db:push": "drizzle-kit push",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "eval": "tsx scripts/eval.ts",
+    "seed": "tsx scripts/seed.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",

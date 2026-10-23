@@ -181,7 +181,10 @@ export async function runBundle(familyId: string, deps: RunDeps): Promise<Bundle
   const family = await deps.loadFamily(familyId);
   const runId = deps.runId ?? newRunId(familyId);
   const trace = new TraceLogger(runId, deps.logsDir);
-  const ctx: AgentContext = { runId, family, z: deps.z, llm: deps.llm, memory: deps.memory, trace, today: deps.today };
+  // Every Zetaris query and memory call lands in this run's trace (test fakes without withTrace are used as-is).
+  const z = typeof deps.z.withTrace === 'function' ? deps.z.withTrace(trace) : deps.z;
+  const memory = typeof deps.memory.withTrace === 'function' ? deps.memory.withTrace(trace) : deps.memory;
+  const ctx: AgentContext = { runId, family, z, llm: deps.llm, memory, trace, today: deps.today };
   const maxRetries = /^\d+$/.test(process.env.MAX_RETRIES ?? '') ? Number(process.env.MAX_RETRIES) : 2;
   let banner: string | null = null;
   const log = (action: string, input: string, output: string, status: 'ok' | 'retry' | 'blocked' | 'error' | 'fallback', retry = 0) =>

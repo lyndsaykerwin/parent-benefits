@@ -13,6 +13,7 @@ coverage
 
 # Bundle runtime files
 logs/*.jsonl
+!logs/sample/*.jsonl
 vendor/hmem/node_modules
 data/hmem/
 

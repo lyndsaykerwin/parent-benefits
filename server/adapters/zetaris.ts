@@ -47,6 +47,11 @@ export class ZetarisClient {
     this.fetchFn = opts.fetchFn ?? fetch;
   }
 
+  /** A copy of this client that writes every query to the given run trace. */
+  withTrace(trace: TraceLogger): ZetarisClient {
+    return new ZetarisClient({ ...this.opts, trace, fetchFn: this.fetchFn });
+  }
+
   private cachePath(sql: string): string {
     const key = crypto.createHash('sha256').update(sql).digest('hex');
     return path.join(this.opts.cacheDir, `${key}.json`);

@@ -12,8 +12,11 @@ import { bodyParsers } from './middleware/bodyLimit';
 import { sanitizeInputs } from './middleware/sanitize';
 
 const app = express();
-const PORT = parseInt(process.env.PORT || '5000', 10);
+const PORT = parseInt(process.env.PORT || '5050', 10);
 const isProd = process.env.NODE_ENV === 'production';
+
+// Behind a hosting proxy (Render, Fly, etc.) set TRUST_PROXY=1 so rate limits see the real visitor address.
+if (process.env.TRUST_PROXY === '1') app.set('trust proxy', 1);
 
 (async () => {
   app.use(helmet({

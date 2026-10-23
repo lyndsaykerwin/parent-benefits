@@ -2,6 +2,7 @@
 // public rules/offers. Safe to run repeatedly. It only ever touches Bundle's
 // tables (never other tables in the shared Neon database).
 import fs from 'fs';
+import { zipRows } from '../server/sampleZips';
 import path from 'path';
 import { inArray } from 'drizzle-orm';
 import { loadEnv } from '../server/env';
@@ -108,21 +109,6 @@ export const PRICE_OBSERVATIONS: (typeof s.priceObservations.$inferInsert)[] = [
 // aspe.hhs.gov on 2026-10-23). Amounts in dollars; stored as cents.
 const POVERTY_2026: Record<number, number> = { 1: 15960, 2: 21640, 3: 27320, 4: 33000, 5: 38680, 6: 44360, 7: 50040, 8: 55720 };
 const POVERTY_URL = 'https://aspe.hhs.gov/topics/poverty-economic-mobility/poverty-guidelines';
-
-function zipRows(): { zip3: string; state: string }[] {
-  const rows: { zip3: string; state: string }[] = [];
-  const range = (from: number, to: number, state: string) => {
-    for (let n = from; n <= to; n++) rows.push({ zip3: String(n).padStart(3, '0'), state });
-  };
-  range(10, 27, 'MA');
-  range(430, 459, 'OH');
-  range(100, 119, 'NY');
-  range(900, 935, 'CA');
-  range(750, 799, 'TX');
-  range(30, 38, 'NH');
-  rows.push({ zip3: '000', state: 'US' }); // default: unknown prefix
-  return rows;
-}
 
 function parseCsv(text: string): Record<string, string>[] {
   const lines = text.trim().split(/\r?\n/);
