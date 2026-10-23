@@ -1,7 +1,8 @@
 # Bundle
 
 > **Track:** Track 1: Solving Fragmented Intelligence
-> **Sponsor technology:** Zetaris (SQL data door), Meterless H-MEM (memory), NVIDIA-hosted models (supported, not exercised in the saved results), built in Cursor
+> **Sponsor technology:** Zetaris (SQL data door), Meterless H-MEM (memory), NVIDIA-hosted models (supported, not exercised in the saved results)
+> **How it was built:** Built with Claude Code. (Cursor was listed as required in the original rules; the organizers announced it optional; confirmation on HackOS is pending.)
 > **Run with no keys:** `cp .env.example .env && npm ci && npm run dev`, then `POST /api/run` on port 5050
 
 ## 1. Problem
@@ -26,8 +27,8 @@ Example year-one value for a Boston family is in `research-boston-baby-benefits.
 | Benefits Planner | Likely benefits and deadlines from birth or due date | Revises when sent back |
 | Fine Print Court | Deal hunter proposes, fine-print lawyer attacks, judge rules (max 5 offers per run) | **Yes: rejects offers** |
 | Fact-Checker | Every card needs a source link, correct dollars and dates | **Yes: sends back up to 2 times, then drops the card and logs it** |
-| Coach | Turns "report an issue" feedback into proposed rules; a reviewer approves them into memory | Proposes only |
-| Scout (script) | Reads 3 saved pages and proposes benefit rows; rows not written on the page are rejected | Fact-Checker rejects |
+| Coach | Turns "report an issue" feedback into proposed rules; a reviewer approves them into memory. **Offline (no model), the Coach does not write rules:** when 2 or more reports share a theme it proposes one of two pre-written rule sentences (`THEMES` in `server/agents/coach.ts`: auto-renewing membership, shipping fee). With a model it clusters and words the rule itself | Proposes only |
+| Scout (script) | Reads 3 saved pages and proposes benefit rows; rows not written on the page are rejected | Scout's own checks (and the Fact-Checker's no-source rule) reject; the saved run uses a scripted stand-in model |
 
 What makes this more than a chain: the agents share one memory (learned rules), the Fact-Checker can send work back
 or drop it, the Court can block an offer, sources can fail and the run still finishes, and a rule learned in run 1
@@ -43,7 +44,7 @@ changes the outcome of run 2. Diagram: [`docs/architecture.md`](docs/architectur
 | Memory | **Meterless H-MEM** reference implementation (vendored in `vendor/hmem`, Apache-2.0) |
 | Models | NVIDIA-hosted models (supported, not exercised in the saved results), via an OpenAI-compatible endpoint |
 | Database | Neon Postgres via Drizzle (live mode only) |
-| Built in | Cursor |
+| Built with | Claude Code (AI coding assistant) |
 | Logging | One JSON line per event in `logs/run-<id>.jsonl` |
 
 ## 4. Setup
@@ -67,6 +68,13 @@ npm run eval     # the evals (answer key) and prints the scoreboard
 npm run build && npm start   # production build
 ```
 
+### Hosting checklist (for a public demo)
+
+1. `SAMPLE_MODE=true`, and **no `ZETARIS_*` keys on the host**. With keys present, `SAMPLE_MODE=true` still goes live to Zetaris (replay is used only when the keys are missing), which is slow.
+2. `NODE_ENV=production`. `npm start` sets it for you; if your host starts the app another way, set it yourself. In production the app trusts one proxy hop so each visitor gets their own rate limit (`TRUST_PROXY=0` turns that off).
+3. `npm ci && npm run build && npm start`. Optional: `FRONTEND_URL` (the site's own address, for CORS) and `REVIEWER_MODE_TOKEN` if you want Approve to work for visitors.
+4. Check it from two different networks (e.g. a laptop and a phone on mobile data): both should be able to run a sample family, and each gets its own limits.
+
 ## 5. Usage
 
 ```bash
@@ -75,7 +83,7 @@ curl -s -XPOST 'localhost:5050/api/run?wait=true' \
   -d @input_examples/leo.json
 ```
 
-Request (a sample family, or type your own: `{"zip":"02446","birthDate":"2026-10-10"}`):
+Request (a sample family, or type your own: `{"zip":"02446","birthDate":"2026-10-10"}`; a birth date must be within the last 2 years, a due date within the next 10 months):
 
 ```json
 { "familyId": "leo" }
@@ -104,10 +112,26 @@ Money is integer cents, computed in code, never by the model.
 
 - The three families come from `data/sample/families.json` (made up).
 - **Zetaris is answered from saved real responses** (`data/sample/zetaris-cache/`, 113 files, captured 2026-10-23 by running the agents live against Zetaris). Nothing is pre-written: the agents still run their queries, the fact-checks and the court. See `data/README.md`.
-- **Without `MODEL_API_KEY`, the model-written parts fall back to deterministic text.** The Fine Print Court uses a plain screen (rejects offers matching a learned rule's keywords or an explicit shipping/handling fee over $5; trace status `fallback`). Explanations use fixed text.
+- **Without `MODEL_API_KEY`, the model-written parts fall back to deterministic text.** The Fine Print Court uses a plain screen (rejects offers matching a learned rule's keywords, a stated shipping/handling fee over $5 or a fee that "may apply", or fine print that says Prime/a membership is required; trace status `fallback`). Its approvals say so: "Offline screen: no flagged terms found. Not reviewed by the AI court." It does not catch a free trial that auto-renews into a paid plan until a parent-reported rule teaches it (that is the learning demo). Explanations use fixed text.
 - Memory is H-MEM running locally (folder `data/hmem`, created on first run).
 - The sample families run on a fixed **demo date, 2026-10-23**, so their deadlines make sense. Change it with `TODAY=YYYY-MM-DD`. A family you type in uses the real date.
-- A family you type in asks new SQL that isn't in the cache, so you will see the banner "Some sources didn't respond" and a safe, never-empty feed (`output_examples/custom-family.json`). That is the failure handling working, and it is also a limit of sample mode. Add Zetaris keys and the same code queries live.
+- A family you type in is never saved, so it has no purchases or card data: Clawback and Recall skip their lookups (the Receipt then says "Connect your data to safety-check items", never "all clear"). Benefits and the Fine Print Court still run on the saved shared data (benefit rules, the offers table), so a typed-in family gets checked benefit cards and court-judged offers with no banner (`output_examples/custom-family.json`). Anything that was never saved in the replay cache fails safely: the failure handling shows a banner and "Not yet verified" stand-ins, which sit in their own section, outside the Receipt, and never under "Deals that passed Fine Print Court".
+- `SAMPLE_MODE=true` replays only when the `ZETARIS_*` keys are missing. If you set the keys, it queries Zetaris live (and saves new answers into `data/sample/zetaris-cache/`).
+
+### Try the learning loop (2 minutes, no keys)
+
+This is the main idea: parents' feedback becomes a rule in memory that changes the next run. Reviewer mode is **off** unless you set a code, so first:
+
+1. In `.env` set `REVIEWER_MODE_TOKEN=demo`, then restart `npm run dev`.
+2. Run the maya sample (tap "Try as guest" in the app, or `curl -s -XPOST 'localhost:5050/api/run?wait=true' -H 'content-type: application/json' -d '{"familyId":"maya"}'`). Note the **"Free newborn diaper box"** card under the deals (its id is in the response; this is the planted trap: a "free" box that turns into a paid membership).
+3. Report it twice (in the app: open the card, "Report issue"; or the API, using that card's id):
+   `curl -s -XPOST localhost:5050/api/feedback -H 'content-type: application/json' -d '{"familyId":"maya","cardId":"<that card id>","kind":"issue","note":"free box turned into a paid monthly membership"}'` (send it two times).
+4. `curl -s localhost:5050/api/case-law` shows the proposed rule (or open "Bundle got smarter" in the app).
+5. Approve it: `curl -s -XPOST localhost:5050/api/case-law/<proposal id>/approve -H 'x-reviewer-token: demo'` (in the app: "Bundle got smarter", open Reviewer mode, enter `demo`, tap "Approve rule").
+6. Run maya again: the card is gone, and the run's trace (`GET /api/runs/<runId>/trace`) shows the judge blocking it and citing the new `mem-…` rule.
+7. The rule lives in `data/hmem/` (git-ignored). Delete that folder to reset.
+
+Offline, the proposal wording comes from one of two pre-written sentences (see the Coach row above). The same flow, scripted, is `npm run eval -- --learning` (writes `output_examples/learning/run1.jsonl` and `run2.jsonl`). `server/__tests__/sampleMode.test.ts` runs these exact steps.
 
 Live mode: set `SAMPLE_MODE=false`, `DATABASE_URL`, the `ZETARIS_*` values and `MODEL_*` values, then `npm run seed`.
 Secrets go only in `.env` (git-ignored). `.env.example` holds placeholders.
@@ -118,10 +142,10 @@ Secrets go only in `.env` (git-ignored). `.env.example` holds placeholders.
 |---|---|
 | A Zetaris query errors or times out | One retry for one known transient error (the purchases query, errors mentioning thrift or resultset); then a saved response if one exists (logged as `fallback`); otherwise that agent is skipped, the others finish, and the feed shows a banner |
 | An agent throws | The orchestrator logs `agent_failed` and continues |
-| The model is unavailable | Deterministic text and a plain court screen; logged as `fallback` |
+| The model is unavailable | Deterministic text and a plain court screen (its approvals are labelled "Offline screen ... Not reviewed by the AI court"); logged as `fallback` |
 | A claim has no source, or a wrong amount or date | Fact-Checker sends it back (max 2), then drops it and logs the drop |
 | Too little to show | The feed is never empty: fixed minimums of benefits, one recall card, discounts, and two "coming soon" tiles |
-| Abuse | Rate limit of 10 runs per IP per 10 minutes; typed-in families are never saved |
+| Abuse | Rate limit of 10 runs per IP per 10 minutes; at most 2 runs at once per IP and 5 at once overall; typed-in families are never saved |
 
 ## 8. Proof: logs and the scoreboard
 
@@ -135,7 +159,7 @@ Secrets go only in `.env` (git-ignored). `.env.example` holds placeholders.
 | Cards with a source | **100%** |
 | Learning demo | Run 1 approves the "free trial that auto-renews" offer; a reviewer-approved rule is stored in memory; run 2 **blocks** it and cites that rule (`mem-1`) |
 
-  This saved scoreboard was produced with the offline fallbacks (`llmMode: "offline-fallback"`, Scout `fake-llm`), not a live model. The learning traces are in `output_examples/learning/`.
+  **Every saved run here is offline** (`llmMode: "offline-fallback"`, Scout `fake-llm`): no real AI model was used for the scoreboard, the examples or the traces. Offline, the Fine Print Court's debate lines are "model unavailable" and the Coach picks from two pre-written rule sentences once 2 or more reports share a theme (see the Coach row in §2), so the learning demo shows the *mechanism* (feedback, then memory, then a changed outcome), not AI-written rules. A real-model run will be added when a model key is available. The learning traces are in `output_examples/learning/` (run 2 contains the memory calls and the judge citing the rule).
 
 ## 9. Folder map
 
@@ -149,7 +173,7 @@ Secrets go only in `.env` (git-ignored). `.env.example` holds placeholders.
 | `logs/` | `logs/` (`logs/sample/` committed) |
 | UI | `client/` |
 
-`output_examples/` are real saved responses from `SAMPLE_MODE=true` runs (replayed Zetaris, offline fallbacks), not live results.
+`output_examples/` are real saved responses from `SAMPLE_MODE=true` runs (replayed Zetaris, offline fallbacks), not live results. The maya and ava examples are **before learning** (the trap box is still approved); `output_examples/learning/run2.jsonl` shows it blocked after a parent-taught rule.
 
 ## 10. Data and licences
 
@@ -159,7 +183,8 @@ and purchases are made up. No real personal data and no income in logs.
 ## 11. Limitations
 
 - Sample mode replays saved Zetaris answers, so only the three sample families run fully offline.
-- The saved scoreboard used offline fallbacks; model quality is not measured there.
+- The saved scoreboard, examples and traces used offline fallbacks; model quality is not measured there, and the offline Coach reuses two pre-written rule sentences.
+- Offline, the Fine Print Court is a plain screen, not a judgement: it catches stated fees and membership requirements, not everything.
 - Benefit amounts and windows are hand-checked as of 2026-10-23 and can go stale. Poverty-guideline figures were not independently re-verified.
 - Offers are one hand-checked snapshot; the Scout demo reads only 3 saved, hand-written page excerpts.
 - No real bank or retailer connections; the Plaid-shaped data is a fixture. The Amazon upload is optional.
@@ -177,9 +202,9 @@ Everything else (agents, orchestrator, Fact-Checker, court, Coach, Scout, evals,
 
 ## 13. Sponsor tech
 
-- **Zetaris:** the one door for all data. Agents never talk to Postgres or the recall sites directly; they send SQL to Zetaris (`server/adapters/zetaris.ts`). The key trick: **one query joins a private purchase list with a live government recall feed** (`bundle_pg` x `bundle_live.cpsc_recalls`). Registered objects: `scripts/zetaris/register.ts`. Every query is a trace line.
+- **Zetaris:** the one door for all data. Agents read all their data through Zetaris and never touch Postgres or the recall sites directly (`server/adapters/zetaris.ts`); only the app shell loads a saved family profile and stores feedback, through Drizzle, in live mode. The key trick: **one query joins a private purchase list with a live government recall feed** (`bundle_pg` x `bundle_live.cpsc_recalls`). Registered objects: `scripts/zetaris/register.ts`. Every query is a trace line.
 - **Meterless H-MEM:** stores rules learned from parent feedback (long-term memory with confidence and an append-only ledger); the Fine Print Court recalls them. `server/adapters/memory.ts`.
 - **NVIDIA:** NVIDIA-hosted models (supported, not exercised in the saved results) for explanations and court reasoning (`server/adapters/llm.ts`); everything degrades to offline text. No live model run is included in the saved scoreboard or examples.
-- **Cursor:** the build tool.
+- **Claude Code:** the AI coding assistant this project was built with. Cursor was listed as required in the original rules and later announced as optional; confirmation on HackOS is pending.
 
 Licence: MIT (see `LICENSE`).
