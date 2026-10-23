@@ -33,6 +33,16 @@ describe('loadEnv', () => {
     expect(process.env.ALREADY_SET).toBe('from-shell');
   });
 
+  it('treats a variable set to an empty string as set (never overwritten by files)', () => {
+    const file = path.join(dir, 'a.env');
+    fs.writeFileSync(file, 'ALREADY_SET=from-file\nFOO=from-file\n');
+    process.env.ALREADY_SET = '';
+    process.env.FOO = '';
+    loadEnv([file]);
+    expect(process.env.ALREADY_SET).toBe('');
+    expect(process.env.FOO).toBe('');
+  });
+
   it('skips files that do not exist', () => {
     expect(() => loadEnv([path.join(dir, 'missing.env')])).not.toThrow();
   });

@@ -99,7 +99,7 @@ npm run examples:regen           # 3. re-runs the saved example families into ou
 
 ### Hosting checklist (for a public demo)
 
-1. `SAMPLE_MODE=true`, and **no `ZETARIS_*` keys on the host**. With keys present, `SAMPLE_MODE=true` still goes live to Zetaris (replay is used only when the keys are missing), which is slow.
+1. `SAMPLE_MODE=true`. In this mode the app is always offline (it never calls Zetaris or the model and never writes the saved answers), even if keys are present on the host. Still, leave the keys off a public host.
 2. `NODE_ENV=production`. `npm start` sets it for you; if your host starts the app another way, set it yourself. In production the app trusts one proxy hop so each visitor gets their own rate limit (`TRUST_PROXY=0` turns that off).
 3. `npm ci && npm run build && npm start`. Optional: `FRONTEND_URL` (the site's own address, for CORS) and `REVIEWER_MODE_TOKEN` if you want Approve to work for visitors.
 4. Check it from two different networks (e.g. a laptop and a phone on mobile data): both should be able to run a sample family, and each gets its own limits.
@@ -145,7 +145,7 @@ Money is integer cents, computed in code, never by the model.
 - Memory is H-MEM running locally (folder `data/hmem`, created on first run).
 - The sample families run on a fixed **demo date, 2026-10-23**, so their deadlines make sense. Change it with `TODAY=YYYY-MM-DD`. A family you type in uses the real date.
 - A family you type in is never saved, so it has no purchases or card data: Clawback and Recall skip their lookups (the Receipt then says "Connect your data to safety-check items", never "all clear"). Benefits and the Fine Print Court still run on the saved shared data (benefit rules, the offers table), so a typed-in family gets checked benefit cards and court-judged offers with no banner (`output_examples/custom-family.json`). Anything that was never saved in the replay cache fails safely: the failure handling shows a banner and "Not yet verified" stand-ins, which sit in their own section, outside the Receipt, and never under "Deals that passed Fine Print Court".
-- `SAMPLE_MODE=true` replays only when the `ZETARIS_*` keys are missing. If you set the keys, it queries Zetaris live (and saves new answers into `data/sample/zetaris-cache/`).
+- `SAMPLE_MODE=true` is always offline: it never calls live Zetaris or the model and never writes `data/sample/zetaris-cache/`, whatever keys are in your environment or private settings file. To capture new live answers, turn SAMPLE_MODE off.
 
 ### Try the learning loop (2 minutes, no keys)
 
