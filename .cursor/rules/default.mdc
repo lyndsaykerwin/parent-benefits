@@ -1,0 +1,89 @@
+---
+alwaysApply: true
+---
+
+This document provides comprehensive information for Claude AI when working on this VibeCode Template project.
+
+## Project Overview
+
+This is a **full-stack web application template** designed for rapid side project development with:
+- **Frontend**: React + TypeScript + Vite + TailwindCSS + shadcn/ui
+- **Backend**: Node.js + Express + TypeScript
+- **Database**: PostgreSQL (via Neon) + Drizzle ORM
+- **Authentication**: Firebase Auth
+- **File Storage**: Firebase Storage with secure file management
+- **Payments**: Stripe Checkout (simplified payment flow)
+- **Email**: SendGrid
+- **Deployment**: Optimized for quick deployment
+
+## Testing
+
+### Test Suite Organization
+
+The project focuses on backend business logic testing:
+- **Server tests**: Located in `server/__tests__/`
+- **Test configuration**: `jest.config.cjs` configured for server-side testing only
+- **Test environment**: `.env.test` file for test-specific environment variables
+
+### Running Tests
+
+**Available Test Commands:**
+- `npm test` - Run all backend tests sequentially (default, low CPU usage ~20%)
+- `npm run test:parallel` - Run tests with 2 parallel workers (faster but more CPU)
+- `npm run test:quick` - Run without coverage analysis (faster, less memory)
+- `npm run test:single <file>` - Run a specific test file
+
+**When developing:**
+1. Use `npm run test:single <file>` for testing specific features
+2. Use `npm test` for full backend test verification
+
+### Test Environment Setup
+
+Tests use extensive mocking to avoid external dependencies:
+- Firebase Auth/Storage mocked in `jest.setup.js`
+- Database operations mocked via Drizzle ORM mocks
+- Stripe API mocked to prevent real charges
+- SendGrid mocked to prevent email sending
+
+### Common Test Issues & Solutions
+
+**TypeScript `import.meta.env` errors:**
+- Already configured in `jest.config.cjs` with global mocks
+- Client tests have Vite environment variables pre-configured
+
+**ESM module errors (wouter, regexparam):**
+- Handled via `transformIgnorePatterns` in Jest config
+- Uses `extensionsToTreatAsEsm` for proper module handling
+
+**Mock hoisting errors:**
+- Define mock variables before `jest.mock()` calls
+- Order matters due to Jest's hoisting behavior
+
+## Database Management
+
+### Migrations with Drizzle Kit
+
+The project uses Drizzle Kit for database migrations. Configuration is in `drizzle.config.ts`.
+
+**Available Commands:**
+- `npm run db:generate` - Generate new migration files when schema changes
+- `npm run db:migrate` - Apply pending migrations to the database
+- `npm run db:push` - Push schema directly to database (use for rapid development)
+- `npm run db:studio` - Open Drizzle Studio UI for database exploration
+- `npm run db:check` - Check migration status and consistency
+
+**Migration Workflow:**
+1. Make changes to schema in `shared/schema.ts`
+2. Run `npm run db:generate` to create migration files
+3. Review generated SQL in `server/migrations/`
+4. Run `npm run db:migrate` to apply changes to database
+
+**Development vs Production:**
+- **Development**: Use `npm run db:push` for quick iterations
+- **Production**: Always use `db:generate` + `db:migrate` for version-controlled migrations
+
+**Important Notes:**
+- Migrations are stored in `server/migrations/`
+- Migration files use timestamp prefixes (format: YYYYMMDDHHmmss)
+- Never edit migration files after they've been applied
+- Always review generated SQL before applying migrations
