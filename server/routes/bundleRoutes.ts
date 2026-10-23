@@ -7,7 +7,7 @@ import type { BundleResult, Family } from '../../shared/bundle';
 import type { Generator } from '../adapters/llm';
 import type { BundleMemory } from '../adapters/memory';
 import { runBundle, newRunId, type RunDeps } from '../agents/orchestrator';
-import { proposeRules } from '../agents/coach';
+import { proposeRules, MAX_ISSUES } from '../agents/coach';
 import type { BundleStore } from '../bundleStore';
 import type { TraceLine } from '../agents/trace';
 
@@ -26,6 +26,8 @@ export interface ApiDeps {
   /** Reviewer-mode token (env REVIEWER_MODE_TOKEN). Empty means Reviewer mode is off. */
   reviewerToken: () => string;
   runLimit?: { limit: number; windowMs: number };
+  /** Runs allowed at the same time across all visitors (default 5). */
+  maxInFlight?: number;
 }
 
 type RunEntry = { runId: string; familyId: string; status: 'running' | 'done' | 'failed'; startedAt: string; result?: BundleResult; error?: string; logsDir: string };
@@ -43,6 +45,8 @@ function tokenOk(supplied: unknown, expected: string): boolean {
 export function createBundleRouter(deps: ApiDeps): Router {
   const router = Router();
   const runs = new Map<string, RunEntry>();
+  let inFlight = 0;
+  const maxInFlight = deps.maxInFlight ?? 5;
   const knownFamilies = new Set<string>(SEED_FAMILY_IDS);
 
   const runLimiter = rateLimit({
@@ -87,13 +91,15 @@ export function createBundleRouter(deps: ApiDeps): Router {
     const entry: RunEntry = { runId, familyId: family.id, status: 'running', startedAt: new Date().toISOString(), logsDir: base.logsDir };
     runs.set(runId, entry);
     while (runs.size > MAX_REGISTRY) runs.delete(runs.keys().next().value as string);
+    inFlight++;
     const done = runBundle(family.id, { ...base, runId, loadFamily: async () => family })
       .then((result) => { entry.result = result; entry.status = 'done'; })
       .catch((e) => {
         entry.status = 'failed';
         entry.error = 'The run did not finish. Please try again.';
         console.error('Bundle run failed:', runId, (e as Error)?.message);
-      });
+      })
+      .finally(() => { inFlight--; });
     return { entry, done };
   }
 
@@ -101,6 +107,7 @@ export function createBundleRouter(deps: ApiDeps): Router {
     try {
       const { family, error } = await resolveFamily(req.body);
       if (!family) return res.status(400).json({ error });
+      if (inFlight >= maxInFlight) return res.status(503).json({ error: 'Bundle is busy right now. Please try again in a minute.' });
       const { entry, done } = startRun(family);
       if (req.query.wait === 'true') {
         await done;
@@ -143,7 +150,7 @@ export function createBundleRouter(deps: ApiDeps): Router {
       try {
         const existing = await deps.store.listProposals();
         const covered = new Set(existing.flatMap((p) => p.sourceFeedbackIds));
-        const fresh = (await deps.store.listFeedback()).filter((r) => !covered.has(String(r.id)));
+        const fresh = (await deps.store.listRecentIssues(MAX_ISSUES)).filter((r) => !covered.has(String(r.id)));
         proposals = await deps.store.saveProposals(await proposeRules(fresh, deps.llm));
       } catch (e) {
         console.error('Coach failed:', (e as Error)?.message); // feedback is saved either way

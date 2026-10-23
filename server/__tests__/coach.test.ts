@@ -37,4 +37,15 @@ describe('Coach.proposeRules', () => {
     const rows = [issue(1, 'a'), issue(2, 'b')];
     expect(await proposeRules(rows, new FakeGenerator(['not json']))).toEqual([]);
   });
+
+  it('sends only the newest 40 issue reports to the model', async () => {
+    const rows = Array.from({ length: 60 }, (_, i) => issue(i + 1, `shipping note ${i + 1}`));
+    const llm = new FakeGenerator([JSON.stringify({ clusters: [] })]);
+    await proposeRules(rows, llm);
+    const p = llm.prompts[0];
+    expect(p).toContain('60: shipping note 60');
+    expect(p).toContain('21: shipping note 21');
+    expect(p).not.toContain('20: shipping note 20');
+    expect(p.split('\n').filter((l) => /^\d+: shipping note/.test(l))).toHaveLength(40);
+  });
 });

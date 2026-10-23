@@ -20,6 +20,8 @@ const isClusters = (x: unknown): x is Clusters =>
   !!x && typeof x === 'object' && Array.isArray((x as Clusters).clusters)
   && (x as Clusters).clusters.every((c) => c && typeof c.rule === 'string' && Array.isArray(c.feedbackIds));
 
+export const MAX_ISSUES = 40;
+
 export const confidenceFor = (reports: number): number => Math.round(Math.min(0.9, 0.5 + 0.1 * reports) * 100) / 100;
 
 /**
@@ -28,7 +30,8 @@ export const confidenceFor = (reports: number): number => Math.round(Math.min(0.
  * If the model is unavailable it proposes nothing (never invents a rule).
  */
 export async function proposeRules(feedbackRows: FeedbackRow[], llm: Generator): Promise<RuleProposal[]> {
-  const issues = feedbackRows.filter((r) => r.kind === 'issue' && r.note.trim());
+  // Only the newest MAX_ISSUES reports are sent, so the prompt (and its cost) stays bounded.
+  const issues = feedbackRows.filter((r) => r.kind === 'issue' && r.note.trim()).sort((a, b) => a.id - b.id).slice(-MAX_ISSUES);
   if (issues.length < 2) return [];
   const valid = new Set(issues.map((r) => String(r.id)));
   const listing = issues.map((r) => `${r.id}: ${r.note.trim().slice(0, 300)}`).join('\n');

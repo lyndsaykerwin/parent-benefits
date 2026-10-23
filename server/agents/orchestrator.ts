@@ -174,7 +174,7 @@ async function purchaseKeywords(ctx: AgentContext, onRetry: (msg: string) => voi
 }
 
 export function newRunId(familyId: string): string {
-  return `${familyId.replace(/[^A-Za-z0-9_-]/g, '_')}-${new Date().toISOString().replace(/[^0-9]/g, '').slice(0, 14)}-${crypto.randomBytes(2).toString('hex')}`;
+  return `${familyId.replace(/[^A-Za-z0-9_-]/g, '_')}-${crypto.randomUUID()}`;
 }
 
 export async function runBundle(familyId: string, deps: RunDeps): Promise<BundleResult> {

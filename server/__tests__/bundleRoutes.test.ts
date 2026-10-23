@@ -16,6 +16,7 @@ import * as court from '../agents/finePrintCourt';
 import * as benefits from '../agents/benefits';
 import * as fc from '../agents/factChecker';
 import { createBundleRouter, type ApiDeps } from '../routes/bundleRoutes';
+import { bodyParsers } from '../middleware/bodyLimit';
 import { MemoryStore } from '../bundleStore';
 import { FakeGenerator } from '../adapters/llm';
 import type { Family } from '../../shared/bundle';
@@ -43,7 +44,7 @@ function build(over: Partial<ApiDeps> = {}) {
     ...over,
   };
   const app = express();
-  app.use(express.json());
+  app.use(...bodyParsers());
   app.use(createBundleRouter(deps));
   return { app, deps, store, memory, logsDir };
 }
@@ -115,6 +116,33 @@ describe('POST /api/run', () => {
       expect((await request(app).post('/api/run?wait=true').send({ familyId: 'leo' })).status).toBe(200);
     }
     expect((await request(app).post('/api/run?wait=true').send({ familyId: 'leo' })).status).toBe(429);
+  });
+});
+
+describe('abuse limits', () => {
+  it('503 when 5 runs are in flight, and a slot frees when one finishes', async () => {
+    const { app } = build();
+    let release!: () => void;
+    const gate = new Promise<void>((r) => { release = r; });
+    (benefits.planBenefits as jest.Mock).mockImplementation(async () => { await gate; return []; });
+    for (let i = 0; i < 5; i++) expect((await request(app).post('/api/run').send({ familyId: 'leo' })).status).toBe(202);
+    const busy = await request(app).post('/api/run').send({ familyId: 'leo' });
+    expect(busy.status).toBe(503);
+    release();
+    await new Promise((r) => setTimeout(r, 300));
+    expect((await request(app).post('/api/run').send({ familyId: 'leo' })).status).toBe(202);
+  });
+
+  it('bodies over 100kb get 413', async () => {
+    const { app } = build();
+    const res = await request(app).post('/api/feedback').send({ familyId: 'maya', cardId: 'c', kind: 'issue', note: 'x'.repeat(150_000) });
+    expect(res.status).toBe(413);
+  });
+
+  it('run ids are UUID-based', async () => {
+    const { app } = build();
+    const res = await request(app).post('/api/run').send({ familyId: 'leo' });
+    expect(res.body.runId).toMatch(/^leo-[0-9a-f-]{36}$/);
   });
 });
 

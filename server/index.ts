@@ -8,6 +8,7 @@ import helmet from 'helmet';
 import cors from 'cors';
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import { bodyParsers } from './middleware/bodyLimit';
 import { sanitizeInputs } from './middleware/sanitize';
 
 const app = express();
@@ -55,8 +56,7 @@ const isProd = process.env.NODE_ENV === 'production';
     maxAge: 86400,
   }));
 
-  app.use(express.json({ limit: '10mb' }));
-  app.use(express.urlencoded({ extended: false, limit: '10mb' }));
+  app.use(...bodyParsers());
   app.use('/api', sanitizeInputs);
 
   if (!isProd) {

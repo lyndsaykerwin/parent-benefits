@@ -13,7 +13,8 @@ export interface ProposalRow {
 export interface BundleStore {
   zipState(zip3: string): Promise<string | null>;
   addFeedback(row: Omit<FeedbackRow, 'id' | 'createdAt'>): Promise<FeedbackRow>;
-  listFeedback(): Promise<FeedbackRow[]>;
+  /** Newest `limit` 'issue' reports only (never the whole table). */
+  listRecentIssues(limit: number): Promise<FeedbackRow[]>;
   saveProposals(p: RuleProposal[]): Promise<ProposalRow[]>;
   listProposals(): Promise<ProposalRow[]>;
   getProposal(id: number): Promise<ProposalRow | null>;
@@ -32,7 +33,7 @@ export class MemoryStore implements BundleStore {
     this.fb.push(r);
     return r;
   }
-  async listFeedback() { return [...this.fb]; }
+  async listRecentIssues(limit: number) { return this.fb.filter((r) => r.kind === 'issue').slice(-limit); }
   async saveProposals(p: RuleProposal[]) {
     const added: ProposalRow[] = [];
     for (const x of p) {
@@ -72,9 +73,9 @@ export class DrizzleStore implements BundleStore {
     const [r] = await db.insert(s.feedback).values(row).returning();
     return r as FeedbackRow;
   }
-  async listFeedback() {
-    const { db, s } = await this.d();
-    return (await db.select().from(s.feedback)) as FeedbackRow[];
+  async listRecentIssues(limit: number) {
+    const { db, s, o } = await this.d();
+    return (await db.select().from(s.feedback).where(o.eq(s.feedback.kind, 'issue')).orderBy(o.desc(s.feedback.id)).limit(limit)) as FeedbackRow[];
   }
   async saveProposals(p: RuleProposal[]) {
     const { db, s } = await this.d();
