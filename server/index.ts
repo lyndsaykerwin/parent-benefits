@@ -4,7 +4,7 @@ loadEnv(); // must run before anything reads process.env
 import express, { type Request, Response, NextFunction } from "express";
 import { randomUUID } from 'crypto';
 import rateLimit from 'express-rate-limit';
-import helmet from 'helmet';
+import { securityHeaders } from './security';
 import cors from 'cors';
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
@@ -21,22 +21,7 @@ const proxy = trustProxyHops();
 if (proxy) app.set('trust proxy', proxy);
 
 (async () => {
-  app.use(helmet({
-    contentSecurityPolicy: {
-      directives: {
-        defaultSrc: ["'self'"],
-        styleSrc: isProd
-          ? ["'self'", "https://fonts.googleapis.com"]
-          : ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
-        fontSrc: ["'self'", "https://fonts.gstatic.com"],
-        scriptSrc: isProd ? ["'self'"] : ["'self'", "'unsafe-inline'"],
-        connectSrc: ["'self'"],
-        imgSrc: ["'self'", "data:"],
-      }
-    },
-    crossOriginOpenerPolicy: { policy: "unsafe-none" },
-    crossOriginEmbedderPolicy: false,
-  }));
+  app.use(securityHeaders(isProd));
 
   // Request ID on every response
   app.use((_req, res, next) => {
