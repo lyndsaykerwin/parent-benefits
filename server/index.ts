@@ -51,7 +51,7 @@ const isProd = process.env.NODE_ENV === 'production';
       ? [process.env.FRONTEND_URL].filter((u): u is string => Boolean(u))
       : ['http://localhost:5173', `http://localhost:${PORT}`, 'http://127.0.0.1:5173'],
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-reviewer-token'],
     maxAge: 86400,
   }));
 

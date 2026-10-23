@@ -33,6 +33,8 @@ export interface RunDeps {
   loadFamily: (id: string) => Promise<Family>;
   logsDir: string;
   today: string;
+  /** Optional: lets the API hand the caller the run id before the run finishes. */
+  runId?: string;
 }
 
 /** Load a family: sample file in SAMPLE_MODE, otherwise Neon through Drizzle (imported lazily: server/db.ts throws without DATABASE_URL). */
@@ -171,9 +173,13 @@ async function purchaseKeywords(ctx: AgentContext, onRetry: (msg: string) => voi
   }
 }
 
+export function newRunId(familyId: string): string {
+  return `${familyId.replace(/[^A-Za-z0-9_-]/g, '_')}-${new Date().toISOString().replace(/[^0-9]/g, '').slice(0, 14)}-${crypto.randomBytes(2).toString('hex')}`;
+}
+
 export async function runBundle(familyId: string, deps: RunDeps): Promise<BundleResult> {
   const family = await deps.loadFamily(familyId);
-  const runId = `${familyId.replace(/[^A-Za-z0-9_-]/g, '_')}-${new Date().toISOString().replace(/[^0-9]/g, '').slice(0, 14)}-${crypto.randomBytes(2).toString('hex')}`;
+  const runId = deps.runId ?? newRunId(familyId);
   const trace = new TraceLogger(runId, deps.logsDir);
   const ctx: AgentContext = { runId, family, z: deps.z, llm: deps.llm, memory: deps.memory, trace };
   const maxRetries = /^\d+$/.test(process.env.MAX_RETRIES ?? '') ? Number(process.env.MAX_RETRIES) : 2;
