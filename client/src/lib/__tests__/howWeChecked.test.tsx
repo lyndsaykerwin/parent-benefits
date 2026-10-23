@@ -1,6 +1,6 @@
 import type { FeedCard } from '@shared/bundle';
 import type { TraceLine } from '../bundle';
-import { sourceNames, redactSql, zetarisForCard, memoryForCard } from '../howWeChecked';
+import { sourceNames, redactSql, zetarisForCard, memoryForCard, blockedReason } from '../howWeChecked';
 
 const card = (id: string, kind: FeedCard['kind']): FeedCard => ({ id, kind, title: id, body: '', amountCents: null, deadline: null, verdict: 'verified', sources: [], traceId: '' });
 let n = 0;
@@ -85,5 +85,22 @@ describe('memoryForCard', () => {
     expect(memoryForCard(card('recall-cpsc-1', 'recall'), base)).toEqual([]);
     expect(memoryForCard(card('discount-5', 'discount'), base)).toEqual([]);
     expect(memoryForCard(card('discount-1190', 'discount'), [line('memory', 'rule_recalled', 'offer 1190', 'garbage')])).toEqual([]);
+  });
+});
+
+describe('blocked offers', () => {
+  const lines = [
+    z('SELECT id, title FROM bundle_pg.v_judge_offers ORDER BY id'),
+    line('memory', 'rule_recalled', 'offer 1190', 'mem-1|0.70|2|Reject offers whose free trial auto-renews.'),
+    line('judge', 'rule_by_screen', 'offer 1190', 'reject: x [cited mem-1]', { status: 'blocked' }),
+  ];
+  const blocked = { ...card('blocked-1190', 'discount'), verdict: 'blocked' as const, body: 'Court was offline; case law applies: Reject offers whose free trial auto-renews. More text.' };
+  it('finds the cited rule and the Zetaris offers source for a blocked-N card', () => {
+    expect(memoryForCard(blocked, lines)).toEqual([{ id: 'mem-1', text: 'Reject offers whose free trial auto-renews.', confidence: 0.7, reports: 2, cited: true }]);
+    expect(zetarisForCard(blocked, lines)!.sources).toEqual(['Offers']);
+  });
+  it('gives a one-line plain reason', () => {
+    expect(blockedReason(blocked)).toBe('A rule parents taught us applies: Reject offers whose free trial auto-renews.');
+    expect(blockedReason({ ...blocked, body: 'x'.repeat(300) }).length).toBeLessThanOrEqual(120);
   });
 });

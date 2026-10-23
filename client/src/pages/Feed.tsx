@@ -3,6 +3,7 @@ import { Link, useParams } from 'wouter';
 import AppShell from '@/components/AppShell';
 import ReceiptCard from '@/components/ReceiptCard';
 import FeedCardView from '@/components/FeedCardView';
+import { CaughtForYou } from '@/components/HowWeCheckedSections';
 import { KIND_META, UNCHECKED_DEALS_SECTION, api, demoDateLabel, describeLine, familyChip, groupCards, loadRun, saveRun, type SavedRun, type TraceLine } from '@/lib/bundle';
 import { pollRun } from '@/lib/poll';
 import { cn } from '@/lib/utils';
@@ -128,6 +129,12 @@ export default function Feed() {
   const chip = familyChip(family, today);
   const demoLabel = demoDateLabel(run?.demoDate ?? chipInfo.demoDate, today);
 
+  // The finished run's full audit log (the polling copy may be partial); only needed for the "We caught these" detail.
+  const [doneLines, setDoneLines] = useState<TraceLine[]>([]);
+  useEffect(() => {
+    if (run?.result.blocked?.length) api.trace(run.runId).then(setDoneLines).catch(() => {});
+  }, [run?.runId]);
+
   const grouped = useMemo(() => (run ? groupCards(run.result.cards) : null), [run]);
 
   if (error) {
@@ -175,6 +182,8 @@ export default function Feed() {
           </div>
         </section>
       ))}
+
+      <CaughtForYou blocked={result.blocked ?? []} lines={doneLines} href={href} />
 
       <Link
         href="/smarter"

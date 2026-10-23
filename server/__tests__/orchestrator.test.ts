@@ -197,6 +197,20 @@ describe('runBundle', () => {
     expect((court.judgeOffers as jest.Mock).mock.calls[0][1].includeGeneral).toBe(true);
   });
 
+  it('exposes court-blocked offers in result.blocked, outside cards and the Receipt', async () => {
+    const { deps } = setup();
+    const withoutBlocked = await runBundle('maya', deps);
+    (court.judgeOffers as jest.Mock).mockImplementation(async (ctx: any) => {
+      ctx.blocked.push({ id: 'blocked-9', kind: 'discount', title: 'Trap box', body: 'Auto-renews.', amountCents: null, deadline: null, verdict: 'blocked', sources: [], traceId: 't' });
+      return [disc(1), disc(2), disc(3)];
+    });
+    const r = await runBundle('maya', deps);
+    expect(r.blocked!.map((c) => c.id)).toEqual(['blocked-9']);
+    expect(r.cards.some((c) => c.verdict === 'blocked' || c.id === 'blocked-9')).toBe(false);
+    expect(r.receipt).toEqual(withoutBlocked.receipt);
+    expect(JSON.stringify(r.blocked)).not.toMatch(/income/i);
+  });
+
   it('a candidate failing fact-check 3 times is dropped after 2 retries and traced as blocked', async () => {
     const bad = ben('bad', { amountCents: 999 });
     const { deps, dir } = setup({ verify: (c) => (c.id === 'benefit-bad' ? { ok: false, reason: 'amount mismatch', corrected: { amountCents: 1 } } : { ok: true, reason: null, corrected: null }) });

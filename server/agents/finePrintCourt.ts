@@ -1,5 +1,6 @@
 import { askJson } from '../adapters/llm';
 import { col, quoteInt, InvalidId, addDays, today, fmtUsd } from './sql';
+import type { FeedCard } from '../../shared/bundle';
 import type { AgentContext, Candidate, CourtRuling } from './types';
 import { offlineProblem } from './offerScreen';
 
@@ -132,6 +133,16 @@ function toCandidate(ctx: AgentContext, offer: Offer, ruling: CourtRuling, retry
   };
 }
 
+/** A rejected offer as a card for the "We caught these for you" list. No amount, so it can never be added into a total. */
+function toBlockedCard(ctx: AgentContext, offer: Offer, ruling: CourtRuling): FeedCard {
+  const traceId = ctx.trace.lines().filter((l) => l.agent_name === 'judge' && l.input_summary === `offer ${offer.id}`).pop()?.trace_id ?? '';
+  return {
+    id: `blocked-${offer.id}`, kind: 'discount', title: offer.title, body: ruling.reason,
+    amountCents: null, deadline: null, verdict: 'blocked',
+    sources: offer.sourceUrl ? [{ label: `${offer.store} offer page`, url: offer.sourceUrl }] : [], traceId,
+  };
+}
+
 /** Is `needle` a whole word or phrase in `hay` (a plural -s/-es is fine: "diaper" matches "diapers", "dia" does not match "diaper")? */
 function wholeWord(needle: string, hay: string): boolean {
   const esc = needle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -163,6 +174,7 @@ export async function judgeOffers(
   for (const offer of picked) {
     const { ruling, usedFallback } = await judgeOne(ctx, offer, '');
     if (ruling.verdict === 'approve') out.push(toCandidate(ctx, offer, ruling, 0, sql, usedFallback));
+    else ctx.blocked?.push(toBlockedCard(ctx, offer, ruling));
   }
   return out;
 }

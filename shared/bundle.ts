@@ -15,6 +15,8 @@ export interface BundleReceipt {
 }
 export interface BundleResult {
   familyId: string; runId: string; receipt: BundleReceipt; cards: FeedCard[]; banner: string | null;
+  /** Offers the Fine Print Court rejected (verdict 'blocked'). Shown separately; never in the Receipt or the discount minimums. */
+  blocked?: FeedCard[];
 }
 export interface Family {
   id: string; userId: string | null; isGuest: boolean; name: string;

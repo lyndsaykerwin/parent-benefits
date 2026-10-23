@@ -223,7 +223,7 @@ export function traceForCard(card: FeedCard, lines: TraceLine[]): TraceLine[] {
     const prev = lines[own - 1];
     if (prev && prev.agent_name === lines[own].agent_name && prev.action === 'explain') keep.add(prev.trace_id);
   }
-  const offerId = card.kind === 'discount' ? card.id.replace(/^discount-/, '') : null;
+  const offerId = card.kind === 'discount' ? card.id.replace(/^(?:discount|blocked)-/, '') : null;
   for (const l of lines) {
     if (l.agent_name === 'fact_checker' && l.input_summary.includes(`card ${card.id} `)) keep.add(l.trace_id);
     if (offerId && l.input_summary === `offer ${offerId}`) keep.add(l.trace_id);

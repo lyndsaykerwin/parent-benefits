@@ -188,7 +188,8 @@ export async function runBundle(familyId: string, deps: RunDeps): Promise<Bundle
   // Every Zetaris query and memory call lands in this run's trace (test fakes without withTrace are used as-is).
   const z = typeof deps.z.withTrace === 'function' ? deps.z.withTrace(trace) : deps.z;
   const memory = typeof deps.memory.withTrace === 'function' ? deps.memory.withTrace(trace) : deps.memory;
-  const ctx: AgentContext = { runId, family, z, llm: deps.llm, memory, trace, today: deps.today };
+  const blocked: FeedCard[] = [];
+  const ctx: AgentContext = { runId, family, z, llm: deps.llm, memory, trace, today: deps.today, blocked };
   const maxRetries = /^\d+$/.test(process.env.MAX_RETRIES ?? '') ? Number(process.env.MAX_RETRIES) : 2;
   let banner: string | null = null;
   const log = (action: string, input: string, output: string, status: 'ok' | 'retry' | 'blocked' | 'error' | 'fallback', retry = 0) =>
@@ -281,5 +282,5 @@ export async function runBundle(familyId: string, deps: RunDeps): Promise<Bundle
   } catch (e) {
     log('export_ledger', runId, `failed: ${(e as Error).message}`, 'error');
   }
-  return { familyId, runId, receipt, cards, banner };
+  return { familyId, runId, receipt, cards, banner, blocked };
 }

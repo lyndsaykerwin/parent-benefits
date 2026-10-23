@@ -94,7 +94,9 @@ export class ZetarisClient {
         this.trace('query_cached', text, `${cached.rows.length} rows (sample cache)`, 'ok');
         return cached;
       }
-      // No cache in sample mode: fall through to a live attempt.
+      // SAMPLE_MODE never calls live Zetaris and never writes the cache: a miss counts as "source unavailable" (the banner/fallback path runs).
+      this.trace('query', text, 'unavailable (no saved response in sample mode)', 'error');
+      throw new ZetarisUnavailable('No saved response for this query (sample mode never calls live Zetaris)');
     }
 
     const started = Date.now();

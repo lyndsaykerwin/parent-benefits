@@ -63,6 +63,18 @@ describe('fine print court', () => {
     expect(l.output_summary).toContain('free trials that auto-renew');
   });
 
+  it('hands rejected offers to ctx.blocked as amount-free "blocked" cards (no family data)', async () => {
+    const llm = new FakeGenerator(['pro', 'con', REJECT]);
+    const { ctx, trace } = setup([trap], llm);
+    ctx.blocked = [];
+    expect(await judgeOffers(ctx, IN)).toEqual([]);
+    expect(ctx.blocked).toHaveLength(1);
+    const b = ctx.blocked[0];
+    expect(b).toMatchObject({ id: `blocked-${trap.id}`, kind: 'discount', verdict: 'blocked', amountCents: null, title: trap.title });
+    expect(b.traceId).toBe(trace.lines().find((l) => l.agent_name === 'judge')!.trace_id);
+    expect(JSON.stringify(b)).not.toMatch(/income/i);
+  });
+
   it('makes exactly 3 LLM calls and 3 trace lines per offer', async () => {
     const llm = new FakeGenerator(['pro', 'con', APPROVE]);
     const { ctx, trace } = setup([offer(1), offer(2)], llm);

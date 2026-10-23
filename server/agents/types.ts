@@ -19,6 +19,8 @@ export interface AgentContext {
   trace: TraceLogger;
   /** The date this run is evaluated at (ISO). Falls back to the TODAY env var, then the real date. */
   today?: string;
+  /** Offers the court rejected, filled by the court so the app can show "we caught these for you" (never counted in totals). */
+  blocked?: FeedCard[];
 }
 
 export interface Candidate extends FeedCard {

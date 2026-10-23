@@ -1,6 +1,7 @@
 import type { FeedCard } from '@shared/bundle';
 import type { TraceLine } from '@/lib/bundle';
-import { zetarisForCard, memoryForCard } from '@/lib/howWeChecked';
+import { Link } from 'wouter';
+import { zetarisForCard, memoryForCard, blockedReason } from '@/lib/howWeChecked';
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
@@ -53,6 +54,34 @@ export function MemorySection({ card, lines }: { card: FeedCard; lines: TraceLin
           </li>
         ))}
       </ul>
+    </section>
+  );
+}
+
+/** Collapsed "We caught these for you": offers the Fine Print Court rejected, with the learned rule it cited. Renders nothing when there are none. */
+export function CaughtForYou({ blocked, lines, href }: { blocked: FeedCard[]; lines: TraceLine[]; href: (id: string) => string }) {
+  if (blocked.length === 0) return null;
+  return (
+    <section className="mt-7" aria-label="We caught these for you" data-testid="caught-section">
+      <details className="rounded-2xl border border-line bg-paper px-4">
+        <summary className="flex min-h-[56px] cursor-pointer items-center justify-between gap-3 text-[16px] font-bold text-ink">
+          <span>We caught these for you</span>
+          <span className="rounded-full bg-[#FBE3E0] px-2.5 py-0.5 text-[13px] font-bold text-[#9E2A21]">{blocked.length}</span>
+        </summary>
+        <p className="text-[14px] text-ink-2">Offers our Fine Print Court blocked. They are not counted in your totals.</p>
+        <ul className="mt-2 space-y-3 pb-4">
+          {blocked.map((c) => (
+            <li key={c.id} className="rounded-2xl border border-line bg-cream p-3">
+              <Link href={href(c.id)} className="block min-h-[44px]">
+                <span className="block text-[15px] font-bold leading-snug text-ink">{c.title}</span>
+                <span className="mt-1 block text-[14px] leading-relaxed text-ink-2">{blockedReason(c)}</span>
+                <span className="mt-1 block text-[13px] font-bold text-coral-deep">See how we checked ›</span>
+              </Link>
+              <MemorySection card={c} lines={lines} />
+            </li>
+          ))}
+        </ul>
+      </details>
     </section>
   );
 }

@@ -34,7 +34,7 @@ function cardKeyPatterns(card: FeedCard): RegExp[] {
   const id = card.id;
   let m: RegExpMatchArray | null;
   if ((m = id.match(/^recall-cpsc-(\d+)$/))) return [new RegExp(`cpsc_recalls\\b[^;]*\\bRecallID\\s*=\\s*${m[1]}\\b`, 'i')];
-  if ((m = id.match(/^discount-(\d+)$/))) return [new RegExp(`v_judge_offers\\s+WHERE\\s+id\\s*=\\s*${m[1]}\\b`, 'i')];
+  if ((m = id.match(/^(?:discount|blocked)-(\d+)$/))) return [new RegExp(`v_judge_offers\\s+WHERE\\s+id\\s*=\\s*${m[1]}\\b`, 'i')];
   if ((m = id.match(/^benefit-(.+)$/))) return [new RegExp(`benefit_rules\\s+WHERE\\s+code\\s*=\\s*'${esc(m[1])}'`, 'i')];
   if ((m = id.match(/^clawback-(?:fsa|price)-(.+)$/))) return [new RegExp(`v_clawback_tx\\s+WHERE\\s+id\\s*=\\s*'${esc(m[1])}'`, 'i')];
   return [];
@@ -79,7 +79,7 @@ export interface MemoryRuleView { id: string; text: string; confidence: number; 
 
 /** Learned rules recalled for a discount card's offer (from the memory lines the court logs). */
 export function memoryForCard(card: FeedCard, lines: TraceLine[]): MemoryRuleView[] {
-  const m = card.id.match(/^discount-(\d+)$/);
+  const m = card.id.match(/^(?:discount|blocked)-(\d+)$/);
   if (!m) return [];
   const cited = new Set<string>();
   for (const l of lines) {
@@ -98,4 +98,12 @@ export function memoryForCard(card: FeedCard, lines: TraceLine[]): MemoryRuleVie
     out.set(parts[0], { id: parts[0], text: parts.slice(3).join('|'), confidence, reports, cited: cited.has(parts[0]) });
   }
   return [...out.values()];
+}
+
+/** One plain line saying why the court blocked an offer. */
+export function blockedReason(card: FeedCard): string {
+  const one = card.body.replace(/^Court was offline;\s*/i, '').replace(/^case law applies:\s*/i, 'A rule parents taught us applies: ');
+  const first = one.split(/(?<=[.!?])\s/)[0] ?? one;
+  const text = first.charAt(0).toUpperCase() + first.slice(1);
+  return text.length > 120 ? `${text.slice(0, 117)}…` : text;
 }

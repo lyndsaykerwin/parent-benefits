@@ -55,7 +55,7 @@ export default function CardDetail() {
       .catch(() => {})
       .finally(() => setLooking(false));
   }, [looking, runParam]);
-  const card = id === PLAID_TILE.id ? PLAID_TILE : run?.result.cards.find((c) => c.id === id) ?? null;
+  const card = id === PLAID_TILE.id ? PLAID_TILE : run?.result.cards.find((c) => c.id === id) ?? run?.result.blocked?.find((c) => c.id === id) ?? null;
   const [lines, setLines] = useState<TraceLine[] | null>(null);
   const [traceError, setTraceError] = useState(false);
   const [sent, setSent] = useState<'got_it' | 'issue' | null>(null);
@@ -172,7 +172,7 @@ export default function CardDetail() {
         )}
       </section>
 
-      {card.kind !== 'coming_soon' && (
+      {card.kind !== 'coming_soon' && card.verdict !== 'blocked' && (
         <section className="mt-8" aria-label="Your feedback">
           {sent ? (
             <p role="status" className="rounded-2xl bg-[#E3F3EA] px-4 py-4 text-[15px] font-semibold text-[#17643F]">

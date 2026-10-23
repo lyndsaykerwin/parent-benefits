@@ -70,6 +70,13 @@ describe('ZetarisClient', () => {
     expect(offline).not.toHaveBeenCalled();
   });
 
+  it('sample mode: a cache miss is "unavailable", never calls live Zetaris and never writes the cache', async () => {
+    const fetchFn = jest.fn().mockResolvedValue(jsonResponse({ headers: ['n'], data: [['9']] }));
+    await expect(make(fetchFn, { sampleMode: true }).runQuery('SELECT 9')).rejects.toBeInstanceOf(ZetarisUnavailable);
+    expect(fetchFn).not.toHaveBeenCalled();
+    expect(fs.readdirSync(dir)).toEqual([]);
+  });
+
   it('throws ZetarisUnavailable on 5xx with no cache', async () => {
     const fetchFn = jest.fn().mockResolvedValue(jsonResponse({}, 503));
     await expect(make(fetchFn).runQuery('SELECT 5')).rejects.toBeInstanceOf(ZetarisUnavailable);

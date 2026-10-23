@@ -2,7 +2,7 @@ import React from 'react';
 import { render, screen, cleanup } from '@testing-library/react';
 import type { FeedCard } from '@shared/bundle';
 import type { TraceLine } from '@/lib/bundle';
-import { ZetarisSection, MemorySection } from '../HowWeCheckedSections';
+import { ZetarisSection, MemorySection, CaughtForYou } from '../HowWeCheckedSections';
 
 afterEach(cleanup);
 let n = 0;
@@ -51,6 +51,22 @@ describe('MemorySection', () => {
   });
   it('renders nothing without a rule for this card', () => {
     const { container } = render(<MemorySection card={card('discount-1191', 'discount')} lines={trace} />);
+    expect(container.innerHTML).toBe('');
+  });
+});
+
+describe('CaughtForYou', () => {
+  const blocked: FeedCard = { ...card('blocked-1190', 'discount'), title: 'Free newborn diaper box', verdict: 'blocked', body: 'Court was offline; case law applies: Reject trials that auto-renew.' };
+  it('lists blocked offers collapsed, with a link and the cited rule', () => {
+    const { container } = render(<CaughtForYou blocked={[blocked]} lines={trace} href={(id) => `/card/${id}`} />);
+    expect(container.querySelector('details')!.hasAttribute('open')).toBe(false);
+    expect(screen.getByText('We caught these for you')).toBeTruthy();
+    expect(screen.getByRole('link', { name: /Free newborn diaper box/ }).getAttribute('href')).toBe('/card/blocked-1190');
+    expect(screen.getByText('mem-1')).toBeTruthy();
+    expect(screen.getByText('Memory (Meterless H-MEM)')).toBeTruthy();
+  });
+  it('renders nothing when nothing was blocked', () => {
+    const { container } = render(<CaughtForYou blocked={[]} lines={trace} href={(id) => id} />);
     expect(container.innerHTML).toBe('');
   });
 });
