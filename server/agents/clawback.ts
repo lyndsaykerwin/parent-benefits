@@ -144,8 +144,8 @@ async function daycareCandidates(ctx: AgentContext): Promise<Candidate[]> {
   const cents = Math.min(total, DCFSA_CAP_CENTS);
   const last = pay[pay.length - 1];
   const who = s(pay[0], 'merchant');
-  const fallback = `You paid ${fmtUsd(total)} to ${who} in ${pay.length} payment${pay.length === 1 ? '' : 's'} this year. Your employer offers a Dependent Care FSA (a work account for daycare costs, up to ${fmtUsd(DCFSA_CAP_CENTS)} a year), so this is likely eligible. Counted here: ${fmtUsd(cents)}.`;
-  const body = await explain(ctx, AGENT, `Daycare payments to ${who} in ${year}: ${pay.length}, total ${fmtUsd(total)}. Employer offers a Dependent Care FSA with a yearly limit of ${fmtUsd(DCFSA_CAP_CENTS)}. Counted: ${fmtUsd(cents)}.`, [total, cents, DCFSA_CAP_CENTS], fallback);
+  const fallback = `You paid ${fmtUsd(total)} to ${who} in ${pay.length} payment${pay.length === 1 ? '' : 's'} this year. Your employer offers a Dependent Care FSA (a work account that lets you pay for daycare with pre-tax dollars, up to ${fmtUsd(DCFSA_CAP_CENTS)} a year). You are likely eligible to pay up to ${fmtUsd(cents)} of daycare with pre-tax dollars. This is eligible spend, not money back.`;
+  const body = await explain(ctx, AGENT, `Daycare payments to ${who} in ${year}: ${pay.length}, total ${fmtUsd(total)}. Employer offers a Dependent Care FSA with a yearly limit of ${fmtUsd(DCFSA_CAP_CENTS)}. Up to ${fmtUsd(cents)} of daycare can be paid with pre-tax dollars through the family's dependent-care FSA. This is eligible spend, not money back.`, [total, cents, DCFSA_CAP_CENTS], fallback);
   return [{
     id: `clawback-dcfsa-${ctx.family.id}-${year}`, kind: 'clawback', title: 'Your daycare payments may qualify for a Dependent Care FSA',
     body, amountCents: cents, deadline: null, verdict: 'likely',

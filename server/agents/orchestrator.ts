@@ -101,7 +101,11 @@ export function assembleFeed(
   const ordered = cards.map((c, i) => ({ c, i })).sort((a, b) => rank(a.c) - rank(b.c) || a.i - b.i).map((x) => x.c);
 
   const counts = (c: FeedCard) => c.verdict === 'verified' || c.verdict === 'likely';
-  const sum = (k: string) => ordered.filter((c) => c.kind === k && counts(c)).reduce((a, c) => a + (c.amountCents ?? 0), 0);
+  // Receipt honesty: the Dependent Care FSA card is eligible spend, not money back or a benefit payout, so it is in neither total.
+  const eligibleSpendIds = new Set([...verified, ...fillers.federalBenefits].filter((c) => c.claim.type === 'dcfsa_childcare').map((c) => c.id));
+  const sum = (k: string) => ordered
+    .filter((c) => c.kind === k && counts(c) && !eligibleSpendIds.has(c.id) && !c.id.startsWith('clawback-dcfsa-'))
+    .reduce((a, c) => a + (c.amountCents ?? 0), 0);
   const deadlines = ordered
     .filter((c) => c.kind === 'benefit' && c.deadline && c.deadline >= today)
     .map((c) => c.deadline as string).sort();

@@ -107,6 +107,21 @@ function setup(opts: { family?: Family; verify?: (c: Candidate) => any } = {}) {
   return { dir, deps, memory };
 }
 
+describe('Receipt honesty (maya-like)', () => {
+  it('DCFSA card is shown but excluded from both totals: moneyBack = 2899 + 2000', () => {
+    const verified = [
+      cand('clawback-fsa-maya-tx-01', 'clawback', 'clawback', { amountCents: 2899, claim: { type: 'fsa_reimbursement', txId: 'tx-01', txAmountCents: 2899 } }),
+      cand('clawback-price-maya-tx-02', 'clawback', 'clawback', { amountCents: 2000, claim: { type: 'price_adjustment', txId: 'tx-02', txAmountCents: 9000 } }),
+      cand('clawback-dcfsa-maya-2026', 'clawback', 'clawback', { amountCents: 555000, claim: { type: 'dcfsa_childcare', txId: 'tx-9', txAmountCents: 1, planYear: 2026 } }),
+      ben('a', { amountCents: 100 }), ben('b', { amountCents: 200 }),
+    ];
+    const { cards, receipt } = assembleFeed(verified, maya, 7, fillers(), TODAY);
+    expect(cards.find((c) => c.id === 'clawback-dcfsa-maya-2026')).toBeDefined();
+    expect(receipt.moneyBackCents).toBe(4899);
+    expect(receipt.likelyBenefitsCents).toBe(300);
+  });
+});
+
 describe('runBundle', () => {
   it('survives ZetarisUnavailable on recalls: banner set, minimums met', async () => {
     const { deps } = setup();
