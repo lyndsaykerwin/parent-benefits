@@ -1,0 +1,1 @@
+{"timestamp":"2026-10-23T18:56:01.400Z","trace_id":"6be8aff7-e10b-467f-a643-b28637532908","agent_name":"memory","action":"add_rule","input_summary":"Reject offers whose free trial turns into a paid membership that renews automatically.","output_summary":"stored mem-1 from case_law:1","target_agent":null,"confidence":0.8,"retry_count":0,"status":"ok"}

@@ -12,7 +12,7 @@
   },
   "llmMode": "offline-fallback",
   "scoutLlmMode": "fake-llm",
-  "generatedAt": "2026-10-23T18:22:47.318Z",
+  "generatedAt": "2026-10-23T18:56:01.407Z",
   "demoDate": "2026-10-23",
   "traps": {
     "auto_renew_offer": {
@@ -47,8 +47,8 @@
     "ava": 1458
   },
   "learningDetail": {
-    "run1Id": "maya-0552e414-71c7-4809-bac6-46eb80135d68",
-    "run2Id": "maya-75a47ab8-bcd0-4d99-93f8-8039030ddd77",
+    "run1Id": "maya-744e5074-78f7-467d-9bf2-d1a3322bfb0e",
+    "run2Id": "maya-a3d2e670-8112-4f3c-be91-1086d3831f4e",
     "ruleText": "Reject offers whose free trial turns into a paid membership that renews automatically.",
     "storedIn": "memory"
   },
