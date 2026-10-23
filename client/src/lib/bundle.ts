@@ -1,4 +1,4 @@
-import type { BundleResult, FeedCard, CardKind, Verdict } from '@shared/bundle';
+import type { BundleResult, FeedCard, CardKind, Source, Verdict } from '@shared/bundle';
 
 /** One line of the agents' audit trail, as served by GET /api/runs/:runId/trace. */
 export interface TraceLine {
@@ -103,6 +103,9 @@ export const VERDICT_LABEL: Record<Verdict, string> = {
   blocked: 'Blocked',
 };
 
+/** Only http(s) links are rendered, so a bad source URL (e.g. "javascript:") can never become a clickable link. */
+export const safeSources = (sources: Source[]): Source[] => sources.filter((s) => /^https?:\/\//i.test(s.url));
+
 export const isDcfsa = (c: FeedCard) => c.id.startsWith('clawback-dcfsa');
 export const isInsurance = (c: FeedCard) => c.kind === 'benefit' && /insurance/i.test(c.id);
 
@@ -203,7 +206,11 @@ export function traceForCard(card: FeedCard, lines: TraceLine[]): TraceLine[] {
 
 async function json<T>(res: Response): Promise<T> {
   const body = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error((body as { error?: string }).error || `Something went wrong (${res.status}).`);
+  if (!res.ok) {
+    const err = new Error((body as { error?: string }).error || `Something went wrong (${res.status}).`) as Error & { status: number };
+    err.status = res.status;
+    throw err;
+  }
   return body as T;
 }
 

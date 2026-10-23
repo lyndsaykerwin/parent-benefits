@@ -4,6 +4,7 @@ import AppShell from '@/components/AppShell';
 import ReceiptCard from '@/components/ReceiptCard';
 import FeedCardView from '@/components/FeedCardView';
 import { KIND_META, api, describeLine, familyChip, groupCards, loadRun, saveRun, type SavedRun, type TraceLine } from '@/lib/bundle';
+import { pollRun } from '@/lib/poll';
 import { cn } from '@/lib/utils';
 
 const POLL_MS = 1000;
@@ -21,7 +22,13 @@ function Spinner({ className }: { className?: string }) {
   return <span aria-hidden="true" className={cn('inline-block h-4 w-4 animate-spin rounded-full border-2 border-coral border-t-transparent', className)} />;
 }
 
+const STATE_TEXT = { waiting: 'Waiting', working: 'Working', done: 'Done' } as const;
+
 function StepIcon({ state }: { state: 'waiting' | 'working' | 'done' }) {
+  return <><span className="sr-only">{STATE_TEXT[state]}: </span><StepGlyph state={state} /></>;
+}
+
+function StepGlyph({ state }: { state: 'waiting' | 'working' | 'done' }) {
   if (state === 'done') {
     return (
       <span aria-hidden="true" className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-kind-clawback text-white">
@@ -48,7 +55,7 @@ function collapse(lines: TraceLine[]): { text: string; count: number; status: Tr
 function Progress({ lines, elapsed }: { lines: TraceLine[]; elapsed: number }) {
   const recent = collapse(lines).slice(-6).reverse(); // newest first, so it shows above the fold
   return (
-    <section aria-live="polite" aria-busy="true">
+    <section aria-live="polite">
       <h1 className="mt-6 text-[30px] font-extrabold leading-[1.1] tracking-[-0.03em]">
         Your agents are <span className="text-coral">on it.</span>
       </h1>
@@ -98,33 +105,22 @@ export default function Feed() {
 
   useEffect(() => {
     if (run) return; // already finished (or restored from this tab)
-    let stopped = false;
-    let timer: ReturnType<typeof setTimeout>;
-    const tick = async () => {
-      try {
-        const [status, trace] = await Promise.all([api.run(runId), api.trace(runId).catch(() => null)]);
-        if (stopped) return;
+    return pollRun(runId, api, {
+      onStatus: (status, trace) => {
         if (trace) setLines(trace);
         setChipInfo({ family: status.family, today: status.today });
         setElapsed(Math.round((Date.now() - Date.parse(status.startedAt || new Date(started.current).toISOString())) / 1000));
-        if (status.status === 'done' && status.result) {
-          const saved: SavedRun = { runId, familyId: status.familyId, family: status.family, today: status.today, result: status.result };
-          saveRun(saved);
-          setRun(saved);
-          return;
-        }
-        if (status.status === 'failed') { setError(status.error || 'The run did not finish. Please try again.'); return; }
-      } catch (e) {
-        if (stopped) return;
-        setError((e as Error).message === 'Run not found'
-          ? 'This run has expired. Start a new one; it only takes a minute.'
-          : 'We lost touch with Bundle for a moment. Check your connection and try again.');
-        return;
-      }
-      timer = setTimeout(tick, POLL_MS);
-    };
-    void tick();
-    return () => { stopped = true; clearTimeout(timer); };
+      },
+      onDone: (status) => {
+        const saved: SavedRun = { runId, familyId: status.familyId, family: status.family, today: status.today, result: status.result! };
+        saveRun(saved);
+        setRun(saved);
+      },
+      onFailed: setError,
+      onGiveUp: (kind) => setError(kind === 'expired'
+        ? 'This run has expired. Start a new one; it only takes a minute.'
+        : 'We lost touch with Bundle. Check your connection and try again.'),
+    }, POLL_MS);
   }, [runId, run]);
 
   const family = run?.family ?? chipInfo.family;

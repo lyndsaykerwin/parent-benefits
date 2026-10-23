@@ -53,3 +53,11 @@ describe('FeedCardView', () => {
     expect(screen.queryByText('money back')).toBeNull();
   });
 });
+
+describe('FeedCardView source safety', () => {
+  it('does not render non-http(s) source URLs as links', () => {
+    render(<FeedCardView card={card({ sources: [{ label: 'Bad', url: 'javascript:alert(1)' }, { label: 'Good', url: 'https://www.irs.gov/' }] })} />);
+    expect(screen.queryByRole('link', { name: /Bad/ })).toBeNull();
+    expect(screen.getByRole('link', { name: /Good/ })).toBeTruthy();
+  });
+});

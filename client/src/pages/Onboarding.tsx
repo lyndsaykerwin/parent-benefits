@@ -5,7 +5,7 @@ import { api, localToday, type RunRequest } from '@/lib/bundle';
 
 const field = 'block rounded-2xl border border-line bg-paper px-4 pb-3 pt-2.5 focus-within:border-coral focus-within:ring-2 focus-within:ring-coral/25';
 const label = 'eyebrow block text-ink-2';
-const input = 'mt-1 block w-full bg-transparent text-[18px] font-semibold text-ink outline-none placeholder:font-medium placeholder:text-ink-3';
+const input = 'mt-1 block w-full bg-transparent text-[18px] font-semibold text-ink outline-none placeholder:font-medium placeholder:text-ink-2';
 
 export default function Onboarding() {
   const [, navigate] = useLocation();
@@ -61,7 +61,7 @@ export default function Onboarding() {
           />
         </label>
         <label className={field}>
-          <span className={label}>Employer <span className="normal-case tracking-normal text-ink-3">(optional)</span></span>
+          <span className={label}>Employer <span className="normal-case tracking-normal text-ink-2">(optional)</span></span>
           <input className={input} autoComplete="organization" placeholder="Where you or your partner work" value={employer} onChange={(e) => setEmployer(e.target.value)} maxLength={100} />
         </label>
 

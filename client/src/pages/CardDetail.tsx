@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useParams, useSearch } from 'wouter';
 import AppShell from '@/components/AppShell';
 import FeedCardView from '@/components/FeedCardView';
-import { PLAID_TILE, agentLabel, api, familyChip, loadRun, saveRun, traceForCard, type SavedRun, type TraceLine } from '@/lib/bundle';
+import { PLAID_TILE, safeSources, agentLabel, api, familyChip, loadRun, saveRun, traceForCard, type SavedRun, type TraceLine } from '@/lib/bundle';
 import { cn } from '@/lib/utils';
 
 const STATUS_TEXT: Record<TraceLine['status'], { label: string; cls: string }> = {
@@ -147,11 +147,11 @@ export default function CardDetail() {
           </ol>
         )}
 
-        {card.sources.length > 0 && (
+        {safeSources(card.sources).length > 0 && (
           <>
             <h3 className="eyebrow mt-6 text-ink-2">Sources</h3>
             <ul className="mt-2 space-y-2">
-              {card.sources.map((s) => (
+              {safeSources(card.sources).map((s) => (
                 <li key={s.url + s.label}>
                   <a href={s.url} target="_blank" rel="noopener noreferrer" className="flex min-h-[52px] items-center justify-between gap-3 rounded-2xl border border-line bg-paper px-4 py-3 text-[15px] font-semibold text-ink hover:border-ink-3">
                     <span className="min-w-0">
@@ -194,7 +194,7 @@ export default function CardDetail() {
                   <textarea
                     id="issue-note" value={note} onChange={(e) => setNote(e.target.value)} maxLength={500} rows={3}
                     placeholder="For example: it said free, but charged me after 30 days."
-                    className="mt-2 block w-full rounded-xl border border-line bg-cream p-3 text-[16px] text-ink outline-none placeholder:text-ink-3 focus:border-coral"
+                    className="mt-2 block w-full rounded-xl border border-line bg-cream p-3 text-[16px] text-ink outline-none placeholder:text-ink-2 focus:border-coral"
                   />
                   <button type="submit" disabled={busy || !note.trim()} className="mt-3 min-h-[52px] w-full rounded-2xl bg-coral-deep text-[17px] font-bold text-white disabled:opacity-50">
                     {busy ? 'Sending…' : 'Send report'}

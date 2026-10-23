@@ -1,6 +1,6 @@
 import { Link } from 'wouter';
 import type { FeedCard } from '@shared/bundle';
-import { KIND_META, VERDICT_LABEL, amountCaption, cardDeadline, fmtUsd } from '@/lib/bundle';
+import { KIND_META, VERDICT_LABEL, amountCaption, cardDeadline, fmtUsd, safeSources } from '@/lib/bundle';
 import { cn } from '@/lib/utils';
 
 interface Props {
@@ -33,6 +33,7 @@ export default function FeedCardView({ card, today, pinned = false, detailHref }
   const meta = KIND_META[card.kind];
   const caption = amountCaption(card);
   const soon = card.kind === 'coming_soon';
+  const sources = safeSources(card.sources);
   const due = card.deadline ? cardDeadline(card.kind, card.deadline, today) : null;
   // Coming-soon tiles already say "Coming soon" in the eyebrow, so drop the repeat from the body.
   const body = soon ? card.body.replace(/^coming soon:\s*/i, '') : card.body;
@@ -75,9 +76,9 @@ export default function FeedCardView({ card, today, pinned = false, detailHref }
         </div>
       )}
 
-      {card.sources.length > 0 && (
+      {sources.length > 0 && (
         <ul className="mt-3 flex flex-wrap gap-2" aria-label="Sources">
-          {card.sources.map((s) => (
+          {sources.map((s) => (
             <li key={s.url + s.label}>
               <a
                 href={s.url}
