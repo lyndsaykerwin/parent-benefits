@@ -15,7 +15,10 @@
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "eval": "tsx scripts/eval.ts",
-    "seed": "tsx scripts/seed.ts"
+    "seed": "tsx scripts/seed.ts",
+    "model:check": "tsx scripts/check-model.ts",
+    "eval:live-model": "tsx scripts/eval.ts && tsx scripts/eval.ts --learning",
+    "examples:regen": "tsx scripts/regen-examples.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",

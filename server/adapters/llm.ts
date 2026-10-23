@@ -30,7 +30,7 @@ export class NvidiaGenerator implements Generator {
   constructor(
     apiKey: string,
     baseUrl: string,
-    private models: { reasoning: string; fast: string },
+    readonly models: { reasoning: string; fast: string },
     client?: ChatClient,
     timeoutMs: number = 20000,
   ) {

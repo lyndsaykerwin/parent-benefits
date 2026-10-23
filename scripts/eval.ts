@@ -15,7 +15,7 @@ import path from 'path';
 import type { BundleResult, Family } from '../shared/bundle';
 import { loadEnv } from '../server/env';
 import { ZetarisClient } from '../server/adapters/zetaris';
-import { createGenerator, FakeGenerator, UnavailableGenerator, type Generator } from '../server/adapters/llm';
+import { createGenerator, FakeGenerator, NvidiaGenerator, UnavailableGenerator, type Generator } from '../server/adapters/llm';
 import { BundleMemory } from '../server/adapters/memory';
 import { runBundle } from '../server/agents/orchestrator';
 import { TraceLogger } from '../server/agents/trace';
@@ -24,7 +24,7 @@ import { MemoryStore, type BundleStore } from '../server/bundleStore';
 import { resolveToday } from '../server/demoDate';
 import { scout, type ScoutResult } from './scout';
 
-export type LlmMode = 'real-model' | 'offline-fallback' | 'fake-llm';
+export type LlmMode = 'real-model' | 'offline-fallback' | 'fake-llm' | `nvidia:${string}`;
 
 export interface Scoreboard {
   trapsCaught: number;
@@ -74,7 +74,11 @@ const loadFamily = async (id: string): Promise<Family> => {
 };
 
 export function llmModeOf(llm: Generator): LlmMode {
-  return llm instanceof UnavailableGenerator ? 'offline-fallback' : llm instanceof FakeGenerator ? 'fake-llm' : 'real-model';
+  if (llm instanceof UnavailableGenerator) return 'offline-fallback';
+  if (llm instanceof FakeGenerator) return 'fake-llm';
+  // A real NVIDIA model: record exactly which ids were behind the numbers.
+  if (llm instanceof NvidiaGenerator) return `nvidia:${llm.models.reasoning}+${llm.models.fast}`;
+  return 'real-model';
 }
 
 /** Zetaris for the eval: the saved replay cache first; with credentials, a cache miss goes live (`live` refreshes everything). */
