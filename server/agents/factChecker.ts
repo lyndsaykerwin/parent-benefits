@@ -18,12 +18,18 @@ export interface VerifyResult {
 const CENT_TOLERANCE = 1;
 const DAY_MS = 86_400_000;
 
-/** Quote a text value for SQL (doubles single quotes). */
-function q(v: string | number): string {
-  return `'${String(v).replace(/'/g, "''")}'`;
+class InvalidId extends Error {}
+const SAFE_ID = /^[A-Za-z0-9_.:-]+$/;
+
+/** Quote an id for SQL. Only plain id characters are allowed (no quotes, backslashes, spaces); anything else fails closed. */
+function q(v: string | number | undefined): string {
+  const s = v === undefined || v === null ? '' : String(v);
+  if (!SAFE_ID.test(s)) throw new InvalidId('invalid id');
+  return `'${s}'`;
 }
 
 function intId(v: string | number | undefined): number | null {
+  if (v === undefined || v === null || String(v).trim() === '') return null;
   const n = Number(v);
   return Number.isInteger(n) ? n : null;
 }
@@ -141,6 +147,7 @@ export async function verify(c: Candidate, ctx: AgentContext): Promise<VerifyRes
     const res = await check(c, ctx);
     return finish(c, ctx, res, res.ok ? 'ok' : 'blocked');
   } catch (e) {
+    if (e instanceof InvalidId) return finish(c, ctx, fail('invalid id'), 'blocked');
     // Fail closed: an unchecked fact is never shown.
     return finish(c, ctx, fail(`could not verify: ${(e as Error).message}`), 'error');
   }

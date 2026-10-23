@@ -110,11 +110,27 @@ describe('fact-checker', () => {
     expect(o2.reason).toContain('could not verify');
   });
 
-  it('escapes quotes in ids and traces every verify as fact_checker', async () => {
-    const c = cand({ claim: { type: 'rule', ref: "A'B" }, kind: 'benefit', amountCents: 5 });
+  it('rejects unsafe or empty ids without querying', async () => {
+    for (const ref of ["A'B", 'x\\', 'a b', '']) {
+      const { ctx, runQuery } = ctxWith(() => res([]));
+      const out = await verify(cand({ kind: 'benefit', claim: { type: 'rule', ref } }), ctx);
+      expect(out).toEqual({ ok: false, reason: 'invalid id', corrected: null });
+      expect(runQuery).not.toHaveBeenCalled();
+    }
+    const e1 = ctxWith(() => res([]));
+    expect((await verify(cand({ claim: { type: 'offer', offerId: '' } }), e1.ctx)).ok).toBe(false);
+    expect(e1.runQuery).not.toHaveBeenCalled();
+    const e2 = ctxWith(() => res([]));
+    e2.ctx.family = { ...family, id: "m\\" };
+    const o = await verify(cand({ kind: 'clawback', claim: { type: 'clawback', txId: 'tx1', txAmountCents: 1 } }), e2.ctx);
+    expect(o.reason).toBe('invalid id');
+  });
+
+  it('traces every verify as fact_checker and sends no trailing semicolon', async () => {
+    const c = cand({ claim: { type: 'rule', ref: 'PFML_MA' }, kind: 'benefit', amountCents: 5 });
     const { ctx, runQuery, trace } = ctxWith(() => res([{ amount_cents: 5, window_end_days_from_birth: null }]));
     await verify(c, ctx);
-    expect(runQuery.mock.calls[0][0]).toContain("'A''B'");
+    expect(runQuery.mock.calls[0][0]).toContain("'PFML_MA'");
     expect(runQuery.mock.calls[0][0]).not.toMatch(/;\s*$/);
     const l = trace.lines().filter((x) => x.agent_name === 'fact_checker');
     expect(l.length).toBe(1);
