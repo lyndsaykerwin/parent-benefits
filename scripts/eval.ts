@@ -212,10 +212,23 @@ export async function runEval(opts: EvalOptions = {}): Promise<Scoreboard> {
   return {
     trapsCaught: Object.values(traps).filter((t) => t.caught).length, trapsTotal: Object.keys(traps).length, falseAlarms, sourcedPct,
     runs: n, stable, learning: learn.learning, llmMode: llmModeOf(llm), scoutLlmMode: 'fake-llm', generatedAt: new Date().toISOString(),
-    demoDate: expected.demoDate, traps, expectationFailures: failures, moneyBackCents: moneyBack,
+    demoDate: resolveToday('maya').today, traps, expectationFailures: failures, moneyBackCents: moneyBack,
     learningDetail: { run1Id: learn.r1.runId, run2Id: learn.r2.runId, ruleText: learn.ruleText, storedIn: store instanceof MemoryStore ? 'memory' : 'neon' },
     scout: { accepted: scoutRows.length, rejected: sc.rejected.map((r) => ({ title: r.title, reason: r.reason })) },
   };
+}
+
+/**
+ * A --learning run only measured the learning demo, so it updates just the `learning` and `learningDetail` fields of the
+ * saved scoreboard. With no saved scoreboard it starts one with nulls for everything it did not measure.
+ */
+export function mergeLearning(existing: Record<string, unknown> | null, sb: Scoreboard): Record<string, unknown> {
+  const base = existing ?? {
+    trapsCaught: null, trapsTotal: null, falseAlarms: null, sourcedPct: null, runs: null, stable: null,
+    llmMode: sb.llmMode, scoutLlmMode: null, demoDate: sb.demoDate, traps: null, expectationFailures: null,
+    moneyBackCents: null, scout: null,
+  };
+  return { ...base, generatedAt: sb.generatedAt, learning: sb.learning, learningDetail: sb.learningDetail };
 }
 
 async function main() {
@@ -228,8 +241,15 @@ async function main() {
     copyTracesTo: path.resolve('output_examples/learning'), learningOnly: args.has('--learning'),
   });
   fs.mkdirSync(path.resolve('logs'), { recursive: true });
-  fs.writeFileSync(path.resolve('logs/scoreboard.json'), JSON.stringify(sb, null, 2) + '\n');
-  console.log(JSON.stringify(sb, null, 2));
+  const file = path.resolve('logs/scoreboard.json');
+  let out: unknown = sb;
+  if (args.has('--learning')) {
+    let existing: Record<string, unknown> | null = null;
+    try { existing = JSON.parse(fs.readFileSync(file, 'utf8')); } catch { /* none yet */ }
+    out = mergeLearning(existing, sb);
+  }
+  fs.writeFileSync(file, JSON.stringify(out, null, 2) + '\n');
+  console.log(JSON.stringify(out, null, 2));
   if (args.has('--neon')) { const { pool } = await import('../server/db'); await pool.end(); }
 }
 

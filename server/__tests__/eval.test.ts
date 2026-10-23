@@ -1,7 +1,7 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { runEval, makeEvalZetaris, ISSUE_FIXTURES } from '../../scripts/eval';
+import { runEval, makeEvalZetaris, mergeLearning, ISSUE_FIXTURES } from '../../scripts/eval';
 import { scout } from '../../scripts/scout';
 import { FakeGenerator } from '../adapters/llm';
 
@@ -44,6 +44,21 @@ describe('runEval (offline: no model key, replayed Zetaris, fake families)', () 
     expect(run2).toContain(`[cited ${sb.learning.citedRuleId}]`);
     const run1 = fs.readFileSync(path.join(logsDir, `run-${sb.learningDetail.run1Id}.jsonl`), 'utf8');
     expect(run1).not.toContain('[cited ');
+  });
+
+  it('demo date comes from the demo-date rule', () => {
+    expect(sb.demoDate).toBe('2026-10-23');
+  });
+
+  it('a --learning run keeps the full scoreboard and only refreshes the learning fields', () => {
+    const merged = mergeLearning({ ...sb, trapsCaught: 6 }, { ...sb, learning: { run1Approved: false, run2Blocked: false, citedRuleId: null } });
+    expect(merged.trapsCaught).toBe(6);
+    expect(merged.trapsTotal).toBe(6);
+    expect(merged.learning).toEqual({ run1Approved: false, run2Blocked: false, citedRuleId: null });
+    const fresh = mergeLearning(null, sb);
+    expect(fresh.learning).toEqual(sb.learning);
+    expect(fresh.trapsCaught).toBeNull();
+    expect(fresh.traps).toBeNull();
   });
 
   it('labels what was behind the numbers', () => {
