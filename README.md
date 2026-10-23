@@ -1,7 +1,7 @@
 # Bundle
 
 > **Track:** Track 1: Solving Fragmented Intelligence
-> **Sponsor technology:** Zetaris (SQL data door), Meterless H-MEM (memory), NVIDIA-hosted models (optional), built in Cursor
+> **Sponsor technology:** Zetaris (SQL data door), Meterless H-MEM (memory), NVIDIA-hosted models (supported, not exercised in the saved results), built in Cursor
 > **Run with no keys:** `cp .env.example .env && npm ci && npm run dev`, then `POST /api/run` on port 5050
 
 ## 1. Problem
@@ -41,7 +41,7 @@ changes the outcome of run 2. Diagram: [`docs/architecture.md`](docs/architectur
 | App | React, Vite, Tailwind (mobile first, 375px) |
 | Data door | **Zetaris**: one SQL layer over a Neon Postgres database and live public recall feeds |
 | Memory | **Meterless H-MEM** reference implementation (vendored in `vendor/hmem`, Apache-2.0) |
-| Models | NVIDIA-hosted models through an OpenAI-compatible endpoint (optional) |
+| Models | NVIDIA-hosted models (supported, not exercised in the saved results), via an OpenAI-compatible endpoint |
 | Database | Neon Postgres via Drizzle (live mode only) |
 | Built in | Cursor |
 | Logging | One JSON line per event in `logs/run-<id>.jsonl` |
@@ -116,7 +116,7 @@ Secrets go only in `.env` (git-ignored). `.env.example` holds placeholders.
 
 | What fails | What happens |
 |---|---|
-| A Zetaris query errors or times out | Retry once; if a saved response exists it is used (logged as `fallback`); otherwise that agent is skipped, the others finish, and the feed shows a banner |
+| A Zetaris query errors or times out | One retry for one known transient error (the purchases query, errors mentioning thrift or resultset); then a saved response if one exists (logged as `fallback`); otherwise that agent is skipped, the others finish, and the feed shows a banner |
 | An agent throws | The orchestrator logs `agent_failed` and continues |
 | The model is unavailable | Deterministic text and a plain court screen; logged as `fallback` |
 | A claim has no source, or a wrong amount or date | Fact-Checker sends it back (max 2), then drops it and logs the drop |
@@ -179,7 +179,7 @@ Everything else (agents, orchestrator, Fact-Checker, court, Coach, Scout, evals,
 
 - **Zetaris:** the one door for all data. Agents never talk to Postgres or the recall sites directly; they send SQL to Zetaris (`server/adapters/zetaris.ts`). The key trick: **one query joins a private purchase list with a live government recall feed** (`bundle_pg` x `bundle_live.cpsc_recalls`). Registered objects: `scripts/zetaris/register.ts`. Every query is a trace line.
 - **Meterless H-MEM:** stores rules learned from parent feedback (long-term memory with confidence and an append-only ledger); the Fine Print Court recalls them. `server/adapters/memory.ts`.
-- **NVIDIA:** optional hosted models for explanations and court reasoning (`server/adapters/llm.ts`); everything degrades to offline text.
+- **NVIDIA:** NVIDIA-hosted models (supported, not exercised in the saved results) for explanations and court reasoning (`server/adapters/llm.ts`); everything degrades to offline text. No live model run is included in the saved scoreboard or examples.
 - **Cursor:** the build tool.
 
 Licence: MIT (see `LICENSE`).

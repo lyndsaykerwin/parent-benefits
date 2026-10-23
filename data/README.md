@@ -12,7 +12,7 @@ and store policies are real public facts, entered or fetched by hand and kept sm
 | Benefit rules, FSA categories, store return/price policies, offers | Real public programmes and policies, summarised by hand with a source link each. |
 | One offer ("Free newborn diaper box", Cuddle & Co) | **Made up on purpose** as a trap: it quietly turns into a paid membership. Its URL is a placeholder. |
 | Saved Scout pages in `data/sample/saved-pages/` | **Hand-written short excerpts** (not copies) of public pages, with the source URL in each file and the capture date 2026-10-23. The live sites blocked automated download. |
-| Zetaris replay cache in `data/sample/zetaris-cache/` | **Saved real Zetaris responses** (113 files) over the made-up family data and the real recall feeds. Captured 2026-10-23 between about 10:18 and 14:18 (US Eastern) by running the agents live. |
+| Zetaris replay cache in `data/sample/zetaris-cache/` | **Saved real Zetaris responses** (113 files) over the made-up family data and the real recall feeds. Captured 2026-10-23 between about 10:18 and 14:18 (US Eastern) by running the agents live. The capture times are the files' modification times (the files carry no timestamp inside). |
 
 ## Sources
 
