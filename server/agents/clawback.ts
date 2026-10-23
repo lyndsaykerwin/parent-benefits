@@ -127,7 +127,7 @@ async function priceCandidates(ctx: AgentContext, seen: Set<string>): Promise<Ca
 
 async function daycareCandidates(ctx: AgentContext): Promise<Candidate[]> {
   if (!ctx.family.dcfsaOffered) return [];
-  const year = Number(today().slice(0, 4));
+  const year = Number((ctx.today ?? today()).slice(0, 4));
   const sql = daycareSql(ctx.family.id, year);
   const { rows } = await ctx.z.runQuery(sql);
   const seen = new Set<string>();

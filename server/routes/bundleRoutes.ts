@@ -11,14 +11,15 @@ import { proposeRules, MAX_ISSUES } from '../agents/coach';
 import type { BundleStore } from '../bundleStore';
 import type { TraceLine } from '../agents/trace';
 
-export const SEED_FAMILY_IDS = ['maya', 'leo', 'ava'] as const;
+import { SEED_FAMILY_IDS, isSeedFamily } from '../demoDate';
+export { SEED_FAMILY_IDS };
 export const ZIP_ERROR = 'Enter a valid US ZIP code';
 const WINDOW_MS = 10 * 60 * 1000;
 const MAX_REGISTRY = 200;
 
 export interface ApiDeps {
   /** Fresh clients for one run (Zetaris, model, memory). Tests inject fakes here. */
-  makeRunDeps: () => Omit<RunDeps, 'loadFamily' | 'runId'>;
+  makeRunDeps: (family: Family) => Omit<RunDeps, 'loadFamily' | 'runId'>;
   loadSeedFamily: (id: string) => Promise<Family>;
   store: BundleStore;
   memory: Pick<BundleMemory, 'addRule'>;
@@ -34,7 +35,7 @@ export interface ApiDeps {
 
 /** Display-only family fields the UI needs (header chip, day count). Never income. */
 type FamilyView = { name: string; birthDate: string | null; dueDate: string | null };
-type RunEntry = { runId: string; familyId: string; status: 'running' | 'done' | 'failed'; startedAt: string; result?: BundleResult; error?: string; logsDir: string; family: FamilyView; today: string };
+type RunEntry = { runId: string; familyId: string; status: 'running' | 'done' | 'failed'; startedAt: string; result?: BundleResult; error?: string; logsDir: string; family: FamilyView; today: string; demoDate: boolean };
 
 const isIsoDate = (v: unknown): v is string =>
   typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) && !Number.isNaN(Date.parse(`${v}T00:00:00Z`)) && new Date(`${v}T00:00:00Z`).toISOString().slice(0, 10) === v;
@@ -89,12 +90,12 @@ export function createBundleRouter(deps: ApiDeps): Router {
   }
 
   function startRun(family: Family): { entry: RunEntry; done: Promise<void> } {
-    const base = deps.makeRunDeps();
+    const base = deps.makeRunDeps(family);
     const runId = newRunId(family.id);
     knownFamilies.add(family.id);
     const entry: RunEntry = {
       runId, familyId: family.id, status: 'running', startedAt: new Date().toISOString(), logsDir: base.logsDir,
-      family: { name: family.name, birthDate: family.birthDate, dueDate: family.dueDate }, today: base.today,
+      family: { name: family.name, birthDate: family.birthDate, dueDate: family.dueDate }, today: base.today, demoDate: isSeedFamily(family.id),
     };
     runs.set(runId, entry);
     while (runs.size > MAX_REGISTRY) runs.delete(runs.keys().next().value as string);
@@ -131,7 +132,7 @@ export function createBundleRouter(deps: ApiDeps): Router {
   router.get('/api/runs/:runId', (req, res) => {
     const e = runs.get(req.params.runId);
     if (!e) return res.status(404).json({ error: 'Run not found' });
-    return res.json({ runId: e.runId, familyId: e.familyId, status: e.status, startedAt: e.startedAt, family: e.family, today: e.today, result: e.result ?? null, error: e.error ?? null });
+    return res.json({ runId: e.runId, familyId: e.familyId, status: e.status, startedAt: e.startedAt, family: e.family, today: e.today, demoDate: e.demoDate, result: e.result ?? null, error: e.error ?? null });
   });
 
   router.get('/api/runs/:runId/trace', (req, res) => {

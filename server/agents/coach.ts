@@ -25,9 +25,40 @@ export const MAX_ISSUES = 40;
 export const confidenceFor = (reports: number): number => Math.round(Math.min(0.9, 0.5 + 0.1 * reports) * 100) / 100;
 
 /**
+ * Offline fallback themes. Each theme is a word pattern plus the rule text proposed when 2 or more reports match it.
+ * The rule wording deliberately reuses the words parents use, so the Court's offline case-law match can recognise the fine print.
+ */
+export const THEMES: { name: string; pattern: RegExp; rule: string }[] = [
+  {
+    name: 'auto-renewing membership',
+    pattern: /auto[-\s]?renew|automatic(?:ally)?|renews?\b|membership|subscri|enrol|charged|trial|recurring|per month|monthly|\/month/i,
+    rule: 'Reject offers whose free trial turns into a paid membership that renews automatically.',
+  },
+  {
+    name: 'shipping or handling fee',
+    pattern: /shipping|handling|postage|delivery fee/i,
+    rule: 'Reject offers that add a shipping or handling fee at checkout.',
+  },
+];
+
+function themeFallback(issues: FeedbackRow[]): RuleProposal[] {
+  const out: RuleProposal[] = [];
+  const used = new Set<number>();
+  for (const t of THEMES) {
+    const hits = issues.filter((r) => !used.has(r.id) && t.pattern.test(r.note));
+    if (hits.length < 2) continue;
+    hits.forEach((r) => used.add(r.id));
+    out.push({ text: t.rule, confidence: confidenceFor(hits.length), sourceFeedbackIds: hits.map((r) => String(r.id)) });
+  }
+  return out;
+}
+
+/**
  * Coach: reads parents' "issue" reports and proposes a rule only when 2 or more reports share a theme.
  * A person still has to approve every proposal (Reviewer mode) before it changes anything.
- * If the model is unavailable it proposes nothing (never invents a rule).
+ * If the model is unavailable (or answers badly) a deterministic keyword fallback runs instead: it only proposes a rule
+ * when 2 or more reports mention the same theme (see THEMES). It never invents a theme that parents did not report,
+ * and a person still approves the result. Real-model clustering is used whenever MODEL_API_KEY is set.
  */
 export async function proposeRules(feedbackRows: FeedbackRow[], llm: Generator): Promise<RuleProposal[]> {
   // Only the newest MAX_ISSUES reports are sent, so the prompt (and its cost) stays bounded.
@@ -45,7 +76,7 @@ export async function proposeRules(feedbackRows: FeedbackRow[], llm: Generator):
     listing,
   ].join('\n');
   const { value, usedFallback } = await askJson<Clusters>(llm, prompt, isClusters, { clusters: [] });
-  if (usedFallback) return [];
+  if (usedFallback) return themeFallback(issues);
   const out: RuleProposal[] = [];
   const used = new Set<string>();
   for (const c of value.clusters) {

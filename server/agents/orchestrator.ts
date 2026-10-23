@@ -181,7 +181,7 @@ export async function runBundle(familyId: string, deps: RunDeps): Promise<Bundle
   const family = await deps.loadFamily(familyId);
   const runId = deps.runId ?? newRunId(familyId);
   const trace = new TraceLogger(runId, deps.logsDir);
-  const ctx: AgentContext = { runId, family, z: deps.z, llm: deps.llm, memory: deps.memory, trace };
+  const ctx: AgentContext = { runId, family, z: deps.z, llm: deps.llm, memory: deps.memory, trace, today: deps.today };
   const maxRetries = /^\d+$/.test(process.env.MAX_RETRIES ?? '') ? Number(process.env.MAX_RETRIES) : 2;
   let banner: string | null = null;
   const log = (action: string, input: string, output: string, status: 'ok' | 'retry' | 'blocked' | 'error' | 'fallback', retry = 0) =>

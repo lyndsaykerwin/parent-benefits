@@ -3,7 +3,7 @@ import { Link, useParams } from 'wouter';
 import AppShell from '@/components/AppShell';
 import ReceiptCard from '@/components/ReceiptCard';
 import FeedCardView from '@/components/FeedCardView';
-import { KIND_META, api, describeLine, familyChip, groupCards, loadRun, saveRun, type SavedRun, type TraceLine } from '@/lib/bundle';
+import { KIND_META, api, demoDateLabel, describeLine, familyChip, groupCards, loadRun, saveRun, type SavedRun, type TraceLine } from '@/lib/bundle';
 import { pollRun } from '@/lib/poll';
 import { cn } from '@/lib/utils';
 
@@ -98,7 +98,7 @@ export default function Feed() {
   const { runId = '' } = useParams<{ runId: string }>();
   const [run, setRun] = useState<SavedRun | null>(() => loadRun(runId)?.runId === runId ? loadRun(runId) : null);
   const [lines, setLines] = useState<TraceLine[]>([]);
-  const [chipInfo, setChipInfo] = useState<{ family?: SavedRun['family']; today?: string }>({});
+  const [chipInfo, setChipInfo] = useState<{ family?: SavedRun['family']; today?: string; demoDate?: boolean }>({});
   const [error, setError] = useState<string | null>(null);
   const [elapsed, setElapsed] = useState(0);
   const started = useRef(Date.now());
@@ -108,11 +108,11 @@ export default function Feed() {
     return pollRun(runId, api, {
       onStatus: (status, trace) => {
         if (trace) setLines(trace);
-        setChipInfo({ family: status.family, today: status.today });
+        setChipInfo({ family: status.family, today: status.today, demoDate: status.demoDate });
         setElapsed(Math.round((Date.now() - Date.parse(status.startedAt || new Date(started.current).toISOString())) / 1000));
       },
       onDone: (status) => {
-        const saved: SavedRun = { runId, familyId: status.familyId, family: status.family, today: status.today, result: status.result! };
+        const saved: SavedRun = { runId, familyId: status.familyId, family: status.family, today: status.today, demoDate: status.demoDate, result: status.result! };
         saveRun(saved);
         setRun(saved);
       },
@@ -126,6 +126,7 @@ export default function Feed() {
   const family = run?.family ?? chipInfo.family;
   const today = run?.today ?? chipInfo.today;
   const chip = familyChip(family, today);
+  const demoLabel = demoDateLabel(run?.demoDate ?? chipInfo.demoDate, today);
 
   const grouped = useMemo(() => (run ? groupCards(run.result.cards) : null), [run]);
 
@@ -149,6 +150,7 @@ export default function Feed() {
 
   return (
     <AppShell chip={chip}>
+      {demoLabel && <p data-testid="demo-date" className="mt-3 text-[13px] font-semibold text-ink-2">{demoLabel}. Sample families are checked as of this date so the demo stays the same.</p>}
       <ReceiptCard receipt={result.receipt} recallCount={recallCount} today={today} />
 
       {result.banner && (

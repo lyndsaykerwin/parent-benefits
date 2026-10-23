@@ -23,6 +23,8 @@ export interface RunStatus {
   startedAt: string;
   family?: FamilyView;
   today?: string;
+  /** true for the sample families, which are evaluated at a fixed demo date */
+  demoDate?: boolean;
   result: BundleResult | null;
   error: string | null;
 }
@@ -83,6 +85,12 @@ export function familyChip(f: FamilyView | undefined, today?: string): string | 
     return d > 0 ? `${first} · due in ${d} days` : `${first} · due now`;
   }
   return first;
+}
+
+/** "Demo date: Oct 23, 2026" for the sample families (they run at a fixed date), otherwise null. */
+export function demoDateLabel(demoDate: boolean | undefined, today: string | undefined): string | null {
+  if (!demoDate || !today || !/^\d{4}-\d{2}-\d{2}$/.test(today)) return null;
+  return `Demo date: ${new Date(`${today}T00:00:00Z`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' })}`;
 }
 
 // ---------- cards ----------
@@ -244,7 +252,7 @@ export interface Scoreboard {
 
 const safe = <T,>(fn: () => T, fallback: T): T => { try { return fn(); } catch { return fallback; } };
 
-export interface SavedRun { runId: string; familyId: string; family?: FamilyView; today?: string; result: BundleResult }
+export interface SavedRun { runId: string; familyId: string; family?: FamilyView; today?: string; demoDate?: boolean; result: BundleResult }
 
 export function saveRun(r: SavedRun): void {
   safe(() => {

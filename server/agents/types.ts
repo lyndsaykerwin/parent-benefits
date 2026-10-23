@@ -17,6 +17,8 @@ export interface AgentContext {
   llm: Generator;
   memory: BundleMemory;
   trace: TraceLogger;
+  /** The date this run is evaluated at (ISO). Falls back to the TODAY env var, then the real date. */
+  today?: string;
 }
 
 export interface Candidate extends FeedCard {

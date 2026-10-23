@@ -49,3 +49,18 @@ describe('Coach.proposeRules', () => {
     expect(p.split('\n').filter((l) => /^\d+: shipping note/.test(l))).toHaveLength(40);
   });
 });
+
+describe('Coach offline fallback (no model)', () => {
+  const down = new FakeGenerator([]); // throws ModelUnavailable on every call
+  it('proposes a rule when 2+ reports share the auto-renew membership theme', async () => {
+    const rows = [issue(1, 'I was charged $29.99 for a membership'), issue(2, 'it auto-renewed after the trial'), issue(3, 'package was late')];
+    const out = await proposeRules(rows, down);
+    expect(out).toHaveLength(1);
+    expect(out[0].text).toMatch(/membership/i);
+    expect(out[0].sourceFeedbackIds).toEqual(['1', '2']);
+    expect(out[0].confidence).toBe(0.7);
+  });
+  it('proposes nothing when only one report matches a theme', async () => {
+    expect(await proposeRules([issue(1, 'membership trap'), issue(2, 'box was dented')], down)).toEqual([]);
+  });
+});

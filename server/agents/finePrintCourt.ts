@@ -35,7 +35,7 @@ function log(ctx: AgentContext, agent: string, action: string, input: string, ou
 export function babyAgeDays(ctx: AgentContext): number {
   const anchor = ctx.family.birthDate ?? ctx.family.dueDate;
   if (!anchor) return 0;
-  return Math.round((Date.parse(`${today()}T00:00:00Z`) - Date.parse(`${anchor}T00:00:00Z`)) / 86_400_000);
+  return Math.round((Date.parse(`${ctx.today ?? today()}T00:00:00Z`) - Date.parse(`${anchor}T00:00:00Z`)) / 86_400_000);
 }
 
 // ---- deterministic screen (used only when the model is unavailable) ----
