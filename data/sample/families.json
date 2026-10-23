@@ -1,0 +1,47 @@
+[
+  {
+    "id": "maya",
+    "userId": null,
+    "isGuest": true,
+    "name": "Maya (sample family)",
+    "birthDate": "2026-10-03",
+    "dueDate": null,
+    "zip": "02139",
+    "state": "MA",
+    "employer": "Northwind Robotics",
+    "householdSize": 3,
+    "annualIncomeCents": 14500000,
+    "dcfsaOffered": true,
+    "dataConnected": true
+  },
+  {
+    "id": "leo",
+    "userId": null,
+    "isGuest": true,
+    "name": "Leo (sample family)",
+    "birthDate": null,
+    "dueDate": "2026-12-07",
+    "zip": "02446",
+    "state": "MA",
+    "employer": "Harbor Analytics",
+    "householdSize": 2,
+    "annualIncomeCents": 9800000,
+    "dcfsaOffered": false,
+    "dataConnected": false
+  },
+  {
+    "id": "ava",
+    "userId": null,
+    "isGuest": true,
+    "name": "Ava (sample family)",
+    "birthDate": "2026-08-24",
+    "dueDate": null,
+    "zip": "43215",
+    "state": "OH",
+    "employer": "Buckeye Logistics",
+    "householdSize": 3,
+    "annualIncomeCents": 6200000,
+    "dcfsaOffered": false,
+    "dataConnected": true
+  }
+]

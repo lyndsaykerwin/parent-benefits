@@ -1,5 +1,6 @@
 import { loadEnv } from "./server/env";
 import { defineConfig } from "drizzle-kit";
+import { BUNDLE_TABLE_NAMES } from "./shared/schema";
 
 loadEnv();
 
@@ -16,5 +17,5 @@ export default defineConfig({
   },
   // Only touch tables Bundle owns. The shared Neon database also holds
   // other tables (e.g. spike0_amazon_orders) that must never be dropped.
-  tablesFilter: ["users"],
+  tablesFilter: [...BUNDLE_TABLE_NAMES],
 });
