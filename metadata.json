@@ -23,7 +23,7 @@
     "zetaris": "One SQL layer over a private Postgres database (bundle_pg) and live public recall feeds (bundle_live.cpsc_recalls, fda_food_recalls). Every agent reads through it. server/adapters/zetaris.ts, scripts/zetaris/",
     "meterless": "H-MEM reference memory (vendored, Apache-2.0) stores the rules Bundle learns from parent feedback; the Fine Print Court recalls them. server/adapters/memory.ts, vendor/hmem/",
     "nvidia": "NVIDIA-hosted models (supported, not exercised in the saved results) through an OpenAI-compatible endpoint (MODEL_BASE_URL) write short explanations and judge offers. Without a key, offline fallbacks run. server/adapters/llm.ts",
-    "built_with": "Built with Claude Code. (Cursor was listed as required in the original rules; the organizers announced it optional; confirmation on HackOS is pending.)"
+    "built_with": "Built with Claude Code. Cursor was optional for this hackathon and was not used."
   },
   "pre_existing_components": [
     "VibeCode starter template by Colin Matthews (MIT), upstream commit 6af369a, imported in commit b2bc3be",

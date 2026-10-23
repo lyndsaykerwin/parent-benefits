@@ -2,7 +2,7 @@
 
 > **Track:** Track 1: Solving Fragmented Intelligence
 > **Sponsor technology:** Zetaris (SQL data door), Meterless H-MEM (memory), NVIDIA-hosted models (supported, not exercised in the saved results)
-> **How it was built:** Built with Claude Code. (Cursor was listed as required in the original rules; the organizers announced it optional; confirmation on HackOS is pending.)
+> **How it was built:** Built with Claude Code. Cursor was optional for this hackathon and was not used.
 > **Run with no keys:** `cp .env.example .env && npm ci && npm run dev`, then `POST /api/run` on port 5050
 
 ## 1. Problem
@@ -62,11 +62,40 @@ Starts in a few seconds. Open http://localhost:5050 for the app, or call the API
 Other commands:
 
 ```bash
-npm test         # unit tests (the one live-database test is skipped when DATABASE_URL is not set)
+npm test         # unit tests. The one live-database test (it reseeds Neon) is skipped unless you run RUN_DB_TESTS=1 npm test
 npm run check    # type check
 npm run eval     # the evals (answer key) and prints the scoreboard
 npm run build && npm start   # production build
 ```
+
+### Running the live-database test (opt-in)
+
+`server/__tests__/seed.test.ts` clears and refills Bundle's own tables in Neon, so it never runs by accident. A normal `npm test` prints "Skipping seed.test.ts..." and moves on. To run it on purpose (needs `DATABASE_URL`):
+
+```bash
+RUN_DB_TESTS=1 npm test -- seed
+```
+
+### When you have an NVIDIA key
+
+Put the key in `../.secrets/bundle.env.local` as `MODEL_API_KEY=...` (never commit it), then run these three commands in order:
+
+```bash
+npm run model:check -- --write   # 1. asks NVIDIA which Nemotron models your key can use, saves MODEL_REASONING and MODEL_FAST, sends one tiny test message to each and prints how long it took
+npm run eval:live-model          # 2. the full eval, then the learning demo, with the real model; the scoreboard's llmMode becomes "nvidia:<model ids>" instead of "offline-fallback"
+npm run examples:regen           # 3. re-runs the saved example families into output_examples/ and logs/sample/ (replays the saved Zetaris answers; add -- --live to ask Zetaris live)
+```
+
+`model:check` stops with an error if there is no key or a model does not answer. Without `--write` it only suggests the two model ids. After step 3, update the "Every saved run here is offline" note in section 8 to match, and review the diff before committing.
+
+### Deploy (Render)
+
+`render.yaml` in the repo root describes the web service (build `npm ci --include=dev && npm run build`, start `npm start`; `--include=dev` is needed because with `NODE_ENV=production` plain `npm ci` skips the build tools). Nothing is created until you connect the repo on render.com and pick this file.
+
+- **Use an always-on paid instance** (not the free tier): free instances go to sleep after inactivity and take about a minute to wake, which looks broken to a judge. `render.yaml` asks for the `starter` plan.
+- **Environment variables** (already in `render.yaml`): `NODE_ENV=production`, `SAMPLE_MODE=true`, `TRUST_PROXY=1`.
+- **Leave out** all `ZETARIS_*` keys and `DATABASE_URL` so the host replays the saved answers (see the hosting checklist below). Optional: `FRONTEND_URL`, `REVIEWER_MODE_TOKEN`, and `MODEL_API_KEY` / `MODEL_REASONING` / `MODEL_FAST` for real model text (enter secrets in Render's dashboard; `render.yaml` marks them `sync: false`).
+- Health check: `/`.
 
 ### Hosting checklist (for a public demo)
 
@@ -159,7 +188,7 @@ Secrets go only in `.env` (git-ignored). `.env.example` holds placeholders.
 | Cards with a source | **100%** |
 | Learning demo | Run 1 approves the "free trial that auto-renews" offer; a reviewer-approved rule is stored in memory; run 2 **blocks** it and cites that rule (`mem-1`) |
 
-  **Every saved run here is offline** (`llmMode: "offline-fallback"`, Scout `fake-llm`): no real AI model was used for the scoreboard, the examples or the traces. Offline, the Fine Print Court's debate lines are "model unavailable" and the Coach picks from two pre-written rule sentences once 2 or more reports share a theme (see the Coach row in §2), so the learning demo shows the *mechanism* (feedback, then memory, then a changed outcome), not AI-written rules. A real-model run will be added when a model key is available. The learning traces are in `output_examples/learning/`: `run1.jsonl`, `approve.jsonl` (the reviewer's approval: the `memory add_rule` call) and `run2.jsonl` (`memory recall_rules` returns the rule, then the judge blocks the offer and cites it).
+  **Every saved run here is offline** (`llmMode: "offline-fallback"`, Scout `fake-llm`): no real AI model was used for the scoreboard, the examples or the traces. Offline, the Fine Print Court's debate lines are "model unavailable" and the Coach picks from two pre-written rule sentences once 2 or more reports share a theme (see the Coach row in §2), so the learning demo shows the *mechanism* (feedback, then memory, then a changed outcome), not AI-written rules. A real-model run can be added with `npm run eval:live-model` once a model key is available (see "When you have an NVIDIA key" in section 4). The learning traces are in `output_examples/learning/`: `run1.jsonl`, `approve.jsonl` (the reviewer's approval: the `memory add_rule` call) and `run2.jsonl` (`memory recall_rules` returns the rule, then the judge blocks the offer and cites it).
 
 ## 9. Folder map
 
@@ -205,6 +234,6 @@ Everything else (agents, orchestrator, Fact-Checker, court, Coach, Scout, evals,
 - **Zetaris:** the one door for all data. Agents read all their data through Zetaris and never touch Postgres or the recall sites directly (`server/adapters/zetaris.ts`); only the app shell loads a saved family profile and stores feedback, through Drizzle, in live mode. The key trick: **one query joins a private purchase list with a live government recall feed** (`bundle_pg` x `bundle_live.cpsc_recalls`). Registered objects: `scripts/zetaris/register.ts`. Every query is a trace line.
 - **Meterless H-MEM:** stores rules learned from parent feedback (long-term memory with confidence and an append-only ledger); the Fine Print Court recalls them. `server/adapters/memory.ts`.
 - **NVIDIA:** NVIDIA-hosted models (supported, not exercised in the saved results) for explanations and court reasoning (`server/adapters/llm.ts`); everything degrades to offline text. No live model run is included in the saved scoreboard or examples.
-- **Claude Code:** the AI coding assistant this project was built with. Cursor was listed as required in the original rules and later announced as optional; confirmation on HackOS is pending.
+- **Claude Code:** the AI coding assistant this project was built with. Cursor was optional for this hackathon and was not used.
 
 Licence: MIT (see `LICENSE`).
