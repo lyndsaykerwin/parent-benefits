@@ -2,6 +2,7 @@
  * Eval scoreboard + learning demo.
  *   npx tsx scripts/eval.ts              full eval (3 sample families x 3 runs, plus the learning demo)
  *   npx tsx scripts/eval.ts --learning   just the learning demo (run 1 vs run 2) and copy the traces
+ *   add --require-model to stop (exit 2 no key / 1 failed test call) before touching anything unless a real model works
  *   add --live to refresh the Zetaris replay cache from the live service
  *   add --neon to save the fixture feedback and proposals in Neon (needs DATABASE_URL)
  *
@@ -24,7 +25,7 @@ import { MemoryStore, type BundleStore } from '../server/bundleStore';
 import { resolveToday } from '../server/demoDate';
 import { scout, type ScoutResult } from './scout';
 
-export type LlmMode = 'real-model' | 'offline-fallback' | 'fake-llm' | `nvidia:${string}`;
+export type LlmMode = 'real-model' | 'offline-fallback' | 'fake-llm' | `nvidia:${string}` | `nvidia-partial:${string}`;
 
 export interface Scoreboard {
   trapsCaught: number;
@@ -35,6 +36,8 @@ export interface Scoreboard {
   stable: boolean;
   learning: { run1Approved: boolean; run2Blocked: boolean; citedRuleId: string | null };
   llmMode: LlmMode;
+  /** Real-model calls that returned text vs. failed (a failure means that step used offline text). Null when no NVIDIA model was behind the run. */
+  llmCalls: { ok: number; failed: number } | null;
   scoutLlmMode: 'fake-llm' | 'real-model';
   generatedAt: string;
   demoDate: string;
@@ -73,11 +76,32 @@ const loadFamily = async (id: string): Promise<Family> => {
   return f;
 };
 
+export function llmCallsOf(llm: Generator): { ok: number; failed: number } | null {
+  return llm instanceof NvidiaGenerator ? { ...llm.stats } : null;
+}
+
+/** Before a real-model eval: needs a key and model ids, and one tiny call to each model must work. Returns an error message, or null if fine. */
+export async function preflightModel(llm: Generator): Promise<string | null> {
+  if (llm instanceof UnavailableGenerator) return 'No usable model settings (set MODEL_API_KEY, MODEL_REASONING and MODEL_FAST; npm run model:check -- --write does the last two). Nothing was changed.';
+  for (const which of ['reasoning', 'fast'] as const) {
+    try { await llm.generate('Reply with one word: ok', undefined, which); }
+    catch (e) { return `Pre-flight call to the ${which} model failed: ${(e as Error).message}. Nothing was changed.`; }
+  }
+  if (llm instanceof NvidiaGenerator) llm.resetStats();
+  return null;
+}
+
 export function llmModeOf(llm: Generator): LlmMode {
   if (llm instanceof UnavailableGenerator) return 'offline-fallback';
   if (llm instanceof FakeGenerator) return 'fake-llm';
   // A real NVIDIA model: record exactly which ids were behind the numbers.
-  if (llm instanceof NvidiaGenerator) return `nvidia:${llm.models.reasoning}+${llm.models.fast}`;
+  // Only claim a real model if calls actually succeeded; any failed call (offline text used instead) makes it "partial".
+  if (llm instanceof NvidiaGenerator) {
+    const ids = `${llm.models.reasoning}+${llm.models.fast}`;
+    const { ok, failed } = llm.stats;
+    if (ok === 0) return 'offline-fallback';
+    return failed > 0 ? `nvidia-partial:${ids}` : `nvidia:${ids}`;
+  }
   return 'real-model';
 }
 
@@ -220,7 +244,7 @@ export async function runEval(opts: EvalOptions = {}): Promise<Scoreboard> {
   const stable = FAMILIES.every((id) => perFamily[id].length < 2 || new Set(perFamily[id].map(sig)).size === 1);
   return {
     trapsCaught: Object.values(traps).filter((t) => t.caught).length, trapsTotal: Object.keys(traps).length, falseAlarms, sourcedPct,
-    runs: n, stable, learning: learn.learning, llmMode: llmModeOf(llm), scoutLlmMode: 'fake-llm', generatedAt: new Date().toISOString(),
+    runs: n, stable, learning: learn.learning, llmMode: llmModeOf(llm), llmCalls: llmCallsOf(llm), scoutLlmMode: 'fake-llm', generatedAt: new Date().toISOString(),
     demoDate: resolveToday('maya').today, traps, expectationFailures: failures, moneyBackCents: moneyBack,
     learningDetail: { run1Id: learn.r1.runId, run2Id: learn.r2.runId, ruleText: learn.ruleText, storedIn: store instanceof MemoryStore ? 'memory' : 'neon' },
     scout: { accepted: scoutRows.length, rejected: sc.rejected.map((r) => ({ title: r.title, reason: r.reason })) },
@@ -234,16 +258,20 @@ export async function runEval(opts: EvalOptions = {}): Promise<Scoreboard> {
 export function mergeLearning(existing: Record<string, unknown> | null, sb: Scoreboard): Record<string, unknown> {
   const base = existing ?? {
     trapsCaught: null, trapsTotal: null, falseAlarms: null, sourcedPct: null, runs: null, stable: null,
-    llmMode: sb.llmMode, scoutLlmMode: null, demoDate: sb.demoDate, traps: null, expectationFailures: null,
+    llmMode: sb.llmMode, llmCalls: sb.llmCalls, scoutLlmMode: null, demoDate: sb.demoDate, traps: null, expectationFailures: null,
     moneyBackCents: null, scout: null,
   };
-  return { ...base, generatedAt: sb.generatedAt, learning: sb.learning, learningDetail: sb.learningDetail };
+  return { ...base, generatedAt: sb.generatedAt, learning: sb.learning, learningDetail: sb.learningDetail, learningLlmMode: sb.llmMode, learningLlmCalls: sb.llmCalls };
 }
 
 async function main() {
   loadEnv();
   const args = new Set(process.argv.slice(2));
   const llm = createGenerator();
+  if (args.has('--require-model')) {
+    const problem = await preflightModel(llm);
+    if (problem) { console.error(problem); process.exit(llm instanceof UnavailableGenerator ? 2 : 1); }
+  }
   const store: BundleStore = args.has('--neon') ? new (await import('../server/bundleStore')).DrizzleStore() : new MemoryStore();
   const sb = await runEval({
     z: makeEvalZetaris({ live: args.has('--live') }), llm, store, logsDir: path.resolve('logs'),

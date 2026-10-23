@@ -1,7 +1,7 @@
 /**
  * Finds which NVIDIA-hosted Nemotron models your key can use, suggests the two Bundle needs, and tests them.
  *   npm run model:check             list models, suggest MODEL_REASONING / MODEL_FAST, send one tiny test message to each
- *   npm run model:check -- --write  also saves the two suggested ids into ../.secrets/bundle.env.local
+ *   npm run model:check -- --write  also saves the two suggested ids into (only after both test messages work) ../.secrets/bundle.env.local
  *
  * Reads MODEL_API_KEY and MODEL_BASE_URL (default https://integrate.api.nvidia.com/v1) the same way the app does.
  * The key itself is never printed. Exits with an error (non-zero) if there is no key or a model test fails.
@@ -46,6 +46,22 @@ export function updateEnvText(text: string, values: Record<string, string>): str
   return out;
 }
 
+/** Updates the given lines in an env file safely: writes a temp file next to it, keeps its permissions, then renames it over the original. */
+export function writeEnvFileAtomic(file: string, values: Record<string, string>): void {
+  const exists = fs.existsSync(file);
+  const text = exists ? fs.readFileSync(file, 'utf8') : '';
+  const mode = exists ? fs.statSync(file).mode & 0o777 : 0o600;
+  const tmp = path.join(path.dirname(file), `.${path.basename(file)}.${process.pid}.tmp`);
+  try {
+    fs.writeFileSync(tmp, updateEnvText(text, values), { mode });
+    fs.chmodSync(tmp, mode);
+    fs.renameSync(tmp, file);
+  } catch (e) {
+    try { fs.unlinkSync(tmp); } catch { /* nothing to clean */ }
+    throw e;
+  }
+}
+
 export const SECRETS_FILE = path.resolve(process.cwd(), '../.secrets/bundle.env.local');
 
 async function main() {
@@ -82,15 +98,6 @@ async function main() {
     process.exit(1);
   }
 
-  if (args.has('--write')) {
-    const file = SECRETS_FILE;
-    const text = fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : '';
-    fs.writeFileSync(file, updateEnvText(text, { MODEL_REASONING: pick.reasoning, MODEL_FAST: pick.fast }));
-    console.log(`\nSaved MODEL_REASONING and MODEL_FAST to ${file}`);
-  } else {
-    console.log('\n(Not saved. Add --write to store these two ids in ../.secrets/bundle.env.local.)');
-  }
-
   const gen = new NvidiaGenerator(apiKey, baseUrl, { reasoning: pick.reasoning, fast: pick.fast }, undefined, 60000);
   let failed = false;
   for (const [label, id] of [['reasoning', pick.reasoning], ['fast', pick.fast]] as const) {
@@ -103,7 +110,16 @@ async function main() {
       console.error(`Test ${label} (${id}): FAILED after ${Date.now() - t0} ms: ${(e as Error).message}`);
     }
   }
-  if (failed) process.exit(1);
+  if (failed) {
+    if (args.has('--write')) console.error('\nNot saved: a test call failed, so the settings file was left as it was.');
+    process.exit(1);
+  }
+  if (args.has('--write')) {
+    writeEnvFileAtomic(SECRETS_FILE, { MODEL_REASONING: pick.reasoning, MODEL_FAST: pick.fast });
+    console.log(`\nSaved MODEL_REASONING and MODEL_FAST to ${SECRETS_FILE}`);
+  } else {
+    console.log('\n(Not saved. Add --write to store these two ids in ../.secrets/bundle.env.local after the tests pass.)');
+  }
 }
 
 if (/scripts[\\/]check-model\.ts$/.test(process.argv[1] ?? '')) {

@@ -26,6 +26,9 @@ export interface ChatClient {
 
 export class NvidiaGenerator implements Generator {
   private client: ChatClient;
+  /** How many model calls returned text (ok) and how many failed (failed; callers then use offline text). */
+  stats = { ok: 0, failed: 0 };
+  resetStats(): void { this.stats = { ok: 0, failed: 0 }; }
 
   constructor(
     apiKey: string,
@@ -49,8 +52,10 @@ export class NvidiaGenerator implements Generator {
       });
       const text = res.choices[0]?.message?.content;
       if (!text) throw new Error('empty response');
+      this.stats.ok++;
       return text;
     } catch (e) {
+      this.stats.failed++;
       throw new ModelUnavailable(`model call failed: ${(e as Error).message}`);
     }
   }
