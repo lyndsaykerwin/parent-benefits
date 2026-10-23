@@ -4,8 +4,13 @@ import { loadEnv } from '../env';
 
 loadEnv();
 
-// This is a live-database test. Without DATABASE_URL (a fresh clone, SAMPLE_MODE) it is skipped instead of failing.
-const describeWithDb = process.env.DATABASE_URL ? describe : describe.skip;
+// Live-database test: it clears and refills Bundle's tables in Neon, so it only runs when you ask for it:
+//   RUN_DB_TESTS=1 npm test -- seed       (needs DATABASE_URL)
+const runDbTests = process.env.RUN_DB_TESTS === '1' && !!process.env.DATABASE_URL;
+if (!runDbTests) {
+  console.log('Skipping seed.test.ts: it reseeds the live database. Set RUN_DB_TESTS=1 (and DATABASE_URL) to run it.');
+}
+const describeWithDb = runDbTests ? describe : describe.skip;
 
 describeWithDb('seed()', () => {
   let db: any;
