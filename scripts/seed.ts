@@ -60,8 +60,8 @@ export const OFFERS: (typeof s.offers.$inferInsert)[] = [
   { ...GENERAL, title: 'Babylist registry welcome box', store: 'Babylist', valueCents: 2000, finePrint: 'Box ships after you add 10 items; shipping fee may apply.', sourceUrl: OFFER_SRC.babylist },
   // PLANTED TEST CASE (trap offer). This looks free but auto-enrolls into a paid
   // membership. Fine Print Court is expected to REJECT it. Cuddle & Co is a made-up store.
-  { ...GENERAL, title: 'Free newborn diaper box', store: 'Cuddle & Co', valueCents: 4000,
-    finePrint: 'Free box requires a card on file. After a 30-day trial you are automatically enrolled in a paid membership at $29.99/month until you cancel. Shipping and handling $7.95.',
+  { ...GENERAL, triggerKeyword: 'diaper', title: 'Free newborn diaper box', store: 'Cuddle & Co', valueCents: 4000,
+    finePrint: 'Free box requires a card on file. After a 30-day trial you are automatically enrolled in a paid membership at $29.99/month until you cancel.',
     sourceUrl: 'https://example.com/cuddle-and-co/free-diaper-box' },
   // Triggered offers: shown when a matching purchase or situation appears.
   { title: 'Bonus diaper rewards on newborn sizes', store: 'Pampers', minAgeDays: 0, maxAgeDays: 120, triggerKeyword: 'diaper', valueCents: 1000, finePrint: 'Newborn and size 1 packs only.', sourceUrl: OFFER_SRC.pampers },

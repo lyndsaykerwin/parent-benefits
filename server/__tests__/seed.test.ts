@@ -50,7 +50,10 @@ describe('seed()', () => {
       (r: any) => r.triggerKeyword === '' && r.minAgeDays === -280 && r.maxAgeDays === 365,
     );
     expect(general.length).toBeGreaterThanOrEqual(4);
-    expect(rows.some((r: any) => /\$29\.99\/month/.test(r.finePrint))).toBe(true);
+    const trap = rows.find((r: any) => /\$29\.99\/month/.test(r.finePrint)) as any;
+    expect(trap).toBeDefined();
+    expect(trap.triggerKeyword).toBe('diaper'); // so it ranks into the court's top 5 for a family that buys diapers
+    expect(trap.finePrint).not.toMatch(/shipping/i); // the fee must not decide it offline; case law should
   });
 
   it('seeds fixtures for maya, ava but not leo', async () => {

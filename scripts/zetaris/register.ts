@@ -3,6 +3,7 @@
  *
  *   npx tsx scripts/zetaris/register.ts           -> dry run: prints the SQL, changes nothing
  *   npx tsx scripts/zetaris/register.ts --apply   -> runs it, one statement per call
+ *   npx tsx scripts/zetaris/register.ts --replace=v_judge_offers [--apply]  -> also re-create the named views (replaces a changed definition)
  *
  * Safe to re-run: it asks Zetaris what already exists (SHOW ...) and skips those
  * objects, so the Spike 0 objects (bundle_pg, bundle_live.cpsc_recalls) are reused,
@@ -16,6 +17,11 @@ import { BUNDLE_TABLE_NAMES } from '../../shared/schema';
 
 loadEnv();
 const apply = process.argv.includes('--apply');
+// --replace=v_judge_offers,... : re-run CREATE DATASOURCE VIEW for those views even though they exist,
+// so a changed definition replaces the old one. Only views named here are touched.
+const replaceViews = new Set(
+  (process.argv.find((a) => a.startsWith('--replace='))?.slice('--replace='.length) ?? '').split(',').filter(Boolean),
+);
 
 interface Step { label: string; sql: string; redacted: string; exists: boolean }
 
@@ -25,7 +31,7 @@ const LIVE = 'bundle_live';
 const VIEWS: Record<string, string> = {
   // Judge: offers only, no family columns.
   v_judge_offers:
-    'SELECT id, title, store, min_age_days, max_age_days, value_cents, fine_print, source_url FROM offers',
+    'SELECT id, title, store, min_age_days, max_age_days, trigger_keyword, value_cents, fine_print, source_url FROM offers',
   // Planner: family profile, including income (only this view carries it).
   v_planner_family:
     'SELECT id, name, birth_date, due_date, zip, state, employer, household_size, annual_income_cents, dcfsa_offered, data_connected FROM families',
@@ -86,7 +92,7 @@ async function main() {
   }
   for (const [v, select] of Object.entries(VIEWS)) {
     const sql = `CREATE DATASOURCE VIEW ${v} FROM ${DS} AS ${select}`;
-    steps.push({ label: `view ${v}`, sql, redacted: sql, exists: dsViews.has(v) || dsViews.has(`${DS}.${v}`) || dsTables.has(v) });
+    steps.push({ label: `view ${v}`, sql, redacted: sql, exists: !replaceViews.has(v) && (dsViews.has(v) || dsViews.has(`${DS}.${v}`) || dsTables.has(v)) });
   }
   const liveDb = `CREATE LIGHTNING DATABASE ${LIVE} DESCRIBE BY "Live recall feeds"`;
   steps.push({ label: 'lightning database', sql: liveDb, redacted: liveDb, exists: liveDbs.has(LIVE) });

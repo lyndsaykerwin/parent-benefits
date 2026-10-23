@@ -140,15 +140,14 @@ const OFFER_COLS = 'id, title, store, min_age_days, max_age_days, trigger_keywor
 
 /**
  * Offers go to court: Deal Hunter argues for, Fine Print Lawyer against, Judge rules with recalled case law.
- * Reads bundle_pg.offers (public offer data only, no family columns) because v_judge_offers has no
- * trigger_keyword column.
+ * Reads bundle_pg.v_judge_offers (offer columns only, no family data).
  */
 export async function judgeOffers(
   ctx: AgentContext,
   input: { ageDays: number; purchaseKeywords: string[]; includeGeneral: boolean },
 ): Promise<Candidate[]> {
   const age = quoteInt(input.ageDays);
-  const sql = `SELECT ${OFFER_COLS} FROM bundle_pg.offers WHERE min_age_days <= ${age} AND max_age_days >= ${age} ORDER BY id`;
+  const sql = `SELECT ${OFFER_COLS} FROM bundle_pg.v_judge_offers WHERE min_age_days <= ${age} AND max_age_days >= ${age} ORDER BY id`;
   const { rows } = await ctx.z.runQuery(sql);
   const kws = input.purchaseKeywords.map((k) => k.toLowerCase().trim()).filter(Boolean);
   const offers = rows.map(toOffer);
@@ -169,7 +168,7 @@ export async function judgeOffers(
 export async function revise(c: Candidate, reason: string, ctx: AgentContext): Promise<Candidate | null> {
   try {
     const id = quoteInt(c.claim.offerId);
-    const sql = `SELECT ${OFFER_COLS} FROM bundle_pg.offers WHERE id = ${id}`;
+    const sql = `SELECT ${OFFER_COLS} FROM bundle_pg.v_judge_offers WHERE id = ${id}`;
     const { rows } = await ctx.z.runQuery(sql);
     log(ctx, AGENT, 'revise', `offer ${id}: ${reason}`, 're-judging with the reason', 'retry', c.retryCount + 1);
     if (!rows.length) return null;
