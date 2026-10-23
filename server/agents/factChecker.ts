@@ -1,4 +1,5 @@
 import type { AgentContext, Candidate } from './types';
+import { InvalidId, quoteId as q, quoteDate, addDays, col } from './sql';
 
 export interface VerifyResult {
   ok: boolean;
@@ -12,37 +13,20 @@ export interface VerifyResult {
  *   offer    { type:'offer', offerId: <offers.id> }                -> amount + deadline
  *   recall   { type:'recall', recallId: <CPSC RecallID> }          (or recallSource:'fda', recallNumber)
  *   clawback { type:'clawback', txId: <transactions.id>, txAmountCents }
+ *   fsa_reimbursement { type, txId, txAmountCents }                -> card amount must equal the transaction
+ *   price_adjustment  { type, txId, txAmountCents }                -> amount = paid minus the lowest in-window price; deadline = purchase + store window
+ *   dcfsa_childcare   { type, txId, txAmountCents, planYear }      -> amount = min(sum of that year's daycare payments, cap)
  * Anything else cannot be verified, so it fails closed.
  */
 
 const CENT_TOLERANCE = 1;
-const DAY_MS = 86_400_000;
-
-class InvalidId extends Error {}
-const SAFE_ID = /^[A-Za-z0-9_.:-]+$/;
-
-/** Quote an id for SQL. Only plain id characters are allowed (no quotes, backslashes, spaces); anything else fails closed. */
-function q(v: string | number | undefined): string {
-  const s = v === undefined || v === null ? '' : String(v);
-  if (!SAFE_ID.test(s)) throw new InvalidId('invalid id');
-  return `'${s}'`;
-}
+/** Federal Dependent Care FSA yearly limit for a household (2026), in cents. */
+export const DCFSA_CAP_CENTS = 750000;
 
 function intId(v: string | number | undefined): number | null {
   if (v === undefined || v === null || String(v).trim() === '') return null;
   const n = Number(v);
   return Number.isInteger(n) ? n : null;
-}
-
-function addDays(iso: string, days: number): string {
-  const d = new Date(`${iso}T00:00:00Z`);
-  return new Date(d.getTime() + days * DAY_MS).toISOString().slice(0, 10);
-}
-
-/** Read a column ignoring case (Zetaris may return headers in a different case). */
-function col(row: Record<string, string | number | null>, name: string): string | number | null | undefined {
-  const k = Object.keys(row).find((x) => x.toLowerCase() === name.toLowerCase());
-  return k === undefined ? undefined : row[k];
 }
 
 function finish(c: Candidate, ctx: AgentContext, res: VerifyResult, status: 'ok' | 'blocked' | 'error'): VerifyResult {
@@ -133,6 +117,66 @@ async function check(c: Candidate, ctx: AgentContext): Promise<VerifyResult> {
       return fail(`amount mismatch: card used ${claim.txAmountCents}, transaction is ${truth}`);
     }
     return { ok: true, reason: null, corrected: null };
+  }
+
+  if (type === 'fsa_reimbursement') {
+    const sql = `SELECT amount_cents, family_id FROM bundle_pg.v_clawback_tx WHERE id = ${q(claim.txId)} AND family_id = ${q(ctx.family.id)}`;
+    const { rows } = await ctx.z.runQuery(sql);
+    if (!rows.length) return fail(`source not found: transaction ${claim.txId} for this family`);
+    const truth = col(rows[0], 'amount_cents') as number;
+    const claimed = Number(claim.txAmountCents);
+    if (!Number.isFinite(claimed) || Math.abs(claimed - truth) > CENT_TOLERANCE) {
+      return fail(`amount mismatch: card used ${claim.txAmountCents}, transaction is ${truth}`);
+    }
+    return compare(c, truth, null);
+  }
+
+  if (type === 'price_adjustment') {
+    // Independent path: pull every possible price row and apply the window rule here, in code.
+    const sql =
+      'SELECT t.amount_cents AS amount_cents, t.date AS tx_date, sp.adjustment_window_days AS window_days, ' +
+      'po.price_cents AS price_cents, po.observed_at AS observed_at ' +
+      'FROM bundle_pg.v_clawback_tx t ' +
+      'JOIN bundle_pg.store_policies sp ON lower(sp.store) = lower(t.merchant) ' +
+      'JOIN bundle_pg.price_observations po ON lower(po.store) = lower(sp.store) ' +
+      "AND lower(t.category) LIKE concat('%', lower(po.keyword), '%') " +
+      `WHERE t.id = ${q(claim.txId)} AND t.family_id = ${q(ctx.family.id)}`;
+    const { rows } = await ctx.z.runQuery(sql);
+    if (!rows.length) return fail(`source not found: price check for transaction ${claim.txId}`);
+    const paid = col(rows[0], 'amount_cents') as number;
+    const claimed = Number(claim.txAmountCents);
+    if (!Number.isFinite(claimed) || Math.abs(claimed - paid) > CENT_TOLERANCE) {
+      return fail(`amount mismatch: card used ${claim.txAmountCents}, transaction is ${paid}`);
+    }
+    let best: number | null = null;
+    let deadline: string | null = null;
+    for (const r of rows) {
+      const date = String(col(r, 'tx_date')).slice(0, 10);
+      const win = Number(col(r, 'window_days'));
+      const seen = String(col(r, 'observed_at')).slice(0, 10);
+      const price = Number(col(r, 'price_cents'));
+      const end = addDays(date, win);
+      if (seen >= date && seen <= end && price < paid && (best === null || price < best)) { best = price; deadline = end; }
+    }
+    if (best === null || deadline === null) return fail('source not found: no lower price inside the store window');
+    return compare(c, paid - best, deadline);
+  }
+
+  if (type === 'dcfsa_childcare') {
+    if (!ctx.family.dcfsaOffered) return fail('source not found: employer does not offer a Dependent Care FSA');
+    const year = intId(claim.planYear);
+    if (year === null || year < 2000 || year > 2100) return fail('cannot verify: planYear is not a year');
+    const sql =
+      'SELECT COALESCE(SUM(p.amount_cents), 0) AS total_cents, COUNT(*) AS n FROM ' +
+      '(SELECT DISTINCT t.merchant AS merchant, t.date AS date, t.amount_cents AS amount_cents ' +
+      "FROM bundle_pg.v_clawback_tx t JOIN bundle_pg.fsa_eligible_categories c ON c.account = 'DCFSA' " +
+      "AND (lower(t.category) LIKE concat('%', lower(c.keyword), '%') OR lower(t.merchant) LIKE concat('%', lower(c.keyword), '%')) " +
+      `WHERE t.family_id = ${q(ctx.family.id)} AND t.amount_cents > 0 ` +
+      `AND t.date >= ${quoteDate(`${year}-01-01`)} AND t.date <= ${quoteDate(`${year}-12-31`)}) p`;
+    const { rows } = await ctx.z.runQuery(sql);
+    const total = rows.length ? Number(col(rows[0], 'total_cents')) : 0;
+    if (!Number.isFinite(total) || total <= 0) return fail('source not found: no daycare payments this plan year');
+    return compare(c, Math.min(total, DCFSA_CAP_CENTS), null);
   }
 
   return fail(`cannot verify: unknown claim type "${type}"`);

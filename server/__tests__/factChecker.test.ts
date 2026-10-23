@@ -99,6 +99,58 @@ describe('fact-checker', () => {
     expect(out.reason).toContain('amount mismatch');
   });
 
+  describe('clawback subtypes', () => {
+    const clawCand = (type: string, over: Partial<Candidate> = {}) =>
+      cand({ kind: 'clawback', agent: 'clawback', claim: { type, txId: 'maya-tx-02', txAmountCents: 8999, planYear: 2026 }, ...over });
+    const priceRows = [
+      { amount_cents: 8999, tx_date: '2026-10-09', window_days: 14, price_cents: 6999, observed_at: '2026-10-20' },
+      { amount_cents: 8999, tx_date: '2026-10-09', window_days: 14, price_cents: 5000, observed_at: '2026-10-30' }, // outside window
+    ];
+
+    it('fsa_reimbursement: amount must equal the transaction', async () => {
+      const c = clawCand('fsa_reimbursement', { amountCents: 8999 });
+      const ok = ctxWith(() => res([{ amount_cents: 8999, family_id: 'maya' }]));
+      expect((await verify(c, ok.ctx)).ok).toBe(true);
+      const bad = ctxWith(() => res([{ amount_cents: 8999, family_id: 'maya' }]));
+      const out = await verify({ ...c, amountCents: 100 }, bad.ctx);
+      expect(out.ok).toBe(false);
+      expect(out.corrected?.amountCents).toBe(8999);
+    });
+
+    it('price_adjustment: recomputes paid minus lowest in-window price and the deadline', async () => {
+      const c = clawCand('price_adjustment', { amountCents: 2000, deadline: '2026-10-23' });
+      const ok = ctxWith(() => res(priceRows));
+      expect((await verify(c, ok.ctx)).ok).toBe(true);
+      expect(ok.runQuery.mock.calls[0][0]).toContain("t.family_id = 'maya'");
+      const wrongAmt = await verify({ ...c, amountCents: 3999 }, ctxWith(() => res(priceRows)).ctx);
+      expect(wrongAmt.ok).toBe(false);
+      expect(wrongAmt.corrected?.amountCents).toBe(2000);
+      const wrongDay = await verify({ ...c, deadline: '2026-11-30' }, ctxWith(() => res(priceRows)).ctx);
+      expect(wrongDay.corrected?.deadline).toBe('2026-10-23');
+      const none = await verify(c, ctxWith(() => res([priceRows[1]])).ctx);
+      expect(none.ok).toBe(false);
+      expect(none.reason).toContain('no lower price');
+    });
+
+    it('dcfsa_childcare: sums distinct payments, caps at 750000, needs the employer benefit', async () => {
+      const c = clawCand('dcfsa_childcare', { amountCents: 555000 });
+      const ok = ctxWith(() => res([{ total_cents: 555000, n: 3 }]));
+      expect((await verify(c, ok.ctx)).ok).toBe(true);
+      expect(ok.runQuery.mock.calls[0][0]).toContain('SELECT DISTINCT');
+      expect(ok.runQuery.mock.calls[0][0]).toContain("'2026-01-01'");
+      const bad = await verify({ ...c, amountCents: 600000 }, ctxWith(() => res([{ total_cents: 555000, n: 3 }])).ctx);
+      expect(bad.corrected?.amountCents).toBe(555000);
+      const capped = await verify({ ...c, amountCents: 750000 }, ctxWith(() => res([{ total_cents: 900000, n: 6 }])).ctx);
+      expect(capped.ok).toBe(true);
+      const noBenefit = ctxWith(() => res([{ total_cents: 555000, n: 3 }]));
+      noBenefit.ctx.family = { ...family, dcfsaOffered: false };
+      expect((await verify(c, noBenefit.ctx)).ok).toBe(false);
+      const badYear = ctxWith(() => res([]));
+      expect((await verify({ ...c, claim: { ...c.claim, planYear: "2026'" } }, badYear.ctx)).ok).toBe(false);
+      expect(badYear.runQuery).not.toHaveBeenCalled();
+    });
+  });
+
   it('fails closed on unknown claims and when Zetaris is down', async () => {
     const unk = ctxWith(() => res([]));
     const o1 = await verify(cand({ claim: { type: 'mystery' } }), unk.ctx);
