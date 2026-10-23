@@ -4,7 +4,10 @@ import { loadEnv } from '../env';
 
 loadEnv();
 
-describe('seed()', () => {
+// This is a live-database test. Without DATABASE_URL (a fresh clone, SAMPLE_MODE) it is skipped instead of failing.
+const describeWithDb = process.env.DATABASE_URL ? describe : describe.skip;
+
+describeWithDb('seed()', () => {
   let db: any;
   let s: any;
   let pool: any;

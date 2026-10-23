@@ -62,7 +62,7 @@ Starts in a few seconds. Open http://localhost:5050 for the app, or call the API
 Other commands:
 
 ```bash
-npm test         # unit tests
+npm test         # unit tests (the one live-database test is skipped when DATABASE_URL is not set)
 npm run check    # type check
 npm run eval     # the evals (answer key) and prints the scoreboard
 npm run build && npm start   # production build
