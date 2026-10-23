@@ -111,6 +111,41 @@ describe('fine print court', () => {
       const ok = setup([offer(2, { fine_print: 'Free box. $3.99 shipping applies.' })], off());
       expect(await judgeOffers(ok.ctx, IN)).toHaveLength(1);
     });
+    it('(c2) thresholds and free shipping are not fees; attached fees are', async () => {
+      for (const fp of ['Free shipping on orders over $50.', 'Free shipping with a $25 minimum purchase. Handling is free.', 'Spend $75 and shipping is free.']) {
+        const { ctx } = setup([offer(1, { fine_print: fp })], off());
+        expect(await judgeOffers(ctx, IN)).toHaveLength(1);
+      }
+      for (const fp of ['Shipping and handling $7.95.', 'A shipping fee of $9 applies.', 'Plus $12 postage.', 'Free box. Shipping: $6.50']) {
+        const { ctx } = setup([offer(1, { fine_print: fp })], off());
+        expect(await judgeOffers(ctx, IN)).toEqual([]);
+      }
+    });
+  });
+
+  it('matches trigger keywords as whole words only', async () => {
+    const rows = [offer(1, { trigger_keyword: 'diaper' }), offer(2, { trigger_keyword: 'car seat' })];
+    const run = async (kw: string) => {
+      const { ctx } = setup(rows, new FakeGenerator(['p', 'c', APPROVE]));
+      return (await judgeOffers(ctx, { ...IN, includeGeneral: false, purchaseKeywords: [kw] })).map((c) => c.claim.offerId);
+    };
+    expect(await run('Pampers diapers size 1')).toEqual([1]);
+    expect(await run('dia')).toEqual([]);
+    expect(await run('diaper-genie refill')).toEqual([1]);
+    expect(await run('carseat')).toEqual([]);
+  });
+
+  it('drops cited rule ids the court never recalled, and traces a Judge approve as ok', async () => {
+    const llm = new FakeGenerator(['pro', 'con', '{"verdict":"approve","citedRuleIds":["made-up-id"],"reason":"fine"}']);
+    const { ctx, trace } = setup([offer(1)], llm);
+    expect(await judgeOffers(ctx, IN)).toHaveLength(1);
+    const j = trace.lines().find((l) => l.agent_name === 'judge')!;
+    expect(j.status).toBe('ok');
+    expect(j.output_summary).not.toContain('made-up-id');
+    const llm2 = new FakeGenerator(['pro', 'con', '{"verdict":"reject","citedRuleIds":["made-up-id"],"reason":"no"}']);
+    const s2 = setup([trap], llm2);
+    await judgeOffers(s2.ctx, IN);
+    expect(s2.trace.lines().find((l) => l.agent_name === 'judge')!.output_summary).not.toContain('made-up-id');
   });
 
   it('revise re-judges one offer with the reason in the prompts', async () => {

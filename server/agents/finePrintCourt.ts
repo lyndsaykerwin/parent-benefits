@@ -51,11 +51,20 @@ function ruleMatches(finePrint: string, rule: Rule): boolean {
   const shared = [...rk].filter((w) => fk.has(w)).length;
   return shared >= Math.min(2, rk.size) && shared > 0;
 }
-/** An explicit shipping or handling fee over $5 stated in the fine print. */
+const FEE_WORD = '(?:shipping|handling|postage)';
+const AMOUNT = '\\$\\s?(\\d[\\d,]*(?:\\.\\d+)?)';
+// "$7.99 shipping" / "$7.99 shipping fee"
+const FEE_BEFORE = new RegExp(`${AMOUNT}\\s+${FEE_WORD}\\b`, 'gi');
+// "shipping fee of $7.99" / "shipping and handling: $7.95" / "shipping is $6"
+const FEE_AFTER = new RegExp(`\\b${FEE_WORD}(?:\\s+(?:and|&)\\s+${FEE_WORD})?(?:\\s+(?:fees?|charges?|costs?))?(?:\\s*:|\\s+(?:of|is|are|costs?|will be))?\\s*${AMOUNT}`, 'gi');
+const THRESHOLD_WORDS = /(over|above|than|minimum|least|exceed\w*|spend\w*|orders?\s+of)\s*$/i;
+
+/** A dollar amount directly attached to shipping/handling/postage and over $5. Thresholds like "free shipping on orders over $50" do not count. */
 function bigFee(finePrint: string): number | null {
-  for (const sentence of finePrint.split(/(?<=[.!?])\s+/)) {
-    if (!/\b(shipping|handling|postage)\b/i.test(sentence)) continue;
-    for (const m of sentence.matchAll(/\$\s?(\d[\d,]*(?:\.\d+)?)/g)) {
+  for (const re of [FEE_BEFORE, FEE_AFTER]) {
+    for (const m of finePrint.matchAll(re)) {
+      const amountAt = (m.index ?? 0) + m[0].indexOf('$');
+      if (THRESHOLD_WORDS.test(finePrint.slice(Math.max(0, amountAt - 20), amountAt))) continue;
       const n = Number(m[1].replace(/,/g, ''));
       if (n > FEE_LIMIT_DOLLARS) return n;
     }
@@ -136,6 +145,12 @@ function toCandidate(ctx: AgentContext, offer: Offer, ruling: CourtRuling, retry
   };
 }
 
+/** Is `needle` a whole word or phrase in `hay` (a plural -s/-es is fine: "diaper" matches "diapers", "dia" does not match "diaper")? */
+function wholeWord(needle: string, hay: string): boolean {
+  const esc = needle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`(^|[^a-z0-9])${esc}(?:e?s)?($|[^a-z0-9])`, 'i').test(hay);
+}
+
 const OFFER_COLS = 'id, title, store, min_age_days, max_age_days, trigger_keyword, value_cents, fine_print, source_url';
 
 /**
@@ -151,7 +166,7 @@ export async function judgeOffers(
   const { rows } = await ctx.z.runQuery(sql);
   const kws = input.purchaseKeywords.map((k) => k.toLowerCase().trim()).filter(Boolean);
   const offers = rows.map(toOffer);
-  const triggered = offers.filter((o) => o.trigger && kws.some((k) => k.includes(o.trigger) || (k.length >= 3 && o.trigger.includes(k))));
+  const triggered = offers.filter((o) => o.trigger && kws.some((k) => wholeWord(o.trigger, k) || (k.length >= 3 && wholeWord(k, o.trigger))));
   const general = input.includeGeneral ? offers.filter((o) => !o.trigger) : [];
   const picked = [...triggered, ...general].slice(0, MAX_OFFERS);
   log(ctx, AGENT, 'select_offers', `age ${input.ageDays}d, ${kws.length} keyword(s)`, `${picked.length} offer(s) go to court (cap ${MAX_OFFERS})`);
