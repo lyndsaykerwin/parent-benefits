@@ -1,1 +1,1 @@
-{"headers":["tx_id","merchant","date","amount_cents","item","window_days","observed_price_cents","observed_at","store_source_url","price_source_url"],"rows":[],"ms":1945}
+{"headers":["tx_id","merchant","date","amount_cents","item","window_days","observed_price_cents","observed_at","store_source_url","price_source_url"],"rows":[],"ms":1684}

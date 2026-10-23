@@ -56,7 +56,7 @@ const no = () => new FakeGenerator([JSON.stringify({ same: false })]);
 
 describe('recall checker', () => {
   it('maya: 1 KEAWIS recall candidate; itemsChecked is her distinct purchase items', async () => {
-    const llm = new FakeGenerator([JSON.stringify({ same: true }), JSON.stringify({ same: false })]);
+    const llm = new FakeGenerator([JSON.stringify({ same: false })]);
     const { ctx } = ctxWith(maya, ITEMS, [CPSC_PAIR, LOOSE_PAIR], llm);
     const out = await checkRecalls(ctx);
     expect(out.itemsChecked).toBe(5);
@@ -89,9 +89,34 @@ describe('recall checker', () => {
     expect(out.candidates.map((c) => c.claim.recallId)).toEqual([10560]);
   });
 
-  it('a model "no" on the KEAWIS pair drops it (the model is the judge, not the SQL)', async () => {
-    const { ctx } = ctxWith(maya, ITEMS, [CPSC_PAIR], no());
-    expect((await checkRecalls(ctx)).candidates).toEqual([]);
+  it('an exact product-name match is accepted without asking the model, even if the model would say no', async () => {
+    const llm = no();
+    const { ctx } = ctxWith(maya, ITEMS, [CPSC_PAIR], llm);
+    const out = await checkRecalls(ctx);
+    expect(out.candidates).toHaveLength(1);
+    expect(out.candidates[0].verdict).toBe('verified');
+    expect(llm.prompts.some((p) => p.includes('SAME product'))).toBe(false);
+  });
+
+  it('a loose pair accepted by the model is only likely', async () => {
+    const { ctx } = ctxWith(maya, ITEMS, [LOOSE_PAIR], yes());
+    const out = await checkRecalls(ctx);
+    expect(out.candidates[0].verdict).toBe('likely');
+  });
+
+  it('keeps every exact pair even when 30 noise pairs sort ahead of it', async () => {
+    const noise = Array.from({ length: 30 }, (_, i) => ({ ...LOOSE_PAIR, recall_id: 1000 + i, recalled_product: `Noise Product ${i}` }));
+    const { ctx } = ctxWith(maya, ITEMS, [...noise, CPSC_PAIR], no());
+    const out = await checkRecalls(ctx);
+    expect(out.candidates.map((c) => c.claim.recallId)).toEqual([10560]);
+  });
+
+  it('item list leaves out services and generic categories (daycare, groceries) but keeps products', async () => {
+    const { ctx, runQuery } = ctxWith(maya, ITEMS, [], yes());
+    await checkRecalls(ctx);
+    const sql = String(runQuery.mock.calls[0][0]);
+    expect(sql).toContain("lower(category) LIKE '%daycare%'");
+    expect(sql).toContain("'groceries'");
   });
 
   it('an FDA match carries recallSource fda and the recall number', async () => {

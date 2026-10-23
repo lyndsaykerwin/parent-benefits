@@ -18,6 +18,16 @@ const tokens = (expr: string) =>
   `filter(split(trim(regexp_replace(lower(${expr}), '[^a-z0-9]+', ' ')), ' '), w -> length(w) >= 3 AND NOT array_contains(${STOP_SQL}, w))`;
 const brand = (expr: string) => `split(trim(regexp_replace(lower(${expr}), '[^a-z0-9]+', ' ')), ' ')[0]`;
 
+/**
+ * Rule for "looks like a product": a card row's item text counts only if it is not a service or a
+ * generic spending category (childcare / daycare / tuition, groceries, restaurants, gas, utilities, rent, etc.).
+ */
+const NON_PRODUCT_WORDS = ['daycare', 'childcare', 'child care', 'tuition'];
+const GENERIC_CATEGORIES = ['groceries', 'restaurants', 'dining', 'gas', 'fuel', 'utilities', 'rent', 'mortgage', 'insurance', 'transfer', 'payment'];
+const NOT_A_PRODUCT =
+  `NOT (${NON_PRODUCT_WORDS.map((w) => `lower(category) LIKE '%${w}%'`).join(' OR ')}) ` +
+  `AND lower(trim(category)) NOT IN (${GENERIC_CATEGORIES.map((w) => `'${w}'`).join(', ')})`;
+
 /** Everything the family bought: Amazon titles (from v_recall_orders) plus the item text on card purchases. */
 function itemsSelect(familyId: string): string {
   const f = quoteId(familyId);
@@ -25,7 +35,7 @@ function itemsSelect(familyId: string): string {
     'SELECT item_text, source, purchased_on FROM (' +
     `SELECT item_text, source, purchased_on FROM bundle_pg.v_recall_orders WHERE family_id = ${f} AND source = 'amazon' AND price_cents > 0 ` +
     'UNION ALL ' +
-    `SELECT category AS item_text, 'card' AS source, date AS purchased_on FROM bundle_pg.v_clawback_tx WHERE family_id = ${f} AND amount_cents > 0 AND category <> ''` +
+    `SELECT category AS item_text, 'card' AS source, date AS purchased_on FROM bundle_pg.v_clawback_tx WHERE family_id = ${f} AND amount_cents > 0 AND category <> '' AND ${NOT_A_PRODUCT}` +
     ') u'
   );
 }
@@ -79,14 +89,16 @@ async function judgePair(ctx: AgentContext, row: Row): Promise<Judged | null> {
   const item = s(row, 'item_text');
   const product = s(row, 'recalled_product');
   const exact = exactContainment(item, product);
+  // An exact product-name match is never second-guessed by the model.
+  if (exact) return { row, exact };
   const prompt =
     'Is the product a family bought the SAME product (same brand and model) as the product named in a safety recall? ' +
     'Different products from the same category do not count. Reply as JSON: {"same": true} or {"same": false}.\n' +
     `Bought: ${item}\nRecalled: ${product}\nRecall: ${s(row, 'recall_title')}`;
   const { value, usedFallback } = await askJson<{ same: boolean }>(
-    ctx.llm, prompt, (x): x is { same: boolean } => typeof (x as any)?.same === 'boolean', { same: exact },
+    ctx.llm, prompt, (x): x is { same: boolean } => typeof (x as any)?.same === 'boolean', { same: false },
   );
-  if (usedFallback) log(ctx, 'confirm_match', item.slice(0, 80), `no model answer: exact name match = ${exact}`, 'fallback');
+  if (usedFallback) log(ctx, 'confirm_match', item.slice(0, 80), `no model answer: loose match rejected`, 'fallback');
   return value.same ? { row, exact } : null;
 }
 
@@ -134,12 +146,15 @@ export async function checkRecalls(ctx: AgentContext): Promise<{ candidates: Can
 
   const { rows } = await ctx.z.runQuery(pairs);
   const seenPair = new Set<string>();
-  const unique = rows.filter((r) => {
+  const deduped = rows.filter((r) => {
     const k = `${norm(s(r, 'item_text'))}|${s(r, 'recall_source')}|${s(r, 'recall_id')}|${s(r, 'recall_number')}`;
     if (seenPair.has(k)) return false;
     seenPair.add(k);
     return true;
-  }).slice(0, MAX_PAIRS);
+  });
+  // Exact-name pairs are all kept; only the loose pairs (which cost a model call) are capped.
+  const isExact = (r: Row) => exactContainment(s(r, 'item_text'), s(r, 'recalled_product'));
+  const unique = [...deduped.filter(isExact), ...deduped.filter((r) => !isExact(r)).slice(0, MAX_PAIRS)];
 
   const byRecall = new Map<string, Judged>();
   for (const row of unique) {
