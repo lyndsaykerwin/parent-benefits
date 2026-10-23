@@ -42,6 +42,10 @@ describe('runEval (offline: no model key, replayed Zetaris, fake families)', () 
     expect(sb.learningDetail.ruleText).toMatch(/membership/i);
     const run2 = fs.readFileSync(path.join(logsDir, `run-${sb.learningDetail.run2Id}.jsonl`), 'utf8');
     expect(run2).toContain(`[cited ${sb.learning.citedRuleId}]`);
+    const approve = fs.readFileSync(path.join(logsDir, `run-approve-${sb.learningDetail.run1Id}.jsonl`), 'utf8');
+    expect(approve).toContain('"action":"add_rule"');
+    expect(run2).toContain('"action":"recall_rules"');
+    expect(run2).toMatch(/"agent_name":"zetaris"/);
     const run1 = fs.readFileSync(path.join(logsDir, `run-${sb.learningDetail.run1Id}.jsonl`), 'utf8');
     expect(run1).not.toContain('[cited ');
   });

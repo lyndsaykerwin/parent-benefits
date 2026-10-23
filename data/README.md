@@ -12,7 +12,7 @@ and store policies are real public facts, entered or fetched by hand and kept sm
 | Benefit rules, FSA categories, store return/price policies, offers | Real public programmes and policies, summarised by hand with a source link each. |
 | One offer ("Free newborn diaper box", Cuddle & Co) | **Made up on purpose** as a trap: it quietly turns into a paid membership. Its URL is a placeholder. |
 | Saved Scout pages in `data/sample/saved-pages/` | **Hand-written short excerpts** (not copies) of public pages, with the source URL in each file and the capture date 2026-10-23. The live sites blocked automated download. |
-| Zetaris replay cache in `data/sample/zetaris-cache/` | **Saved real Zetaris responses** (113 files) over the made-up family data and the real recall feeds. Captured 2026-10-23 between about 10:18 and 14:18 (US Eastern) by running the agents live. The capture times are the files' modification times (the files carry no timestamp inside). |
+| Zetaris replay cache in `data/sample/zetaris-cache/` | **Saved real Zetaris responses** (126 files) over the made-up family data and the real recall feeds. Captured 2026-10-23 between about 10:18 and 14:18 (US Eastern) by running the agents live. The capture times are the files' modification times (the files carry no timestamp inside). |
 
 ## Sources
 
@@ -43,11 +43,16 @@ A family you type in uses the real date.
 ## Why a cache, and what it means for SAMPLE_MODE
 
 Zetaris answers are saved by the exact SQL text. With `SAMPLE_MODE=true` and no Zetaris keys, the three sample
-families replay these saved real responses, so a judge can run everything with no keys. A new family you type in
-asks different SQL, misses the cache, and the app shows its "some sources didn't respond" banner with a safe,
-never-empty feed (see `output_examples/custom-family.json`). With real keys the same code queries Zetaris live.
+families replay these saved real responses, so a judge can run everything with no keys. A family you type in is never
+saved, so it has no purchases and the Clawback and Recall agents skip their lookups; Benefits and the Fine Print Court
+use only shared data (benefit rules, the offers table), whose answers are in the cache (captured for a spread of baby
+ages), so it gets checked benefit and offer cards with no banner (see `output_examples/custom-family.json`). A query
+that was never saved still fails safely (banner, "Not yet verified" stand-ins). With real keys the same code queries
+Zetaris live. The offers table was re-seeded during the build, so the cache holds offers under two sets of ids; both are
+real answers from the days they were captured.
 
 ## Re-capturing the cache
 
 With Zetaris keys in `.env`: `npx tsx scripts/run-family.ts maya` (and `leo`, `ava`). Every live query is written to
-`data/sample/zetaris-cache/`.
+`data/sample/zetaris-cache/`. To also cover typed-in families, run a few made-up families of different baby ages live
+(the offers lookup is the same for everyone, the per-offer fact-check lookup depends on which offers fall in the age window).

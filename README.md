@@ -111,7 +111,7 @@ Money is integer cents, computed in code, never by the model.
 `SAMPLE_MODE=true` (the default in `.env.example`) lets you run with **no keys and no database**:
 
 - The three families come from `data/sample/families.json` (made up).
-- **Zetaris is answered from saved real responses** (`data/sample/zetaris-cache/`, 113 files, captured 2026-10-23 by running the agents live against Zetaris). Nothing is pre-written: the agents still run their queries, the fact-checks and the court. See `data/README.md`.
+- **Zetaris is answered from saved real responses** (`data/sample/zetaris-cache/`, 126 files, captured 2026-10-23 by running the agents live against Zetaris). Nothing is pre-written: the agents still run their queries, the fact-checks and the court. See `data/README.md`.
 - **Without `MODEL_API_KEY`, the model-written parts fall back to deterministic text.** The Fine Print Court uses a plain screen (rejects offers matching a learned rule's keywords, a stated shipping/handling fee over $5 or a fee that "may apply", or fine print that says Prime/a membership is required; trace status `fallback`). Its approvals say so: "Offline screen: no flagged terms found. Not reviewed by the AI court." It does not catch a free trial that auto-renews into a paid plan until a parent-reported rule teaches it (that is the learning demo). Explanations use fixed text.
 - Memory is H-MEM running locally (folder `data/hmem`, created on first run).
 - The sample families run on a fixed **demo date, 2026-10-23**, so their deadlines make sense. Change it with `TODAY=YYYY-MM-DD`. A family you type in uses the real date.
@@ -159,7 +159,7 @@ Secrets go only in `.env` (git-ignored). `.env.example` holds placeholders.
 | Cards with a source | **100%** |
 | Learning demo | Run 1 approves the "free trial that auto-renews" offer; a reviewer-approved rule is stored in memory; run 2 **blocks** it and cites that rule (`mem-1`) |
 
-  **Every saved run here is offline** (`llmMode: "offline-fallback"`, Scout `fake-llm`): no real AI model was used for the scoreboard, the examples or the traces. Offline, the Fine Print Court's debate lines are "model unavailable" and the Coach picks from two pre-written rule sentences once 2 or more reports share a theme (see the Coach row in §2), so the learning demo shows the *mechanism* (feedback, then memory, then a changed outcome), not AI-written rules. A real-model run will be added when a model key is available. The learning traces are in `output_examples/learning/` (run 2 contains the memory calls and the judge citing the rule).
+  **Every saved run here is offline** (`llmMode: "offline-fallback"`, Scout `fake-llm`): no real AI model was used for the scoreboard, the examples or the traces. Offline, the Fine Print Court's debate lines are "model unavailable" and the Coach picks from two pre-written rule sentences once 2 or more reports share a theme (see the Coach row in §2), so the learning demo shows the *mechanism* (feedback, then memory, then a changed outcome), not AI-written rules. A real-model run will be added when a model key is available. The learning traces are in `output_examples/learning/`: `run1.jsonl`, `approve.jsonl` (the reviewer's approval: the `memory add_rule` call) and `run2.jsonl` (`memory recall_rules` returns the rule, then the judge blocks the offer and cites it).
 
 ## 9. Folder map
 

@@ -18,6 +18,7 @@ import { ZetarisClient } from '../server/adapters/zetaris';
 import { createGenerator, FakeGenerator, UnavailableGenerator, type Generator } from '../server/adapters/llm';
 import { BundleMemory } from '../server/adapters/memory';
 import { runBundle } from '../server/agents/orchestrator';
+import { TraceLogger } from '../server/agents/trace';
 import { proposeRules, type FeedbackRow } from '../server/agents/coach';
 import { MemoryStore, type BundleStore } from '../server/bundleStore';
 import { resolveToday } from '../server/demoDate';
@@ -113,9 +114,12 @@ export async function runLearning(o: { z: ZetarisClient; llm: Generator; memory:
   const all = await o.store.listProposals();
   const mine = proposed.map((p) => saved.find((s) => s.text === p.text) ?? all.find((s) => s.text.trim().toLowerCase() === p.text.trim().toLowerCase())).filter((x): x is NonNullable<typeof x> => !!x);
   // The eval plays the reviewer: same two steps as POST /api/case-law/:id/approve (store the rule in memory, mark it approved).
+  // The approval gets its own small trace (memory add_rule), saved between run 1 and run 2, so the memory write is visible too.
+  const approveId = `approve-${r1.runId}`;
+  const approveTrace = new TraceLogger(approveId, o.logsDir);
   const memoryIds: string[] = [];
   for (const p of mine) {
-    const memoryId = o.memory.addRule(p.text, `case_law:${p.id}`, p.confidence, p.sourceFeedbackIds);
+    const memoryId = o.memory.withTrace(approveTrace).addRule(p.text, `case_law:${p.id}`, p.confidence, p.sourceFeedbackIds);
     await o.store.markApproved(p.id, memoryId);
     memoryIds.push(memoryId);
   }
@@ -129,6 +133,7 @@ export async function runLearning(o: { z: ZetarisClient; llm: Generator; memory:
   if (o.copyTracesTo) {
     fs.mkdirSync(o.copyTracesTo, { recursive: true });
     fs.copyFileSync(readTrace(o.logsDir, r1.runId).file, path.join(o.copyTracesTo, 'run1.jsonl'));
+    if (memoryIds.length) fs.copyFileSync(readTrace(o.logsDir, approveId).file, path.join(o.copyTracesTo, 'approve.jsonl'));
     fs.copyFileSync(t2.file, path.join(o.copyTracesTo, 'run2.jsonl'));
   }
   return {
