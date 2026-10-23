@@ -10,7 +10,17 @@ export default {
         md: 'calc(var(--radius) - 2px)',
         sm: 'calc(var(--radius) - 4px)'
       },
+      fontFamily: {
+        sans: ['Manrope', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        mono: ['"JetBrains Mono"', 'ui-monospace', 'monospace'],
+      },
       colors: {
+        cream: 'var(--cream)',
+        paper: 'var(--paper)',
+        ink: { DEFAULT: 'var(--ink)', 2: 'var(--ink-2)', 3: 'var(--ink-3)' },
+        line: 'var(--line)',
+        coral: { DEFAULT: 'var(--coral)', deep: 'var(--coral-deep)', tint: 'var(--coral-tint)' },
+        kind: { clawback: '#1E8A5A', recall: '#C9352B', deadline: '#E4572E', discount: '#6B4EE6', soon: '#8A8076' },
         background: 'hsl(var(--background))',
         foreground: 'hsl(var(--foreground))',
         card: {

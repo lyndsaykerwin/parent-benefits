@@ -28,9 +28,13 @@ export interface ApiDeps {
   runLimit?: { limit: number; windowMs: number };
   /** Runs allowed at the same time across all visitors (default 5). */
   maxInFlight?: number;
+  /** Where Task 13's eval writes its scoreboard (default logs/scoreboard.json). */
+  scoreboardFile?: () => string;
 }
 
-type RunEntry = { runId: string; familyId: string; status: 'running' | 'done' | 'failed'; startedAt: string; result?: BundleResult; error?: string; logsDir: string };
+/** Display-only family fields the UI needs (header chip, day count). Never income. */
+type FamilyView = { name: string; birthDate: string | null; dueDate: string | null };
+type RunEntry = { runId: string; familyId: string; status: 'running' | 'done' | 'failed'; startedAt: string; result?: BundleResult; error?: string; logsDir: string; family: FamilyView; today: string };
 
 const isIsoDate = (v: unknown): v is string =>
   typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) && !Number.isNaN(Date.parse(`${v}T00:00:00Z`)) && new Date(`${v}T00:00:00Z`).toISOString().slice(0, 10) === v;
@@ -88,7 +92,10 @@ export function createBundleRouter(deps: ApiDeps): Router {
     const base = deps.makeRunDeps();
     const runId = newRunId(family.id);
     knownFamilies.add(family.id);
-    const entry: RunEntry = { runId, familyId: family.id, status: 'running', startedAt: new Date().toISOString(), logsDir: base.logsDir };
+    const entry: RunEntry = {
+      runId, familyId: family.id, status: 'running', startedAt: new Date().toISOString(), logsDir: base.logsDir,
+      family: { name: family.name, birthDate: family.birthDate, dueDate: family.dueDate }, today: base.today,
+    };
     runs.set(runId, entry);
     while (runs.size > MAX_REGISTRY) runs.delete(runs.keys().next().value as string);
     inFlight++;
@@ -124,7 +131,7 @@ export function createBundleRouter(deps: ApiDeps): Router {
   router.get('/api/runs/:runId', (req, res) => {
     const e = runs.get(req.params.runId);
     if (!e) return res.status(404).json({ error: 'Run not found' });
-    return res.json({ runId: e.runId, familyId: e.familyId, status: e.status, startedAt: e.startedAt, result: e.result ?? null, error: e.error ?? null });
+    return res.json({ runId: e.runId, familyId: e.familyId, status: e.status, startedAt: e.startedAt, family: e.family, today: e.today, result: e.result ?? null, error: e.error ?? null });
   });
 
   router.get('/api/runs/:runId/trace', (req, res) => {
@@ -159,6 +166,15 @@ export function createBundleRouter(deps: ApiDeps): Router {
     } catch (e) {
       console.error('POST /api/feedback failed:', (e as Error)?.message);
       return res.status(500).json({ error: 'Could not save feedback.' });
+    }
+  });
+
+  router.get('/api/scoreboard', (_req, res) => {
+    const file = deps.scoreboardFile?.() ?? path.resolve('logs', 'scoreboard.json');
+    try {
+      return res.json({ scoreboard: JSON.parse(fs.readFileSync(file, 'utf8')) });
+    } catch {
+      return res.json({ scoreboard: null }); // no eval has run yet (or the file is unreadable)
     }
   });
 

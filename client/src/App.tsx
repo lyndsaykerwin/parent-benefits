@@ -4,7 +4,10 @@ import { Component, ErrorInfo, ReactNode } from "react";
 import { queryClient } from "./lib/queryClient";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import Home from "@/pages/home";
+import Onboarding from "@/pages/Onboarding";
+import Feed from "@/pages/Feed";
+import CardDetail from "@/pages/CardDetail";
+import Smarter from "@/pages/Smarter";
 import NotFound from "@/pages/not-found";
 
 class ErrorBoundary extends Component<
@@ -27,11 +30,11 @@ class ErrorBoundary extends Component<
   render() {
     if (this.state.hasError) {
       return (
-        <div className="min-h-screen flex items-center justify-center">
+        <div className="min-h-screen flex items-center justify-center bg-cream px-4">
           <div className="text-center">
-            <h1 className="text-2xl font-bold mb-4">Something went wrong</h1>
+            <h1 className="text-2xl font-extrabold mb-4 text-ink">Something went wrong</h1>
             <button
-              className="bg-blue-500 text-white px-4 py-2 rounded"
+              className="min-h-[48px] bg-ink text-cream px-5 rounded-2xl font-bold"
               onClick={() => this.setState({ hasError: false })}
             >
               Try again
@@ -48,7 +51,10 @@ class ErrorBoundary extends Component<
 function Router() {
   return (
     <Switch>
-      <Route path="/" component={Home} />
+      <Route path="/" component={Onboarding} />
+      <Route path="/feed/:runId" component={Feed} />
+      <Route path="/card/:id" component={CardDetail} />
+      <Route path="/smarter" component={Smarter} />
       <Route component={NotFound} />
     </Switch>
   );

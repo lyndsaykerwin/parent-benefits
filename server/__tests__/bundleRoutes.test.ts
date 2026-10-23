@@ -202,3 +202,23 @@ describe('feedback and case law', () => {
     expect((await request(app).post('/api/case-law/99/approve').set('x-reviewer-token', 'sekret')).status).toBe(404);
   });
 });
+
+describe('UI helpers (Task 12)', () => {
+  it('run status carries the family display fields and today, never income', async () => {
+    const { app } = build();
+    const { runId } = (await request(app).post('/api/run').send({ familyId: 'leo' })).body;
+    const body = (await request(app).get(`/api/runs/${runId}`)).body;
+    expect(body.today).toBe('2026-10-23');
+    expect(body.family).toEqual({ name: 'leo', birthDate: null, dueDate: '2026-12-07' });
+    expect(JSON.stringify(body)).not.toContain('14500000');
+  });
+
+  it('GET /api/scoreboard returns null before any eval, then the saved JSON', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sb-'));
+    const file = path.join(dir, 'scoreboard.json');
+    const { app } = build({ scoreboardFile: () => file });
+    expect((await request(app).get('/api/scoreboard')).body).toEqual({ scoreboard: null });
+    fs.writeFileSync(file, JSON.stringify({ trapsCaught: 6, trapsTotal: 6 }));
+    expect((await request(app).get('/api/scoreboard')).body).toEqual({ scoreboard: { trapsCaught: 6, trapsTotal: 6 } });
+  });
+});
