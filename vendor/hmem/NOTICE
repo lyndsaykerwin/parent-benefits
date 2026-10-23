@@ -1,0 +1,5 @@
+H-MEM reference implementation
+Copyright Meterless. Licensed under the Apache License, Version 2.0.
+Source: https://github.com/meterless/meterless/tree/main/engines/hmem/reference
+Vendored unmodified (fetched with degit) for the Open Agent Hackathon 2026.
+Bundle uses it through server/adapters/memory.ts.

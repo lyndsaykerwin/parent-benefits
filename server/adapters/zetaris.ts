@@ -1,16 +1,12 @@
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
+import type { TraceLogger, TraceLine } from '../agents/trace';
 
 export interface QueryResult {
   headers: string[];
   rows: Record<string, string | number | null>[];
   ms: number;
-}
-
-/** Minimal trace hook; the real TraceLogger (a later task) satisfies this shape. */
-export interface TraceLogger {
-  log(entry: Record<string, unknown>): void;
 }
 
 export class ZetarisUnavailable extends Error {
@@ -73,10 +69,11 @@ export class ZetarisClient {
     }
   }
 
-  private trace(action: string, sql: string, summary: string, status: string): void {
+  private trace(action: string, sql: string, summary: string, status: TraceLine['status'] | 'degraded'): void {
     this.opts.trace?.log({
       agent_name: 'zetaris', action, input_summary: sql.slice(0, 200),
-      output_summary: summary, status,
+      output_summary: summary, target_agent: null, confidence: null, retry_count: 0,
+      status: status === 'degraded' ? 'fallback' : status,
     });
   }
 
