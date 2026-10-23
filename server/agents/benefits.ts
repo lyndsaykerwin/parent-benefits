@@ -70,6 +70,32 @@ function fallbackText(code: string, title: string, cents: number | null, deadlin
   }
 }
 
+/**
+ * Pure date and scope screen for one rule (no Zetaris, no income test). Shared by the planner and the offline fallback.
+ * Returns why it is skipped, or the deadline (null = no window). WIC needs the poverty line, so callers handle it.
+ */
+export function screenRule(
+  rule: { code: string; scope: string; windowEndDays: number | null },
+  family: { state: string; birthDate: string | null; dueDate: string | null },
+  dcfsaOffered: boolean,
+  today: string,
+): { skip: string } | { deadline: string | null } {
+  const anchor = family.birthDate ?? family.dueDate ?? null;
+  if (rule.scope === 'MA' && family.state !== 'MA') return { skip: 'Massachusetts only' };
+  if (rule.code === 'DCFSA_LIFE_EVENT' && !dcfsaOffered) return { skip: 'employer has no Dependent Care FSA' };
+  if (rule.code === 'TRUMP_ACCOUNT' && !(anchor && anchor >= TRUMP_FIRST && anchor <= TRUMP_LAST)) return { skip: 'birth outside the Trump Account years' };
+  if (rule.windowEndDays === null) return { deadline: null };
+  if (!anchor) return { skip: 'no birth or due date' };
+  const deadline = addDays(anchor, rule.windowEndDays);
+  if (deadline < today) return { skip: `window closed ${deadline}` };
+  return { deadline };
+}
+
+/** Plain-English card text for a rule when no model or source is available (used by the offline fallback). */
+export function ruleFallbackText(code: string, title: string, cents: number | null, deadline: string | null, unborn: boolean): string {
+  return fallbackText(code, title, cents, deadline, unborn);
+}
+
 /** Work out which benefits a family likely qualifies for. Amounts and deadlines come from the rules table. */
 export async function planBenefits(ctx: AgentContext, today: string): Promise<Candidate[]> {
   let famSql: string;
@@ -110,18 +136,10 @@ export async function planBenefits(ctx: AgentContext, today: string): Promise<Ca
     const scope = s(r, 'scope');
     const skip = (why: string) => { skipped.push(`${code}: ${why}`); };
 
-    if (scope === 'MA' && ctx.family.state !== 'MA') { skip('Massachusetts only'); continue; }
-    if (code === 'DCFSA_LIFE_EVENT' && !dcfsaOffered) { skip('employer has no Dependent Care FSA'); continue; }
-    if (code === 'TRUMP_ACCOUNT' && !(anchor && anchor >= TRUMP_FIRST && anchor <= TRUMP_LAST)) { skip('birth outside the Trump Account years'); continue; }
     if (code === 'WIC_SCREEN' && !wicOk) { skip('income above the WIC line or unknown'); continue; }
-
-    const windowEnd = num(r, 'window_end_days_from_birth');
-    let deadline: string | null = null;
-    if (windowEnd !== null) {
-      if (!anchor) { skip('no birth or due date'); continue; }
-      deadline = addDays(anchor, windowEnd);
-      if (deadline < today) { skip(`window closed ${deadline}`); continue; }
-    }
+    const screened = screenRule({ code, scope, windowEndDays: num(r, 'window_end_days_from_birth') }, ctx.family, dcfsaOffered, today);
+    if ('skip' in screened) { skip(screened.skip); continue; }
+    const deadline = screened.deadline;
 
     const cents = num(r, 'amount_cents');
     const title = `${s(r, 'title')}${unborn ? ' (after birth)' : ''}`;
@@ -144,9 +162,9 @@ export async function planBenefits(ctx: AgentContext, today: string): Promise<Ca
 }
 
 /** Re-derive one card from the rules table after the Fact-Checker sent it back. null = give up. */
-export async function revise(c: Candidate, reason: string, ctx: AgentContext): Promise<Candidate | null> {
+export async function revise(c: Candidate, reason: string, ctx: AgentContext, today: string = todayIso()): Promise<Candidate | null> {
   log(ctx, 'revise', `rule ${c.claim.ref}: ${reason}`.slice(0, 200), 're-deriving from source', 'retry', c.retryCount + 1);
-  const fresh = await planBenefits(ctx, todayIso());
+  const fresh = await planBenefits(ctx, today);
   const match = fresh.find((f) => f.claim.ref === c.claim.ref);
   if (!match) {
     log(ctx, 'revise', `rule ${c.claim.ref}`, 'gave up: not in source data', 'blocked', c.retryCount + 1);

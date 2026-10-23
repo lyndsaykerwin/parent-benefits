@@ -1,0 +1,47 @@
+[
+  {
+    "title": "Free baby registry welcome box",
+    "store": "Amazon",
+    "valueCents": 3500,
+    "minAgeDays": -280,
+    "maxAgeDays": 365,
+    "finePrint": "Requires Prime and a registry with at least one item; limited to one per household.",
+    "sourceUrl": "https://www.amazon.com/baby-reg/homepage"
+  },
+  {
+    "title": "15% registry completion discount",
+    "store": "Target",
+    "valueCents": null,
+    "minAgeDays": -280,
+    "maxAgeDays": 365,
+    "finePrint": "One-time coupon valid for 60 days after registry creation; excludes some brands.",
+    "sourceUrl": "https://www.target.com/c/baby-registry/-/N-5xtbg"
+  },
+  {
+    "title": "Free welcome gift bag",
+    "store": "Walmart",
+    "valueCents": 2500,
+    "minAgeDays": -280,
+    "maxAgeDays": 365,
+    "finePrint": "Registry must be created online; in-store pickup only while supplies last.",
+    "sourceUrl": "https://www.walmart.com/cp/baby-registry/1094765"
+  },
+  {
+    "title": "Pampers Club rewards sign-up bonus",
+    "store": "Pampers",
+    "valueCents": 500,
+    "minAgeDays": -280,
+    "maxAgeDays": 365,
+    "finePrint": "Points added after scanning your first diaper pack code.",
+    "sourceUrl": "https://www.pampers.com/en-us/club"
+  },
+  {
+    "title": "Babylist registry welcome box",
+    "store": "Babylist",
+    "valueCents": 2000,
+    "minAgeDays": -280,
+    "maxAgeDays": 365,
+    "finePrint": "Box ships after you add 10 items; shipping fee may apply.",
+    "sourceUrl": "https://www.babylist.com/registry-benefits"
+  }
+]

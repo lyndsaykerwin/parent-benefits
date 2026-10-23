@@ -15,6 +15,7 @@ import * as court from './finePrintCourt';
 import * as benefits from './benefits';
 import { itemsSql } from './recall';
 import { col } from './sql';
+import { buildFallbackFillers } from './fallback';
 
 export const BANNER = "Some sources didn't respond: showing what we could check.";
 export const COPY = {
@@ -79,8 +80,18 @@ export function assembleFeed(
   const count = (k: string) => cards.filter((c) => c.kind === k).length;
 
   for (const c of verified) if (c.kind !== 'coming_soon') add(c);
-  for (const c of fillers.federalBenefits) if (count('benefit') < 2 && c.kind === 'benefit') add(c);
-  for (const c of fillers.approvedGeneralOffers) if (count('discount') < 3 && c.kind === 'discount') add(c);
+  // Fillers only top up a short feed, and never repeat a rule or offer already shown.
+  const have = (k: string, f: (c: Candidate) => string) => new Set(verified.filter((c) => c.kind === k).map(f));
+  const refs = have('benefit', (c) => String(c.claim.ref));
+  const titles = have('discount', (c) => c.title);
+  for (const c of fillers.federalBenefits) {
+    if (count('benefit') >= 2) break;
+    if (c.kind === 'benefit' && !refs.has(String(c.claim.ref))) add(c);
+  }
+  for (const c of fillers.approvedGeneralOffers) {
+    if (count('discount') >= 3) break;
+    if (c.kind === 'discount' && !titles.has(c.title)) add(c);
+  }
 
   if (count('recall') === 0) {
     cards.push(itemsChecked > 0
@@ -134,10 +145,23 @@ function ageDays(family: Family, today: string): number {
   return Math.round((Date.parse(`${today}T00:00:00Z`) - Date.parse(`${anchor}T00:00:00Z`)) / 86_400_000);
 }
 
-/** Words and phrases from what the family bought; used by the court to pick trigger offers (e.g. a diaper deal). */
-async function purchaseKeywords(ctx: AgentContext): Promise<string[]> {
+const TRANSIENT = /thrift|resultset/i;
+/** Zetaris sometimes answers HTTP 400 with a server-side Thrift/ResultSet hiccup (seen live Oct 23); one pause-and-retry clears it. */
+async function retryTransient<T>(fn: () => Promise<T>, onRetry: (msg: string) => void): Promise<T> {
   try {
-    const { rows } = await ctx.z.runQuery(itemsSql(ctx.family.id));
+    return await fn();
+  } catch (e) {
+    if (!TRANSIENT.test(String((e as Error)?.message))) throw e;
+    onRetry(String((e as Error).message));
+    await new Promise((r) => setTimeout(r, 1500));
+    return fn();
+  }
+}
+
+/** Words and phrases from what the family bought; used by the court to pick trigger offers (e.g. a diaper deal). */
+async function purchaseKeywords(ctx: AgentContext, onRetry: (msg: string) => void): Promise<string[]> {
+  try {
+    const { rows } = await retryTransient(() => ctx.z.runQuery(itemsSql(ctx.family.id)), onRetry);
     const items = rows.map((r) => String(col(r, 'item_text') ?? '').toLowerCase().trim()).filter(Boolean);
     const words = items.flatMap((t) => t.match(/[a-z]{3,}/g) ?? []);
     return [...new Set([...items.map((t) => t.slice(0, 80)), ...words])].slice(0, 200);
@@ -149,11 +173,10 @@ async function purchaseKeywords(ctx: AgentContext): Promise<string[]> {
 
 export async function runBundle(familyId: string, deps: RunDeps): Promise<BundleResult> {
   const family = await deps.loadFamily(familyId);
-  const runId = `${familyId}-${new Date().toISOString().replace(/[^0-9]/g, '').slice(0, 14)}-${crypto.randomBytes(2).toString('hex')}`;
+  const runId = `${familyId.replace(/[^A-Za-z0-9_-]/g, '_')}-${new Date().toISOString().replace(/[^0-9]/g, '').slice(0, 14)}-${crypto.randomBytes(2).toString('hex')}`;
   const trace = new TraceLogger(runId, deps.logsDir);
   const ctx: AgentContext = { runId, family, z: deps.z, llm: deps.llm, memory: deps.memory, trace };
-  const maxRetries = Number.isInteger(Number(process.env.MAX_RETRIES)) && process.env.MAX_RETRIES !== '' && process.env.MAX_RETRIES !== undefined
-    ? Number(process.env.MAX_RETRIES) : 2;
+  const maxRetries = /^\d+$/.test(process.env.MAX_RETRIES ?? '') ? Number(process.env.MAX_RETRIES) : 2;
   let banner: string | null = null;
   const log = (action: string, input: string, output: string, status: 'ok' | 'retry' | 'blocked' | 'error' | 'fallback', retry = 0) =>
     trace.log({ agent_name: 'orchestrator', action, input_summary: input.slice(0, 250), output_summary: output.slice(0, 250), target_agent: null, confidence: null, retry_count: retry, status });
@@ -163,24 +186,15 @@ export async function runBundle(familyId: string, deps: RunDeps): Promise<Bundle
   };
   log('start', `family ${familyId}`, `today ${deps.today}`, 'ok');
 
-  // Zetaris sometimes answers HTTP 400 with a server-side Thrift/ResultSet hiccup (seen live Oct 23); one pause-and-retry clears it.
-  const withRetry = async <T>(who: string, fn: () => Promise<T>): Promise<T> => {
-    try {
-      return await fn();
-    } catch (e) {
-      if (!/thrift|resultset/i.test(String((e as Error)?.message))) throw e;
-      log('retry_transient', who, String((e as Error).message), 'retry', 1);
-      await new Promise((r) => setTimeout(r, 1500));
-      return fn();
-    }
-  };
+  const withRetry = <T>(who: string, fn: () => Promise<T>): Promise<T> =>
+    retryTransient(fn, (m) => log('retry_transient', who, m, 'retry', 1));
 
   // 2. Run the four agents at the same time; one failing never stops the rest.
   const [claws, rec, ben, offers] = await Promise.allSettled([
     withRetry('clawback', () => clawback.findClawbacks(ctx)),
     withRetry('recall', () => recall.checkRecalls(ctx)),
     withRetry('benefits', () => benefits.planBenefits(ctx, deps.today)),
-    withRetry('fine_print_court', async () => court.judgeOffers(ctx, { ageDays: ageDays(family, deps.today), purchaseKeywords: await purchaseKeywords(ctx), includeGeneral: true })),
+    withRetry('fine_print_court', async () => court.judgeOffers(ctx, { ageDays: ageDays(family, deps.today), purchaseKeywords: await purchaseKeywords(ctx, (m) => log('retry_transient', 'purchase_keywords', m, 'retry', 1)), includeGeneral: true })),
   ]);
   const take = <T>(r: PromiseSettledResult<T>, who: string, empty: T): T => {
     if (r.status === 'fulfilled') return r.value;
@@ -192,49 +206,60 @@ export async function runBundle(familyId: string, deps: RunDeps): Promise<Bundle
   const benCands = take(ben, 'benefits', [] as Candidate[]);
   const offerCands = take(offers, 'fine_print_court', [] as Candidate[]);
 
-  // 3. Fact-check everything; a failing card goes back to its owner, up to maxRetries times, then is dropped.
-  const verified: Candidate[] = [];
-  const checkOne = async (start: Candidate): Promise<void> => {
+  // 3. Fact-check everything (4 at a time). A card that is WRONG goes back to its owner, up to maxRetries times, then is dropped.
+  // A card that could not be CHECKED (source down) is never sent back: transient errors get one retry, otherwise it is dropped with the banner.
+  const checkOne = async (start: Candidate): Promise<Candidate | null> => {
     let c = start;
     for (let attempt = 0; ; attempt++) {
-      let res;
-      try {
+      let res = await verify(c, ctx);
+      if (res.unavailable && TRANSIENT.test(res.reason ?? '')) {
+        log('retry_transient', `fact_check ${c.id}`, res.reason ?? '', 'retry', attempt);
+        await new Promise((r) => setTimeout(r, 1500));
         res = await verify(c, ctx);
-      } catch (e) {
-        noteFailure(`fact_checker ${c.id}`, e);
-        log('drop', `${c.kind} ${c.id} from ${c.agent}`, 'dropped: could not be checked', 'blocked', attempt);
-        return;
       }
-      if (res.ok) { verified.push(c); return; }
+      if (res.ok) return c;
+      if (res.unavailable) {
+        banner = BANNER;
+        log('drop', `${c.kind} ${c.id} from ${c.agent}`, `dropped, not checked: ${res.reason}`, 'error', attempt);
+        return null;
+      }
       if (attempt >= maxRetries) {
         log('drop', `${c.kind} ${c.id} from ${c.agent}`, `dropped after ${attempt} retries: ${res.reason}`, 'blocked', attempt);
-        return;
+        return null;
       }
-      const reviser = REVISERS[c.agent];
       const reason = `${res.reason ?? 'failed fact-check'}${res.corrected ? ` (corrected values: ${JSON.stringify(res.corrected)})` : ''}`;
       log('send_back', `${c.id} to ${c.agent}`, reason, 'retry', attempt + 1);
       let next: Candidate | null = null;
       try {
-        next = reviser ? await reviser(c, reason, ctx) : null;
+        next = c.agent === 'benefits' ? await benefits.revise(c, reason, ctx, deps.today)
+          : REVISERS[c.agent] ? await REVISERS[c.agent](c, reason, ctx) : null;
       } catch (e) {
         noteFailure(`revise ${c.agent}`, e);
       }
       if (!next) {
         log('drop', `${c.kind} ${c.id} from ${c.agent}`, `dropped: ${c.agent} could not fix it (${res.reason})`, 'blocked', attempt + 1);
-        return;
+        return null;
       }
       c = { ...next, retryCount: attempt + 1 };
     }
   };
-  // Sequential keeps the trace readable and avoids hammering Zetaris with parallel re-derivations.
   const all = [...clawCands, ...recRes.candidates, ...benCands, ...offerCands];
-  for (const c of all) await checkOne(c);
+  const results: (Candidate | null)[] = new Array(all.length).fill(null);
+  let nextIdx = 0;
+  await Promise.all(Array.from({ length: Math.min(4, all.length) }, async () => {
+    while (nextIdx < all.length) {
+      const i = nextIdx++;
+      try {
+        results[i] = await checkOne(all[i]);
+      } catch (e) {
+        noteFailure(`fact_check ${all[i].id}`, e);
+      }
+    }
+  }));
+  const verified = results.filter((c): c is Candidate => c !== null);
 
-  // 4. Assemble. Fillers are the verified benefit and offer cards (court-approved only; never unvetted).
-  const { cards, receipt } = assembleFeed(verified, family, recRes.itemsChecked, {
-    approvedGeneralOffers: verified.filter((c) => c.kind === 'discount'),
-    federalBenefits: verified.filter((c) => c.kind === 'benefit'),
-  }, deps.today);
+  // 4. Assemble. If agents came up short, bundled stand-ins (verdict info, "not yet verified", outside the Receipt) top the feed up.
+  const { cards, receipt } = assembleFeed(verified, family, recRes.itemsChecked, buildFallbackFillers(family, deps.today), deps.today);
   log('assemble', `family ${familyId}`, `${cards.length} cards, ${verified.length}/${all.length} passed fact-check`, 'ok');
 
   // 5. Trust ledger out to logs/.

@@ -5,6 +5,8 @@ export interface VerifyResult {
   ok: boolean;
   reason: string | null;
   corrected: Partial<Candidate> | null;
+  /** true when the check could not run (source down or errored): the card is unchecked, not wrong. */
+  unavailable?: boolean;
 }
 
 /**
@@ -193,6 +195,6 @@ export async function verify(c: Candidate, ctx: AgentContext): Promise<VerifyRes
   } catch (e) {
     if (e instanceof InvalidId) return finish(c, ctx, fail('invalid id'), 'blocked');
     // Fail closed: an unchecked fact is never shown.
-    return finish(c, ctx, fail(`could not verify: ${(e as Error).message}`), 'error');
+    return finish(c, ctx, { ...fail(`could not verify: ${(e as Error).message}`), unavailable: true }, 'error');
   }
 }

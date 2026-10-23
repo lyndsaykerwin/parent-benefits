@@ -5,7 +5,7 @@ import path from 'path';
 jest.mock('../agents/clawback');
 jest.mock('../agents/recall');
 jest.mock('../agents/finePrintCourt');
-jest.mock('../agents/benefits');
+jest.mock('../agents/benefits', () => ({ ...jest.requireActual('../agents/benefits'), planBenefits: jest.fn(), revise: jest.fn() }));
 jest.mock('../agents/factChecker');
 
 import * as clawback from '../agents/clawback';
@@ -176,6 +176,62 @@ describe('runBundle', () => {
     const blocked = lines.find((l) => l.status === 'blocked' && l.retry_count === 2);
     expect(blocked).toBeTruthy();
     expect(blocked.input_summary).toContain('benefit-bad');
+  });
+
+  it('fact-check outage: banner, no send-back, card dropped, one verify call each', async () => {
+    const { deps } = setup({ verify: () => ({ ok: false, reason: 'could not verify: Zetaris unreachable or timed out', corrected: null, unavailable: true }) });
+    const r = await runBundle('maya', deps);
+    expect(r.banner).toBe(BANNER);
+    expect(benefits.revise).not.toHaveBeenCalled();
+    expect(court.revise).not.toHaveBeenCalled();
+    expect(fc.verify).toHaveBeenCalledTimes(5); // 2 benefits + 3 offers, once each
+    expect(r.cards.filter((c) => c.kind === 'benefit').length).toBeGreaterThanOrEqual(2);
+    expect(r.cards.filter((c) => c.kind === 'discount').length).toBeGreaterThanOrEqual(3);
+    expect(r.cards.filter((c) => c.verdict === 'likely' || c.verdict === 'verified')).toHaveLength(0);
+  });
+
+  it('benefits AND court both fail: minimums hold from bundled fallbacks, marked info, outside the Receipt', async () => {
+    const { deps } = setup();
+    (benefits.planBenefits as jest.Mock).mockRejectedValue(new ZetarisUnavailable('down'));
+    (court.judgeOffers as jest.Mock).mockRejectedValue(new ZetarisUnavailable('down'));
+    const r = await runBundle('maya', deps);
+    expect(r.banner).toBe(BANNER);
+    const ben = r.cards.filter((c) => c.kind === 'benefit');
+    const dis = r.cards.filter((c) => c.kind === 'discount');
+    expect(ben.length).toBeGreaterThanOrEqual(2);
+    expect(dis.length).toBeGreaterThanOrEqual(3);
+    for (const c of [...ben, ...dis]) {
+      expect(c.verdict).toBe('info');
+      expect(c.body).toContain("Not yet verified: some sources didn't respond.");
+      expect(c.sources[0].url).toMatch(/^https:/);
+    }
+    expect(dis.some((c) => /Cuddle/i.test(c.title))).toBe(false);
+    expect(r.receipt.likelyBenefitsCents).toBe(0);
+    expect(r.receipt.moneyBackCents).toBe(0);
+  });
+
+  it('a transient Thrift error during fact-check is retried once', async () => {
+    let n = 0;
+    const { deps } = setup({ verify: (c) => (c.id === 'benefit-a' && n++ === 0 ? { ok: false, reason: 'could not verify: Thrift TTransportException', corrected: null, unavailable: true } : { ok: true, reason: null, corrected: null }) });
+    const r = await runBundle('maya', deps);
+    expect(r.banner).toBeNull();
+    expect(r.cards.find((c) => c.id === 'benefit-a')).toBeDefined();
+  });
+
+  it('invalid MAX_RETRIES falls back to 2; a weird family id is made file-safe', async () => {
+    process.env.MAX_RETRIES = '-1';
+    const { deps, dir } = setup();
+    (benefits.planBenefits as jest.Mock).mockResolvedValue([ben('bad'), ben('a'), ben('b')]);
+    (fc.verify as jest.Mock).mockImplementation(async (c: Candidate) => (c.id === 'benefit-bad' ? { ok: false, reason: 'x', corrected: null } : { ok: true, reason: null, corrected: null }));
+    (benefits.revise as jest.Mock).mockImplementation(async (c: Candidate) => c);
+    try {
+      const r = await runBundle('maya/../x', { ...deps, loadFamily: async () => maya });
+      expect(r.runId).toMatch(/^[A-Za-z0-9_-]+$/);
+      expect(benefits.revise).toHaveBeenCalledTimes(2);
+      expect(fs.readdirSync(dir).every((f) => /^[A-Za-z0-9_.-]+$/.test(f))).toBe(true);
+    } finally {
+      delete process.env.MAX_RETRIES;
+    }
   });
 
   it('a candidate fixed by revise is kept', async () => {

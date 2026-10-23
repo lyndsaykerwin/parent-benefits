@@ -160,6 +160,7 @@ describe('fact-checker', () => {
     const o2 = await verify(cand(), down.ctx);
     expect(o2.ok).toBe(false);
     expect(o2.reason).toContain('could not verify');
+    expect(o2.unavailable).toBe(true);
   });
 
   it('rejects unsafe or empty ids without querying', async () => {
