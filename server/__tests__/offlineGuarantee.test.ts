@@ -3,7 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { makeRealRunDeps, createDefaultApiDeps } from '../bundleDeps';
 import { ZetarisClient } from '../adapters/zetaris';
-import { ModelUnavailable } from '../adapters/llm';
+import { ModelUnavailable, NvidiaGenerator } from '../adapters/llm';
 import { BundleMemory } from '../adapters/memory';
 
 // SAMPLE_MODE means offline, no matter which keys are present in the environment or the secrets file.
@@ -52,5 +52,36 @@ describe('SAMPLE_MODE is offline even when real keys are present', () => {
     const memory = new BundleMemory(fs.mkdtempSync(path.join(os.tmpdir(), 'off-mem3-')));
     const deps = makeRealRunDeps(memory, 'maya');
     expect((deps.z as any).opts.sampleMode).toBe(false);
+  });
+});
+
+// The scripts that exist to go live (run-family, examples:regen --live) must still get live clients.
+describe('live paths stay live when asked', () => {
+  const saved = { ...process.env };
+  afterEach(() => { process.env = { ...saved }; });
+  const keys = { ZETARIS_BASE_URL: 'https://zetaris.example.test', ZETARIS_ORG_ID: 'o', ZETARIS_API_KEY: 'k', MODEL_API_KEY: 'mk', MODEL_REASONING: 'r', MODEL_FAST: 'f' };
+
+  it('SAMPLE_MODE unset: live Zetaris client and a real model generator', () => {
+    Object.assign(process.env, keys); delete process.env.SAMPLE_MODE;
+    const deps = makeRealRunDeps(new BundleMemory(fs.mkdtempSync(path.join(os.tmpdir(), 'live-a-'))), 'maya');
+    expect((deps.z as any).opts.sampleMode).toBe(false);
+    expect(deps.llm).toBeInstanceOf(NvidiaGenerator);
+  });
+
+  it('SAMPLE_MODE=true with live: true (run-family / regen --live): live clients', () => {
+    Object.assign(process.env, keys, { SAMPLE_MODE: 'true' });
+    const deps = makeRealRunDeps(new BundleMemory(fs.mkdtempSync(path.join(os.tmpdir(), 'live-b-'))), undefined, { live: true });
+    expect((deps.z as any).opts.sampleMode).toBe(false);
+    expect(deps.llm).toBeInstanceOf(NvidiaGenerator);
+    const api = createDefaultApiDeps({ live: true });
+    expect(api.llm).toBeInstanceOf(NvidiaGenerator);
+    expect((api.makeRunDeps({ id: 'maya' } as any).z as any).opts.sampleMode).toBe(false);
+  });
+
+  it('the eval builds a live Zetaris client with --live and a replay one without', async () => {
+    Object.assign(process.env, keys);
+    const { makeEvalZetaris } = await import('../../scripts/eval');
+    expect((makeEvalZetaris({ live: true }) as any).opts.sampleMode).toBe(false);
+    expect((makeEvalZetaris() as any).opts.sampleMode).toBe(true);
   });
 });

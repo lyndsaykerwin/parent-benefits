@@ -38,13 +38,15 @@ export interface RunDeps {
 }
 
 /** Load a family: sample file in SAMPLE_MODE, otherwise Neon through Drizzle (imported lazily: server/db.ts throws without DATABASE_URL). */
+export async function loadSampleFamily(id: string): Promise<Family> {
+  const all: Family[] = JSON.parse(fs.readFileSync(path.resolve('data/sample/families.json'), 'utf8'));
+  const f = all.find((x) => x.id === id);
+  if (!f) throw new Error(`Unknown sample family: ${id}`);
+  return f;
+}
+
 export async function defaultLoadFamily(id: string): Promise<Family> {
-  if (process.env.SAMPLE_MODE === 'true') {
-    const all: Family[] = JSON.parse(fs.readFileSync(path.resolve('data/sample/families.json'), 'utf8'));
-    const f = all.find((x) => x.id === id);
-    if (!f) throw new Error(`Unknown sample family: ${id}`);
-    return f;
-  }
+  if (process.env.SAMPLE_MODE === 'true') return loadSampleFamily(id);
   const { db } = await import('../db');
   const { families } = await import('../../shared/schema');
   const { eq } = await import('drizzle-orm');

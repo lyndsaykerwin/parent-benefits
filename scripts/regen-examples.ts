@@ -3,7 +3,8 @@
  *   output_examples/<name>.json   (the result)   and   logs/sample/<name>.jsonl   (that run's trace).
  *   npm run examples:regen            replays the saved Zetaris answers
  *   npm run examples:regen -- --live  asks Zetaris live (needs ZETARIS_* keys) and refreshes the saved answers
- * Uses whatever model settings are in your env files (a model key makes the explanations and court lines real).
+ * Replay mode is fully offline (no Zetaris, no model, offline explanation and court text). With --live, Zetaris and the
+ * model (if MODEL_API_KEY is set in your env files) are called for real.
  */
 import fs from 'fs';
 import path from 'path';
@@ -12,17 +13,18 @@ import type { AddressInfo } from 'net';
 import { loadEnv } from '../server/env';
 
 loadEnv();
-process.env.SAMPLE_MODE = 'true';
+process.env.SAMPLE_MODE = 'true'; // sample families + in-memory store; --live below makes the clients live anyway
+const LIVE = process.argv.includes('--live');
 // Replay the saved Zetaris answers (fast, free, repeatable) unless you pass --live, which queries Zetaris for real
 // and refreshes the saved answers in data/sample/zetaris-cache/.
-if (!process.argv.includes('--live')) for (const k of ['ZETARIS_BASE_URL', 'ZETARIS_ORG_ID', 'ZETARIS_API_KEY']) delete process.env[k];
+if (!LIVE) for (const k of ['ZETARIS_BASE_URL', 'ZETARIS_ORG_ID', 'ZETARIS_API_KEY']) delete process.env[k];
 
 async function main() {
   const { createBundleRouter } = await import('../server/routes/bundleRoutes');
   const { createDefaultApiDeps } = await import('../server/bundleDeps');
   const app = express();
   app.use(express.json());
-  app.use(createBundleRouter(createDefaultApiDeps()));
+  app.use(createBundleRouter(createDefaultApiDeps({ live: LIVE })));
   const server = app.listen(0);
   const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
   const inDir = path.resolve('input_examples');
