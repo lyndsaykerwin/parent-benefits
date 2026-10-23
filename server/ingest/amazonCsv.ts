@@ -31,6 +31,7 @@ function splitLine(line: string): string[] {
 const ISO = /^\d{4}-\d{2}-\d{2}/;
 
 export function parseAmazonCsvWithStats(csv: string, familyId: string): { rows: AmazonOrderRow[]; skipped: number } {
+  if (!familyId || !familyId.trim()) throw new Error('familyId is required');
   const lines = csv.trim().split(/\r?\n/).filter((l) => l.trim() !== '');
   if (lines.length === 0) return { rows: [], skipped: 0 };
   const header = splitLine(lines[0]).map((h) => h.trim().toLowerCase());
@@ -51,7 +52,8 @@ export function parseAmazonCsvWithStats(csv: string, familyId: string): { rows: 
       return;
     }
     rows.push({
-      id: (iId >= 0 && c[iId]?.trim()) || `${familyId}-amz-${n + 1}`,
+      // Unique even if an export repeats an Order ID (one order, several items): order id + line number.
+      id: `${(iId >= 0 && c[iId]?.trim()) || `${familyId}-amz`}-L${n + 1}`,
       familyId,
       orderDate: date.slice(0, 10),
       title,

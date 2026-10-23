@@ -31,6 +31,23 @@ describe('parseAmazonCsv', () => {
   });
 });
 
+describe('id uniqueness and guards', () => {
+  it('gives unique ids to lines sharing an Order ID', () => {
+    const csv = 'Order ID,Order Date,Product Name,ASIN,Unit Price\nA1,2026-10-01,Wipes,B01,5.00\nA1,2026-10-01,Diapers,B02,20.00\n';
+    const rows = parseAmazonCsv(csv, 'x');
+    expect(rows.length).toBe(2);
+    expect(new Set(rows.map((r) => r.id)).size).toBe(2);
+  });
+  it('gives unique fallback ids to identical Plaid lines without ids', () => {
+    const t = { amount: 5, merchant_name: 'Target', date: '2026-10-10' };
+    expect(mapPlaidTxn(t, 'x', 0).id).not.toBe(mapPlaidTxn(t, 'x', 1).id);
+  });
+  it('throws on an empty familyId', () => {
+    expect(() => parseAmazonCsv(CSV, '')).toThrow();
+    expect(() => mapPlaidTxn({ amount: 1, date: '2026-10-10' }, '')).toThrow();
+  });
+});
+
 describe('mapPlaidTxn', () => {
   it('maps dollars to integer cents and prefers merchant_name', () => {
     const t = mapPlaidTxn({ amount: 28.99, merchant_name: 'Target', date: '2026-10-10' }, 'maya');

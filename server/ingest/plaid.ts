@@ -1,6 +1,7 @@
 // Maps Plaid-shaped transactions into Bundle's transactions table shape.
 // Live Plaid is "coming soon"; today the sample fixture uses the same mapper.
 import fs from 'fs';
+import { createHash } from 'crypto';
 import path from 'path';
 import type * as s from '../../shared/schema';
 
@@ -17,10 +18,11 @@ export interface PlaidTxn {
   personal_finance_category?: { primary?: string; detailed?: string } | null;
 }
 
-export function mapPlaidTxn(t: PlaidTxn, familyId: string): TransactionRow {
+export function mapPlaidTxn(t: PlaidTxn, familyId: string, index = 0): TransactionRow {
+  if (!familyId || !familyId.trim()) throw new Error('familyId is required');
   const amountCents = Math.round(t.amount * 100);
   return {
-    id: t.transaction_id ?? `${familyId}-${t.date}-${amountCents}`,
+    id: t.transaction_id ?? `${familyId}-tx-${createHash('sha1').update(`${t.date}|${t.merchant_name || t.name || ''}|${amountCents}|${index}`).digest('hex').slice(0, 12)}`,
     familyId,
     date: t.date,
     merchant: t.merchant_name || t.name || 'Unknown',
@@ -33,5 +35,5 @@ export function mapPlaidTxn(t: PlaidTxn, familyId: string): TransactionRow {
 /** Reads the sample Plaid-format file (run from the repo root, as npm scripts and jest do). */
 export function loadPlaidFixture(dir = path.resolve(process.cwd(), 'data/sample')): TransactionRow[] {
   const raw: PlaidTxn[] = JSON.parse(fs.readFileSync(path.join(dir, 'plaid-transactions.json'), 'utf8'));
-  return raw.map((p) => mapPlaidTxn(p, p.family_id ?? ''));
+  return raw.map((p, i) => mapPlaidTxn(p, p.family_id ?? '', i));
 }
