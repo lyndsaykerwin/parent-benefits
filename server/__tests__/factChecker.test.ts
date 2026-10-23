@@ -1,0 +1,125 @@
+import os from 'os';
+import fs from 'fs';
+import path from 'path';
+import { verify } from '../agents/factChecker';
+import { TraceLogger } from '../agents/trace';
+import { ZetarisUnavailable } from '../adapters/zetaris';
+import { FakeGenerator } from '../adapters/llm';
+import type { AgentContext, Candidate } from '../agents/types';
+
+const family = {
+  id: 'maya', userId: null, isGuest: true, name: 'Maya', birthDate: '2026-10-01', dueDate: null,
+  zip: '02139', state: 'MA', employer: 'Acme', householdSize: 3, annualIncomeCents: 9000000,
+  dcfsaOffered: true, dataConnected: true,
+};
+
+function ctxWith(run: (sql: string) => any) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'fc-'));
+  const trace = new TraceLogger('t', dir);
+  const runQuery = jest.fn(async (sql: string) => run(sql));
+  const ctx = { runId: 't', family, z: { runQuery } as any, llm: new FakeGenerator(['x']), memory: {} as any, trace } as AgentContext;
+  return { ctx, runQuery, trace };
+}
+const res = (rows: any[]) => ({ headers: Object.keys(rows[0] ?? {}), rows, ms: 1 });
+
+function cand(over: Partial<Candidate> = {}): Candidate {
+  return {
+    id: 'c1', kind: 'discount', title: 'Offer', body: 'b', amountCents: 2899, deadline: null,
+    verdict: 'verified', sources: [{ label: 'Store', url: 'https://example.com' }], traceId: 't1',
+    agent: 'judge', claim: { type: 'offer', offerId: 7 }, evidenceSql: 'SELECT 1', retryCount: 0, ...over,
+  };
+}
+
+describe('fact-checker', () => {
+  it('passes when the re-query matches the claimed amount', async () => {
+    const { ctx, runQuery } = ctxWith(() => res([{ value_cents: 2899, max_age_days: 365 }]));
+    const out = await verify(cand(), ctx);
+    expect(out).toEqual({ ok: true, reason: null, corrected: null });
+    expect(runQuery.mock.calls[0][0]).not.toBe('SELECT 1'); // independent of evidenceSql
+    expect(runQuery.mock.calls[0][0]).toMatch(/v_judge_offers/);
+  });
+
+  it('fails with amount mismatch and offers the corrected amount', async () => {
+    const { ctx } = ctxWith(() => res([{ value_cents: 2499, max_age_days: 365 }]));
+    const out = await verify(cand(), ctx);
+    expect(out.ok).toBe(false);
+    expect(out.reason).toContain('amount mismatch');
+    expect(out.corrected?.amountCents).toBe(2499);
+  });
+
+  it('fails with "no source" when sources is empty, without querying', async () => {
+    const { ctx, runQuery } = ctxWith(() => res([]));
+    const out = await verify(cand({ sources: [] }), ctx);
+    expect(out).toEqual({ ok: false, reason: 'no source', corrected: null });
+    expect(runQuery).not.toHaveBeenCalled();
+  });
+
+  it('tolerates a difference of 1 cent but not 2', async () => {
+    const a = ctxWith(() => res([{ value_cents: 2900, max_age_days: 365 }]));
+    expect((await verify(cand(), a.ctx)).ok).toBe(true);
+    const b = ctxWith(() => res([{ value_cents: 2901, max_age_days: 365 }]));
+    expect((await verify(cand(), b.ctx)).ok).toBe(false);
+  });
+
+  it('checks a benefit deadline computed from the birth date', async () => {
+    const rule = { amount_cents: 100000, window_end_days_from_birth: 30 };
+    const c = cand({ kind: 'benefit', amountCents: 100000, deadline: '2026-10-31', claim: { type: 'rule', ref: 'PFML' } });
+    const good = ctxWith(() => res([rule]));
+    expect((await verify(c, good.ctx)).ok).toBe(true); // 2026-10-01 + 30 = 2026-10-31
+    const bad = ctxWith(() => res([rule]));
+    const out = await verify({ ...c, deadline: '2026-12-01' }, bad.ctx);
+    expect(out.ok).toBe(false);
+    expect(out.reason).toContain('deadline mismatch');
+    expect(out.corrected?.deadline).toBe('2026-10-31');
+  });
+
+  it('fails when the source row is missing', async () => {
+    const { ctx } = ctxWith(() => res([]));
+    const out = await verify(cand(), ctx);
+    expect(out.ok).toBe(false);
+    expect(out.reason).toContain('not found');
+  });
+
+  it('verifies a recall id exists in the live feed', async () => {
+    const c = cand({ kind: 'recall', amountCents: null, claim: { type: 'recall', recallId: 10560 } });
+    const ok = ctxWith(() => res([{ RecallID: 10560 }]));
+    expect((await verify(c, ok.ctx)).ok).toBe(true);
+    const none = ctxWith(() => ({ headers: [], rows: [], ms: 1 }));
+    expect((await verify(c, none.ctx)).ok).toBe(false);
+  });
+
+  it('verifies a clawback transaction belongs to this family and has the claimed amount', async () => {
+    const c = cand({ kind: 'clawback', amountCents: 500, claim: { type: 'clawback', txId: 'tx1', txAmountCents: 4000 } });
+    const good = ctxWith(() => res([{ amount_cents: 4000, family_id: 'maya' }]));
+    expect((await verify(c, good.ctx)).ok).toBe(true);
+    expect(good.runQuery.mock.calls[0][0]).toContain("family_id = 'maya'");
+    const bad = ctxWith(() => res([{ amount_cents: 3500, family_id: 'maya' }]));
+    const out = await verify(c, bad.ctx);
+    expect(out.ok).toBe(false);
+    expect(out.reason).toContain('amount mismatch');
+  });
+
+  it('fails closed on unknown claims and when Zetaris is down', async () => {
+    const unk = ctxWith(() => res([]));
+    const o1 = await verify(cand({ claim: { type: 'mystery' } }), unk.ctx);
+    expect(o1.ok).toBe(false);
+    expect(o1.reason).toContain('cannot verify');
+    const down = ctxWith(() => { throw new ZetarisUnavailable('down'); });
+    const o2 = await verify(cand(), down.ctx);
+    expect(o2.ok).toBe(false);
+    expect(o2.reason).toContain('could not verify');
+  });
+
+  it('escapes quotes in ids and traces every verify as fact_checker', async () => {
+    const c = cand({ claim: { type: 'rule', ref: "A'B" }, kind: 'benefit', amountCents: 5 });
+    const { ctx, runQuery, trace } = ctxWith(() => res([{ amount_cents: 5, window_end_days_from_birth: null }]));
+    await verify(c, ctx);
+    expect(runQuery.mock.calls[0][0]).toContain("'A''B'");
+    expect(runQuery.mock.calls[0][0]).not.toMatch(/;\s*$/);
+    const l = trace.lines().filter((x) => x.agent_name === 'fact_checker');
+    expect(l.length).toBe(1);
+    expect(l[0].status).toBe('ok');
+    await verify(cand({ sources: [] }), ctx);
+    expect(trace.lines().filter((x) => x.agent_name === 'fact_checker')[1].status).toBe('blocked');
+  });
+});
