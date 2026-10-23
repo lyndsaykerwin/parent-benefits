@@ -22,19 +22,24 @@ export function redact(text: string): string {
   return String(text)
     // income / annualIncome / annual_income / annualIncomeCents followed by a number
     .replace(/\b((?:annual[_ ]?income\w*|income)\W{0,4}?)\$?\d[\d,]*(?:\.\d+)?/gi, `$1${REDACTED}`)
-    // password "..."  /  password: '...'
-    .replace(/(password\s*[=:]?\s*)(["'])[^"']*\2/gi, `$1$2${REDACTED}$2`)
+    // "password":"x"  /  password: 'x'  /  password="x"
+    .replace(/(["']?password["']?\s*[:=]\s*)(["'])[^"']*\2/gi, `$1$2${REDACTED}$2`)
+    // password "x"
+    .replace(/(password\s+)(["'])[^"']*\2/gi, `$1$2${REDACTED}$2`)
+    // password is abc123
+    .replace(/(password\s+is\s+)[^\s&,;"']+/gi, `$1${REDACTED}`)
     // password=abc  /  password: abc
-    .replace(/(password\s*[=:]\s*)[^\s&,;"']+/gi, `$1${REDACTED}`);
+    .replace(/(["']?password["']?\s*[:=]\s*)[^\s&,;"'}]+/gi, `$1${REDACTED}`);
 }
 
 export class TraceLogger {
   private file: string;
+  private dir: string;
   private all: TraceLine[] = [];
 
   constructor(runId: string, dir: string = path.resolve(process.cwd(), 'logs')) {
-    fs.mkdirSync(dir, { recursive: true });
-    this.file = path.join(dir, `run-${runId}.jsonl`);
+    this.file = path.join(dir, `run-${runId.replace(/[^A-Za-z0-9_-]/g, '_')}.jsonl`);
+    this.dir = dir;
   }
 
   log(line: Omit<TraceLine, 'timestamp' | 'trace_id'>): string {
@@ -53,6 +58,7 @@ export class TraceLogger {
     };
     this.all.push(full);
     try {
+      fs.mkdirSync(this.dir, { recursive: true });
       fs.appendFileSync(this.file, JSON.stringify(full) + '\n', 'utf8');
     } catch {
       /* tracing must never crash a run; the in-memory copy still holds the line */

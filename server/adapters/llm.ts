@@ -32,8 +32,9 @@ export class NvidiaGenerator implements Generator {
     baseUrl: string,
     private models: { reasoning: string; fast: string },
     client?: ChatClient,
+    timeoutMs: number = 20000,
   ) {
-    this.client = client ?? (new OpenAI({ apiKey, baseURL: baseUrl }) as unknown as ChatClient);
+    this.client = client ?? (new OpenAI({ apiKey, baseURL: baseUrl, timeout: timeoutMs, maxRetries: 0 }) as unknown as ChatClient);
   }
 
   async generate(prompt: string, system?: string, model: 'reasoning' | 'fast' = 'reasoning'): Promise<string> {
@@ -82,6 +83,7 @@ export interface GeneratorConfig {
   baseUrl: string;
   reasoning: string;
   fast: string;
+  timeoutMs?: number;
 }
 
 export function generatorConfigFromEnv(env: NodeJS.ProcessEnv = process.env): GeneratorConfig {
@@ -90,13 +92,14 @@ export function generatorConfigFromEnv(env: NodeJS.ProcessEnv = process.env): Ge
     baseUrl: env.MODEL_BASE_URL || 'https://integrate.api.nvidia.com/v1',
     reasoning: env.MODEL_REASONING ?? '',
     fast: env.MODEL_FAST ?? '',
+    timeoutMs: (Number(env.SOURCE_TIMEOUT_SECONDS) || 20) * 1000,
   };
 }
 
 export function createGenerator(cfg: GeneratorConfig = generatorConfigFromEnv()): Generator {
   if (!cfg.apiKey) return new UnavailableGenerator('MODEL_API_KEY is not set');
   if (!cfg.reasoning || !cfg.fast) return new UnavailableGenerator('MODEL_REASONING / MODEL_FAST are not set');
-  return new NvidiaGenerator(cfg.apiKey, cfg.baseUrl, { reasoning: cfg.reasoning, fast: cfg.fast });
+  return new NvidiaGenerator(cfg.apiKey, cfg.baseUrl, { reasoning: cfg.reasoning, fast: cfg.fast }, undefined, cfg.timeoutMs ?? 20000);
 }
 
 function parseLoose(text: string): unknown {

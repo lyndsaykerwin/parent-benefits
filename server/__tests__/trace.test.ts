@@ -67,6 +67,22 @@ describe('TraceLogger', () => {
     expect(raw).not.toContain('s3cret');
   });
 
+  it.each([
+    ['{"password":"abc123"}', '{"password":"[redacted]"}'],
+    ["{'password': 'abc123'}", "{'password': '[redacted]'}"],
+    ['Password is abc123', 'Password is [redacted]'],
+    ['{"password":abc123}', '{"password":[redacted]}'],
+  ])('redacts password in %s', (input, expected) => {
+    const t = new TraceLogger('r7', dir);
+    t.log({ ...base, input_summary: input });
+    expect(t.lines()[0].input_summary).toBe(expected);
+  });
+
+  it('sanitises the run id in the file name', () => {
+    new TraceLogger('../evil/id', dir).log(base);
+    expect(fs.readdirSync(dir)).toEqual(['run-___evil_id.jsonl']);
+  });
+
   it('leaves unrelated text alone', () => {
     const t = new TraceLogger('r6', dir);
     t.log({ ...base, input_summary: 'income tax credit lookup, 3 rows' });

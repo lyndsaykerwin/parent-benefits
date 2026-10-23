@@ -1,4 +1,4 @@
-import { FakeGenerator, NvidiaGenerator, askJson, createGenerator, ModelUnavailable } from '../adapters/llm';
+import { FakeGenerator, NvidiaGenerator, askJson, createGenerator, generatorConfigFromEnv, ModelUnavailable } from '../adapters/llm';
 
 type Ok = { ok: boolean };
 const isOk = (x: unknown): x is Ok => typeof x === 'object' && x !== null && typeof (x as Ok).ok === 'boolean';
@@ -71,6 +71,11 @@ describe('NvidiaGenerator', () => {
   it('createGenerator with a key and model ids gives a working NvidiaGenerator', () => {
     const g = createGenerator({ apiKey: 'k', baseUrl: 'http://x', reasoning: 'r', fast: 'f' });
     expect(g).toBeInstanceOf(NvidiaGenerator);
+  });
+
+  it('generatorConfigFromEnv uses SOURCE_TIMEOUT_SECONDS (default 20)', () => {
+    expect(generatorConfigFromEnv({}).timeoutMs).toBe(20000);
+    expect(generatorConfigFromEnv({ SOURCE_TIMEOUT_SECONDS: '5' }).timeoutMs).toBe(5000);
   });
 
   it('createGenerator with a key but missing model ids is unavailable', async () => {
