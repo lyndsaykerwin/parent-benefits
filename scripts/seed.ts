@@ -7,6 +7,7 @@ import { inArray } from 'drizzle-orm';
 import { loadEnv } from '../server/env';
 import * as s from '../shared/schema';
 import type { Family } from '../shared/bundle';
+import { loadPlaidFixture } from '../server/ingest/plaid';
 
 const SAMPLE_DIR = path.resolve(process.cwd(), 'data/sample'); // run from the repo root (npm scripts and jest do)
 const SEED_FAMILY_IDS = ['maya', 'leo', 'ava'];
@@ -144,7 +145,6 @@ const readJson = (f: string) => JSON.parse(fs.readFileSync(path.join(SAMPLE_DIR,
 export async function seed(): Promise<void> {
   const { db } = await import('../server/db');
   const families: Family[] = readJson('families.json');
-  const plaid: any[] = readJson('plaid-transactions.json');
   const orders = parseCsv(fs.readFileSync(path.join(SAMPLE_DIR, 'amazon-orders.csv'), 'utf8'));
 
   await db.transaction(async (tx) => {
@@ -161,13 +161,7 @@ export async function seed(): Promise<void> {
     await tx.delete(s.povertyGuidelines);
 
     await tx.insert(s.families).values(families);
-    await tx.insert(s.transactions).values(
-      plaid.map((p) => ({
-        id: p.transaction_id, familyId: p.family_id, date: p.date, merchant: p.name,
-        amountCents: Math.round(p.amount * 100), category: p.personal_finance_category?.detailed ?? '',
-        source: 'fixture' as const,
-      })),
-    );
+    await tx.insert(s.transactions).values(loadPlaidFixture(SAMPLE_DIR));
     await tx.insert(s.amazonOrders).values(
       orders.map((o) => ({
         id: o.order_id, familyId: o.family_id, orderDate: o.order_date, title: o.title,
