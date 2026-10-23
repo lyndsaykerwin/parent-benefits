@@ -1,4 +1,4 @@
-import { col, quoteId, quoteInt, addDays, today as todayIso, fmtUsd, InvalidId } from './sql';
+import { col, isInlineFamily, quoteId, quoteInt, addDays, today as todayIso, fmtUsd, InvalidId } from './sql';
 import { explain } from './explain';
 import type { AgentContext, Candidate } from './types';
 
@@ -98,9 +98,10 @@ export function ruleFallbackText(code: string, title: string, cents: number | nu
 
 /** Work out which benefits a family likely qualifies for. Amounts and deadlines come from the rules table. */
 export async function planBenefits(ctx: AgentContext, today: string): Promise<Candidate[]> {
-  let famSql: string;
+  let famSql: string | null = null;
   try {
-    famSql = familySql(ctx.family.id);
+    // A typed-in family is never saved, so the planner view can never hold it: skip that query and use the family as typed.
+    famSql = isInlineFamily(ctx.family) ? null : familySql(ctx.family.id);
   } catch (e) {
     if (e instanceof InvalidId) {
       log(ctx, 'plan_benefits', 'family', 'unsafe family id: nothing queried', 'error');
@@ -109,7 +110,7 @@ export async function planBenefits(ctx: AgentContext, today: string): Promise<Ca
     throw e;
   }
   const rSql = rulesSql();
-  const [rules, fam] = await Promise.all([ctx.z.runQuery(rSql), ctx.z.runQuery(famSql)]);
+  const [rules, fam] = await Promise.all([ctx.z.runQuery(rSql), famSql ? ctx.z.runQuery(famSql) : Promise.resolve({ rows: [] as Row[] })]);
   const f = fam.rows[0];
   // Income and household size come from the planner view (the only one that carries income); dates and state from the family.
   const incomeCents = f ? num(f, 'annual_income_cents') : ctx.family.annualIncomeCents;

@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { useLocation } from 'wouter';
 import AppShell from '@/components/AppShell';
 import { api, localToday, type RunRequest } from '@/lib/bundle';
+import { dateLimits, dateRangeError } from '@shared/dateRange';
 
 const field = 'block rounded-2xl border border-line bg-paper px-4 pb-3 pt-2.5 focus-within:border-coral focus-within:ring-2 focus-within:ring-coral/25';
 const label = 'eyebrow block text-ink-2';
@@ -10,6 +11,7 @@ const input = 'mt-1 block w-full bg-transparent text-[18px] font-semibold text-i
 export default function Onboarding() {
   const [, navigate] = useLocation();
   const [date, setDate] = useState('');
+  const limits = dateLimits(localToday());
   const [zip, setZip] = useState('');
   const [employer, setEmployer] = useState('');
   const [busy, setBusy] = useState<'form' | 'guest' | null>(null);
@@ -33,7 +35,10 @@ export default function Onboarding() {
     if (!date) return setError('Enter your due date or your baby’s birth date.');
     if (!/^\d{5}$/.test(zip)) return setError('Enter a valid US ZIP code');
     // A date on or before today is a birth date; a future date is a due date.
-    const dates = date <= localToday() ? { birthDate: date } : { dueDate: date };
+    const isBirth = date <= localToday();
+    const rangeError = dateRangeError(isBirth ? 'birth' : 'due', date, localToday());
+    if (rangeError) return setError(rangeError);
+    const dates = isBirth ? { birthDate: date } : { dueDate: date };
     void start({ zip, employer: employer.trim(), ...dates }, 'form');
   }
 
@@ -50,9 +55,9 @@ export default function Onboarding() {
       <form className="mt-6 space-y-3" onSubmit={onSubmit} noValidate>
         <label className={field}>
           <span className={label}>Due date or birth date</span>
-          <input className={input} type="date" value={date} onChange={(e) => setDate(e.target.value)} aria-describedby="date-help" />
+          <input className={input} type="date" value={date} min={limits.birthMin} max={limits.dueMax} onChange={(e) => setDate(e.target.value)} aria-describedby="date-help" />
         </label>
-        <p id="date-help" className="sr-only">A past date counts as a birth date, a future date as a due date.</p>
+        <p id="date-help" className="sr-only">A past date (within 2 years) counts as a birth date, a future date (within 10 months) as a due date.</p>
         <label className={field}>
           <span className={label}>ZIP code</span>
           <input

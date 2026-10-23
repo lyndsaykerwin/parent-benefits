@@ -3,7 +3,7 @@ import { Link, useParams } from 'wouter';
 import AppShell from '@/components/AppShell';
 import ReceiptCard from '@/components/ReceiptCard';
 import FeedCardView from '@/components/FeedCardView';
-import { KIND_META, api, demoDateLabel, describeLine, familyChip, groupCards, loadRun, saveRun, type SavedRun, type TraceLine } from '@/lib/bundle';
+import { KIND_META, UNCHECKED_DEALS_SECTION, api, demoDateLabel, describeLine, familyChip, groupCards, loadRun, saveRun, type SavedRun, type TraceLine } from '@/lib/bundle';
 import { pollRun } from '@/lib/poll';
 import { cn } from '@/lib/utils';
 
@@ -166,8 +166,8 @@ export default function Feed() {
       )}
 
       {grouped.groups.map((g) => (
-        <section key={g.kind} className="mt-7" aria-labelledby={`sec-${g.kind}`}>
-          <h2 id={`sec-${g.kind}`} className="eyebrow text-ink-2">{KIND_META[g.kind].section}</h2>
+        <section key={g.unchecked ? `${g.kind}-unchecked` : g.kind} className="mt-7" aria-labelledby={`sec-${g.kind}${g.unchecked ? '-unchecked' : ''}`}>
+          <h2 id={`sec-${g.kind}${g.unchecked ? '-unchecked' : ''}`} className="eyebrow text-ink-2">{g.unchecked ? UNCHECKED_DEALS_SECTION : KIND_META[g.kind].section}</h2>
           <div className={cn('mt-2', g.kind === 'coming_soon' ? 'grid gap-2' : 'space-y-3')}>
             {g.cards.map((c) => (
               <FeedCardView key={c.id} card={c} today={today} detailHref={href(c.id)} />

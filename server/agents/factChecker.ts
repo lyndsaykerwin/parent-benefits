@@ -186,7 +186,7 @@ async function check(c: Candidate, ctx: AgentContext): Promise<VerifyResult> {
 
 /** Re-read the source row through a different query path than the producing agent used. */
 export async function verify(c: Candidate, ctx: AgentContext): Promise<VerifyResult> {
-  if (!c.sources || c.sources.length === 0) {
+  if (!c.sources || !c.sources.some((s) => /^https?:\/\/\S+/i.test(String(s?.url ?? '')))) {
     return finish(c, ctx, fail('no source'), 'blocked');
   }
   try {

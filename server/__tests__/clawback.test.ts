@@ -148,3 +148,11 @@ describe('clawback hunter', () => {
     expect(await revise(stale, 'source not found', gone.ctx)).toBeNull();
   });
 });
+
+describe('I4: typed-in family', () => {
+  it('queries nothing (no saved purchases can exist)', async () => {
+    const { ctx, runQuery } = ctxWith({ ...maya, id: 'guest-ab12cd34', dataConnected: false }, {});
+    expect(await findClawbacks(ctx)).toEqual([]);
+    expect(runQuery).not.toHaveBeenCalled();
+  });
+});

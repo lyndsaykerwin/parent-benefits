@@ -14,7 +14,7 @@ import * as recall from './recall';
 import * as court from './finePrintCourt';
 import * as benefits from './benefits';
 import { itemsSql } from './recall';
-import { col } from './sql';
+import { col, isInlineFamily } from './sql';
 import { buildFallbackFillers } from './fallback';
 
 export const BANNER = "Some sources didn't respond: showing what we could check.";
@@ -66,7 +66,7 @@ const infoCard = (id: string, kind: FeedCard['kind'], title: string, body: strin
 
 /**
  * Turn verified candidates into the feed, enforcing the never-empty minimums.
- * Fillers are only ever agent output that already passed fact-check (benefit rules, court-approved offers).
+ * Fillers are bundled stand-ins (verdict 'info', "Not yet verified"). They only top up a short feed and never count in the Receipt.
  * Real recalls are all kept (a safety recall is never hidden); the all-clear card appears only when there are none.
  */
 export function assembleFeed(
@@ -114,13 +114,16 @@ export function assembleFeed(
   const ordered = cards.map((c, i) => ({ c, i })).sort((a, b) => rank(a.c) - rank(b.c) || a.i - b.i).map((x) => x.c);
 
   const counts = (c: FeedCard) => c.verdict === 'verified' || c.verdict === 'likely';
-  // Receipt honesty: the Dependent Care FSA card is eligible spend, not money back or a benefit payout, so it is in neither total.
+  // Receipt honesty: only checked cards count (never the "Not yet verified" stand-ins). The Dependent Care FSA card is eligible
+  // spend, not money back or a benefit payout, so it is in neither total. Money back is an explicit list of claim types.
+  const MONEY_BACK_TYPES = new Set(['fsa_reimbursement', 'price_adjustment']);
   const eligibleSpendIds = new Set([...verified, ...fillers.federalBenefits].filter((c) => c.claim.type === 'dcfsa_childcare').map((c) => c.id));
+  const moneyBackIds = new Set(verified.filter((c) => c.kind === 'clawback' && MONEY_BACK_TYPES.has(String(c.claim.type))).map((c) => c.id));
   const sum = (k: string) => ordered
-    .filter((c) => c.kind === k && counts(c) && !eligibleSpendIds.has(c.id) && !c.id.startsWith('clawback-dcfsa-'))
+    .filter((c) => c.kind === k && counts(c) && !eligibleSpendIds.has(c.id) && !c.id.startsWith('clawback-dcfsa-') && (k !== 'clawback' || moneyBackIds.has(c.id)))
     .reduce((a, c) => a + (c.amountCents ?? 0), 0);
   const deadlines = ordered
-    .filter((c) => c.kind === 'benefit' && c.deadline && c.deadline >= today)
+    .filter((c) => c.kind === 'benefit' && counts(c) && c.deadline && c.deadline >= today)
     .map((c) => c.deadline as string).sort();
   return {
     cards: ordered,
@@ -162,6 +165,7 @@ async function retryTransient<T>(fn: () => Promise<T>, onRetry: (msg: string) =>
 
 /** Words and phrases from what the family bought; used by the court to pick trigger offers (e.g. a diaper deal). */
 async function purchaseKeywords(ctx: AgentContext, onRetry: (msg: string) => void): Promise<string[]> {
+  if (isInlineFamily(ctx.family)) return []; // a typed-in family is never saved, so it has no purchases to look up
   try {
     const { rows } = await retryTransient(() => ctx.z.runQuery(itemsSql(ctx.family.id)), onRetry);
     const items = rows.map((r) => String(col(r, 'item_text') ?? '').toLowerCase().trim()).filter(Boolean);

@@ -1,6 +1,9 @@
 import type { BundleReceipt } from '@shared/bundle';
 import { daysUntil, fmtUsdShort } from '@/lib/bundle';
 
+/** Shown instead of "all clear" when no item was checked (no purchases connected, or the Recall Checker could not run). */
+export const NOT_CHECKED_TEXT = 'Connect your data to safety-check items';
+
 interface Props {
   receipt: BundleReceipt;
   /** Verified recall cards in this feed (0 = all clear). */
@@ -37,12 +40,19 @@ export default function ReceiptCard({ receipt, recallCount, today }: Props) {
             <dt className="font-semibold text-ink">{receipt.deadlineCount} {receipt.deadlineCount === 1 ? 'deadline' : 'deadlines'}</dt>
             <dd className="font-bold text-coral-deep">{nextText ?? 'none coming up'}</dd>
           </div>
-          <div className="flex items-center justify-between gap-3">
-            <dt className="font-semibold text-ink">{receipt.itemsChecked} {receipt.itemsChecked === 1 ? 'item' : 'items'} safety-checked</dt>
-            <dd className={recallCount > 0 ? 'font-bold text-kind-recall' : 'font-bold text-kind-clawback'}>
-              {recallCount > 0 ? `${recallCount} ${recallCount === 1 ? 'recall' : 'recalls'}` : 'all clear'}
-            </dd>
-          </div>
+          {receipt.itemsChecked === 0 ? (
+            <div className="flex items-center justify-between gap-3">
+              <dt className="font-semibold text-ink">Safety check</dt>
+              <dd data-testid="receipt-safety" className="text-right font-bold text-ink-2">{NOT_CHECKED_TEXT}</dd>
+            </div>
+          ) : (
+            <div className="flex items-center justify-between gap-3">
+              <dt className="font-semibold text-ink">{receipt.itemsChecked} {receipt.itemsChecked === 1 ? 'item' : 'items'} safety-checked</dt>
+              <dd data-testid="receipt-safety" className={recallCount > 0 ? 'font-bold text-kind-recall' : 'font-bold text-kind-clawback'}>
+                {recallCount > 0 ? `${recallCount} ${recallCount === 1 ? 'recall' : 'recalls'}` : 'all clear'}
+              </dd>
+            </div>
+          )}
         </dl>
       </div>
     </section>

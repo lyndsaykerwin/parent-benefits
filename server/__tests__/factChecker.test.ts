@@ -47,6 +47,15 @@ describe('fact-checker', () => {
     expect(out.corrected?.amountCents).toBe(2499);
   });
 
+  it('M10: a source that is not an http(s) link counts as no source', async () => {
+    for (const url of ['', 'javascript:alert(1)', 'not a url']) {
+      const { ctx, runQuery } = ctxWith(() => res([{ value_cents: 2899, max_age_days: 365 }]));
+      const out = await verify(cand({ sources: [{ label: 'x', url }] }), ctx);
+      expect(out).toEqual({ ok: false, reason: 'no source', corrected: null });
+      expect(runQuery).not.toHaveBeenCalled();
+    }
+  });
+
   it('fails with "no source" when sources is empty, without querying', async () => {
     const { ctx, runQuery } = ctxWith(() => res([]));
     const out = await verify(cand({ sources: [] }), ctx);

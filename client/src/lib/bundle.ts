@@ -115,11 +115,13 @@ export const VERDICT_LABEL: Record<Verdict, string> = {
 export const safeSources = (sources: Source[]): Source[] => sources.filter((s) => /^https?:\/\//i.test(s.url));
 
 export const isDcfsa = (c: FeedCard) => c.id.startsWith('clawback-dcfsa');
-export const isInsurance = (c: FeedCard) => c.kind === 'benefit' && /insurance/i.test(c.id);
+/** The insurance card is pinned first only when it was actually checked; a "Not yet verified" stand-in is not promoted. */
+export const isInsurance = (c: FeedCard) => c.kind === 'benefit' && /insurance/i.test(c.id) && c.verdict !== 'info';
 
 /** The small word under a card amount. DCFSA is the family's own pre-tax money, so it is "eligible spend", never "money back". */
 export function amountCaption(c: FeedCard): string | null {
   if (c.amountCents === null) return null;
+  if (c.verdict === 'info') return 'not yet verified';
   if (isDcfsa(c)) return 'eligible spend';
   if (c.kind === 'clawback') return 'money back';
   if (c.kind === 'benefit') return 'likely benefit';
@@ -136,12 +138,31 @@ export const PLAID_TILE: FeedCard = {
   amountCents: null, deadline: null, verdict: 'info', sources: [], traceId: '',
 };
 
-/** Pinned insurance card first, then groups in the fixed order clawback, recall, benefit, discount, coming_soon. */
-export function groupCards(cards: FeedCard[]): { pinned: FeedCard | null; groups: { kind: CardKind; cards: FeedCard[] }[] } {
+/** Section title for deals that never went through Fine Print Court (bundled stand-ins shown when the court could not run). */
+export const UNCHECKED_DEALS_SECTION = 'Offers not yet checked by Fine Print Court';
+
+export interface CardGroup { kind: CardKind; cards: FeedCard[]; /** true = offers the court has not checked */ unchecked?: boolean }
+
+/**
+ * Pinned insurance card first, then groups in the fixed order clawback, recall, benefit, discount, coming_soon.
+ * Discounts the court did not check (verdict "info") get their own group and title, never "passed Fine Print Court".
+ */
+export function groupCards(cards: FeedCard[]): { pinned: FeedCard | null; groups: CardGroup[] } {
   const pinned = cards.find(isInsurance) ?? null;
   const rest = cards.filter((c) => c !== pinned);
   if (!rest.some((c) => c.id === PLAID_TILE.id)) rest.push(PLAID_TILE);
-  const groups = ORDER.map((kind) => ({ kind, cards: rest.filter((c) => c.kind === kind) })).filter((g) => g.cards.length > 0);
+  const groups: CardGroup[] = [];
+  for (const kind of ORDER) {
+    if (kind === 'discount') {
+      const checked = rest.filter((c) => c.kind === 'discount' && c.verdict !== 'info');
+      const unchecked = rest.filter((c) => c.kind === 'discount' && c.verdict === 'info');
+      if (checked.length) groups.push({ kind, cards: checked });
+      if (unchecked.length) groups.push({ kind, cards: unchecked, unchecked: true });
+    } else {
+      const inKind = rest.filter((c) => c.kind === kind);
+      if (inKind.length) groups.push({ kind, cards: inKind });
+    }
+  }
   return { pinned, groups };
 }
 

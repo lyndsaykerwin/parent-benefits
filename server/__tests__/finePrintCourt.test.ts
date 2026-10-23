@@ -123,6 +123,36 @@ describe('fine print court', () => {
     });
   });
 
+  it('I4: asks for all offers in one query and applies the baby\'s age in code', async () => {
+    const rows = [offer(1), offer(2, { min_age_days: 100, max_age_days: 365 }), offer(3, { min_age_days: -280, max_age_days: 10 })];
+    const { ctx, runQuery } = setup(rows, new FakeGenerator(['p', 'c', APPROVE]));
+    const out = await judgeOffers(ctx, IN);
+    expect(out.map((c) => c.claim.offerId)).toEqual([1]);
+    expect(runQuery).toHaveBeenCalledTimes(1);
+    expect(runQuery.mock.calls[0][0]).not.toMatch(/WHERE/i);
+  });
+
+  it('I3: an AI approval keeps the full-check wording; an offline approval never claims one', async () => {
+    const online = setup([offer(1)], new FakeGenerator(['p', 'c', APPROVE]));
+    expect((await judgeOffers(online.ctx, IN))[0].body).toContain('Our fine-print check found nothing that makes it costly');
+    const offline = setup([offer(1)], new UnavailableGenerator('no key'));
+    const body = (await judgeOffers(offline.ctx, IN))[0].body;
+    expect(body).toContain('Offline screen: no flagged terms found. Not reviewed by the AI court.');
+    expect(body).not.toMatch(/found nothing that makes it costly|Likely a good deal/);
+    expect(offline.trace.lines().find((l) => l.agent_name === 'judge')!.output_summary).toContain('Offline screen: no flagged terms found. Not reviewed by the AI court.');
+  });
+
+  it('I3: the offline screen rejects offers that need a paid membership, but not the auto-renew trap (only case law catches that)', async () => {
+    for (const fp of ['Requires Prime and a registry with at least one item; limited to one per household.', 'Costco membership required.', 'Box ships after you add 10 items; shipping fee may apply.']) {
+      const { ctx } = setup([offer(1, { fine_print: fp })], new UnavailableGenerator('no key'));
+      expect(await judgeOffers(ctx, IN)).toEqual([]);
+    }
+    for (const fp of ['Autoship must remain active for 2 deliveries.', 'First bundle only; subscription is optional and can be skipped.', TRAP_PRINT]) {
+      const { ctx } = setup([offer(1, { fine_print: fp })], new UnavailableGenerator('no key'));
+      expect(await judgeOffers(ctx, IN)).toHaveLength(1);
+    }
+  });
+
   it('matches trigger keywords as whole words only', async () => {
     const rows = [offer(1, { trigger_keyword: 'diaper' }), offer(2, { trigger_keyword: 'car seat' })];
     const run = async (kw: string) => {

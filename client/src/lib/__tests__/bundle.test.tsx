@@ -1,5 +1,5 @@
 import type { FeedCard } from '@shared/bundle';
-import { groupCards, traceForCard, familyChip, fmtUsdShort, type TraceLine } from '../bundle';
+import { groupCards, amountCaption, UNCHECKED_DEALS_SECTION, traceForCard, familyChip, fmtUsdShort, type TraceLine } from '../bundle';
 
 const c = (id: string, kind: FeedCard['kind'], traceId = ''): FeedCard => ({
   id, kind, title: id, body: '', amountCents: null, deadline: null, verdict: 'verified', sources: [], traceId,
@@ -17,6 +17,31 @@ describe('groupCards', () => {
     expect(groups.map((g) => g.kind)).toEqual(['clawback', 'recall', 'benefit', 'discount', 'coming_soon']);
     expect(groups[2].cards.map((x) => x.id)).toEqual(['benefit-trump_account']);
     expect(groups[4].cards.map((x) => x.title)).toEqual(['coming-soon-prefilled', 'Connect your bank (Plaid)']);
+  });
+});
+
+describe('I2: deals the court has not checked', () => {
+  const info = (id: string, kind: FeedCard['kind']): FeedCard => ({ ...c(id, kind), verdict: 'info', amountCents: 3500 });
+
+  it('puts "Not yet verified" discounts in their own group, after the checked deals', () => {
+    const { groups } = groupCards([info('fallback-offer-1', 'discount'), c('discount-1', 'discount')]);
+    const discounts = groups.filter((g) => g.kind === 'discount');
+    expect(discounts.map((g) => g.unchecked ?? false)).toEqual([false, true]);
+    expect(discounts[0].cards.map((x) => x.id)).toEqual(['discount-1']);
+    expect(discounts[1].cards.map((x) => x.id)).toEqual(['fallback-offer-1']);
+    expect(UNCHECKED_DEALS_SECTION).not.toMatch(/passed/i);
+  });
+
+  it('with only stand-in deals there is no "passed Fine Print Court" group at all', () => {
+    const { groups } = groupCards([info('fallback-offer-1', 'discount'), info('fallback-offer-2', 'discount')]);
+    expect(groups.filter((g) => g.kind === 'discount').every((g) => g.unchecked)).toBe(true);
+  });
+
+  it('M4: an unverified insurance stand-in is not pinned, and "info" cards are captioned "not yet verified"', () => {
+    const filler = info('fallback-benefit-insurance_add_baby', 'benefit');
+    expect(groupCards([filler]).pinned).toBeNull();
+    expect(groupCards([c('benefit-insurance_add_baby', 'benefit')]).pinned?.id).toBe('benefit-insurance_add_baby');
+    expect(amountCaption(filler)).toBe('not yet verified');
   });
 });
 

@@ -158,6 +158,17 @@ describe('benefits planner', () => {
     expect(c.INSURANCE_ADD_BABY.body).toMatch(/likely/);
   });
 
+  it('I4: a typed-in family skips the planner-view lookup and still gets benefit cards from the rules table', async () => {
+    const guest = { ...maya, id: 'guest-ab12cd34', dataConnected: false, annualIncomeCents: null };
+    const { ctx, runQuery } = ctxWith(guest);
+    const cards = await planBenefits(ctx, TODAY);
+    expect(runQuery.mock.calls.some(([sql]) => String(sql).includes('v_planner_family'))).toBe(false);
+    expect(runQuery.mock.calls.some(([sql]) => String(sql).includes('poverty_guidelines'))).toBe(false);
+    const refs = cards.map((c) => c.claim.ref);
+    expect(refs).toEqual(expect.arrayContaining(['TRUMP_ACCOUNT', 'FEDERAL_CHILD_TAX_CREDIT', 'INSURANCE_ADD_BABY']));
+    expect(refs).not.toContain('WIC_SCREEN');
+  });
+
   it('refuses an unsafe family id without querying', async () => {
     const { ctx, runQuery } = ctxWith({ ...maya, id: "x'; DROP" });
     expect(await planBenefits(ctx, TODAY)).toEqual([]);

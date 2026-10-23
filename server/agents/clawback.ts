@@ -1,4 +1,4 @@
-import { col, quoteId, quoteDate, InvalidId, addDays, today, fmtUsd, dupKey } from './sql';
+import { col, isInlineFamily, quoteId, quoteDate, InvalidId, addDays, today, fmtUsd, dupKey } from './sql';
 import { explain } from './explain';
 import { DCFSA_CAP_CENTS } from './factChecker';
 import type { AgentContext, Candidate } from './types';
@@ -159,6 +159,10 @@ async function daycareCandidates(ctx: AgentContext): Promise<Candidate[]> {
 
 /** Find money a family can get back: FSA reimbursements, store price adjustments, Dependent Care FSA. */
 export async function findClawbacks(ctx: AgentContext): Promise<Candidate[]> {
+  if (isInlineFamily(ctx.family)) {
+    log(ctx, 'find_clawbacks', 'typed-in family', 'no saved purchases to look up: nothing queried');
+    return [];
+  }
   try {
     quoteId(ctx.family.id);
   } catch (e) {

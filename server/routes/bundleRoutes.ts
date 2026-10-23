@@ -12,6 +12,7 @@ import type { BundleStore } from '../bundleStore';
 import type { TraceLine } from '../agents/trace';
 
 import { SEED_FAMILY_IDS, isSeedFamily } from '../demoDate';
+import { dateRangeError } from '../../shared/dateRange';
 export { SEED_FAMILY_IDS };
 export const ZIP_ERROR = 'Enter a valid US ZIP code';
 const WINDOW_MS = 10 * 60 * 1000;
@@ -29,6 +30,10 @@ export interface ApiDeps {
   runLimit?: { limit: number; windowMs: number };
   /** Runs allowed at the same time across all visitors (default 5). */
   maxInFlight?: number;
+  /** Runs one visitor (IP address) may have going at the same time (default 2). */
+  maxInFlightPerIp?: number;
+  /** The current date, for the date-range checks (tests pin it). */
+  now?: () => Date;
   /** Where Task 13's eval writes its scoreboard (default logs/scoreboard.json). */
   scoreboardFile?: () => string;
 }
@@ -52,6 +57,8 @@ export function createBundleRouter(deps: ApiDeps): Router {
   const runs = new Map<string, RunEntry>();
   let inFlight = 0;
   const maxInFlight = deps.maxInFlight ?? 5;
+  const maxPerIp = deps.maxInFlightPerIp ?? 2;
+  const inFlightByIp = new Map<string, number>();
   const knownFamilies = new Set<string>(SEED_FAMILY_IDS);
 
   const runLimiter = rateLimit({
@@ -79,6 +86,9 @@ export function createBundleRouter(deps: ApiDeps): Router {
     if (hasBirth === hasDue) return { error: 'Enter either a birth date or a due date.' };
     if (hasBirth && !isIsoDate(body.birthDate)) return { error: 'Enter the birth date as YYYY-MM-DD.' };
     if (hasDue && !isIsoDate(body.dueDate)) return { error: 'Enter the due date as YYYY-MM-DD.' };
+    const todayIso = (deps.now?.() ?? new Date()).toISOString().slice(0, 10);
+    const rangeError = hasBirth ? dateRangeError('birth', body.birthDate, todayIso) : dateRangeError('due', body.dueDate, todayIso);
+    if (rangeError) return { error: rangeError };
     const employer = typeof body.employer === 'string' ? body.employer.trim().slice(0, 100) : '';
     return {
       family: {
@@ -89,7 +99,7 @@ export function createBundleRouter(deps: ApiDeps): Router {
     };
   }
 
-  function startRun(family: Family): { entry: RunEntry; done: Promise<void> } {
+  function startRun(family: Family, ip: string): { entry: RunEntry; done: Promise<void> } {
     const base = deps.makeRunDeps(family);
     const runId = newRunId(family.id);
     knownFamilies.add(family.id);
@@ -100,6 +110,7 @@ export function createBundleRouter(deps: ApiDeps): Router {
     runs.set(runId, entry);
     while (runs.size > MAX_REGISTRY) runs.delete(runs.keys().next().value as string);
     inFlight++;
+    inFlightByIp.set(ip, (inFlightByIp.get(ip) ?? 0) + 1);
     const done = runBundle(family.id, { ...base, runId, loadFamily: async () => family })
       .then((result) => { entry.result = result; entry.status = 'done'; })
       .catch((e) => {
@@ -107,7 +118,11 @@ export function createBundleRouter(deps: ApiDeps): Router {
         entry.error = 'The run did not finish. Please try again.';
         console.error('Bundle run failed:', runId, (e as Error)?.message);
       })
-      .finally(() => { inFlight--; });
+      .finally(() => {
+        inFlight--;
+        const left = (inFlightByIp.get(ip) ?? 1) - 1;
+        if (left > 0) inFlightByIp.set(ip, left); else inFlightByIp.delete(ip);
+      });
     return { entry, done };
   }
 
@@ -116,7 +131,9 @@ export function createBundleRouter(deps: ApiDeps): Router {
       const { family, error } = await resolveFamily(req.body);
       if (!family) return res.status(400).json({ error });
       if (inFlight >= maxInFlight) return res.status(503).json({ error: 'Bundle is busy right now. Please try again in a minute.' });
-      const { entry, done } = startRun(family);
+      const ip = req.ip ?? 'unknown';
+      if ((inFlightByIp.get(ip) ?? 0) >= maxPerIp) return res.status(429).json({ error: `You already have ${maxPerIp} runs going. Please wait for one to finish.` });
+      const { entry, done } = startRun(family, ip);
       if (req.query.wait === 'true') {
         await done;
         if (entry.status === 'done') return res.json(entry.result);

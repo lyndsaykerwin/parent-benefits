@@ -1,4 +1,4 @@
-import { loadEnv } from './env';
+import { loadEnv, trustProxyHops } from './env';
 loadEnv(); // must run before anything reads process.env
 
 import express, { type Request, Response, NextFunction } from "express";
@@ -15,8 +15,10 @@ const app = express();
 const PORT = parseInt(process.env.PORT || '5050', 10);
 const isProd = process.env.NODE_ENV === 'production';
 
-// Behind a hosting proxy (Render, Fly, etc.) set TRUST_PROXY=1 so rate limits see the real visitor address.
-if (process.env.TRUST_PROXY === '1') app.set('trust proxy', 1);
+// Hosts put a proxy in front of the app (Render, Fly, Replit...). Trust it in production so rate limits see each visitor's
+// real address instead of the proxy's. Set TRUST_PROXY=0 to turn that off (e.g. production build run directly on a laptop).
+const proxy = trustProxyHops();
+if (proxy) app.set('trust proxy', proxy);
 
 (async () => {
   app.use(helmet({

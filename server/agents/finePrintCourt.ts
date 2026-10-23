@@ -1,18 +1,17 @@
 import { askJson } from '../adapters/llm';
 import { col, quoteInt, InvalidId, addDays, today, fmtUsd } from './sql';
 import type { AgentContext, Candidate, CourtRuling } from './types';
+import { offlineProblem } from './offerScreen';
 
 const AGENT = 'fine_print_court';
 const MAX_OFFERS = 5;
-/** A shipping or handling fee above this (in dollars) makes a "free" offer not free. */
-const FEE_LIMIT_DOLLARS = 5;
 
 type Row = Record<string, string | number | null>;
 const s = (r: Row, k: string) => String(col(r, k) ?? '');
 
 interface Offer {
   id: number; title: string; store: string; trigger: string; valueCents: number | null;
-  finePrint: string; sourceUrl: string; maxAgeDays: number;
+  finePrint: string; sourceUrl: string; minAgeDays: number; maxAgeDays: number;
 }
 type Rule = { id: string; text: string; confidence: number };
 
@@ -21,7 +20,7 @@ function toOffer(r: Row): Offer {
   return {
     id: Number(col(r, 'id')), title: s(r, 'title'), store: s(r, 'store'), trigger: s(r, 'trigger_keyword').trim().toLowerCase(),
     valueCents: v === null || v === undefined ? null : Number(v), finePrint: s(r, 'fine_print'),
-    sourceUrl: s(r, 'source_url'), maxAgeDays: Number(col(r, 'max_age_days')),
+    sourceUrl: s(r, 'source_url'), minAgeDays: Number(col(r, 'min_age_days')), maxAgeDays: Number(col(r, 'max_age_days')),
   };
 }
 
@@ -51,32 +50,15 @@ function ruleMatches(finePrint: string, rule: Rule): boolean {
   const shared = [...rk].filter((w) => fk.has(w)).length;
   return shared >= Math.min(2, rk.size) && shared > 0;
 }
-const FEE_WORD = '(?:shipping|handling|postage)';
-const AMOUNT = '\\$\\s?(\\d[\\d,]*(?:\\.\\d+)?)';
-// "$7.99 shipping" / "$7.99 shipping fee"
-const FEE_BEFORE = new RegExp(`${AMOUNT}\\s+${FEE_WORD}\\b`, 'gi');
-// "shipping fee of $7.99" / "shipping and handling: $7.95" / "shipping is $6"
-const FEE_AFTER = new RegExp(`\\b${FEE_WORD}(?:\\s+(?:and|&)\\s+${FEE_WORD})?(?:\\s+(?:fees?|charges?|costs?))?(?:\\s*:|\\s+(?:of|is|are|costs?|will be))?\\s*${AMOUNT}`, 'gi');
-const THRESHOLD_WORDS = /(over|above|than|minimum|least|exceed\w*|spend\w*|orders?\s+of)\s*$/i;
+/** What an offline approval says. It never claims the AI court looked at the offer. */
+export const OFFLINE_APPROVE_TEXT = 'Offline screen: no flagged terms found. Not reviewed by the AI court.';
 
-/** A dollar amount directly attached to shipping/handling/postage and over $5. Thresholds like "free shipping on orders over $50" do not count. */
-function bigFee(finePrint: string): number | null {
-  for (const re of [FEE_BEFORE, FEE_AFTER]) {
-    for (const m of finePrint.matchAll(re)) {
-      const amountAt = (m.index ?? 0) + m[0].indexOf('$');
-      if (THRESHOLD_WORDS.test(finePrint.slice(Math.max(0, amountAt - 20), amountAt))) continue;
-      const n = Number(m[1].replace(/,/g, ''));
-      if (n > FEE_LIMIT_DOLLARS) return n;
-    }
-  }
-  return null;
-}
 function screen(offer: Offer, rules: Rule[]): CourtRuling {
   const hit = rules.find((r) => ruleMatches(offer.finePrint, r));
   if (hit) return { verdict: 'reject', citedRuleIds: [hit.id], reason: `Court was offline; case law applies: ${hit.text}` };
-  const fee = bigFee(offer.finePrint);
-  if (fee !== null) return { verdict: 'reject', citedRuleIds: [], reason: `Court was offline; the fine print states a $${fee} shipping or handling fee, which is over $${FEE_LIMIT_DOLLARS}` };
-  return { verdict: 'approve', citedRuleIds: [], reason: 'Court was offline; screened against case law and fees, nothing found' };
+  const problem = offlineProblem(offer.finePrint);
+  if (problem) return { verdict: 'reject', citedRuleIds: [], reason: `Court was offline; ${problem}` };
+  return { verdict: 'approve', citedRuleIds: [], reason: OFFLINE_APPROVE_TEXT };
 }
 
 function caseLawText(rules: Rule[]): string {
@@ -132,13 +114,15 @@ async function judgeOne(ctx: AgentContext, offer: Offer, note: string): Promise<
   return { ruling, usedFallback };
 }
 
-function toCandidate(ctx: AgentContext, offer: Offer, ruling: CourtRuling, retry: number, sql: string): Candidate {
+function toCandidate(ctx: AgentContext, offer: Offer, ruling: CourtRuling, retry: number, sql: string, usedFallback: boolean): Candidate {
   const anchor = ctx.family.birthDate ?? ctx.family.dueDate;
   const worth = offer.valueCents !== null ? ` worth about ${fmtUsd(offer.valueCents)}` : '';
   const traceId = ctx.trace.lines().filter((l) => l.agent_name === 'judge' && l.input_summary === `offer ${offer.id}`).pop()?.trace_id ?? '';
   return {
     id: `discount-${offer.id}`, kind: 'discount', title: offer.title,
-    body: `${offer.store} has an offer${worth}. Our fine-print check found nothing that makes it costly. Likely a good deal.`,
+    body: usedFallback
+      ? `${offer.store} has an offer${worth}. ${ruling.reason}`
+      : `${offer.store} has an offer${worth}. Our fine-print check found nothing that makes it costly. Likely a good deal.`,
     amountCents: offer.valueCents, deadline: anchor ? addDays(anchor, offer.maxAgeDays) : null,
     verdict: 'likely', sources: [{ label: `${offer.store} offer page`, url: offer.sourceUrl }], traceId,
     agent: AGENT, claim: { type: 'offer', offerId: offer.id }, evidenceSql: sql, retryCount: retry,
@@ -155,17 +139,18 @@ const OFFER_COLS = 'id, title, store, min_age_days, max_age_days, trigger_keywor
 
 /**
  * Offers go to court: Deal Hunter argues for, Fine Print Lawyer against, Judge rules with recalled case law.
- * Reads bundle_pg.v_judge_offers (offer columns only, no family data).
+ * Reads bundle_pg.v_judge_offers (offer columns only, no family data); the baby's age picks the offers in code.
  */
 export async function judgeOffers(
   ctx: AgentContext,
   input: { ageDays: number; purchaseKeywords: string[]; includeGeneral: boolean },
 ): Promise<Candidate[]> {
-  const age = quoteInt(input.ageDays);
-  const sql = `SELECT ${OFFER_COLS} FROM bundle_pg.v_judge_offers WHERE min_age_days <= ${age} AND max_age_days >= ${age} ORDER BY id`;
+  quoteInt(input.ageDays); // throws on a non-number
+  // One query for every offer (it holds no family data, so it is the same for everyone and can be saved for replay); the age window is applied here.
+  const sql = `SELECT ${OFFER_COLS} FROM bundle_pg.v_judge_offers ORDER BY id`;
   const { rows } = await ctx.z.runQuery(sql);
   const kws = input.purchaseKeywords.map((k) => k.toLowerCase().trim()).filter(Boolean);
-  const offers = rows.map(toOffer);
+  const offers = rows.map(toOffer).filter((o) => o.minAgeDays <= input.ageDays && o.maxAgeDays >= input.ageDays);
   const triggered = offers.filter((o) => o.trigger && kws.some((k) => wholeWord(o.trigger, k) || (k.length >= 3 && wholeWord(k, o.trigger))));
   const general = input.includeGeneral ? offers.filter((o) => !o.trigger) : [];
   const picked = [...triggered, ...general].slice(0, MAX_OFFERS);
@@ -173,8 +158,8 @@ export async function judgeOffers(
 
   const out: Candidate[] = [];
   for (const offer of picked) {
-    const { ruling } = await judgeOne(ctx, offer, '');
-    if (ruling.verdict === 'approve') out.push(toCandidate(ctx, offer, ruling, 0, sql));
+    const { ruling, usedFallback } = await judgeOne(ctx, offer, '');
+    if (ruling.verdict === 'approve') out.push(toCandidate(ctx, offer, ruling, 0, sql, usedFallback));
   }
   return out;
 }
@@ -188,8 +173,8 @@ export async function revise(c: Candidate, reason: string, ctx: AgentContext): P
     log(ctx, AGENT, 'revise', `offer ${id}: ${reason}`, 're-judging with the reason', 'retry', c.retryCount + 1);
     if (!rows.length) return null;
     const offer = toOffer(rows[0]);
-    const { ruling } = await judgeOne(ctx, offer, reason);
-    return ruling.verdict === 'approve' ? toCandidate(ctx, offer, ruling, c.retryCount + 1, sql) : null;
+    const { ruling, usedFallback } = await judgeOne(ctx, offer, reason);
+    return ruling.verdict === 'approve' ? toCandidate(ctx, offer, ruling, c.retryCount + 1, sql, usedFallback) : null;
   } catch (e) {
     if (e instanceof InvalidId) return null;
     throw e;

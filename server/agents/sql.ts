@@ -15,6 +15,12 @@ export function quoteId(v: string | number | undefined | null): string {
   return `'${s}'`;
 }
 
+/**
+ * A family typed into the form (id `guest-…`): it is never saved, so no database row, purchase or card
+ * transaction can exist for it. Agents skip the queries that look those up (they could never return anything).
+ */
+export const isInlineFamily = (f: { id: string; isGuest: boolean }): boolean => f.isGuest && f.id.startsWith('guest-');
+
 /** Quote an ISO date (YYYY-MM-DD) for SQL, or throw. */
 export function quoteDate(v: string): string {
   if (!ISO_DATE.test(String(v)) || Number.isNaN(Date.parse(`${v}T00:00:00Z`))) throw new InvalidId('invalid date');

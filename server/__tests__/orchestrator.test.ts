@@ -71,7 +71,7 @@ describe('assembleFeed', () => {
       ben('x', { amountCents: 50, deadline: '2026-10-10' }),
       cand('benefit-insurance_add_baby', 'benefit', 'benefits', { deadline: '2026-11-02' }),
       cand('benefit-pfml', 'benefit', 'benefits', { deadline: '2027-10-03' }),
-      cand('clawback-1', 'clawback', 'clawback', { amountCents: 5000 }),
+      cand('clawback-1', 'clawback', 'clawback', { amountCents: 5000, claim: { type: 'fsa_reimbursement', txId: 't1', txAmountCents: 5000 } }),
       cand('clawback-2', 'clawback', 'clawback', { amountCents: 700, verdict: 'blocked' }),
     ];
     const { cards, receipt } = assembleFeed(verified, maya, 12, fillers(), TODAY);
@@ -84,6 +84,24 @@ describe('assembleFeed', () => {
       moneyBackCents: 5000, likelyBenefitsCents: 220000 + 50,
       deadlineCount: 2, nextDeadline: '2026-11-02', itemsChecked: 12,
     });
+  });
+
+  it('I1: deadline count and next deadline ignore unverified stand-ins (same filter as the totals)', () => {
+    const insuranceFiller = cand('fallback-benefit-insurance_add_baby', 'benefit', 'fallback', { verdict: 'info', deadline: '2026-11-02' });
+    const dcfsaFiller = cand('fallback-benefit-dcfsa_life_event', 'benefit', 'fallback', { verdict: 'info', deadline: '2026-11-05' });
+    const { cards, receipt } = assembleFeed([], maya, 0, { approvedGeneralOffers: [], federalBenefits: [insuranceFiller, dcfsaFiller] }, TODAY);
+    expect(cards.map((c) => c.id)).toEqual(expect.arrayContaining(['fallback-benefit-insurance_add_baby']));
+    expect(receipt.deadlineCount).toBe(0);
+    expect(receipt.nextDeadline).toBeNull();
+    expect(receipt.likelyBenefitsCents).toBe(0);
+  });
+
+  it('M2: only fsa_reimbursement and price_adjustment cards count as money back', () => {
+    const { receipt } = assembleFeed([
+      cand('clawback-x', 'clawback', 'clawback', { amountCents: 1234, claim: { type: 'clawback', txId: 'x', txAmountCents: 1234 } }),
+      cand('clawback-price-y', 'clawback', 'clawback', { amountCents: 2000, claim: { type: 'price_adjustment', txId: 'y', txAmountCents: 9000 } }),
+    ], maya, 3, fillers(), TODAY);
+    expect(receipt.moneyBackCents).toBe(2000);
   });
 
   it('does not duplicate a filler already verified', () => {
@@ -123,6 +141,24 @@ describe('Receipt honesty (maya-like)', () => {
 });
 
 describe('runBundle', () => {
+  it('I1: when the benefits agent fails, the insurance stand-in does not reach the Receipt deadlines', async () => {
+    const { deps } = setup();
+    (benefits.planBenefits as jest.Mock).mockRejectedValue(new Error('boom'));
+    const r = await runBundle('maya', deps);
+    expect(r.cards.some((c) => c.id.startsWith('fallback-benefit-'))).toBe(true);
+    expect(r.receipt.deadlineCount).toBe(0);
+    expect(r.receipt.nextDeadline).toBeNull();
+  });
+
+  it('I4: a typed-in family triggers no purchase lookup (nothing saved to look up)', async () => {
+    const guest: Family = { ...maya, id: 'guest-ab12cd34', isGuest: true, dataConnected: false, annualIncomeCents: null };
+    const { deps } = setup({ family: guest });
+    const r = await runBundle(guest.id, deps);
+    expect(deps.z.runQuery).not.toHaveBeenCalled();
+    expect(r.banner).toBeNull();
+    expect(r.cards.length).toBeGreaterThanOrEqual(9);
+  });
+
   it('survives ZetarisUnavailable on recalls: banner set, minimums met', async () => {
     const { deps } = setup();
     (recall.checkRecalls as jest.Mock).mockRejectedValue(new ZetarisUnavailable('down'));

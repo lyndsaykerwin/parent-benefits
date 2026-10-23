@@ -1,7 +1,7 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { loadEnv } from '../env';
+import { trustProxyHops, loadEnv } from '../env';
 
 describe('loadEnv', () => {
   let dir: string;
@@ -44,5 +44,17 @@ describe('loadEnv', () => {
     fs.writeFileSync(second, 'FOO=second\n');
     loadEnv([first, second]);
     expect(process.env.FOO).toBe('first');
+  });
+});
+
+describe('trustProxyHops (I9)', () => {
+  it('trusts one proxy in production by default, none otherwise', () => {
+    expect(trustProxyHops({ NODE_ENV: 'production' })).toBe(1);
+    expect(trustProxyHops({ NODE_ENV: 'development' })).toBe(0);
+    expect(trustProxyHops({})).toBe(0);
+  });
+  it('TRUST_PROXY overrides in either direction', () => {
+    expect(trustProxyHops({ NODE_ENV: 'production', TRUST_PROXY: '0' })).toBe(0);
+    expect(trustProxyHops({ NODE_ENV: 'development', TRUST_PROXY: '1' })).toBe(1);
   });
 });

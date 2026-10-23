@@ -159,3 +159,11 @@ describe('recall checker', () => {
     expect(await revise(first, 'source not found', gone.ctx)).toBeNull();
   });
 });
+
+describe('I4: typed-in family', () => {
+  it('queries nothing and reports 0 items checked', async () => {
+    const { ctx, runQuery } = ctxWith({ ...maya, id: 'guest-ab12cd34', dataConnected: false }, ITEMS, [], yes());
+    expect(await checkRecalls(ctx)).toEqual({ candidates: [], itemsChecked: 0 });
+    expect(runQuery).not.toHaveBeenCalled();
+  });
+});

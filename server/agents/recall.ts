@@ -1,5 +1,5 @@
 import { askJson } from '../adapters/llm';
-import { col, quoteId, InvalidId } from './sql';
+import { col, quoteId, InvalidId, isInlineFamily } from './sql';
 import { explain } from './explain';
 import type { AgentContext, Candidate } from './types';
 
@@ -124,6 +124,10 @@ async function toCandidate(ctx: AgentContext, j: Judged): Promise<Candidate> {
 
 /** Safety-check what a family bought against live CPSC and FDA recalls. */
 export async function checkRecalls(ctx: AgentContext): Promise<{ candidates: Candidate[]; itemsChecked: number }> {
+  if (isInlineFamily(ctx.family)) {
+    log(ctx, 'check_recalls', 'typed-in family', 'no saved purchases to check: nothing queried');
+    return { candidates: [], itemsChecked: 0 };
+  }
   let itemsSqlText: string;
   let pairs: string;
   try {

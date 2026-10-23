@@ -41,6 +41,7 @@ function build(over: Partial<ApiDeps> = {}) {
     loadSeedFamily: async (id) => mk(id),
     store, memory, llm,
     reviewerToken: () => 'sekret',
+    now: () => new Date('2026-10-23T12:00:00Z'),
     ...over,
   };
   const app = express();
@@ -104,6 +105,20 @@ describe('POST /api/run', () => {
     expect(deps.store).toBeDefined();
   });
 
+  it('M11: birth date must be within the last 2 years, due date within the next 10 months', async () => {
+    const { app } = build();
+    const post = (b: object) => request(app).post('/api/run?wait=true').send({ zip: '02139', employer: 'X', ...b });
+    expect((await post({ birthDate: '2010-05-01' })).status).toBe(400);
+    expect((await post({ birthDate: '2010-05-01' })).body.error).toMatch(/last 2 years/);
+    expect((await post({ birthDate: '2026-12-01' })).status).toBe(400); // a "birth" date in the future
+    expect((await post({ dueDate: '2031-01-01' })).status).toBe(400);
+    expect((await post({ dueDate: '2031-01-01' })).body.error).toMatch(/next 10 months/);
+    expect((await post({ dueDate: '2026-01-01' })).status).toBe(400); // a "due" date long past
+    expect((await post({ birthDate: '2024-11-01' })).status).toBe(200);
+    expect((await post({ birthDate: '2026-10-23' })).status).toBe(200);
+    expect((await post({ dueDate: '2027-08-01' })).status).toBe(200);
+  });
+
   it('inline family needs a birth or due date; unknown seed id is 400', async () => {
     const { app } = build();
     expect((await request(app).post('/api/run').send({ zip: '02139', employer: 'X' })).status).toBe(400);
@@ -121,13 +136,28 @@ describe('POST /api/run', () => {
 
 describe('abuse limits', () => {
   it('503 when 5 runs are in flight, and a slot frees when one finishes', async () => {
-    const { app } = build();
+    const { app } = build({ maxInFlightPerIp: 100 });
     let release!: () => void;
     const gate = new Promise<void>((r) => { release = r; });
     (benefits.planBenefits as jest.Mock).mockImplementation(async () => { await gate; return []; });
     for (let i = 0; i < 5; i++) expect((await request(app).post('/api/run').send({ familyId: 'leo' })).status).toBe(202);
     const busy = await request(app).post('/api/run').send({ familyId: 'leo' });
     expect(busy.status).toBe(503);
+    release();
+    await new Promise((r) => setTimeout(r, 300));
+    expect((await request(app).post('/api/run').send({ familyId: 'leo' })).status).toBe(202);
+  });
+
+  it('I9: one visitor (IP) can have only 2 runs going at once; a slot frees when one finishes', async () => {
+    const { app } = build();
+    let release!: () => void;
+    const gate = new Promise<void>((r) => { release = r; });
+    (benefits.planBenefits as jest.Mock).mockImplementation(async () => { await gate; return []; });
+    expect((await request(app).post('/api/run').send({ familyId: 'leo' })).status).toBe(202);
+    expect((await request(app).post('/api/run').send({ familyId: 'leo' })).status).toBe(202);
+    const third = await request(app).post('/api/run').send({ familyId: 'leo' });
+    expect(third.status).toBe(429);
+    expect(third.body.error).toMatch(/2 runs going/);
     release();
     await new Promise((r) => setTimeout(r, 300));
     expect((await request(app).post('/api/run').send({ familyId: 'leo' })).status).toBe(202);
