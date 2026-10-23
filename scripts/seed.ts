@@ -8,7 +8,7 @@ import { loadEnv } from '../server/env';
 import * as s from '../shared/schema';
 import type { Family } from '../shared/bundle';
 
-const SAMPLE_DIR = path.resolve(process.cwd(), 'data/sample') // run from the repo root (npm scripts and jest do);
+const SAMPLE_DIR = path.resolve(process.cwd(), 'data/sample'); // run from the repo root (npm scripts and jest do)
 const SEED_FAMILY_IDS = ['maya', 'leo', 'ava'];
 
 export const BENEFIT_RULES: (typeof s.benefitRules.$inferInsert)[] = [

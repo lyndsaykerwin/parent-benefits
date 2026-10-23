@@ -76,4 +76,42 @@ describe('seed()', () => {
     await seed();
     expect((await db.select().from(s.families)).length).toBe(3);
   }, 60000);
+  it('keeps every planted trap in the fixtures', async () => {
+    const tx = await db.select().from(s.transactions);
+    const maya = tx.filter((t: any) => t.familyId === 'maya');
+    const dups = maya.filter((t: any) => t.merchant === 'Walgreens' && t.date === '2026-10-15' && t.amountCents === 3149);
+    expect(dups.length).toBe(2);
+    expect(new Set(dups.map((d: any) => d.id)).size).toBe(2);
+    const daycare = maya.filter((t: any) => t.merchant === 'Bright Horizons');
+    expect(daycare.length).toBe(3);
+    expect(daycare.every((t: any) => t.amountCents === 185000)).toBe(true);
+    expect(maya.some((t: any) => /Pack 'n Play/.test(t.category) && t.amountCents === 8999 && t.merchant === 'Target')).toBe(true);
+
+    const orders = await db.select().from(s.amazonOrders);
+    const keawis = orders.find((o: any) => /KEAWIS Crib Mattress/.test(o.title));
+    expect(keawis).toBeDefined();
+    expect(keawis.familyId).toBe('maya');
+    expect(keawis.priceCents).toBe(8999);
+
+    const obs = await db.select().from(s.priceObservations);
+    const pnp = obs.find((o: any) => o.store === 'Target' && /Pack 'n Play/.test(o.keyword));
+    expect(pnp.priceCents).toBe(6999);
+    expect(pnp.priceCents).toBeLessThan(8999);
+    for (const o of obs) expect((o.sourceUrl ?? '').trim()).not.toBe('');
+  });
+
+  it('pins the fixed ISO dates and cites the poverty guidelines', async () => {
+    const fams = await db.select().from(s.families);
+    const f = (id: string) => fams.find((x: any) => x.id === id);
+    expect(f('maya').birthDate).toBe('2026-10-03');
+    expect(f('leo').dueDate).toBe('2026-12-07');
+    expect(f('leo').birthDate).toBeNull();
+    expect(f('ava').birthDate).toBe('2026-08-24');
+    const pg = await db.select().from(s.povertyGuidelines);
+    expect(pg.length).toBeGreaterThanOrEqual(8);
+    for (const p of pg) {
+      expect(p.year).toBe(2026);
+      expect(p.sourceUrl).toMatch(/aspe\.hhs\.gov/);
+    }
+  });
 });
