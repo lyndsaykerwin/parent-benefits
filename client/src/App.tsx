@@ -4,15 +4,8 @@ import { Component, ErrorInfo, ReactNode } from "react";
 import { queryClient } from "./lib/queryClient";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import Navbar from "@/components/Navbar";
-import Login from "@/pages/login";
-import Dashboard from "@/pages/dashboard";
+import Home from "@/pages/home";
 import NotFound from "@/pages/not-found";
-import Profile from "@/pages/profile";
-import Pricing from "@/pages/pricing";
-import Settings from "@/pages/settings";
-import Files from "@/pages/files";
-import AIChat from "@/pages/ai-chat";
 
 class ErrorBoundary extends Component<
   { children: ReactNode },
@@ -54,21 +47,10 @@ class ErrorBoundary extends Component<
 
 function Router() {
   return (
-    <div className="min-h-screen flex flex-col">
-      <Navbar />
-      <div className="flex-1">
-        <Switch>
-          <Route path="/" component={Dashboard} />
-          <Route path="/login" component={Login} />
-          <Route path="/pricing" component={Pricing} />
-          <Route path="/profile" component={Profile} />
-          <Route path="/settings" component={Settings} />
-          <Route path="/files" component={Files} />
-          <Route path="/ai-chat" component={AIChat} />
-          <Route component={NotFound} />
-        </Switch>
-      </div>
-    </div>
+    <Switch>
+      <Route path="/" component={Home} />
+      <Route component={NotFound} />
+    </Switch>
   );
 }
 
