@@ -2,7 +2,7 @@ import { useState, type FormEvent, type ReactNode } from 'react';
 import { useLocation } from 'wouter';
 import { api, localToday, type RunRequest } from '@/lib/bundle';
 import { dateLimits, dateRangeError } from '@shared/dateRange';
-import { babyAgeLine, stateForZip, zipMessage } from '@/lib/onboarding';
+import { babyAgeLine, stateForZip, zipMessage, zipRejectedMessage } from '@/lib/onboarding';
 
 /** Top row of Lyndsay's mocks (Main → Date → ZIP), then the Checking screen (/feed/:runId). Work screen is cut. */
 type Stage = 'expecting' | 'born';
@@ -55,6 +55,18 @@ const HeartIcon = () => (
   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 21s-7-4.5-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 11c0 5.5-7 10-7 10z" /></svg>
 );
 
+function SampleButton({ busy, onClick }: { busy: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button" disabled={busy} onClick={onClick}
+      className="mt-3 flex min-h-[64px] w-full flex-col items-center justify-center rounded-2xl border border-[#F5C4B0] bg-coral-tint px-4 py-2 transition active:scale-[.99] disabled:opacity-60"
+    >
+      <span className="text-[17px] font-bold text-coral-deep">{busy ? 'Starting…' : 'Try a sample family'}</span>
+      <span className="text-[14px] font-medium text-coral-deep">Made-up data. See a finished list in one tap.</span>
+    </button>
+  );
+}
+
 function Choice({ title, sub, icon, onClick }: { title: string; sub: string; icon: ReactNode; onClick: () => void }) {
   return (
     <button
@@ -78,17 +90,26 @@ export default function Onboarding() {
   const [zip, setZip] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** True when the server turned down a ZIP this screen accepted (server knows fewer states; any-state support is W2-STATE). */
+  const [zipRejected, setZipRejected] = useState(false);
 
-  const go = (s: Step) => { setError(null); setStep(s); };
+  const go = (s: Step) => { setError(null); setZipRejected(false); setStep(s); };
 
   async function start(body: RunRequest) {
     setBusy(true);
     setError(null);
+    setZipRejected(false);
     try {
       const { runId } = await api.startRun(body);
       navigate(`/feed/${encodeURIComponent(runId)}`);
     } catch (e) {
-      setError((e as Error).message);
+      const err = e as Error & { status?: number };
+      if ('zip' in body && err.status === 400 && /ZIP/i.test(err.message)) {
+        setError(zipRejectedMessage(body.zip));
+        setZipRejected(true);
+      } else {
+        setError(err.message);
+      }
       setBusy(false);
     }
   }
@@ -121,13 +142,7 @@ export default function Onboarding() {
         </div>
         <div className="min-h-8 flex-grow" />
         <Alert text={error} />
-        <button
-          type="button" disabled={busy} onClick={() => start({ familyId: 'maya' })}
-          className="mt-3 flex min-h-[64px] w-full flex-col items-center justify-center rounded-2xl border border-[#F5C4B0] bg-coral-tint px-4 py-2 transition active:scale-[.99] disabled:opacity-60"
-        >
-          <span className="text-[17px] font-bold text-coral-deep">{busy ? 'Starting…' : 'Try a sample family'}</span>
-          <span className="text-[14px] font-medium text-coral-deep">Made-up data. See a finished list in one tap.</span>
-        </button>
+        <SampleButton busy={busy} onClick={() => start({ familyId: 'maya' })} />
         <p className="mt-4 text-center text-[13px] leading-[1.4] text-ink-2">We never ask for bank details to get started. Bundle finds and prepares. You decide.</p>
       </Frame>
     );
@@ -182,7 +197,7 @@ export default function Onboarding() {
           <input
             className={fieldInput} type="text" inputMode="numeric" autoComplete="postal-code" maxLength={5} placeholder="02139"
             value={zip} aria-describedby="zip-state"
-            onChange={(e) => { setZip(e.target.value.replace(/\D/g, '').slice(0, 5)); setError(null); }}
+            onChange={(e) => { setZip(e.target.value.replace(/\D/g, '').slice(0, 5)); setError(null); setZipRejected(false); }}
           />
         </label>
         <p id="zip-state" aria-live="polite" className={`mt-3 flex items-start gap-2 text-[15px] font-bold ${covered ? 'text-[#1E6B47]' : 'text-ink-2'}`}>
@@ -192,6 +207,7 @@ export default function Onboarding() {
           {msg && <span>{msg}</span>}
         </p>
         <Alert text={error} />
+        {zipRejected && <SampleButton busy={busy} onClick={() => start({ familyId: 'maya' })} />}
         <div className="min-h-8 flex-grow" />
         <button type="submit" disabled={busy} className={primary}>{busy ? 'Starting…' : 'Looks right'}</button>
       </form>

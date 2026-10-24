@@ -21,7 +21,7 @@ const future = (days: number) => new Date(Date.now() + days * 86_400_000).toISOS
 describe('onboarding helpers', () => {
   it('maps ZIPs to states', () => {
     expect(stateForZip('02139')).toEqual({ code: 'MA', name: 'Massachusetts', covered: true });
-    expect(stateForZip('44101')?.code).toBe('OH');
+    expect(stateForZip('44101')).toEqual({ code: 'OH', name: 'Ohio', covered: false });
     expect(stateForZip('94110')).toEqual({ code: 'CA', name: 'California', covered: false });
     expect(stateForZip('123')).toBeNull();
   });
@@ -29,6 +29,7 @@ describe('onboarding helpers', () => {
     expect(zipMessage('02139')).toBe('Found it: showing Massachusetts programs plus federal ones');
     expect(zipMessage('94110')).toContain('Support for your state’s programs is coming soon');
     expect(zipMessage('94110')).toContain('federal');
+    expect(zipMessage('44101')).toBe('Ohio: showing federal programs. Support for your state’s programs is coming soon.');
   });
   it('baby age line only while 30-day deadlines can still be open', () => {
     expect(babyAgeLine('2026-10-04', '2026-10-24')).toBe('20 days old: some 30-day deadlines are still open');
@@ -90,6 +91,22 @@ describe('Onboarding top row', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Looks right' }));
     expect(screen.getByRole('alert').textContent).toMatch(/ZIP/);
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('a ZIP the server rejects gets an honest message and the sample-family button', async () => {
+    const { fetchMock, loc } = mount();
+    fetchMock.mockImplementationOnce(async () => ({ ok: false, status: 400, json: async () => ({ error: 'Enter a valid US ZIP code' }) }) as any);
+    fireEvent.click(screen.getByRole('button', { name: /Baby’s here/ }));
+    fireEvent.change(screen.getByLabelText('Birth date'), { target: { value: future(-10) } });
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    fireEvent.change(screen.getByLabelText('ZIP code'), { target: { value: '59001' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Looks right' }));
+    await waitFor(() => expect(screen.getByRole('alert').textContent).toBe('We can’t check Montana yet. Try a sample family to see how it works.'));
+    expect(screen.queryByText(/Enter a valid US ZIP/)).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: /Try a sample family/ }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    expect(JSON.parse((fetchMock.mock.calls[1] as any[])[1].body)).toEqual({ familyId: 'maya' });
+    await waitFor(() => expect(loc.history?.at(-1)).toBe('/feed/r9'));
   });
 
   it('Try a sample family starts the sample run', async () => {

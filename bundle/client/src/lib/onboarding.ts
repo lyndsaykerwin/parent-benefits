@@ -3,8 +3,8 @@
  * The server still decides which programs apply; this only words the confirmation line.
  */
 
-/** States whose own programs Bundle already checks. Everyone else sees federal programs plus "coming soon". */
-export const COVERED_STATES = ['MA', 'OH'] as const;
+/** States whose own programs Bundle already checks (program rules cover federal + MA). Everyone else sees federal programs plus "coming soon". */
+export const COVERED_STATES = ['MA'] as const;
 
 export const UNCOVERED_STATE_NOTE = 'Support for your state’s programs is coming soon';
 
@@ -41,6 +41,12 @@ export function stateForZip(zip: string): ZipState | null {
   if (!hit) return null;
   const code = hit[2];
   return { code, name: NAMES[code], covered: (COVERED_STATES as readonly string[]).includes(code) };
+}
+
+/** Shown when the server turns down a ZIP this screen accepted (the server knows fewer states than the ZIP table). */
+export function zipRejectedMessage(zip: string): string {
+  const s = stateForZip(zip);
+  return `We can’t check ${s ? s.name : 'your area'} yet. Try a sample family to see how it works.`;
 }
 
 /** The confirmation line under the ZIP box, or null until a full ZIP is typed. */
