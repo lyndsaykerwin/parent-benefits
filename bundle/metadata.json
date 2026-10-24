@@ -1,0 +1,37 @@
+{
+  "_note": "The HackOS metadata format was not published when this was written. Fields below are a sensible guess: check them against the HackOS submission form and rename or reshape as needed.",
+  "project_name": "Bundle",
+  "tagline": "AI agents that find, check and prepare new-parent benefits, refunds and deals, and learn from parent feedback.",
+  "hackathon": "Open Agent Hackathon 2026",
+  "track": "Track 1: Solving Fragmented Intelligence",
+  "team": [{ "name": "Lyndsay Kerwin", "role": "Solo builder" }],
+  "repository": "https://github.com/REPLACE-ME/bundle",
+  "demo_video": "https://REPLACE-ME/demo-video",
+  "slide_deck": "https://REPLACE-ME/slide-deck",
+  "live_demo": "https://REPLACE-ME/live-demo",
+  "license": "MIT",
+  "run": {
+    "install": "npm ci",
+    "start": "cp .env.example .env && npm run dev",
+    "port": 5050,
+    "api_example": "curl -XPOST localhost:5050/api/run?wait=true -H 'content-type: application/json' -d @input_examples/leo.json",
+    "sample_mode": true,
+    "requires_gpu": false,
+    "requires_secrets_in_sample_mode": false
+  },
+  "sponsor_tech": {
+    "zetaris": "One SQL layer over a private Postgres database (bundle_pg) and live public recall feeds (bundle_live.cpsc_recalls, fda_food_recalls). Every agent reads through it. server/adapters/zetaris.ts, scripts/zetaris/",
+    "meterless": "H-MEM reference memory (vendored, Apache-2.0) stores the rules Bundle learns from parent feedback; the Fine Print Court recalls them. server/adapters/memory.ts, vendor/hmem/",
+    "nvidia": "NVIDIA-hosted models (supported, not exercised in the saved results) through an OpenAI-compatible endpoint (MODEL_BASE_URL) write short explanations and judge offers. Without a key, offline fallbacks run. server/adapters/llm.ts",
+    "built_with": "Built with Claude Code. Cursor was optional for this hackathon and was not used."
+  },
+  "pre_existing_components": [
+    "VibeCode starter template by Colin Matthews (MIT), upstream commit 6af369a, imported in commit b2bc3be",
+    "Meterless H-MEM reference implementation (Apache-2.0), vendored in vendor/hmem",
+    "Zetaris getting-started patterns (zetaris-getting-started repo)",
+    "Pre-Oct-22 research and planning documents"
+  ],
+  "scoreboard": "logs/scoreboard.json",
+  "sample_traces": "logs/sample/",
+  "data_notes": "data/README.md"
+}

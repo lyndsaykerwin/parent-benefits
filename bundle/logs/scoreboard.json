@@ -1,0 +1,68 @@
+{
+  "trapsCaught": 6,
+  "trapsTotal": 6,
+  "falseAlarms": 0,
+  "sourcedPct": 100,
+  "runs": 3,
+  "stable": true,
+  "learning": {
+    "run1Approved": true,
+    "run2Blocked": true,
+    "citedRuleId": "mem-1"
+  },
+  "llmMode": "offline-fallback",
+  "scoutLlmMode": "fake-llm",
+  "generatedAt": "2026-10-23T18:56:01.407Z",
+  "demoDate": "2026-10-23",
+  "traps": {
+    "auto_renew_offer": {
+      "caught": true,
+      "detail": "blocked after learning, cites mem-1"
+    },
+    "wrong_amount_scout_row": {
+      "caught": true,
+      "detail": "amount 500000 cents is not written on the page"
+    },
+    "recalled_item": {
+      "caught": true,
+      "detail": "card recall-cpsc-10560"
+    },
+    "refund": {
+      "caught": true,
+      "detail": "no card for the refunded purchase; money back unchanged"
+    },
+    "duplicate": {
+      "caught": true,
+      "detail": "7 distinct items checked (duplicate counted once)"
+    },
+    "non_ma_family": {
+      "caught": true,
+      "detail": "Ohio family gets no Massachusetts benefit"
+    }
+  },
+  "expectationFailures": [],
+  "moneyBackCents": {
+    "maya": 4899,
+    "leo": 0,
+    "ava": 1458
+  },
+  "learningDetail": {
+    "run1Id": "maya-744e5074-78f7-467d-9bf2-d1a3322bfb0e",
+    "run2Id": "maya-a3d2e670-8112-4f3c-be91-1086d3831f4e",
+    "ruleText": "Reject offers whose free trial turns into a paid membership that renews automatically.",
+    "storedIn": "memory"
+  },
+  "scout": {
+    "accepted": 3,
+    "rejected": [
+      {
+        "title": "Trump Account bonus",
+        "reason": "amount 500000 cents is not written on the page"
+      },
+      {
+        "title": "Mystery bonus",
+        "reason": "no source"
+      }
+    ]
+  }
+}

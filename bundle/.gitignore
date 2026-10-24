@@ -1,0 +1,21 @@
+node_modules
+dist
+.DS_Store
+server/public
+vite.config.ts.*
+*.tar.gz
+coverage
+
+# Secrets and local settings
+.env
+.env.*
+!.env.example
+
+# Bundle runtime files
+logs/*.jsonl
+!logs/sample/*.jsonl
+vendor/hmem/node_modules
+data/hmem/
+
+# Claude Code local config
+.mcp.json

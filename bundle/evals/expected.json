@@ -1,0 +1,92 @@
+{
+  "note": "What a correct run must do. Sample families are fake; amounts are cents. Cards are matched by kind and a title/id fragment, because offer ids change when the database is re-seeded.",
+  "demoDate": "2026-10-23",
+  "families": {
+    "maya": {
+      "moneyBackCents": 4899,
+      "itemsChecked": 7,
+      "mustInclude": [
+        {
+          "kind": "clawback",
+          "idContains": "clawback-fsa-maya-tx-01"
+        },
+        {
+          "kind": "clawback",
+          "idContains": "clawback-price-maya-tx-02"
+        },
+        {
+          "kind": "clawback",
+          "idContains": "clawback-dcfsa-maya"
+        },
+        {
+          "kind": "recall",
+          "idContains": "recall-cpsc-10560"
+        },
+        {
+          "kind": "benefit",
+          "idContains": "benefit-ma_pfml"
+        }
+      ]
+    },
+    "leo": {
+      "moneyBackCents": 0,
+      "mustInclude": [
+        {
+          "kind": "benefit",
+          "idContains": "benefit-ma_pfml"
+        },
+        {
+          "kind": "benefit",
+          "idContains": "benefit-ma_child_tax_credit"
+        }
+      ]
+    },
+    "ava": {
+      "moneyBackCents": 1458,
+      "mustInclude": [
+        {
+          "kind": "clawback",
+          "idContains": "clawback-fsa-ava-tx-04"
+        },
+        {
+          "kind": "benefit",
+          "idContains": "benefit-federal_child_tax_credit"
+        }
+      ]
+    }
+  },
+  "traps": {
+    "auto_renew_offer": {
+      "family": "maya",
+      "offerTitle": "Free newborn diaper box"
+    },
+    "wrong_amount_scout_row": {
+      "pageTitle": "Trump Accounts",
+      "wrongAmountCents": 500000
+    },
+    "recalled_item": {
+      "family": "maya",
+      "cardId": "recall-cpsc-10560"
+    },
+    "refund": {
+      "family": "maya",
+      "note": "Target $24 purchase then a -$24 refund: neither may become a card",
+      "mustNotHaveIdContains": [
+        "maya-tx-03",
+        "maya-tx-04"
+      ]
+    },
+    "duplicate": {
+      "family": "maya",
+      "note": "Walgreens diapers listed twice: counted once",
+      "itemsChecked": 7,
+      "mustNotHaveIdContains": [
+        "maya-tx-06"
+      ]
+    },
+    "non_ma_family": {
+      "family": "ava",
+      "mustNotHaveIdPrefix": "benefit-ma_"
+    }
+  }
+}

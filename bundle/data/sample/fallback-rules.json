@@ -1,0 +1,65 @@
+[
+  {
+    "code": "TRUMP_ACCOUNT",
+    "title": "Trump Account: $1,000 federal starter deposit",
+    "scope": "federal",
+    "amountCents": 100000,
+    "windowEndDaysFromBirth": null,
+    "condition": "born 2025-01-01..2028-12-31",
+    "sourceUrl": "https://trumpaccounts.gov"
+  },
+  {
+    "code": "FEDERAL_CHILD_TAX_CREDIT",
+    "title": "Federal Child Tax Credit",
+    "scope": "federal",
+    "amountCents": 220000,
+    "windowEndDaysFromBirth": null,
+    "condition": "claimed on the yearly tax return",
+    "sourceUrl": "https://www.irs.gov/credits-deductions/individuals/child-tax-credit"
+  },
+  {
+    "code": "INSURANCE_ADD_BABY",
+    "title": "Add your baby to health insurance",
+    "scope": "federal",
+    "amountCents": null,
+    "windowEndDaysFromBirth": 30,
+    "condition": "birth is a qualifying life event",
+    "sourceUrl": "https://www.healthcare.gov/coverage-outside-open-enrollment/special-enrollment-period/"
+  },
+  {
+    "code": "DCFSA_LIFE_EVENT",
+    "title": "Start or change your Dependent Care FSA",
+    "scope": "federal",
+    "amountCents": null,
+    "windowEndDaysFromBirth": 30,
+    "condition": "employer offers a Dependent Care FSA",
+    "sourceUrl": "https://www.irs.gov/publications/p503"
+  },
+  {
+    "code": "MA_CHILD_TAX_CREDIT",
+    "title": "Massachusetts Child and Family Tax Credit",
+    "scope": "MA",
+    "amountCents": 44000,
+    "windowEndDaysFromBirth": null,
+    "condition": "Massachusetts resident filing state taxes",
+    "sourceUrl": "https://www.mass.gov/info-details/massachusetts-child-and-family-tax-credit"
+  },
+  {
+    "code": "MA_PFML",
+    "title": "Massachusetts Paid Family and Medical Leave",
+    "scope": "MA",
+    "amountCents": null,
+    "windowEndDaysFromBirth": 365,
+    "condition": "worked in Massachusetts and paid into PFML",
+    "sourceUrl": "https://www.mass.gov/paid-family-and-medical-leave-pfml"
+  },
+  {
+    "code": "WIC_SCREEN",
+    "title": "WIC food benefits screening",
+    "scope": "federal",
+    "amountCents": null,
+    "windowEndDaysFromBirth": null,
+    "condition": "income <= 185% FPL",
+    "sourceUrl": "https://www.fns.usda.gov/wic/wic-eligibility-requirements"
+  }
+]

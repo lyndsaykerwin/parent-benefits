@@ -1,0 +1,1 @@
+{"headers":["tx_id","merchant","date","amount_cents","item","keyword","fsa_category","account","source_url"],"rows":[{"tx_id":"maya-tx-01","merchant":"Target","date":"2026-10-05","amount_cents":2899,"item":"Frida baby thermometer","keyword":"thermometer","fsa_category":"Baby thermometer","account":"FSA","source_url":"https://fsastore.com/baby-thermometers.html"}],"ms":20130}
