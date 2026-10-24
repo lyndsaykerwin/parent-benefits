@@ -44,3 +44,13 @@ Started Sat Oct 24, 2026 (cloud session). Coordinator: main Claude session. Suba
 - [x] L1 (done) Plan + exec summary: agent loops + latency + photo priority
 - [x] L2 (done) Flow chart: add the agent loops
 - [x] Q1 (done; 7 fixes, 4 questions) QC subagent: every high-priority item from Lyndsay present → `qc-round4.md`
+
+## Lyndsay round 4c (Oct 24) — answers
+- Parent taps (confidence tuning) come LATER, not this draft. The feedback loop that must be VISIBLE in this draft is the "newsroom" loop: the agents' detailed grading of each offer (how valuable, how time-consuming, etc.) feeding back into how they grade.
+- Job question: agreed, not essential; stays cut.
+- Asks: isn't Meterless memory supposed to handle the shared message workspace and loops?
+- QC questions: (1) Monday 3pm Boston code freeze = fine; (2) loops + 300 s run limit as must-do = yes; (3) skip offers whose wording hasn't changed = yes; (4) an offer is graded on its VALUE and TIME TO GET THAT VALUE; both decide whether it's worth someone's time.
+- Says the plan otherwise has everything she wants; wants confirmation that building the new onboarding + Version B UI from her mocks is in the plan (it is: must-do item 7, client/src/pages/Onboarding.tsx + Version B tab screens).
+- [ ] M1 Meterless as shared workspace + apply 4c to plan, summary, flow chart
+- [ ] M2 QC
+- [ ] Merge to main
