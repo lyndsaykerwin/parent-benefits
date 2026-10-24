@@ -11,30 +11,62 @@ import type { Family } from '../shared/bundle';
 import { loadPlaidFixture } from '../server/ingest/plaid';
 
 const SAMPLE_DIR = path.resolve(process.cwd(), 'data/sample'); // run from the repo root (npm scripts and jest do)
-const SEED_FAMILY_IDS = ['maya', 'leo', 'ava'];
+const SEED_FAMILY_IDS = ['maya', 'leo', 'ava', 'noor', 'cal', 'fern'];
 
-export const BENEFIT_RULES: (typeof s.benefitRules.$inferInsert)[] = [
+const readJson = (f: string) => JSON.parse(fs.readFileSync(path.join(SAMPLE_DIR, f), 'utf8'));
+
+/** One row of data/sample/tax-parameters.json. `verified: false` means the figure was not confirmed on a current official page. */
+export interface TaxParameterJson { year: number; code: string; title: string; amountCents: number | null; note: string; sourceUrl: string; verified: boolean }
+/** One row of data/sample/state-programs.json. */
+export interface StateProgramJson {
+  state: string; year: number; code: string; title: string; amountCents: number | null;
+  windowStartDaysFromBirth: number | null; windowEndDaysFromBirth: number | null; condition: string; sourceUrl: string;
+  verified: boolean; checkedOn?: string; unverifiedNote?: string;
+}
+
+export const TAX_PARAMETERS_JSON: TaxParameterJson[] = readJson('tax-parameters.json');
+export const STATE_PROGRAMS_JSON: StateProgramJson[] = readJson('state-programs.json');
+
+const UNVERIFIED = 'UNVERIFIED: ';
+export const TAX_PARAMETER_ROWS: (typeof s.taxParameters.$inferInsert)[] = TAX_PARAMETERS_JSON.map((r) => ({
+  year: r.year, code: r.code, title: r.title, amountCents: r.amountCents, sourceUrl: r.sourceUrl,
+  note: r.verified ? r.note : `${UNVERIFIED}${r.note}`,
+}));
+export const STATE_PROGRAM_ROWS: (typeof s.statePrograms.$inferInsert)[] = STATE_PROGRAMS_JSON.map((r) => ({
+  state: r.state, year: r.year, code: r.code, title: r.title, amountCents: r.amountCents,
+  windowStartDaysFromBirth: r.windowStartDaysFromBirth, windowEndDaysFromBirth: r.windowEndDaysFromBirth, sourceUrl: r.sourceUrl,
+  condition: r.verified ? r.condition : `${UNVERIFIED}${r.unverifiedNote ?? 'not confirmed on an official page'}. ${r.condition}`,
+}));
+
+const taxAmount = (code: string): number | null => {
+  const row = TAX_PARAMETERS_JSON.find((r) => r.code === code);
+  if (!row) throw new Error(`tax-parameters.json has no ${code}`);
+  return row.amountCents;
+};
+
+const FEDERAL_RULES: (typeof s.benefitRules.$inferInsert)[] = [
   { code: 'TRUMP_ACCOUNT', title: 'Trump Account: $1,000 federal starter deposit', scope: 'federal', amountCents: 100000,
     windowStartDaysFromBirth: null, windowEndDaysFromBirth: null, condition: 'born 2025-01-01..2028-12-31',
     sourceUrl: 'https://trumpaccounts.gov' },
-  { code: 'FEDERAL_CHILD_TAX_CREDIT', title: 'Federal Child Tax Credit', scope: 'federal', amountCents: 220000,
+  { code: 'FEDERAL_CHILD_TAX_CREDIT', title: 'Federal Child Tax Credit', scope: 'federal', amountCents: taxAmount('CHILD_TAX_CREDIT'),
     windowStartDaysFromBirth: null, windowEndDaysFromBirth: null, condition: 'claimed on the yearly tax return',
     sourceUrl: 'https://www.irs.gov/credits-deductions/individuals/child-tax-credit' },
   { code: 'INSURANCE_ADD_BABY', title: 'Add your baby to health insurance', scope: 'federal', amountCents: null,
     windowStartDaysFromBirth: 0, windowEndDaysFromBirth: 30, condition: 'birth is a qualifying life event',
     sourceUrl: 'https://www.healthcare.gov/coverage-outside-open-enrollment/special-enrollment-period/' },
-  { code: 'DCFSA_LIFE_EVENT', title: 'Start or change your Dependent Care FSA', scope: 'federal', amountCents: null,
-    windowStartDaysFromBirth: 0, windowEndDaysFromBirth: 30, condition: 'employer offers a Dependent Care FSA',
+  { code: 'DCFSA_LIFE_EVENT', title: 'Dependent Care FSA: check with your job', scope: 'federal', amountCents: null,
+    windowStartDaysFromBirth: null, windowEndDaysFromBirth: null, condition: 'ask your employer whether it offers a Dependent Care FSA (a work account for childcare costs); nothing is checked for you',
     sourceUrl: 'https://www.irs.gov/publications/p503' },
-  { code: 'MA_CHILD_TAX_CREDIT', title: 'Massachusetts Child and Family Tax Credit', scope: 'MA', amountCents: 44000,
-    windowStartDaysFromBirth: null, windowEndDaysFromBirth: null, condition: 'Massachusetts resident filing state taxes',
-    sourceUrl: 'https://www.mass.gov/info-details/massachusetts-child-and-family-tax-credit' },
-  { code: 'MA_PFML', title: 'Massachusetts Paid Family and Medical Leave', scope: 'MA', amountCents: null,
-    windowStartDaysFromBirth: 0, windowEndDaysFromBirth: 365, condition: 'worked in Massachusetts and paid into PFML',
-    sourceUrl: 'https://www.mass.gov/paid-family-and-medical-leave-pfml' },
-  { code: 'WIC_SCREEN', title: 'WIC food benefits screening', scope: 'federal', amountCents: null,
-    windowStartDaysFromBirth: null, windowEndDaysFromBirth: null, condition: 'income <= 185% FPL',
-    sourceUrl: 'https://www.fns.usda.gov/wic/wic-eligibility-requirements' },
+];
+
+/** Every state program becomes a benefit rule whose scope is its 2-letter state, so the planner and the Fact-Checker read one table. */
+export const BENEFIT_RULES: (typeof s.benefitRules.$inferInsert)[] = [
+  ...FEDERAL_RULES,
+  ...STATE_PROGRAM_ROWS.map((r) => ({
+    code: r.code, title: r.title, scope: r.state, amountCents: r.amountCents ?? null,
+    windowStartDaysFromBirth: r.windowStartDaysFromBirth ?? null, windowEndDaysFromBirth: r.windowEndDaysFromBirth ?? null,
+    condition: r.condition ?? '', sourceUrl: r.sourceUrl,
+  })),
 ];
 
 const OFFER_SRC = {
@@ -105,11 +137,6 @@ export const PRICE_OBSERVATIONS: (typeof s.priceObservations.$inferInsert)[] = [
   { store: 'Target', keyword: 'Graco 4Ever car seat', priceCents: 24999, observedAt: '2026-10-20', sourceUrl: 'https://www.target.com/c/car-seats/-/N-5xtbi' },
 ];
 
-// Fixed 2026 HHS poverty guidelines, 48 contiguous states and DC (verified at
-// aspe.hhs.gov on 2026-10-23). Amounts in dollars; stored as cents.
-const POVERTY_2026: Record<number, number> = { 1: 15960, 2: 21640, 3: 27320, 4: 33000, 5: 38680, 6: 44360, 7: 50040, 8: 55720 };
-const POVERTY_URL = 'https://aspe.hhs.gov/topics/poverty-economic-mobility/poverty-guidelines';
-
 function parseCsv(text: string): Record<string, string>[] {
   const lines = text.trim().split(/\r?\n/);
   const split = (line: string) => {
@@ -125,8 +152,6 @@ function parseCsv(text: string): Record<string, string>[] {
   const header = split(lines[0]);
   return lines.slice(1).map((l) => Object.fromEntries(split(l).map((v, i) => [header[i], v])));
 }
-
-const readJson = (f: string) => JSON.parse(fs.readFileSync(path.join(SAMPLE_DIR, f), 'utf8'));
 
 export async function seed(): Promise<void> {
   const { db } = await import('../server/db');
@@ -144,7 +169,8 @@ export async function seed(): Promise<void> {
     await tx.delete(s.storePolicies);
     await tx.delete(s.priceObservations);
     await tx.delete(s.zipStates);
-    await tx.delete(s.povertyGuidelines);
+    await tx.delete(s.taxParameters);
+    await tx.delete(s.statePrograms);
 
     await tx.insert(s.families).values(families);
     await tx.insert(s.transactions).values(loadPlaidFixture(SAMPLE_DIR));
@@ -160,11 +186,8 @@ export async function seed(): Promise<void> {
     await tx.insert(s.storePolicies).values(STORE_POLICIES);
     await tx.insert(s.priceObservations).values(PRICE_OBSERVATIONS);
     await tx.insert(s.zipStates).values(zipRows());
-    await tx.insert(s.povertyGuidelines).values(
-      Object.entries(POVERTY_2026).map(([size, dollars]) => ({
-        householdSize: Number(size), annualCents: dollars * 100, year: 2026, sourceUrl: POVERTY_URL,
-      })),
-    );
+    await tx.insert(s.taxParameters).values(TAX_PARAMETER_ROWS);
+    await tx.insert(s.statePrograms).values(STATE_PROGRAM_ROWS);
   });
 }
 

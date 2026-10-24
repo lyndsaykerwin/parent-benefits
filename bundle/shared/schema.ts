@@ -70,7 +70,8 @@ export const benefitRules = pgTable("benefit_rules", {
   id: serial("id").primaryKey(),
   code: varchar("code").notNull().unique(),
   title: text("title").notNull(),
-  scope: text("scope", { enum: ["federal", "MA"] }).notNull(),
+  /** "federal" (everyone) or a 2-letter state code (that state only). */
+  scope: text("scope").notNull(),
   amountCents: integer("amount_cents"),
   windowStartDaysFromBirth: integer("window_start_days_from_birth"),
   windowEndDaysFromBirth: integer("window_end_days_from_birth"),
@@ -120,13 +121,6 @@ export const priceObservations = pgTable("price_observations", {
 export const zipStates = pgTable("zip_states", {
   zip3: varchar("zip3", { length: 3 }).primaryKey(),
   state: varchar("state", { length: 2 }).notNull(),
-});
-
-export const povertyGuidelines = pgTable("poverty_guidelines", {
-  householdSize: integer("household_size").primaryKey(),
-  annualCents: integer("annual_cents").notNull(),
-  year: integer("year").notNull(),
-  sourceUrl: text("source_url").notNull(),
 });
 
 // ---------------------------------------------------------------------------
@@ -253,6 +247,6 @@ export const statePrograms = pgTable("state_programs", {
 export const BUNDLE_TABLE_NAMES = [
   "users", "families", "transactions", "amazon_orders", "fsa_eligible_categories",
   "store_policies", "benefit_rules", "offers", "feedback", "case_law_proposals",
-  "price_observations", "zip_states", "poverty_guidelines",
+  "price_observations", "zip_states",
   "purchase_items", "offer_checks", "run_results", "tax_parameters", "state_programs",
 ] as const;

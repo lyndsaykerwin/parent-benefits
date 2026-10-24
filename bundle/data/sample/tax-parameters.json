@@ -1,0 +1,29 @@
+[
+  {
+    "year": 2026,
+    "code": "CHILD_TAX_CREDIT",
+    "title": "Federal Child Tax Credit (per qualifying child)",
+    "amountCents": 220000,
+    "note": "Maximum credit for tax years beginning in 2026. Checked 2026-10-24.",
+    "sourceUrl": "https://www.irs.gov/pub/irs-drop/rp-25-32.pdf",
+    "verified": true
+  },
+  {
+    "year": 2026,
+    "code": "DEPENDENT_CARE_FSA_LIMIT",
+    "title": "Dependent Care FSA yearly limit (per household)",
+    "amountCents": 750000,
+    "note": "Raised from $5,000 to $7,500 for 2026. Never shown as a dollar amount: the app only says to check with your job. Checked 2026-10-24.",
+    "sourceUrl": "https://www.irs.gov/pub/irs-pdf/p15b.pdf",
+    "verified": true
+  },
+  {
+    "year": 2026,
+    "code": "DEPENDENT_CARE_FSA_LIMIT_MARRIED_SEPARATE",
+    "title": "Dependent Care FSA yearly limit (married filing separately)",
+    "amountCents": 375000,
+    "note": "Raised from $2,500 to $3,750 for 2026. Checked 2026-10-24.",
+    "sourceUrl": "https://www.irs.gov/pub/irs-pdf/p15b.pdf",
+    "verified": true
+  }
+]

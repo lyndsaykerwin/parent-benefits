@@ -1,15 +1,19 @@
+import fs from 'fs';
+import path from 'path';
+
+/** Every assigned 3-digit ZIP prefix to its state, from data/sample/zip3-states.json (source links are inside that file). */
+let cached: Record<string, string> | null = null;
+function prefixes(): Record<string, string> {
+  if (!cached) {
+    const file = JSON.parse(fs.readFileSync(path.resolve(process.cwd(), 'data/sample/zip3-states.json'), 'utf8'));
+    cached = file.prefixes as Record<string, string>;
+  }
+  return cached;
+}
+
 /** ZIP prefix (first 3 digits) to state. Seeded into Neon by scripts/seed.ts and used directly in SAMPLE_MODE. */
 export function zipRows(): { zip3: string; state: string }[] {
-  const rows: { zip3: string; state: string }[] = [];
-  const range = (from: number, to: number, state: string) => {
-    for (let n = from; n <= to; n++) rows.push({ zip3: String(n).padStart(3, '0'), state });
-  };
-  range(10, 27, 'MA');
-  range(430, 459, 'OH');
-  range(100, 119, 'NY');
-  range(900, 935, 'CA');
-  range(750, 799, 'TX');
-  range(30, 38, 'NH');
+  const rows = Object.entries(prefixes()).map(([zip3, state]) => ({ zip3, state }));
   rows.push({ zip3: '000', state: 'US' }); // default: unknown prefix
   return rows;
 }
