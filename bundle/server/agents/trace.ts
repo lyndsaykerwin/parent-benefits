@@ -3,7 +3,7 @@ import path from 'path';
 import crypto from 'crypto';
 import {
   type AgentAction, type AgentLogLine, type AgentName, type AgentStatus,
-  AGENT_ACTIONS, agentLogFileName, agentTraceId, checkAgentLogLine,
+  AGENT_ACTIONS, AGENT_LOG_SUMMARY_MAX, agentLogFileName, agentTraceId, checkAgentLogLine, safeRunId,
 } from '@shared/agentLog';
 
 export interface TraceLine {
@@ -67,16 +67,22 @@ const AGENT_MAP: Record<string, AgentName> = {
 const COURT_SPEAKERS = new Set(['deal_hunter', 'fine_print_lawyer', 'judge']);
 
 /** Lines that fit none of her nine actions stay only in the detailed trace. */
-const HOUSEKEEPING = new Set(['start', 'assemble', 'export_ledger', 'agent_failed', 'add_rule', 'feedback']);
+const HOUSEKEEPING = new Set(['start', 'assemble', 'export_ledger', 'add_rule', 'feedback']);
+/** An agent crashed: always written, as reject_card / rejected with output_summary starting "error:". */
+const AGENT_FAILED = 'agent_failed';
+/** Raw actions that mean "the AI did not answer, code decided instead" even when status says otherwise. */
+const FALLBACK_ACTIONS = new Set(['rule_by_screen']);
 
 const RETRY_ACTIONS = new Set(['send_back', 'revise', 'retry_transient', 'retry', 'photo_retry', 'correction']);
 const REVISION_ACTIONS = new Set(['send_back', 'revise', 'correction']);
 
-function mapAction(raw: string, agent: AgentName, kind: 'zetaris' | 'memory' | 'agent'): AgentAction | null {
+function mapAction(raw: string, agent: AgentName, kind: 'zetaris' | 'memory' | 'agent', status: TraceLine['status'] = 'ok'): AgentAction | null {
   if (kind === 'zetaris') return 'query_zetaris';
   if (kind === 'memory') return 'recall_hmem';
   if ((AGENT_ACTIONS as readonly string[]).includes(raw)) return raw as AgentAction;
-  if (RETRY_ACTIONS.has(raw)) return 'retry_request';
+  if (raw === AGENT_FAILED) return 'reject_card';
+  // A retry that hit the cap (status blocked) is the card being turned down, not another retry.
+  if (RETRY_ACTIONS.has(raw)) return status === 'blocked' ? 'reject_card' : 'retry_request';
   if (raw === 'drop') return 'reject_card';
   if (raw === 'rule_recalled') return 'recall_hmem';
   if (/vision|photo|extract/.test(raw)) return 'vision_extract';
@@ -90,6 +96,7 @@ function mapAction(raw: string, agent: AgentName, kind: 'zetaris' | 'memory' | '
 }
 
 function mapStatus(raw: TraceLine['status'], rawAction: string, action: AgentAction): AgentStatus {
+  if (rawAction === AGENT_FAILED) return 'rejected';
   if (raw === 'retry') return REVISION_ACTIONS.has(rawAction) ? 'needs_revision' : 'retrying';
   if (raw === 'blocked' || raw === 'error') return 'rejected';
   if (action === 'approve_card') return 'approved';
@@ -105,42 +112,71 @@ const DEFAULT_TARGET: Record<AgentAction, string> = {
 
 const clampRetry = (n: number): 0 | 1 | 2 => (n >= 2 ? 2 : n >= 1 ? 1 : 0);
 
+const cap = (text: string): string =>
+  text.length <= AGENT_LOG_SUMMARY_MAX ? text : `${text.slice(0, AGENT_LOG_SUMMARY_MAX - 1)}…`;
+
 /**
- * Turn one detailed trace event into her 10-field line, or null for housekeeping lines.
- * Confidence is never made up: a measured number is passed through; otherwise it is the share of
- * code checks this step passed (1.00 on success, 0.00 when retrying or rejected).
+ * Code-only fallback confidence: the AI did not answer and plain code rules decided instead
+ * (e.g. judge rule_by_screen, a lawyer's argue fallback, explain's deterministic text).
+ * Fixed at 0.50 so a fallback is never shown as fully confident.
+ */
+export const FALLBACK_CONFIDENCE = 0.5;
+
+/**
+ * THE confidence rule (the one place it lives). Confidence is never made up:
+ *  1. A measured number (caller hint or trace field) is passed through, rounded and clamped to 0.00-1.00.
+ *  2. Otherwise a rejected / retrying / needs-revision step gets 0.00.
+ *  3. Otherwise a Zetaris sample-cache read (Zetaris line with status 'fallback') that passed its code
+ *     checks gets 1.00: the data is the same checked rows, only the live connection was down.
+ *  4. Otherwise any other fallback (the AI did not answer) gets FALLBACK_CONFIDENCE (0.50).
+ *  5. Otherwise a successful / approved step that passed its code checks gets 1.00.
+ */
+function confidenceFor(measured: unknown, status: AgentStatus, isFallback: boolean, kind: 'zetaris' | 'memory' | 'agent'): number {
+  if (typeof measured === 'number' && Number.isFinite(measured)) return Math.min(1, Math.max(0, Math.round(measured * 100) / 100));
+  const passed = status === 'success' || status === 'approved';
+  if (!passed) return 0;
+  if (isFallback && kind !== 'zetaris') return FALLBACK_CONFIDENCE;
+  return 1;
+}
+
+function warn(message: string): void {
+  try { process.stderr.write(`[agent-log] ${message}\n`); } catch { /* ignore */ }
+}
+
+/**
+ * Turn one detailed trace event into her 10-field line, or null for housekeeping lines and unknown agents
+ * (TraceLogger warns on stderr for unknown agents). Confidence follows confidenceFor() above.
  */
 export function toAgentLogLine(ev: TraceEvent, traceId: string, timestamp: string): AgentLogLine | null {
   const hint = ev.agentLog ?? {};
   const raw = String(ev.agent_name);
   const kind = raw === 'zetaris' ? 'zetaris' : raw === 'memory' ? 'memory' : 'agent';
   if (!hint.action && HOUSEKEEPING.has(ev.action)) return null;
-  const agent: AgentName | undefined = hint.agent
+  const failedAgent = ev.action === AGENT_FAILED ? AGENT_MAP[String(ev.input_summary ?? '').trim()] : undefined;
+  const agent: AgentName | undefined = hint.agent ?? failedAgent
     ?? (kind === 'agent' ? AGENT_MAP[raw]
       // The court logs each recalled rule itself under 'memory' (finePrintCourt.ts).
       : AGENT_MAP[ev.caller ?? (kind === 'memory' && ev.action === 'rule_recalled' ? 'fine_print_court' : 'orchestrator')] ?? 'Orchestrator');
   if (!agent) return null;
-  const action = hint.action ?? mapAction(ev.action, agent, kind);
+  const action = hint.action ?? mapAction(ev.action, agent, kind, ev.status);
   if (!action) return null;
   const status = hint.status ?? mapStatus(ev.status, ev.action, action);
 
   let output = redact(ev.output_summary || '').trim() || '(none)';
   if (kind === 'agent' && COURT_SPEAKERS.has(raw)) output = `${raw}: ${output}`;
-  if (ev.status === 'fallback') output = `fallback: ${output}`;
-  if (ev.status === 'error') output = `error: ${output}`;
+  const isFallback = ev.status === 'fallback' || FALLBACK_ACTIONS.has(ev.action);
+  if (isFallback) output = `fallback: ${output}`;
+  if (ev.status === 'error' || ev.action === AGENT_FAILED) output = `error: ${output}`;
 
-  const measured = hint.confidence ?? ev.confidence;
-  const confidence = typeof measured === 'number' && Number.isFinite(measured)
-    ? Math.min(1, Math.max(0, Math.round(measured * 100) / 100))
-    : status === 'success' || status === 'approved' ? 1 : 0;
+  const confidence = confidenceFor(hint.confidence ?? ev.confidence, status, isFallback, kind);
 
   return {
     timestamp,
     trace_id: traceId,
     agent_name: agent,
     action,
-    input_summary: redact(ev.input_summary || '').trim() || '(none)',
-    output_summary: output,
+    input_summary: cap(redact(ev.input_summary || '').trim() || '(none)'),
+    output_summary: cap(output),
     target_agent: (hint.target ?? ev.target_agent ?? '').trim() || DEFAULT_TARGET[action],
     confidence,
     retry_count: clampRetry(ev.retry_count),
@@ -148,6 +184,12 @@ export function toAgentLogLine(ev: TraceEvent, traceId: string, timestamp: strin
   };
 }
 
+
+/** Print her lines to stdout? Off under tests (NODE_ENV=test) or when AGENT_LOG_STDOUT=false; on otherwise. */
+export function stdoutEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+  if (env.NODE_ENV === 'test') return false;
+  return String(env.AGENT_LOG_STDOUT ?? '').trim().toLowerCase() !== 'false';
+}
 
 export class TraceLogger {
   private file: string;
@@ -159,7 +201,7 @@ export class TraceLogger {
   private agentFile: string;
 
   constructor(runId: string, dir: string = path.resolve(process.cwd(), 'logs')) {
-    this.file = path.join(dir, `run-${runId.replace(/[^A-Za-z0-9_-]/g, '_')}.jsonl`);
+    this.file = path.join(dir, `run-${safeRunId(runId)}.jsonl`);
     this.dir = dir;
     this.agentTraceId = agentTraceId(runId);
     this.agentFile = path.join(dir, agentLogFileName(this.agentTraceId));
@@ -193,11 +235,20 @@ export class TraceLogger {
   /** Same event, Lyndsay's format: logs/run_<trace_id>.jsonl plus stdout. Invalid lines are never written. */
   private writeAgentLine(ev: TraceEvent, timestamp: string): void {
     let agentLine: AgentLogLine | null = null;
-    try { agentLine = toAgentLogLine(ev, this.agentTraceId, timestamp); } catch { return; }
-    if (!agentLine) return;
+    try {
+      agentLine = toAgentLogLine(ev, this.agentTraceId, timestamp);
+    } catch (e) {
+      warn(`line dropped (translation failed: ${(e as Error)?.message ?? e}): ${ev.agent_name}/${ev.action}`);
+      return;
+    }
+    if (!agentLine) {
+      if (!ev.agentLog?.action && HOUSEKEEPING.has(ev.action)) return; // housekeeping: detailed trace only, by design
+      warn(`line dropped (unknown agent or action): ${ev.agent_name}/${ev.action}`);
+      return;
+    }
     const problems = checkAgentLogLine(agentLine);
     if (problems.length) {
-      process.stderr.write(`[agent-log] line rejected (${problems.join('; ')}): ${ev.agent_name}/${ev.action}\n`);
+      warn(`line rejected (${problems.join('; ')}): ${ev.agent_name}/${ev.action}`);
       return;
     }
     this.agentAll.push(agentLine);
@@ -205,10 +256,12 @@ export class TraceLogger {
     try {
       fs.mkdirSync(this.dir, { recursive: true });
       fs.appendFileSync(this.agentFile, text + '\n', 'utf8');
-    } catch {
-      /* never crash a run */
+    } catch (e) {
+      warn(`append failed (${(e as Error)?.message ?? e}); line kept in memory`);
     }
-    try { process.stdout.write(text + '\n'); } catch { /* ignore */ }
+    if (stdoutEnabled()) {
+      try { process.stdout.write(text + '\n'); } catch { /* ignore */ }
+    }
   }
 
   lines(): TraceLine[] {

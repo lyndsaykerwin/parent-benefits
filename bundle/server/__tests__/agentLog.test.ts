@@ -4,7 +4,7 @@ import path from 'path';
 import {
   AGENT_NAMES, AGENT_ACTIONS, AGENT_STATUSES, checkAgentLogLine, isAgentLogLine, agentTraceId, agentLogFileName,
 } from '@shared/agentLog';
-import { TraceLogger, toAgentLogLine } from '../agents/trace';
+import { TraceLogger, toAgentLogLine, stdoutEnabled } from '../agents/trace';
 
 const good = {
   timestamp: '2026-10-24T18:00:00.000Z', trace_id: 'bundle_r1', agent_name: 'FactChecker', action: 'fact_check',
@@ -74,7 +74,7 @@ describe('translation rules (plan 1c)', () => {
   it('maps actions and statuses', () => {
     expect(t({ agent_name: 'orchestrator', action: 'send_back', status: 'retry', retry_count: 1 })).toMatchObject({ action: 'retry_request', status: 'needs_revision', retry_count: 1 });
     expect(t({ agent_name: 'orchestrator', action: 'retry_transient', status: 'retry', retry_count: 1 })).toMatchObject({ action: 'retry_request', status: 'retrying' });
-    expect(t({ agent_name: 'clawback', action: 'revise', status: 'blocked', retry_count: 2 })).toMatchObject({ action: 'retry_request', status: 'rejected' });
+    expect(t({ agent_name: 'clawback', action: 'revise', status: 'blocked', retry_count: 2 })).toMatchObject({ action: 'reject_card', status: 'rejected' });
     expect(t({ agent_name: 'clawback', action: 'fsa_reimbursement' })).toMatchObject({ action: 'evaluate_offer', status: 'success' });
     expect(t({ agent_name: 'judge', action: 'rule' })?.action).toBe('court_debate');
     expect(t({ agent_name: 'fact_checker', action: 'verify', confidence: 1 })).toMatchObject({ action: 'fact_check', confidence: 1 });
@@ -89,7 +89,7 @@ describe('translation rules (plan 1c)', () => {
       .toMatchObject({ action: 'approve_card', status: 'approved', target_agent: 'ParentFeed', confidence: 1 });
   });
   it('keeps housekeeping lines out', () => {
-    for (const action of ['start', 'assemble', 'export_ledger', 'agent_failed']) expect(t({ agent_name: 'orchestrator', action })).toBeNull();
+    for (const action of ['start', 'assemble', 'export_ledger']) expect(t({ agent_name: 'orchestrator', action })).toBeNull();
     expect(t({ agent_name: 'memory', action: 'add_rule' })).toBeNull();
     expect(t({ agent_name: 'memory', action: 'feedback' })).toBeNull();
     expect(t({ agent_name: 'mystery', action: 'x' })).toBeNull();
@@ -98,6 +98,30 @@ describe('translation rules (plan 1c)', () => {
     const l = t({ agent_name: 'clawback', action: 'price_adjustment', confidence: null });
     expect(l?.confidence).toBeGreaterThanOrEqual(0);
     expect(l?.confidence).toBeLessThanOrEqual(1);
+  });
+  it('writes agent_failed as a rejected line under the failed agent, starting "error:"', () => {
+    const l = t({ agent_name: 'orchestrator', action: 'agent_failed', input_summary: 'clawback', output_summary: 'TypeError: x', status: 'error' });
+    expect(l).toMatchObject({ agent_name: 'ClawbackHunter', action: 'reject_card', status: 'rejected', confidence: 0 });
+    expect(l?.output_summary.startsWith('error:')).toBe(true);
+    const o = t({ agent_name: 'orchestrator', action: 'agent_failed', input_summary: 'mystery', output_summary: 'boom', status: 'ok' });
+    expect(o).toMatchObject({ agent_name: 'Orchestrator', status: 'rejected', output_summary: 'error: boom' });
+  });
+  it('confidence: code-only fallbacks get 0.50, never 1.00; Zetaris cache reads that pass keep 1.00', () => {
+    expect(t({ agent_name: 'judge', action: 'rule_by_screen', status: 'fallback' })?.confidence).toBe(0.5);
+    expect(t({ agent_name: 'judge', action: 'rule_by_screen', status: 'ok' })).toMatchObject({ confidence: 0.5, output_summary: 'fallback: judge: out' });
+    expect(t({ agent_name: 'deal_hunter', action: 'argue', status: 'fallback' })?.confidence).toBe(0.5);
+    expect(t({ agent_name: 'explain', action: 'explain', status: 'fallback' })?.confidence).toBe(0.5);
+    expect(t({ agent_name: 'zetaris', action: 'query_fallback_cache', status: 'fallback', caller: 'benefits' })?.confidence).toBe(1);
+    expect(t({ agent_name: 'zetaris', action: 'query', status: 'error' })?.confidence).toBe(0);
+    expect(t({ agent_name: 'judge', action: 'rule_by_screen', status: 'blocked' })?.confidence).toBe(0);
+    expect(t({ agent_name: 'explain', action: 'explain', status: 'fallback', confidence: 0.73 })?.confidence).toBe(0.73);
+    expect(t({ agent_name: 'clawback', action: 'price_adjustment', status: 'ok' })?.confidence).toBe(1);
+  });
+  it('caps summaries at 200 characters', () => {
+    const l = t({ agent_name: 'clawback', action: 'price_adjustment', input_summary: 'a'.repeat(500), output_summary: 'b'.repeat(500) });
+    expect(l?.input_summary.length).toBe(200);
+    expect(l?.output_summary.length).toBe(200);
+    expect(l?.output_summary.endsWith('…')).toBe(true);
   });
   it('every translated line passes the checker', () => {
     const cases = [
@@ -112,11 +136,67 @@ describe('translation rules (plan 1c)', () => {
 describe('TraceLogger writes her log too', () => {
   let dir: string;
   let out: jest.SpyInstance;
+  let err: jest.SpyInstance;
+  const savedEnv = { NODE_ENV: process.env.NODE_ENV, AGENT_LOG_STDOUT: process.env.AGENT_LOG_STDOUT };
   beforeEach(() => {
     dir = fs.mkdtempSync(path.join(os.tmpdir(), 'agentlog-'));
     out = jest.spyOn(process.stdout, 'write').mockImplementation(() => true);
+    err = jest.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    process.env.NODE_ENV = 'development'; // stdout is off under tests; turn it on for these checks
+    delete process.env.AGENT_LOG_STDOUT;
   });
-  afterEach(() => { fs.rmSync(dir, { recursive: true, force: true }); });
+  afterEach(() => {
+    out.mockRestore(); err.mockRestore();
+    for (const [k, v] of Object.entries(savedEnv)) { if (v === undefined) delete process.env[k]; else process.env[k] = v; }
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+  const errText = () => err.mock.calls.map((c) => String(c[0])).join('');
+  const printedFor = (id: string) => out.mock.calls.map((c) => String(c[0])).filter((s) => s.includes(`"trace_id":"${id}"`));
+
+  it('stdout switch: off when NODE_ENV=test or AGENT_LOG_STDOUT=false, on otherwise', () => {
+    expect(stdoutEnabled({ NODE_ENV: 'test' })).toBe(false);
+    expect(stdoutEnabled({ NODE_ENV: 'production', AGENT_LOG_STDOUT: 'false' })).toBe(false);
+    expect(stdoutEnabled({ NODE_ENV: 'production', AGENT_LOG_STDOUT: 'FALSE' })).toBe(false);
+    expect(stdoutEnabled({ NODE_ENV: 'production' })).toBe(true);
+    expect(stdoutEnabled({})).toBe(true);
+  });
+  it('does not print to stdout when AGENT_LOG_STDOUT=false or NODE_ENV=test, but still writes the file', () => {
+    process.env.AGENT_LOG_STDOUT = 'false';
+    const a = new TraceLogger('off1', dir);
+    a.log(ev({ agent_name: 'fact_checker', action: 'verify', confidence: 1 }));
+    delete process.env.AGENT_LOG_STDOUT; process.env.NODE_ENV = 'test';
+    const b = new TraceLogger('off2', dir);
+    b.log(ev({ agent_name: 'fact_checker', action: 'verify', confidence: 1 }));
+    expect(printedFor('bundle_off1')).toHaveLength(0);
+    expect(printedFor('bundle_off2')).toHaveLength(0);
+    expect(fs.readFileSync(path.join(dir, 'run_bundle_off1.jsonl'), 'utf8').trim().split('\n')).toHaveLength(1);
+    expect(fs.readFileSync(path.join(dir, 'run_bundle_off2.jsonl'), 'utf8').trim().split('\n')).toHaveLength(1);
+  });
+  it('a failed file append warns on stderr, never throws, and keeps the line in memory', () => {
+    const blocker = path.join(dir, 'not-a-dir');
+    fs.writeFileSync(blocker, 'x'); // a file where the log folder should be: mkdir/append must fail
+    const tl = new TraceLogger('af', blocker);
+    expect(() => tl.log(ev({ agent_name: 'fact_checker', action: 'verify', confidence: 1 }))).not.toThrow();
+    expect(errText()).toMatch(/\[agent-log\] append failed/);
+    expect(tl.agentLines()).toHaveLength(1);
+    expect(tl.lines()).toHaveLength(1);
+  });
+  it('warns on stderr when a line is rejected by the checker, the agent is unknown, or translation throws', () => {
+    const tl = new TraceLogger('rj', dir);
+    tl.log(ev({ agent_name: 'fact_checker', action: 'verify', agentLog: { target: 'X', confidence: 1, status: 'bogus' as never } }));
+    expect(errText()).toMatch(/\[agent-log\] line rejected \(status: bogus\): fact_checker\/verify/);
+    tl.log(ev({ agent_name: 'mystery', action: 'x' }));
+    expect(errText()).toMatch(/\[agent-log\] line dropped \(unknown agent or action\): mystery\/x/);
+    const bad = ev({ agent_name: 'fact_checker', action: 'verify' });
+    Object.defineProperty(bad, 'agentLog', { get() { throw new Error('kaboom'); } });
+    tl.log(bad);
+    expect(errText()).toMatch(/\[agent-log\] line dropped \(translation failed: kaboom\)/);
+    err.mockClear();
+    tl.log(ev({ agent_name: 'orchestrator', action: 'start' })); // housekeeping is silent by design
+    expect(errText()).toBe('');
+    expect(tl.agentLines()).toHaveLength(0);
+    expect(fs.existsSync(path.join(dir, 'run_bundle_rj.jsonl'))).toBe(false);
+  });
 
   it('appends valid lines to logs/run_bundle_<runId>.jsonl and prints them to stdout, keeping the old file', () => {
     const tl = new TraceLogger('r9', dir);
@@ -129,7 +209,7 @@ describe('TraceLogger writes her log too', () => {
     expect(lines).toHaveLength(2);
     for (const l of lines) { expect(checkAgentLogLine(l)).toEqual([]); expect(l.trace_id).toBe('bundle_r9'); }
     expect(lines[0].input_summary).not.toContain('90,000');
-    const printed = out.mock.calls.map((c) => String(c[0])).filter((s) => s.includes('"trace_id":"bundle_r9"'));
+    const printed = printedFor('bundle_r9');
     expect(printed).toHaveLength(2);
     expect(JSON.parse(printed[0])).toEqual(lines[0]);
     expect(tl.agentLines()).toEqual(lines);

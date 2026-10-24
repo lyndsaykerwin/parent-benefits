@@ -37,9 +37,17 @@ export interface AgentLogLine {
   status: AgentStatus;
 }
 
+/** The longest input_summary / output_summary the logger writes; longer text is cut with an ellipsis. */
+export const AGENT_LOG_SUMMARY_MAX = 200;
+
+/** Make a run id safe for file names and trace ids (letters, digits, _ and - only). The one shared cleanup. */
+export function safeRunId(runId: string): string {
+  return String(runId).replace(/[^A-Za-z0-9_-]/g, '_');
+}
+
 /** The run-wide trace id (labelled default: `bundle_<runId>`). */
 export function agentTraceId(runId: string): string {
-  return `bundle_${String(runId).replace(/[^A-Za-z0-9_-]/g, '_')}`;
+  return `bundle_${safeRunId(runId)}`;
 }
 
 /** File name for a trace id: `run_<trace_id>.jsonl`. */
