@@ -1,5 +1,5 @@
 import {
-  pgTable, text, varchar, timestamp, integer, boolean, date, serial, real, jsonb,
+  pgTable, text, varchar, timestamp, integer, boolean, date, serial, real, jsonb, unique,
 } from "drizzle-orm/pg-core";
 
 // Every table and column uses an explicit snake_case name because Zetaris
@@ -129,9 +129,130 @@ export const povertyGuidelines = pgTable("poverty_guidelines", {
   sourceUrl: text("source_url").notNull(),
 });
 
+// ---------------------------------------------------------------------------
+// Plan v3 tables (W1-DB). See bundle-plan-v3.md sections 1, 3 and 6.
+// ---------------------------------------------------------------------------
+
+/**
+ * One structured purchase-items table for every intake path (email, barcode,
+ * photo). Agents read it only through the Zetaris safe-columns view
+ * v_purchase_items. `input_hash` + `line_index` stop the same receipt/photo line
+ * counting twice, while still allowing many items from one receipt/photo.
+ */
+export const purchaseItems = pgTable("purchase_items", {
+  id: serial("id").primaryKey(),
+  familyId: varchar("family_id").notNull(),
+  source: text("source", { enum: ["email", "barcode", "photo_item", "photo_receipt"] }).notNull(),
+  store: text("store"),
+  seller: text("seller"),
+  purchasedOn: date("purchased_on", { mode: "string" }),
+  productName: text("product_name").notNull(),
+  brand: text("brand"),
+  modelNumber: text("model_number"),
+  lotCode: text("lot_code"),
+  upc: varchar("upc", { length: 14 }),
+  sizeText: text("size_text"),
+  quantity: integer("quantity").notNull().default(1),
+  priceCents: integer("price_cents"),
+  confidence: real("confidence"),
+  extractor: text("extractor"),
+  inputHash: text("input_hash").notNull(),
+  /** 0-based position of this item within its source receipt/photo. */
+  lineIndex: integer("line_index").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (t) => [unique("purchase_items_family_input_hash_line_unique").on(t.familyId, t.inputHash, t.lineIndex)]);
+
+/**
+ * One row per judged offer (the Living Fine-Print Database). NO family column:
+ * the same rows feed the agents' future grading and v_offer_audit.
+ */
+export const offerChecks = pgTable("offer_checks", {
+  id: serial("id").primaryKey(),
+  // Identity
+  offerId: varchar("offer_id").notNull(),
+  store: text("store").notNull(),
+  sourceUrl: text("source_url"),
+  finePrintHash: varchar("fine_print_hash", { length: 64 }).notNull(),
+  checkedAt: timestamp("checked_at").notNull().defaultNow(),
+  agent: text("agent").notNull(),
+  model: text("model"),
+  // Money
+  faceValueCents: integer("face_value_cents"),
+  hiddenCostCents: integer("hidden_cost_cents"),
+  trueValueCents: integer("true_value_cents"),
+  minPurchaseCents: integer("min_purchase_cents"),
+  autoRenew: boolean("auto_renew").notNull().default(false),
+  renewalPriceCents: integer("renewal_price_cents"),
+  // Dates / time to get the value
+  deadlineDate: date("deadline_date", { mode: "string" }),
+  expired: boolean("expired").notNull().default(false),
+  claimWindowDays: integer("claim_window_days"),
+  payoutWaitDaysMin: integer("payout_wait_days_min"),
+  payoutWaitDaysMax: integer("payout_wait_days_max"),
+  // Effort
+  stepsCount: integer("steps_count"),
+  effortLevel: text("effort_level", { enum: ["low", "medium", "high"] }),
+  effortMinutesEstimate: integer("effort_minutes_estimate"),
+  mailIn: boolean("mail_in").notNull().default(false),
+  needsReceipt: boolean("needs_receipt").notNull().default(false),
+  needsPhoneCall: boolean("needs_phone_call").notNull().default(false),
+  accountRequired: boolean("account_required").notNull().default(false),
+  // Availability
+  limitedStock: boolean("limited_stock").notNull().default(false),
+  regionsExcluded: jsonb("regions_excluded").$type<string[]>().notNull().default([]),
+  // Judgment
+  catchTypes: jsonb("catch_types").$type<string[]>().notNull().default([]),
+  verdict: text("verdict").notNull(),
+  status: text("status").notNull(),
+  ruleCitations: jsonb("rule_citations").$type<string[]>().notNull().default([]),
+  catchSummary: text("catch_summary").notNull().default(""),
+  evidenceQuote: text("evidence_quote").notNull().default(""),
+  injectionDetected: boolean("injection_detected").notNull().default(false),
+  // Recall status (Strategy 2)
+  recallStatus: text("recall_status", { enum: ["none_found", "open_recall", "finished"] }).notNull().default("none_found"),
+  recallIds: jsonb("recall_ids").$type<string[]>().notNull().default([]),
+  recallCheckedAt: timestamp("recall_checked_at"),
+});
+
+/** Saved run results so a run is still served after a server restart. */
+export const runResults = pgTable("run_results", {
+  runId: varchar("run_id").primaryKey(),
+  familyId: varchar("family_id").notNull(),
+  traceId: varchar("trace_id"),
+  sampleMode: boolean("sample_mode").notNull().default(false),
+  result: jsonb("result").$type<unknown>().notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+/** Federal tax/benefit figures (e.g. IRS 2026 Child Tax Credit), one per year + code, with source link. */
+export const taxParameters = pgTable("tax_parameters", {
+  id: serial("id").primaryKey(),
+  year: integer("year").notNull(),
+  code: varchar("code").notNull(),
+  title: text("title").notNull(),
+  amountCents: integer("amount_cents"),
+  note: text("note").notNull().default(""),
+  sourceUrl: text("source_url").notNull(),
+}, (t) => [unique("tax_parameters_year_code_unique").on(t.year, t.code)]);
+
+/** State programs (paid family leave, state child credits), one per state + code + year, with source link. */
+export const statePrograms = pgTable("state_programs", {
+  id: serial("id").primaryKey(),
+  state: varchar("state", { length: 2 }).notNull(),
+  year: integer("year").notNull(),
+  code: varchar("code").notNull(),
+  title: text("title").notNull(),
+  amountCents: integer("amount_cents"),
+  windowStartDaysFromBirth: integer("window_start_days_from_birth"),
+  windowEndDaysFromBirth: integer("window_end_days_from_birth"),
+  condition: text("condition").notNull().default(""),
+  sourceUrl: text("source_url").notNull(),
+}, (t) => [unique("state_programs_state_code_year_unique").on(t.state, t.code, t.year)]);
+
 /** Tables Bundle owns (used by drizzle.config.ts tablesFilter). */
 export const BUNDLE_TABLE_NAMES = [
   "users", "families", "transactions", "amazon_orders", "fsa_eligible_categories",
   "store_policies", "benefit_rules", "offers", "feedback", "case_law_proposals",
   "price_observations", "zip_states", "poverty_guidelines",
+  "purchase_items", "offer_checks", "run_results", "tax_parameters", "state_programs",
 ] as const;
