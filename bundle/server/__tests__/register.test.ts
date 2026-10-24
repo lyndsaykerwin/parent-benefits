@@ -181,13 +181,17 @@ describe('view SQL on the local test Postgres (the Neon side of each view)', () 
   let client: import('pg').Client | null = null;
 
   beforeAll(async () => {
+    let c: import('pg').Client | null = null;
     try {
       const { Client } = await import('pg');
-      const c = new Client({ connectionString: TEST_URL, connectionTimeoutMillis: 1500 });
+      c = new Client({ connectionString: TEST_URL, connectionTimeoutMillis: 1500 });
       await c.connect();
       await c.query('select 1 from offer_checks limit 1');
       client = c;
     } catch {
+      // The connection may be open even though the table check failed (e.g. permission denied).
+      // An unclosed connection keeps the whole Jest process alive after the tests finish.
+      await c?.end().catch(() => undefined);
       console.warn(`[register.test] local test Postgres not ready at ${TEST_URL}; skipping live view checks`);
     }
   });
