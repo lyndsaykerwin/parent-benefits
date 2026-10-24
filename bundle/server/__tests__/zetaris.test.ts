@@ -3,6 +3,8 @@ import os from 'os';
 import path from 'path';
 import crypto from 'crypto';
 import { ZetarisClient, ZetarisUnavailable } from '../adapters/zetaris';
+import { TraceLogger } from '../agents/trace';
+import { checkAgentLogLine } from '@shared/agentLog';
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
@@ -80,5 +82,20 @@ describe('ZetarisClient', () => {
   it('throws ZetarisUnavailable on 5xx with no cache', async () => {
     const fetchFn = jest.fn().mockResolvedValue(jsonResponse({}, 503));
     await expect(make(fetchFn).runQuery('SELECT 5')).rejects.toBeInstanceOf(ZetarisUnavailable);
+  });
+
+  it('writes query_zetaris lines in Lyndsay\'s log under the calling agent', async () => {
+    jest.spyOn(process.stdout, 'write').mockImplementation(() => true);
+    const logs = path.join(dir, 'logs');
+    const t = new TraceLogger('z1', logs);
+    const fetchFn = jest.fn().mockResolvedValue(jsonResponse({ headers: ['a'], data: [['1']] }));
+    await make(fetchFn).withTrace(t, 'recall').runQuery('SELECT 1');
+    const failing = jest.fn().mockRejectedValue(new Error('down'));
+    await expect(make(failing).withTrace(t).runQuery('SELECT 2')).rejects.toBeTruthy();
+    const her = fs.readFileSync(path.join(logs, 'run_bundle_z1.jsonl'), 'utf8').trim().split('\n').map((l) => JSON.parse(l));
+    expect(her[0]).toMatchObject({ agent_name: 'RecallChecker', action: 'query_zetaris', status: 'success', input_summary: 'SELECT 1' });
+    expect(her[her.length - 1]).toMatchObject({ agent_name: 'Orchestrator', action: 'query_zetaris', status: 'rejected' });
+    for (const l of her) expect(checkAgentLogLine(l)).toEqual([]);
+    expect(t.lines().every((l) => l.agent_name === 'zetaris')).toBe(true);
   });
 });

@@ -184,6 +184,8 @@ export function newRunId(familyId: string): string {
 }
 
 export async function runBundle(familyId: string, deps: RunDeps): Promise<BundleResult> {
+  // Each family run gets a fresh AI time limit (otherwise the clock counts from server start).
+  deps.llm.startRun?.();
   const family = await deps.loadFamily(familyId);
   const runId = deps.runId ?? newRunId(familyId);
   const trace = new TraceLogger(runId, deps.logsDir);

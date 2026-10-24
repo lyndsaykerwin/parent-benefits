@@ -70,7 +70,7 @@ describe('SAMPLE_MODE learning loop (README steps)', () => {
       const fb = await request(app).post('/api/feedback').send({ familyId: 'maya', cardId: t1!.id, kind: 'issue', note });
       expect(fb.status).toBe(200);
     }
-    const law = await request(app).get('/api/case-law');
+    const law = await request(app).get('/api/case-law').set('x-reviewer-token', 'demo'); // rule text is owner-only (W1-OWNER)
     expect(law.body.proposals).toHaveLength(1);
     const id = law.body.proposals[0].id;
     expect((await request(app).post(`/api/case-law/${id}/approve`)).status).toBe(403); // no token
@@ -79,6 +79,8 @@ describe('SAMPLE_MODE learning loop (README steps)', () => {
 
     const run2 = await request(app).post('/api/run?wait=true').send({ familyId: 'maya' });
     expect(trap(run2.body.cards)).toBeUndefined();
+    expect(run2.body.blocked.map((c: { title: string }) => c.title)).toContain('Free newborn diaper box'); // parent sees it in "We caught these"
+    expect(JSON.stringify(run2.body)).not.toMatch(/traceId|cited mem-|case law/i); // ...without the owner-only detail
     const file = fs.readdirSync(logsDir).filter((f) => f.startsWith('run-maya')).map((f) => fs.readFileSync(path.join(logsDir, f), 'utf8')).join('\n');
     expect(file).toMatch(/\[cited mem-/);
     expect(file).toMatch(/"agent_name":"memory"/);

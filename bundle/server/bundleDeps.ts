@@ -1,6 +1,6 @@
 import path from 'path';
 import { ZetarisClient } from './adapters/zetaris';
-import { createGenerator, UnavailableGenerator, type Generator } from './adapters/llm';
+import { createGenerator, isLiveModel, UnavailableGenerator, type Generator } from './adapters/llm';
 import { BundleMemory } from './adapters/memory';
 import { defaultLoadFamily, type RunDeps } from './agents/orchestrator';
 import { DrizzleStore, MemoryStore } from './bundleStore';
@@ -14,9 +14,9 @@ export const isSampleMode = (): boolean => process.env.SAMPLE_MODE === 'true';
 /** Scripts that exist to talk to the real services (run-family, examples:regen --live) pass live: true. The server never does. */
 export interface LiveOpts { live?: boolean }
 
-/** The model for a run. SAMPLE_MODE is always offline: keys in the environment or the secrets file are ignored. */
+/** The model for a run. SAMPLE_MODE is offline (keys ignored) unless LIVE_MODEL=true asks for the real AI chain. */
 export function makeGenerator(opts: LiveOpts = {}): Generator {
-  return isSampleMode() && !opts.live ? new UnavailableGenerator('SAMPLE_MODE is on (offline)') : createGenerator();
+  return isSampleMode() && !opts.live && !isLiveModel() ? new UnavailableGenerator('SAMPLE_MODE is on (offline)') : createGenerator();
 }
 
 /** Real Zetaris + model + memory for one run. Shared by the API and scripts/run-family.ts. */

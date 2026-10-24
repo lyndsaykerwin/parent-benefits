@@ -6,6 +6,7 @@ import FeedCardView from '@/components/FeedCardView';
 import { CaughtForYou } from '@/components/HowWeCheckedSections';
 import { KIND_META, UNCHECKED_DEALS_SECTION, api, demoDateLabel, describeLine, familyChip, groupCards, loadRun, saveRun, type SavedRun, type TraceLine } from '@/lib/bundle';
 import { pollRun } from '@/lib/poll';
+import { ownerApi, ownerToken, type OwnerRunStatus, type ParentStep } from '@/lib/howWeChecked';
 import { cn } from '@/lib/utils';
 
 const POLL_MS = 1000;
@@ -53,6 +54,31 @@ function collapse(lines: TraceLine[]): { text: string; count: number; status: Tr
   return out;
 }
 
+/** The parent's "Checking" screen: only the server's parent-safe step wording, no agent activity. */
+function ParentProgress({ steps, elapsed }: { steps: ParentStep[]; elapsed: number }) {
+  return (
+    <section aria-live="polite">
+      <h1 className="mt-6 text-[30px] font-extrabold leading-[1.1] tracking-[-0.03em]">
+        We’re checking <span className="text-coral">for you.</span>
+      </h1>
+      <p className="mt-2 text-[16px] text-ink-2">
+        We are checking live government, recall and store information for your family. This can take a minute or two.
+      </p>
+      <ol className="bundle-card mt-5 space-y-3 p-5" data-testid="parent-steps">
+        {steps.length === 0 && <li className="flex items-center gap-3 text-[15px] text-ink-2"><Spinner /> Getting started…</li>}
+        {steps.map((s) => (
+          <li key={s.key} className="flex items-center gap-3">
+            <StepIcon state={s.state} />
+            <span className={cn('text-[15px] leading-snug', s.state === 'waiting' ? 'text-ink-2' : 'font-semibold text-ink')}>{s.label}</span>
+          </li>
+        ))}
+      </ol>
+      <p className="tabular mt-4 text-right text-[13px] font-semibold text-ink-2">{elapsed}s</p>
+    </section>
+  );
+}
+
+/** The owner's "Checking" screen: agent steps and live activity from the trace (reviewer code only). */
 function Progress({ lines, elapsed }: { lines: TraceLine[]; elapsed: number }) {
   const recent = collapse(lines).slice(-6).reverse(); // newest first, so it shows above the fold
   return (
@@ -99,6 +125,8 @@ export default function Feed() {
   const { runId = '' } = useParams<{ runId: string }>();
   const [run, setRun] = useState<SavedRun | null>(() => loadRun(runId)?.runId === runId ? loadRun(runId) : null);
   const [lines, setLines] = useState<TraceLine[]>([]);
+  const [steps, setSteps] = useState<ParentStep[]>([]);
+  const owner = !!ownerToken();
   const [chipInfo, setChipInfo] = useState<{ family?: SavedRun['family']; today?: string; demoDate?: boolean }>({});
   const [error, setError] = useState<string | null>(null);
   const [elapsed, setElapsed] = useState(0);
@@ -106,9 +134,10 @@ export default function Feed() {
 
   useEffect(() => {
     if (run) return; // already finished (or restored from this tab)
-    return pollRun(runId, api, {
+    return pollRun(runId, ownerApi(), {
       onStatus: (status, trace) => {
         if (trace) setLines(trace);
+        setSteps((status as OwnerRunStatus).progress ?? []);
         setChipInfo({ family: status.family, today: status.today, demoDate: status.demoDate });
         setElapsed(Math.round((Date.now() - Date.parse(status.startedAt || new Date(started.current).toISOString())) / 1000));
       },
@@ -129,11 +158,11 @@ export default function Feed() {
   const chip = familyChip(family, today);
   const demoLabel = demoDateLabel(run?.demoDate ?? chipInfo.demoDate, today);
 
-  // The finished run's full audit log (the polling copy may be partial); only needed for the "We caught these" detail.
+  // The finished run's full audit log (owner only); only needed for the "We caught these" detail.
   const [doneLines, setDoneLines] = useState<TraceLine[]>([]);
   useEffect(() => {
-    if (run?.result.blocked?.length) api.trace(run.runId).then(setDoneLines).catch(() => {});
-  }, [run?.runId]);
+    if (owner && run?.result.blocked?.length) ownerApi().trace(run.runId).then(setDoneLines).catch(() => {});
+  }, [run?.runId, owner]);
 
   const grouped = useMemo(() => (run ? groupCards(run.result.cards) : null), [run]);
 
@@ -148,7 +177,7 @@ export default function Feed() {
   }
 
   if (!run || !grouped) {
-    return <AppShell chip={chip}><Progress lines={lines} elapsed={elapsed} /></AppShell>;
+    return <AppShell chip={chip}>{owner ? <Progress lines={lines} elapsed={elapsed} /> : <ParentProgress steps={steps} elapsed={elapsed} />}</AppShell>;
   }
 
   const { result } = run;
