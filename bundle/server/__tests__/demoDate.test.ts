@@ -27,7 +27,7 @@ import { demoDateLabel } from '../../client/src/lib/bundle';
 describe('resolveToday', () => {
   const now = new Date('2026-11-04T15:00:00Z');
   it('seed families run at the demo date', () => {
-    for (const id of ['maya', 'leo', 'ava']) expect(resolveToday(id, {}, now)).toEqual({ today: DEMO_TODAY, demoDate: true });
+    for (const id of ['maya', 'leo', 'ava', 'noor', 'cal', 'fern']) expect(resolveToday(id, {}, now)).toEqual({ today: DEMO_TODAY, demoDate: true });
     expect(DEMO_TODAY).toBe('2026-10-23');
   });
   it('TODAY overrides the demo date for seed families only', () => {

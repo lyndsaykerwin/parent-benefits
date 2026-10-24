@@ -8,6 +8,13 @@
       "when": 1792866352270,
       "tag": "0000_init_bundle_v3",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1792870761492,
+      "tag": "0001_drop_poverty_guidelines",
+      "breakpoints": true
     }
   ]
 }

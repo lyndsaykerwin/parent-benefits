@@ -366,7 +366,7 @@ describe('settings → chain', () => {
 
   it('reads vision and judge settings with the approved defaults', () => {
     const cfg = generatorConfigFromEnv({});
-    expect(cfg.vision).toEqual({ item: 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning', receipt: 'nvidia/nemotron-nano-12b-v2-vl' });
+    expect(cfg.vision).toEqual({ item: 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning', receipt: 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning' });
     expect(cfg.judge).toBe('');
     expect(generatorConfigFromEnv({ MODEL_VISION: 'a', MODEL_VISION_RECEIPT: 'b', MODEL_JUDGE: 'j' })).toEqual(
       expect.objectContaining({ vision: { item: 'a', receipt: 'b' }, judge: 'j' }));

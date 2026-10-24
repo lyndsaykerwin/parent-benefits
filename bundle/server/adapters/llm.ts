@@ -437,7 +437,7 @@ export function generatorConfigFromEnv(env: NodeJS.ProcessEnv = process.env): Ge
     judge: env.MODEL_JUDGE ?? '',
     vision: {
       item: env.MODEL_VISION || 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning',
-      receipt: env.MODEL_VISION_RECEIPT || 'nvidia/nemotron-nano-12b-v2-vl',
+      receipt: env.MODEL_VISION_RECEIPT || 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning',
     },
     runDeadlineMs: secs(env.RUN_DEADLINE_SECONDS, 300),
   };

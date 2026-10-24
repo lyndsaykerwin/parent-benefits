@@ -67,7 +67,7 @@ describe('isLocalDatabaseUrl', () => {
   it('treats this machine as local and Neon as remote', async () => {
     // server/db.ts throws on import without DATABASE_URL; no connection is opened here.
     const saved = process.env.DATABASE_URL;
-    process.env.DATABASE_URL ??= 'postgres://bundle:bundle@127.0.0.1:5432/bundle_test';
+    process.env.DATABASE_URL ??= process.env.TEST_DATABASE_URL ?? 'postgres://bundle:bundle@127.0.0.1:5432/bundle_test';
     const { isLocalDatabaseUrl } = await import('../db');
     if (saved === undefined) delete process.env.DATABASE_URL;
     expect(isLocalDatabaseUrl('postgres://bundle:bundle@127.0.0.1:5432/bundle_test')).toBe(true);
@@ -100,6 +100,8 @@ describe('local Postgres through server/db.ts (standard pg driver)', () => {
     ready = await localDbReady();
     if (!ready) { console.warn(`[schema.test] local test Postgres not ready at ${TEST_URL}; run "npm run db:test" to enable live checks`); return; }
     process.env.DATABASE_URL = TEST_URL;
+    // The earlier test already imported ../db with a different address; forget that copy so this one uses TEST_URL.
+    jest.resetModules();
     dbMod = await import('../db');
   });
 

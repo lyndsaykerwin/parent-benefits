@@ -1,0 +1,1 @@
+DROP TABLE IF EXISTS "poverty_guidelines" CASCADE;

@@ -49,7 +49,6 @@ const SOURCE_NAMES: { re: RegExp; name: string }[] = [
   { re: /\bfsa_eligible_categories\b/i, name: 'FSA eligibility list' },
   { re: /\bstore_policies\b/i, name: 'Store price-adjustment policies' },
   { re: /\bprice_observations\b/i, name: 'Observed prices' },
-  { re: /\bpoverty_guidelines\b/i, name: 'Federal poverty guidelines' },
 ];
 
 /** Which plain-English sources a SQL statement reads. Unknown tables are left out (never guessed). */

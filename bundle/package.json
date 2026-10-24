@@ -16,6 +16,7 @@
     "db:studio": "drizzle-kit studio",
     "db:generate": "drizzle-kit generate",
     "db:test": "bash scripts/db-test-setup.sh",
+    "record-vision": "tsx scripts/record-vision.ts",
     "zetaris:record": "tsx scripts/zetaris/record.ts",
     "eval": "tsx scripts/eval.ts",
     "seed": "tsx scripts/seed.ts",
