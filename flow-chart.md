@@ -222,7 +222,7 @@ ZONE 1: USER INPUT   (every family, date, ZIP, receipt, barcode and photo is mad
 - **Nemotron**: NVIDIA's family of AI models. A **vision model** is an AI that can read pictures. **Agentmail**: an email service that gives a program its own inbox.
 - **Server-sent events (SSE)**: a one-way push from the server to the browser over a normal web connection, so new results appear without the screen asking. **WebSockets**: a two-way live connection (the alternative).
 - **OpenAPI description**: the standard file that tells any program or AI agent how to call a web address. **Read-only** means it can only hand data out, never change it.
-- **Agent**: one AI helper with one job, run as its own step in code. **Plaid** (a service that reads bank purchases) is out everywhere, and the work-benefits question is cut everywhere.
+- **Agent**: one AI helper with one job, run as its own step in code.
 
 ## Walkthrough (one line per arrow)
 
