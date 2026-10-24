@@ -14,10 +14,10 @@ Started Sat Oct 24, 2026 (cloud session). Coordinator: main Claude session. Suba
 - Plaid is still in the plan though she decided against it; several places mention work benefits. Remove.
 
 ## Phase 1 (parallel, read-only research)
-- [ ] R1 Photo + barcode intake with NVIDIA models → `research-photo-barcode-intake.md`
+- [x] R1 (done: photo of label/can unlocks model-number and lot-code matches; barcode works for formula) Photo + barcode intake with NVIDIA models → `research-photo-barcode-intake.md`
 - [x] R2 (done; 4 questions for Lyndsay) Onboarding mocks review (top row + bottom row B) vs spec; questions for Lyndsay → `onboarding-design/round4-mock-review.md`
-- [ ] R3 Audit: Neon→Zetaris, FDA recalls, offer_checks/OpenAPI status, every Plaid + work-benefits mention, every background decision baked into the plan → `audit-round4.md`
-- [ ] R4 What can be built in the cloud now (incl. Nightshift code behind a switch) → `cloud-build-assessment.md`
+- [x] R3 (done) Audit: Neon→Zetaris, FDA recalls, offer_checks/OpenAPI status, every Plaid + work-benefits mention, every background decision baked into the plan → `audit-round4.md`
+- [x] R4 (done: all buildable here; only Nightshift + video need the Mac) What can be built in the cloud now (incl. Nightshift code behind a switch) → `cloud-build-assessment.md`
 
 ## Phase 2 (after Phase 1 + Lyndsay's answers)
 - [ ] W1 Plan: apply her decisions, undo the baked-in recommendations (proposals only, in the open-decisions list)
@@ -29,3 +29,9 @@ Started Sat Oct 24, 2026 (cloud session). Coordinator: main Claude session. Suba
 - Expecting families: same Version B tabs, adjusted (Home leads with free gifts; deadlines say "starts at birth").
 - Checklist / share / save: light versions ("I got this" tick with $ claimed, small share bar, Save card on Home).
 - Still to ask: how real each intake path should be by Oct 27 (waiting on R1/R4 effort estimates).
+
+## Lyndsay's correction (Oct 24): the three strategies must be restored as she set them
+- Strategy 1 "Virtual Household Profile": keep as is (it's the Matcher); tell the story better: Zetaris filters so the AI gets a short, already-checked list (fewer tokens, lower cost, less room to make things up). No car/stroller-size details.
+- Strategy 2 "Living Fine-Print Database": BUILD. Agents' own conclusions become a new source Zetaris can search next to the government ones. Fact-Checker + Parent Panel save a row per judged offer to `offer_checks` (offer, hidden strings like "$8 shipping", recall status, score, effort/sign-up needs, value); REGISTER DATASOURCE TABLE; cross-source questions like "offers rated truly free whose product hasn't been recalled since we checked"; Coach asks "which fine-print problems show up most in Report issue clicks?". Rows in Neon, never loose JSON files. THIS is the systematic feedback loop: past findings feed how agents grade new offers, and are answers for other offers. Value Score "worth $40 after strings attached". Future: sell this data.
+- Strategy 3 "Points Guy" brand report cards: pitch, don't build a brand portal. But Strategy 2's data is exposed as a read-only endpoint with an OpenAPI spec (decided, not a should-do).
+- Parent feedback is NOT the focus (no users at launch). Don't make it the main loop.
