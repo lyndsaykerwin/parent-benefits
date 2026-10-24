@@ -41,4 +41,4 @@ Waves 2–6 in the tracker: W2 (Zetaris registration + saved-verdict query #38, 
 ## How to resume locally
 `git pull origin main`, open `bundle-plan-v3.build-tracker.md`, and continue with wave 2 using the same rule: builders in separate worktrees, separate QC agents, fixers, re-QC, merge only on pass.
 
-**Status at handoff:** all 7 wave-1 chunks QC-passed and merged. Full suite on the merged result: 460 passed, 8 skipped, 0 failed (`npx tsc --noEmit` clean). Integration QC across the merged whole was dispatched at 18:42 UTC; result recorded in the tracker if it finished before the stop.
+**Status at handoff:** all 7 wave-1 chunks QC-passed and merged. Full suite on the merged result: 460 passed, 8 skipped, 0 failed (`npx tsc --noEmit` clean). Integration QC across the merged whole: PASS (18:46 UTC) — onboarding click-through to results, parent payload clean, trace file valid (84 lines), eval offline-fallback.
