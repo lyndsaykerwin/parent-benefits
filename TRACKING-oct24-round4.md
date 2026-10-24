@@ -41,6 +41,6 @@ Started Sat Oct 24, 2026 (cloud session). Coordinator: main Claude session. Suba
 - The 3 gap-answers items (FSA "check with your job" card, Google-only sign-in, "state support coming soon") are fine = decided.
 - Agentic looping among the agents was cut from the story; needed for scoring. Work it back in and handle latency. (She mentioned "the below feedback" on latency but none came through: asked her to paste it.)
 - Then: updated exec summary for her feedback, QC'd by a subagent against all her high-priority feedback.
-- [ ] L1 Plan + exec summary: agent loops + latency + photo priority
+- [x] L1 (done) Plan + exec summary: agent loops + latency + photo priority
 - [ ] L2 Flow chart: add the agent loops
 - [ ] Q1 QC subagent: every high-priority item from Lyndsay present → `qc-round4.md`
