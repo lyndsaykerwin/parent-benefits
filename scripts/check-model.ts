@@ -12,6 +12,9 @@ import { loadEnv } from '../server/env';
 import { NvidiaGenerator } from '../server/adapters/llm';
 
 export interface ModelPick {
+  /** Every candidate in preference order (best first), so the checker can fall back when a listed model is not callable on this account. */
+  reasoningRanked?: string[];
+  fastRanked?: string[];
   /** Every model id containing "nemotron" (sorted). */
   nemotron: string[];
   reasoning: string | null;
@@ -30,9 +33,10 @@ export function pickModels(ids: string[]): ModelPick {
   const nemotron = [...new Set(ids.filter((i) => /nemotron/i.test(i)))].sort();
   const chat = nemotron.filter((i) => !NOT_CHAT.test(i));
   const has = (re: RegExp) => chat.filter((i) => re.test(i));
-  const reasoning = newest(has(/ultra/i)) ?? newest(has(/super/i)) ?? newest(chat.filter((i) => !/nano/i.test(i)));
-  const fast = newest(has(/nano/i));
-  return { nemotron, reasoning, fast };
+  const desc = (xs: string[]) => [...xs].sort().reverse();
+  const reasoningRanked = [...new Set([...desc(has(/ultra/i)), ...desc(has(/super/i)), ...desc(chat.filter((i) => !/nano/i.test(i)))])];
+  const fastRanked = [...new Set([...desc(has(/nano/i)), ...desc(has(/lightning|bolt/i))])];
+  return { nemotron, reasoning: reasoningRanked[0] ?? null, fast: fastRanked[0] ?? null, reasoningRanked, fastRanked };
 }
 
 /** Sets (or appends) KEY=value lines in an env file's text. Other lines are left exactly as they are. */
@@ -98,24 +102,33 @@ async function main() {
     process.exit(1);
   }
 
-  const gen = new NvidiaGenerator(apiKey, baseUrl, { reasoning: pick.reasoning, fast: pick.fast }, undefined, 60000);
+  // A model can be listed by /models yet not callable on this account (404), so try candidates best-first.
   let failed = false;
-  for (const [label, id] of [['reasoning', pick.reasoning], ['fast', pick.fast]] as const) {
-    const t0 = Date.now();
-    try {
-      const reply = await gen.generate('Reply with the single word: ready', undefined, label);
-      console.log(`Test ${label} (${id}): ok in ${Date.now() - t0} ms, reply "${reply.trim().slice(0, 40)}"`);
-    } catch (e) {
-      failed = true;
-      console.error(`Test ${label} (${id}): FAILED after ${Date.now() - t0} ms: ${(e as Error).message}`);
+  const chosen: Record<'reasoning' | 'fast', string> = { reasoning: pick.reasoning, fast: pick.fast };
+  for (const label of ['reasoning', 'fast'] as const) {
+    const ranked = (label === 'reasoning' ? pick.reasoningRanked : pick.fastRanked) ?? [chosen[label]];
+    let ok = false;
+    for (const id of ranked.slice(0, 4)) {
+      const gen = new NvidiaGenerator(apiKey, baseUrl, { reasoning: id, fast: id }, undefined, 60000);
+      const t0 = Date.now();
+      try {
+        const reply = await gen.generate('Reply with the single word: ready', undefined, label);
+        console.log(`Test ${label} (${id}): ok in ${Date.now() - t0} ms, reply "${reply.trim().slice(0, 40)}"`);
+        chosen[label] = id;
+        ok = true;
+        break;
+      } catch (e) {
+        console.error(`Test ${label} (${id}): FAILED after ${Date.now() - t0} ms: ${(e as Error).message.slice(0, 160)}`);
+      }
     }
+    if (!ok) failed = true;
   }
   if (failed) {
     if (args.has('--write')) console.error('\nNot saved: a test call failed, so the settings file was left as it was.');
     process.exit(1);
   }
   if (args.has('--write')) {
-    writeEnvFileAtomic(SECRETS_FILE, { MODEL_REASONING: pick.reasoning, MODEL_FAST: pick.fast });
+    writeEnvFileAtomic(SECRETS_FILE, { MODEL_REASONING: chosen.reasoning, MODEL_FAST: chosen.fast });
     console.log(`\nSaved MODEL_REASONING and MODEL_FAST to ${SECRETS_FILE}`);
   } else {
     console.log('\n(Not saved. Add --write to store these two ids in ../.secrets/bundle.env.local after the tests pass.)');

@@ -31,6 +31,13 @@ describe('pickModels', () => {
     expect(p.fast).toBe('nvidia/nemotron-nano-9b-v2');
   });
 
+  it('ranks every candidate best-first so a listed-but-uncallable model can be skipped', () => {
+    const p = pickModels([...ids, 'nvidia/nemotron-nano-3-30b-a3b', 'nvidia/nemotron-3.5-lightning-30b-a3b']);
+    expect(p.fastRanked?.[0]).toBe('nvidia/nemotron-nano-9b-v2');
+    expect(p.fastRanked).toContain('nvidia/nemotron-3.5-lightning-30b-a3b');
+    expect(p.reasoningRanked?.[0]).toBe(p.reasoning);
+  });
+
   it('prefers ultra over super', () => {
     expect(pickModels([...ids, 'nvidia/llama-3.1-nemotron-ultra-253b-v1']).reasoning).toBe('nvidia/llama-3.1-nemotron-ultra-253b-v1');
   });
@@ -42,7 +49,7 @@ describe('pickModels', () => {
   });
 
   it('returns nothing for an empty or unrelated list', () => {
-    expect(pickModels([])).toEqual({ nemotron: [], reasoning: null, fast: null });
+    expect(pickModels([])).toMatchObject({ nemotron: [], reasoning: null, fast: null });
     expect(pickModels(['meta/llama-3.3-70b-instruct']).reasoning).toBeNull();
   });
 });
