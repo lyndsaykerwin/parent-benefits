@@ -45,7 +45,7 @@ async function main() {
     console.log(`recalls (${Date.now() - t0} ms total): ${rc.candidates.length}, itemsChecked ${rc.itemsChecked}`);
     for (const c of [...claws, ...rc.candidates]) {
       const v = await verify(c, ctx);
-      console.log(`  - ${c.claim.type} ${c.claim.txId ?? c.claim.recallId ?? c.claim.recallNumber} amount=${c.amountCents} deadline=${c.deadline} verdict=${c.verdict} | "${c.title}" | verify=${v.ok ? 'OK' : 'FAIL ' + v.reason}`);
+      console.log(`  - ${c.claim.type} ${c.claim.itemId ?? c.claim.recallId ?? c.claim.recallNumber} amount=${c.amountCents} deadline=${c.deadline} verdict=${c.verdict} | "${c.title}" | verify=${v.ok ? 'OK' : 'FAIL ' + v.reason}`);
       console.log(`      body: ${c.body}`);
     }
   }

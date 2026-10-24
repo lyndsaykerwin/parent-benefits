@@ -8,7 +8,7 @@ import { inArray } from 'drizzle-orm';
 import { loadEnv } from '../server/env';
 import * as s from '../shared/schema';
 import type { Family } from '../shared/bundle';
-import { loadPlaidFixture } from '../server/ingest/plaid';
+import { loadPurchaseItems } from '../server/ingest/purchaseItems';
 
 const SAMPLE_DIR = path.resolve(process.cwd(), 'data/sample'); // run from the repo root (npm scripts and jest do)
 const SEED_FAMILY_IDS = ['maya', 'leo', 'ava', 'noor', 'cal', 'fern'];
@@ -160,7 +160,8 @@ export async function seed(): Promise<void> {
 
   await db.transaction(async (tx) => {
     // Clear only what seed() refills.
-    await tx.delete(s.transactions).where(inArray(s.transactions.familyId, SEED_FAMILY_IDS));
+    await tx.delete(s.transactions).where(inArray(s.transactions.familyId, SEED_FAMILY_IDS)); // legacy table: emptied, no longer refilled
+    await tx.delete(s.purchaseItems).where(inArray(s.purchaseItems.familyId, SEED_FAMILY_IDS));
     await tx.delete(s.amazonOrders).where(inArray(s.amazonOrders.familyId, SEED_FAMILY_IDS));
     await tx.delete(s.families).where(inArray(s.families.id, SEED_FAMILY_IDS));
     await tx.delete(s.benefitRules);
@@ -173,7 +174,7 @@ export async function seed(): Promise<void> {
     await tx.delete(s.statePrograms);
 
     await tx.insert(s.families).values(families);
-    await tx.insert(s.transactions).values(loadPlaidFixture(SAMPLE_DIR));
+    await tx.insert(s.purchaseItems).values(loadPurchaseItems(SAMPLE_DIR));
     await tx.insert(s.amazonOrders).values(
       orders.map((o) => ({
         id: o.order_id, familyId: o.family_id, orderDate: o.order_date, title: o.title,
