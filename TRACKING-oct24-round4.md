@@ -52,5 +52,5 @@ Started Sat Oct 24, 2026 (cloud session). Coordinator: main Claude session. Suba
 - QC questions: (1) Monday 3pm Boston code freeze = fine; (2) loops + 300 s run limit as must-do = yes; (3) skip offers whose wording hasn't changed = yes; (4) an offer is graded on its VALUE and TIME TO GET THAT VALUE; both decide whether it's worth someone's time.
 - Says the plan otherwise has everything she wants; wants confirmation that building the new onboarding + Version B UI from her mocks is in the plan (it is: must-do item 7, client/src/pages/Onboarding.tsx + Version B tab screens).
 - [x] M1 (done) Meterless as shared workspace + apply 4c to plan, summary, flow chart
-- [ ] M2 QC
-- [ ] Merge to main
+- [x] M2 (done; nothing dropped) QC
+- [x] Merge to main

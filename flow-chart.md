@@ -153,8 +153,8 @@ ZONE 1: USER INPUT   (every family, date, ZIP, receipt, barcode and photo is mad
 |    5 made-up families in 5 states                |        | (Chart 4)                         |
 |  - photo intake tests: field accuracy, made-up   |        |                                   |
 |    rate (target 0), planted recalled item        |        | Nemotron through Nightshift       |
-|    caught, a bad reading gets 1 retry then a     |        | (planned) [10]:                   |
-|    "clearer photo" request                       |        |  - Court debate + Judge ruling    |
+|    caught; proposal (plan item 40): 1 retry,     |        | (planned) [10]:                   |
+|    then a "clearer photo" request                |        |  - Court debate + Judge ruling    |
 |  - real-AI rerun, scored and labelled apart      |        |  - plain-English explanations     |
 |    from the offline replay                       |        |  - "same product?" on loose       |
 |                                                  |        |    recall pairs (max 25)          |
@@ -389,7 +389,7 @@ Loops mean more AI calls, and slowness is the main AI risk: live Zetaris runs ha
 |          gets a short list; a small fast model for the debate, a bigger one for              |
 |          the Judge; SAMPLE_MODE replays saved answers; Zetaris calls have a time             |
 |          limit and one retry                                                                 |
-| PLANNED: photo retry max 1; every AI call gets a time limit plus one retry                   |
+| PLANNED: photo retry max 1 (proposal, plan item 40); every AI call gets a time limit + retry |
 |          (must-do); a 300-second budget for the whole run, then saved offline                |
 |          text that says so (must-do); skip the AI when an offer_checks verdict               |
 |          still holds (must-do)                                                               |
