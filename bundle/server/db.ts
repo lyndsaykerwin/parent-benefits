@@ -7,12 +7,13 @@ import * as schema from "@shared/schema";
 
 /**
  * True when the database address points at this machine (localhost, 127.x, ::1).
+ * Case-insensitive: some URL schemes (postgres:) keep the hostname's original case.
  * Neon's own library talks to Neon over a websocket that a plain local Postgres
  * doesn't understand, so local addresses use the standard `pg` library instead.
  */
 export function isLocalDatabaseUrl(url: string): boolean {
   try {
-    const host = new URL(url).hostname.replace(/^\[|\]$/g, '');
+    const host = new URL(url).hostname.replace(/^\[|\]$/g, '').toLowerCase();
     return host === 'localhost' || host === '::1' || /^127\./.test(host);
   } catch {
     return false;

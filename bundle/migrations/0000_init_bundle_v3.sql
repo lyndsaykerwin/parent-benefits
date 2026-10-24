@@ -150,8 +150,9 @@ CREATE TABLE "purchase_items" (
 	"confidence" real,
 	"extractor" text,
 	"input_hash" text NOT NULL,
+	"line_index" integer DEFAULT 0 NOT NULL,
 	"created_at" timestamp DEFAULT now(),
-	CONSTRAINT "purchase_items_family_input_hash_unique" UNIQUE("family_id","input_hash")
+	CONSTRAINT "purchase_items_family_input_hash_line_unique" UNIQUE("family_id","input_hash","line_index")
 );
 --> statement-breakpoint
 CREATE TABLE "run_results" (

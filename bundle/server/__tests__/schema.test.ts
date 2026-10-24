@@ -45,7 +45,7 @@ describe('plan v3 tables', () => {
   it('purchase_items has section 3 columns plus seller, quantity and input_hash', () => {
     const cols = columnNames(schema.purchaseItems);
     for (const c of ['family_id', 'source', 'store', 'seller', 'purchased_on', 'product_name', 'brand', 'model_number',
-      'lot_code', 'upc', 'size_text', 'quantity', 'price_cents', 'confidence', 'extractor', 'input_hash', 'created_at']) {
+      'lot_code', 'upc', 'size_text', 'quantity', 'price_cents', 'confidence', 'extractor', 'input_hash', 'line_index', 'created_at']) {
       expect(cols).toContain(c);
     }
   });
@@ -72,6 +72,8 @@ describe('isLocalDatabaseUrl', () => {
     if (saved === undefined) delete process.env.DATABASE_URL;
     expect(isLocalDatabaseUrl('postgres://bundle:bundle@127.0.0.1:5432/bundle_test')).toBe(true);
     expect(isLocalDatabaseUrl('postgresql://u:p@localhost/db')).toBe(true);
+    expect(isLocalDatabaseUrl('postgresql://u:p@LOCALHOST:5432/db')).toBe(true);
+    expect(isLocalDatabaseUrl('postgres://u:p@LocalHost/db')).toBe(true);
     expect(isLocalDatabaseUrl('postgresql://u:p@[::1]:5432/db')).toBe(true);
     expect(isLocalDatabaseUrl('postgresql://u:p@ep-cool-1234.us-east-2.aws.neon.tech/neondb?sslmode=require')).toBe(false);
     expect(isLocalDatabaseUrl('not a url')).toBe(false);
@@ -125,12 +127,17 @@ describe('local Postgres through server/db.ts (standard pg driver)', () => {
     expect(row.ruleCitations).toEqual(['CL-1']);
     expect(row.catchTypes).toEqual([]);
 
-    await db.insert(schema.purchaseItems).values({ familyId: tag, source: 'photo_item', productName: 'Sample stroller', seller: 'Sample Seller', inputHash: 'h1' });
+    // Two different items from the same receipt (same input_hash) are both kept...
+    await db.insert(schema.purchaseItems).values({ familyId: tag, source: 'photo_receipt', productName: 'Sample stroller', seller: 'Sample Seller', inputHash: 'h1', lineIndex: 0 });
+    await db.insert(schema.purchaseItems).values({ familyId: tag, source: 'photo_receipt', productName: 'Sample wipes', inputHash: 'h1', lineIndex: 1 });
+    // ...but the exact same line of the same receipt is rejected.
     await expect(
-      db.insert(schema.purchaseItems).values({ familyId: tag, source: 'photo_item', productName: 'Sample stroller', inputHash: 'h1' }),
+      db.insert(schema.purchaseItems).values({ familyId: tag, source: 'photo_receipt', productName: 'Sample wipes', inputHash: 'h1', lineIndex: 1 }),
     ).rejects.toThrow();
-    const items = await db.select().from(schema.purchaseItems).where(sql`${schema.purchaseItems.familyId} = ${tag}`);
-    expect(items).toHaveLength(1);
+    const items = await db.select().from(schema.purchaseItems)
+      .where(sql`${schema.purchaseItems.familyId} = ${tag}`).orderBy(schema.purchaseItems.lineIndex);
+    expect(items).toHaveLength(2);
+    expect(items.map((i) => i.productName)).toEqual(['Sample stroller', 'Sample wipes']);
     expect(items[0].quantity).toBe(1);
 
     await db.insert(schema.runResults).values({ runId: tag, familyId: 'maya', result: { cards: [1, 2] } });

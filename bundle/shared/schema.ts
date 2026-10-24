@@ -136,7 +136,8 @@ export const povertyGuidelines = pgTable("poverty_guidelines", {
 /**
  * One structured purchase-items table for every intake path (email, barcode,
  * photo). Agents read it only through the Zetaris safe-columns view
- * v_purchase_items. `input_hash` stops the same receipt/photo counting twice.
+ * v_purchase_items. `input_hash` + `line_index` stop the same receipt/photo line
+ * counting twice, while still allowing many items from one receipt/photo.
  */
 export const purchaseItems = pgTable("purchase_items", {
   id: serial("id").primaryKey(),
@@ -156,8 +157,10 @@ export const purchaseItems = pgTable("purchase_items", {
   confidence: real("confidence"),
   extractor: text("extractor"),
   inputHash: text("input_hash").notNull(),
+  /** 0-based position of this item within its source receipt/photo. */
+  lineIndex: integer("line_index").notNull().default(0),
   createdAt: timestamp("created_at").defaultNow(),
-}, (t) => [unique("purchase_items_family_input_hash_unique").on(t.familyId, t.inputHash)]);
+}, (t) => [unique("purchase_items_family_input_hash_line_unique").on(t.familyId, t.inputHash, t.lineIndex)]);
 
 /**
  * One row per judged offer (the Living Fine-Print Database). NO family column:

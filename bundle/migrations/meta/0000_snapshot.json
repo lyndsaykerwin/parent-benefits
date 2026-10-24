@@ -1,5 +1,5 @@
 {
-  "id": "5272955e-847f-49b3-b7b7-f604493e94b9",
+  "id": "f32c491e-fb28-4124-842c-fb524b634ae9",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -896,6 +896,13 @@
           "primaryKey": false,
           "notNull": true
         },
+        "line_index": {
+          "name": "line_index",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp",
@@ -908,12 +915,13 @@
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
-        "purchase_items_family_input_hash_unique": {
-          "name": "purchase_items_family_input_hash_unique",
+        "purchase_items_family_input_hash_line_unique": {
+          "name": "purchase_items_family_input_hash_line_unique",
           "nullsNotDistinct": false,
           "columns": [
             "family_id",
-            "input_hash"
+            "input_hash",
+            "line_index"
           ]
         }
       },
