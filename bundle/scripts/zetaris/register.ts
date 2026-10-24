@@ -133,7 +133,7 @@ export async function runSteps(
       log(`  ok (${r.ms ?? '?'} ms)`);
     } catch (e: any) {
       failed++;
-      log(`  FAILED: ${String(e.message).split(password).join('***').slice(0, 500)}`);
+      log(`  FAILED: ${(password ? String(e.message).split(password).join('***') : String(e.message)).slice(0, 500)}`);
     }
   }
   if (failed) log(`${failed} step(s) failed`);

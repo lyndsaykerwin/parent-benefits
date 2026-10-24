@@ -148,6 +148,14 @@ describe('planSteps / runSteps (fake Zetaris)', () => {
     expect(text).toContain('password "***"');
   });
 
+  it('an empty password does not scramble error text', async () => {
+    const steps = [{ label: 'x', sql: 'S', redacted: 'S', exists: false }];
+    const lines: string[] = [];
+    const failed = await runSteps({ runQuery: async () => { throw new Error('boom'); } }, steps, true, '', (l) => lines.push(l));
+    expect(failed).toBe(1);
+    expect(lines.join('\n')).toContain('FAILED: boom');
+  });
+
   it('apply runs each missing step once and never drops or alters anything; failures are counted and redacted', async () => {
     const { z, calls } = fakeZ({ datasources: [REGISTER_DS] });
     const steps = await planSteps(z, CONFIG);

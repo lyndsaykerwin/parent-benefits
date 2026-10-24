@@ -129,6 +129,15 @@ describe('canSkipAi', () => {
   it('reuses a universal-rule rejection even when the wording changed', () => {
     expect(canSkipAi({ ...base, universalRule: true }, 'zzz')).toBe('universal_rule');
   });
+  it('only reuses agreed grades (disputed or pending are graded fresh)', () => {
+    expect(canSkipAi({ ...base, status: 'disputed' }, 'abc')).toBeNull();
+    expect(canSkipAi({ ...base, status: 'pending', universalRule: true }, 'zzz')).toBeNull();
+    expect(canSkipAi({ ...base, status: '' }, 'abc')).toBeNull();
+  });
+  it('v_offer_verdicts exposes status so callers can filter', () => {
+    expect(SAVED_VERDICT_COLUMNS).toContain('status');
+    expect(VIEWS.v_offer_verdicts).toMatch(/\bstatus\b/);
+  });
   it('grades fresh when the wording changed and no universal rule applies, or the saved verdict is not a rejection for the universal case', () => {
     expect(canSkipAi(base, 'zzz')).toBeNull();
     expect(canSkipAi({ ...base, universalRule: true, verdict: 'approve' }, 'zzz')).toBeNull();

@@ -116,10 +116,11 @@ export async function fetchSavedVerdicts(z: Asker, offerIds: (string | number)[]
 
 /**
  * Can the AI debate be skipped for this offer? 'same_fingerprint': the wording is unchanged, so reuse the saved grade.
- * 'universal_rule': a rule that holds for every family already rejected it. Otherwise null (grade fresh).
+ * 'universal_rule': a rule that holds for every family already rejected it. Only grades with status 'agreed' count;
+ * anything else (disputed, pending) is graded fresh. Otherwise null.
  */
 export function canSkipAi(saved: SavedVerdict | undefined, currentFingerprint: string): 'same_fingerprint' | 'universal_rule' | null {
-  if (!saved) return null;
+  if (!saved || saved.status !== 'agreed') return null; // only grades both sides agreed on are reused
   if (saved.finePrintHash && saved.finePrintHash === currentFingerprint) return 'same_fingerprint';
   if (saved.universalRule && saved.verdict === 'reject') return 'universal_rule';
   return null;
