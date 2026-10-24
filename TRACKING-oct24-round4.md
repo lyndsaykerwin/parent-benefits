@@ -23,3 +23,9 @@ Started Sat Oct 24, 2026 (cloud session). Coordinator: main Claude session. Suba
 - [ ] W1 Plan: apply her decisions, undo the baked-in recommendations (proposals only, in the open-decisions list)
 - [ ] W2 Exec summary + flow chart refresh
 - [ ] QC, commit, merge
+
+## Lyndsay's answers (Oct 24, onboarding questions)
+- Add purchases: a "+" button on every tab (opens receipts / barcode / photo).
+- Expecting families: same Version B tabs, adjusted (Home leads with free gifts; deadlines say "starts at birth").
+- Checklist / share / save: light versions ("I got this" tick with $ claimed, small share bar, Save card on Home).
+- Still to ask: how real each intake path should be by Oct 27 (waiting on R1/R4 effort estimates).
