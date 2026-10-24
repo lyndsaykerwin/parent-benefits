@@ -12,7 +12,7 @@ const line = (agent_name: string, action: string, input_summary: string, output_
 const card = (id: string, kind: FeedCard['kind']): FeedCard => ({ id, kind, title: id, body: '', amountCents: null, deadline: null, verdict: 'verified', sources: [], traceId: '' });
 
 const trace = [
-  line('zetaris', 'query_cached', "SELECT DISTINCT item_text FROM bundle_pg.v_recall_orders WHERE family_id = 'maya'", '7 rows (sample cache)'),
+  line('zetaris', 'query_cached', "SELECT DISTINCT item_text FROM bundle_pg.v_purchase_items WHERE family_id = 'maya'", '7 rows (sample cache)'),
   line('zetaris', 'query_cached', 'SELECT RecallID FROM bundle_live.cpsc_recalls WHERE RecallID = 10560', '1 rows (sample cache)'),
   line('zetaris', 'query_cached', 'SELECT id, title FROM bundle_pg.v_judge_offers ORDER BY id', '16 rows (sample cache)'),
   line('memory', 'rule_recalled', 'offer 1190', 'mem-1|0.80|2|Reject offers whose free trial turns into a paid membership.'),

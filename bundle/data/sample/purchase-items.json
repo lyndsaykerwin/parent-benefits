@@ -1,0 +1,115 @@
+{
+  "note": "MADE-UP sample purchases (inputs, not saved answers) for the sample families. Each receipt becomes purchase_items rows; the extractor column reads sample_fixture. Replaces the old card-style (Plaid-shaped) rows and the Amazon CSV. Family ids must match data/sample/families.json.",
+  "receipts": [
+    {
+      "id": "maya-amazon-2026-09-10",
+      "familyId": "maya",
+      "source": "email",
+      "store": "Amazon",
+      "purchasedOn": "2026-09-10",
+      "items": [
+        { "productName": "KEAWIS Crib Mattress, Dual-Sided Firm Baby Mattress", "brand": "KEAWIS", "priceCents": 8999 }
+      ]
+    },
+    {
+      "id": "maya-amazon-2026-09-18",
+      "familyId": "maya",
+      "source": "email",
+      "store": "Amazon",
+      "purchasedOn": "2026-09-18",
+      "items": [
+        { "productName": "Aden + Anais Muslin Swaddle Blankets, 4 Pack", "brand": "Aden + Anais", "upc": "842602101004", "sizeText": "4 pack", "priceCents": 3999 }
+      ]
+    },
+    {
+      "id": "maya-amazon-2026-10-02",
+      "familyId": "maya",
+      "source": "email",
+      "store": "Amazon",
+      "purchasedOn": "2026-10-02",
+      "items": [
+        { "productName": "Hatch Baby Rest Sound Machine and Night Light", "brand": "Hatch", "priceCents": 6999 }
+      ]
+    },
+    {
+      "id": "maya-target-2026-10-05",
+      "familyId": "maya",
+      "source": "photo_receipt",
+      "store": "Target",
+      "purchasedOn": "2026-10-05",
+      "items": [
+        { "productName": "Frida baby thermometer", "brand": "Frida Baby", "priceCents": 2899 }
+      ]
+    },
+    {
+      "id": "maya-target-2026-10-09",
+      "familyId": "maya",
+      "source": "photo_receipt",
+      "store": "Target",
+      "purchasedOn": "2026-10-09",
+      "items": [
+        { "productName": "Graco Pack 'n Play playard", "brand": "Graco", "priceCents": 8999 }
+      ]
+    },
+    {
+      "id": "maya-target-2026-10-12",
+      "familyId": "maya",
+      "source": "photo_receipt",
+      "store": "Target",
+      "purchasedOn": "2026-10-12",
+      "items": [
+        { "productName": "Carter's newborn onesies 5-pack", "brand": "Carter's", "sizeText": "newborn, 5 pack", "priceCents": 2400 }
+      ]
+    },
+    {
+      "id": "maya-walgreens-2026-10-15",
+      "familyId": "maya",
+      "source": "photo_receipt",
+      "store": "Walgreens",
+      "purchasedOn": "2026-10-15",
+      "items": [
+        { "productName": "Pampers Swaddlers newborn diapers", "brand": "Pampers", "sizeText": "newborn", "priceCents": 3149 }
+      ]
+    },
+    {
+      "id": "ava-walmart-2026-09-02",
+      "familyId": "ava",
+      "source": "photo_receipt",
+      "store": "Walmart",
+      "purchasedOn": "2026-09-02",
+      "items": [
+        { "productName": "Enfamil NeuroPro infant formula", "brand": "Enfamil", "priceCents": 3497 }
+      ]
+    },
+    {
+      "id": "ava-target-2026-09-20",
+      "familyId": "ava",
+      "source": "photo_receipt",
+      "store": "Target",
+      "purchasedOn": "2026-09-20",
+      "items": [
+        { "productName": "Graco 4Ever car seat", "brand": "Graco", "priceCents": 24999 }
+      ]
+    },
+    {
+      "id": "ava-cvs-2026-10-10",
+      "familyId": "ava",
+      "source": "photo_receipt",
+      "store": "CVS",
+      "purchasedOn": "2026-10-10",
+      "items": [
+        { "productName": "Infant Tylenol and saline drops", "priceCents": 1458 }
+      ]
+    },
+    {
+      "id": "ava-target-2026-10-16",
+      "familyId": "ava",
+      "source": "photo_receipt",
+      "store": "Target",
+      "purchasedOn": "2026-10-16",
+      "items": [
+        { "productName": "Huggies Little Snugglers diapers", "brand": "Huggies", "priceCents": 2999 }
+      ]
+    }
+  ]
+}

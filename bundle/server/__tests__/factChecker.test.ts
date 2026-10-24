@@ -97,8 +97,8 @@ describe('fact-checker', () => {
     expect((await verify(c, none.ctx)).ok).toBe(false);
   });
 
-  it('verifies a clawback transaction belongs to this family and has the claimed amount', async () => {
-    const c = cand({ kind: 'clawback', amountCents: 500, claim: { type: 'clawback', txId: 'tx1', txAmountCents: 4000 } });
+  it('verifies a clawback purchase item belongs to this family and has the claimed amount', async () => {
+    const c = cand({ kind: 'clawback', amountCents: 500, claim: { type: 'clawback', itemId: 11, itemAmountCents: 4000 } });
     const good = ctxWith(() => res([{ amount_cents: 4000, family_id: 'maya' }]));
     expect((await verify(c, good.ctx)).ok).toBe(true);
     expect(good.runQuery.mock.calls[0][0]).toContain("family_id = 'maya'");
@@ -110,7 +110,7 @@ describe('fact-checker', () => {
 
   describe('clawback subtypes', () => {
     const clawCand = (type: string, over: Partial<Candidate> = {}) =>
-      cand({ kind: 'clawback', agent: 'clawback', claim: { type, txId: 'maya-tx-02', txAmountCents: 8999, planYear: 2026 }, ...over });
+      cand({ kind: 'clawback', agent: 'clawback', claim: { type, itemId: 2, itemAmountCents: 8999 }, ...over });
     const priceRows = [
       { amount_cents: 8999, tx_date: '2026-10-09', window_days: 14, price_cents: 6999, observed_at: '2026-10-20' },
       { amount_cents: 8999, tx_date: '2026-10-09', window_days: 14, price_cents: 5000, observed_at: '2026-10-30' }, // outside window
@@ -130,7 +130,7 @@ describe('fact-checker', () => {
       const c = clawCand('price_adjustment', { amountCents: 2000, deadline: '2026-10-23' });
       const ok = ctxWith(() => res(priceRows));
       expect((await verify(c, ok.ctx)).ok).toBe(true);
-      expect(ok.runQuery.mock.calls[0][0]).toContain("t.family_id = 'maya'");
+      expect(ok.runQuery.mock.calls[0][0]).toContain("p.family_id = 'maya'");
       const wrongAmt = await verify({ ...c, amountCents: 3999 }, ctxWith(() => res(priceRows)).ctx);
       expect(wrongAmt.ok).toBe(false);
       expect(wrongAmt.corrected?.amountCents).toBe(2000);
@@ -141,22 +141,27 @@ describe('fact-checker', () => {
       expect(none.reason).toContain('no lower price');
     });
 
-    it('dcfsa_childcare: sums distinct payments, caps at 750000, needs the employer benefit', async () => {
+    it('dcfsa_childcare is gone: the daycare card was dropped, so the claim type fails closed', async () => {
       const c = clawCand('dcfsa_childcare', { amountCents: 555000 });
-      const ok = ctxWith(() => res([{ total_cents: 555000, n: 3 }]));
-      expect((await verify(c, ok.ctx)).ok).toBe(true);
-      expect(ok.runQuery.mock.calls[0][0]).toContain('SELECT DISTINCT');
-      expect(ok.runQuery.mock.calls[0][0]).toContain("'2026-01-01'");
-      const bad = await verify({ ...c, amountCents: 600000 }, ctxWith(() => res([{ total_cents: 555000, n: 3 }])).ctx);
-      expect(bad.corrected?.amountCents).toBe(555000);
-      const capped = await verify({ ...c, amountCents: 750000 }, ctxWith(() => res([{ total_cents: 900000, n: 6 }])).ctx);
-      expect(capped.ok).toBe(true);
-      const noBenefit = ctxWith(() => res([{ total_cents: 555000, n: 3 }]));
-      noBenefit.ctx.family = { ...family, dcfsaOffered: false };
-      expect((await verify(c, noBenefit.ctx)).ok).toBe(false);
-      const badYear = ctxWith(() => res([]));
-      expect((await verify({ ...c, claim: { ...c.claim, planYear: "2026'" } }, badYear.ctx)).ok).toBe(false);
-      expect(badYear.runQuery).not.toHaveBeenCalled();
+      const h = ctxWith(() => res([{ total_cents: 555000, n: 3 }]));
+      const out = await verify(c, h.ctx);
+      expect(out.ok).toBe(false);
+      expect(out.reason).toContain('unknown claim type');
+      expect(h.runQuery).not.toHaveBeenCalled();
+    });
+
+    it('every clawback check reads purchase_items through v_purchase_items, never transactions', async () => {
+      const seen: string[] = [];
+      for (const type of ['clawback', 'fsa_reimbursement', 'price_adjustment']) {
+        const h = ctxWith((sql) => { seen.push(sql); return res([{ amount_cents: 8999, family_id: 'maya', tx_date: '2026-10-09', window_days: 14, price_cents: 6999, observed_at: '2026-10-20' }]); });
+        await verify(clawCand(type, { amountCents: 2000 }), h.ctx);
+      }
+      expect(seen).toHaveLength(3);
+      for (const sql of seen) {
+        expect(sql).toContain('bundle_pg.v_purchase_items');
+        expect(sql).toContain("family_id = 'maya'");
+        expect(sql).not.toMatch(/v_clawback_tx|transactions|amazon_orders/i);
+      }
     });
   });
 
@@ -184,7 +189,7 @@ describe('fact-checker', () => {
     expect(e1.runQuery).not.toHaveBeenCalled();
     const e2 = ctxWith(() => res([]));
     e2.ctx.family = { ...family, id: "m\\" };
-    const o = await verify(cand({ kind: 'clawback', claim: { type: 'clawback', txId: 'tx1', txAmountCents: 1 } }), e2.ctx);
+    const o = await verify(cand({ kind: 'clawback', claim: { type: 'clawback', itemId: 11, itemAmountCents: 1 } }), e2.ctx);
     expect(o.reason).toBe('invalid id');
   });
 

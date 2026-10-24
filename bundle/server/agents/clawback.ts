@@ -1,6 +1,5 @@
-import { col, isInlineFamily, quoteId, quoteDate, InvalidId, addDays, today, fmtUsd, dupKey } from './sql';
+import { col, isInlineFamily, quoteId, InvalidId, addDays, fmtUsd, dupKey } from './sql';
 import { explain } from './explain';
-import { DCFSA_CAP_CENTS } from './factChecker';
 import type { AgentContext, Candidate } from './types';
 
 const AGENT = 'clawback';
@@ -9,43 +8,39 @@ type Row = Record<string, string | number | null>;
 const s = (r: Row, k: string) => String(col(r, k) ?? '');
 const n = (r: Row, k: string) => Number(col(r, k) ?? 0);
 
-/** Does a transaction's item description or merchant contain a keyword? The match happens inside Zetaris. */
-const KEYWORD_MATCH =
-  "(lower(t.category) LIKE concat('%', lower(c.keyword), '%') OR lower(t.merchant) LIKE concat('%', lower(c.keyword), '%'))";
+/**
+ * Money-back cards come ONLY from `purchase_items` rows that carry a price (photos, receipts, email receipts),
+ * read through the Zetaris safe-columns view v_purchase_items (plan v3 sign-off items 8 and 9).
+ * `price_cents` is what the family paid for that line.
+ */
+const ITEMS = 'bundle_pg.v_purchase_items p';
+
+/** Does an item's name contain a keyword? The match happens inside Zetaris. */
+const KEYWORD_MATCH = "lower(p.product_name) LIKE concat('%', lower(c.keyword), '%')";
 
 export function fsaSql(familyId: string): string {
   return (
-    'SELECT DISTINCT t.id AS tx_id, t.merchant AS merchant, t.date AS date, t.amount_cents AS amount_cents, ' +
-    't.category AS item, c.keyword AS keyword, c.category AS fsa_category, c.account AS account, c.source_url AS source_url ' +
-    'FROM bundle_pg.v_clawback_tx t ' +
-    `JOIN bundle_pg.fsa_eligible_categories c ON c.account <> 'DCFSA' AND ${KEYWORD_MATCH} ` +
-    `WHERE t.family_id = ${quoteId(familyId)} AND t.amount_cents > 0 ORDER BY date, tx_id`
+    'SELECT DISTINCT p.id AS item_id, COALESCE(p.store, p.seller) AS merchant, p.purchased_on AS date, p.price_cents AS amount_cents, ' +
+    'p.product_name AS item, c.keyword AS keyword, c.category AS fsa_category, c.account AS account, c.source_url AS source_url ' +
+    `FROM ${ITEMS} ` +
+    `JOIN bundle_pg.fsa_eligible_categories c ON c.account IN ('FSA', 'HSA') AND ${KEYWORD_MATCH} ` +
+    `WHERE p.family_id = ${quoteId(familyId)} AND p.price_cents > 0 ORDER BY date, item_id`
   );
 }
 
 export function priceSql(familyId: string): string {
   return (
-    'SELECT t.id AS tx_id, t.merchant AS merchant, t.date AS date, t.amount_cents AS amount_cents, t.category AS item, ' +
+    'SELECT p.id AS item_id, COALESCE(p.store, p.seller) AS merchant, p.purchased_on AS date, p.price_cents AS amount_cents, p.product_name AS item, ' +
     'sp.adjustment_window_days AS window_days, po.price_cents AS observed_price_cents, po.observed_at AS observed_at, ' +
     'sp.source_url AS store_source_url, po.source_url AS price_source_url ' +
-    'FROM bundle_pg.v_clawback_tx t ' +
-    'JOIN bundle_pg.store_policies sp ON lower(sp.store) = lower(t.merchant) ' +
+    `FROM ${ITEMS} ` +
+    'JOIN bundle_pg.store_policies sp ON lower(sp.store) = lower(COALESCE(p.store, p.seller)) ' +
     'JOIN bundle_pg.price_observations po ON lower(po.store) = lower(sp.store) ' +
-    "AND lower(t.category) LIKE concat('%', lower(po.keyword), '%') " +
-    `WHERE t.family_id = ${quoteId(familyId)} AND t.amount_cents > 0 ` +
-    'AND po.price_cents < t.amount_cents ' +
-    'AND datediff(CAST(po.observed_at AS date), CAST(t.date AS date)) BETWEEN 0 AND sp.adjustment_window_days ' +
-    'ORDER BY t.date, t.id'
-  );
-}
-
-export function daycareSql(familyId: string, year: number): string {
-  return (
-    'SELECT DISTINCT t.id AS tx_id, t.merchant AS merchant, t.date AS date, t.amount_cents AS amount_cents, c.source_url AS source_url ' +
-    'FROM bundle_pg.v_clawback_tx t ' +
-    `JOIN bundle_pg.fsa_eligible_categories c ON c.account = 'DCFSA' AND ${KEYWORD_MATCH} ` +
-    `WHERE t.family_id = ${quoteId(familyId)} AND t.amount_cents > 0 ` +
-    `AND t.date >= ${quoteDate(`${year}-01-01`)} AND t.date <= ${quoteDate(`${year}-12-31`)} ORDER BY date, tx_id`
+    "AND lower(p.product_name) LIKE concat('%', lower(po.keyword), '%') " +
+    `WHERE p.family_id = ${quoteId(familyId)} AND p.price_cents > 0 ` +
+    'AND po.price_cents < p.price_cents ' +
+    'AND datediff(CAST(po.observed_at AS date), CAST(p.purchased_on AS date)) BETWEEN 0 AND sp.adjustment_window_days ' +
+    'ORDER BY p.purchased_on, p.id'
   );
 }
 
@@ -69,12 +64,12 @@ async function fsaCandidates(ctx: AgentContext, seen: Set<string>): Promise<Cand
     const item = s(r, 'item') || s(r, 'merchant');
     const fallback = `You paid ${fmtUsd(cents)} at ${s(r, 'merchant')} for ${item}. It is likely eligible (${s(r, 'fsa_category')}), so you may be able to reimburse it from your health FSA or HSA.`;
     const body = await explain(ctx, AGENT, `Purchase: ${item} at ${s(r, 'merchant')} for ${fmtUsd(cents)}. Likely ${s(r, 'account')}-eligible as: ${s(r, 'fsa_category')}.`, [cents], fallback);
-    const id = `clawback-fsa-${s(r, 'tx_id')}`;
+    const id = `clawback-fsa-${s(r, 'item_id')}`;
     out.push({
       id, kind: 'clawback', title: `Reimburse your ${item}`, body, amountCents: cents, deadline: null,
       verdict: 'verified', sources: [{ label: `${s(r, 'fsa_category')} (eligible-items list)`, url: s(r, 'source_url') }],
-      traceId: log(ctx, 'fsa_reimbursement', `tx ${s(r, 'tx_id')}`, `${fmtUsd(cents)} likely ${s(r, 'account')}-eligible`),
-      agent: AGENT, claim: { type: 'fsa_reimbursement', txId: s(r, 'tx_id'), txAmountCents: cents },
+      traceId: log(ctx, 'fsa_reimbursement', `item ${s(r, 'item_id')}`, `${fmtUsd(cents)} likely ${s(r, 'account')}-eligible`),
+      agent: AGENT, claim: { type: 'fsa_reimbursement', itemId: s(r, 'item_id'), itemAmountCents: cents },
       evidenceSql: sql, retryCount: 0,
     });
   }
@@ -94,7 +89,7 @@ async function priceCandidates(ctx: AgentContext, seen: Set<string>): Promise<Ca
     const seenOn = s(r, 'observed_at').slice(0, 10);
     // Re-check the window in code as well, so a surprising query result can never leak through.
     if (paid <= 0 || price >= paid || seenOn < date || seenOn > end) continue;
-    const id = s(r, 'tx_id');
+    const id = s(r, 'item_id');
     const cur = best.get(id);
     if (!cur || price < n(cur, 'observed_price_cents')) best.set(id, r);
   }
@@ -111,53 +106,21 @@ async function priceCandidates(ctx: AgentContext, seen: Set<string>): Promise<Ca
     const fallback = `You paid ${fmtUsd(paid)} for ${item} at ${s(r, 'merchant')} on ${date}. The price is now ${fmtUsd(n(r, 'observed_price_cents'))}, and ${s(r, 'merchant')} adjusts prices for ${n(r, 'window_days')} days, so ask for ${fmtUsd(cents)} back by ${deadline}.`;
     const body = await explain(ctx, AGENT, `Bought ${item} at ${s(r, 'merchant')} for ${fmtUsd(paid)} on ${date}. Price dropped to ${fmtUsd(n(r, 'observed_price_cents'))} on ${s(r, 'observed_at')}. Store adjusts prices for ${n(r, 'window_days')} days; ask by ${deadline}. Difference ${fmtUsd(cents)}.`, [paid, n(r, 'observed_price_cents'), cents], fallback);
     out.push({
-      id: `clawback-price-${s(r, 'tx_id')}`, kind: 'clawback', title: `Price drop on your ${item}`, body, amountCents: cents, deadline,
+      id: `clawback-price-${s(r, 'item_id')}`, kind: 'clawback', title: `Price drop on your ${item}`, body, amountCents: cents, deadline,
       verdict: 'verified',
       sources: [
         { label: `${s(r, 'merchant')} price-adjustment policy`, url: s(r, 'store_source_url') },
         { label: 'Price check', url: s(r, 'price_source_url') },
       ],
-      traceId: log(ctx, 'price_adjustment', `tx ${s(r, 'tx_id')}`, `${fmtUsd(cents)} back by ${deadline}`),
-      agent: AGENT, claim: { type: 'price_adjustment', txId: s(r, 'tx_id'), txAmountCents: paid },
+      traceId: log(ctx, 'price_adjustment', `item ${s(r, 'item_id')}`, `${fmtUsd(cents)} back by ${deadline}`),
+      agent: AGENT, claim: { type: 'price_adjustment', itemId: s(r, 'item_id'), itemAmountCents: paid },
       evidenceSql: sql, retryCount: 0,
     });
   }
   return out;
 }
 
-async function daycareCandidates(ctx: AgentContext): Promise<Candidate[]> {
-  if (!ctx.family.dcfsaOffered) return [];
-  const year = Number((ctx.today ?? today()).slice(0, 4));
-  const sql = daycareSql(ctx.family.id, year);
-  const { rows } = await ctx.z.runQuery(sql);
-  const seen = new Set<string>();
-  const pay: Row[] = [];
-  for (const r of rows) {
-    const cents = n(r, 'amount_cents');
-    const key = dupKey(s(r, 'merchant'), s(r, 'date').slice(0, 10), cents);
-    if (cents <= 0 || seen.has(key)) continue;
-    seen.add(key);
-    pay.push(r);
-  }
-  if (!pay.length) return [];
-  const total = pay.reduce((a, r) => a + n(r, 'amount_cents'), 0);
-  const cents = Math.min(total, DCFSA_CAP_CENTS);
-  const last = pay[pay.length - 1];
-  const who = s(pay[0], 'merchant');
-  const fallback = `You paid ${fmtUsd(total)} to ${who} in ${pay.length} payment${pay.length === 1 ? '' : 's'} this year. Your employer offers a Dependent Care FSA (a work account that lets you pay for daycare with pre-tax dollars, up to ${fmtUsd(DCFSA_CAP_CENTS)} a year). You are likely eligible to pay up to ${fmtUsd(cents)} of daycare with pre-tax dollars. This is eligible spend, not money back.`;
-  const body = await explain(ctx, AGENT, `Daycare payments to ${who} in ${year}: ${pay.length}, total ${fmtUsd(total)}. Employer offers a Dependent Care FSA with a yearly limit of ${fmtUsd(DCFSA_CAP_CENTS)}. Up to ${fmtUsd(cents)} of daycare can be paid with pre-tax dollars through the family's dependent-care FSA. This is eligible spend, not money back.`, [total, cents, DCFSA_CAP_CENTS], fallback);
-  return [{
-    id: `clawback-dcfsa-${ctx.family.id}-${year}`, kind: 'clawback', title: 'Your daycare payments may qualify for a Dependent Care FSA',
-    body, amountCents: cents, deadline: null, verdict: 'likely',
-    sources: [{ label: 'IRS Publication 503 (dependent care)', url: s(pay[0], 'source_url') }],
-    traceId: log(ctx, 'dcfsa_childcare', `${pay.length} payments in ${year}`, `${fmtUsd(cents)} likely eligible`),
-    agent: AGENT,
-    claim: { type: 'dcfsa_childcare', txId: s(last, 'tx_id'), txAmountCents: n(last, 'amount_cents'), planYear: year },
-    evidenceSql: sql, retryCount: 0,
-  }];
-}
-
-/** Find money a family can get back: FSA reimbursements, store price adjustments, Dependent Care FSA. */
+/** Find money a family can get back: FSA reimbursements and store price adjustments, from purchase_items only. */
 export async function findClawbacks(ctx: AgentContext): Promise<Candidate[]> {
   if (isInlineFamily(ctx.family)) {
     log(ctx, 'find_clawbacks', 'typed-in family', 'no saved purchases to look up: nothing queried');
@@ -176,7 +139,6 @@ export async function findClawbacks(ctx: AgentContext): Promise<Candidate[]> {
   const out = [
     ...(await fsaCandidates(ctx, seen)),
     ...(await priceCandidates(ctx, seen)),
-    ...(await daycareCandidates(ctx)),
   ];
   log(ctx, 'find_clawbacks', `family ${ctx.family.id}`, `${out.length} candidate(s): ${out.map((c) => c.claim.type).join(', ') || 'none'}`);
   return out;
@@ -184,11 +146,11 @@ export async function findClawbacks(ctx: AgentContext): Promise<Candidate[]> {
 
 /** Re-derive one candidate from the source data after the Fact-Checker sent it back. null = give up. */
 export async function revise(c: Candidate, reason: string, ctx: AgentContext): Promise<Candidate | null> {
-  log(ctx, 'revise', `${c.claim.type} ${c.claim.txId}: ${reason}`.slice(0, 200), 're-deriving from source', 'retry', c.retryCount + 1);
+  log(ctx, 'revise', `${c.claim.type} ${c.claim.itemId}: ${reason}`.slice(0, 200), 're-deriving from source', 'retry', c.retryCount + 1);
   const fresh = await findClawbacks(ctx);
-  const match = fresh.find((f) => f.claim.type === c.claim.type && (c.claim.type === 'dcfsa_childcare' || f.claim.txId === c.claim.txId));
+  const match = fresh.find((f) => f.claim.type === c.claim.type && f.claim.itemId === c.claim.itemId);
   if (!match) {
-    log(ctx, 'revise', `${c.claim.type} ${c.claim.txId}`, 'gave up: not in source data', 'blocked', c.retryCount + 1);
+    log(ctx, 'revise', `${c.claim.type} ${c.claim.itemId}`, 'gave up: not in source data', 'blocked', c.retryCount + 1);
     return null;
   }
   return { ...match, retryCount: c.retryCount + 1 };

@@ -1,5 +1,5 @@
 import type { AgentContext, Candidate } from './types';
-import { InvalidId, quoteId as q, quoteDate, addDays, col } from './sql';
+import { InvalidId, quoteId as q, quoteInt, addDays, col } from './sql';
 
 export interface VerifyResult {
   ok: boolean;
@@ -14,16 +14,14 @@ export interface VerifyResult {
  *   rule     { type:'rule', ref: <benefit_rules.code> }            -> amount + deadline
  *   offer    { type:'offer', offerId: <offers.id> }                -> amount + deadline
  *   recall   { type:'recall', recallId: <CPSC RecallID> }          (or recallSource:'fda', recallNumber)
- *   clawback { type:'clawback', txId: <transactions.id>, txAmountCents }
- *   fsa_reimbursement { type, txId, txAmountCents }                -> card amount must equal the transaction
- *   price_adjustment  { type, txId, txAmountCents }                -> amount = paid minus the lowest in-window price; deadline = purchase + store window
- *   dcfsa_childcare   { type, txId, txAmountCents, planYear }      -> amount = min(sum of that year's daycare payments, cap)
+ *   clawback { type:'clawback', itemId: <purchase_items.id>, itemAmountCents }
+ *   fsa_reimbursement { type, itemId, itemAmountCents }            -> card amount must equal the purchase item's price
+ *   price_adjustment  { type, itemId, itemAmountCents }            -> amount = paid minus the lowest in-window price; deadline = purchase + store window
+ * Money-back claims are checked against `purchase_items` (through the v_purchase_items view) only; the daycare claim was dropped (sign-off item 10).
  * Anything else cannot be verified, so it fails closed.
  */
 
 const CENT_TOLERANCE = 1;
-/** Federal Dependent Care FSA yearly limit for a household (2026), in cents. */
-export const DCFSA_CAP_CENTS = 750000;
 
 function intId(v: string | number | undefined): number | null {
   if (v === undefined || v === null || String(v).trim() === '') return null;
@@ -108,47 +106,35 @@ async function check(c: Candidate, ctx: AgentContext): Promise<VerifyResult> {
     return rows.length ? { ok: true, reason: null, corrected: null } : fail(`source not found: recall ${claim.recallId ?? claim.recallNumber}`);
   }
 
-  if (type === 'clawback') {
-    const sql = `SELECT amount_cents, family_id FROM bundle_pg.v_clawback_tx WHERE id = ${q(claim.txId)} AND family_id = ${q(ctx.family.id)}`;
+  if (type === 'clawback' || type === 'fsa_reimbursement') {
+    const sql = `SELECT price_cents AS amount_cents, family_id FROM bundle_pg.v_purchase_items WHERE id = ${quoteInt(claim.itemId)} AND family_id = ${q(ctx.family.id)}`;
     const { rows } = await ctx.z.runQuery(sql);
-    if (!rows.length) return fail(`source not found: transaction ${claim.txId} for this family`);
-    const truth = col(rows[0], 'amount_cents') as number;
-    const claimed = Number(claim.txAmountCents);
-    if (!Number.isFinite(claimed) || Math.abs(claimed - truth) > CENT_TOLERANCE) {
-      // The claimed refund is built on the transaction amount, so it cannot be trusted either.
-      return fail(`amount mismatch: card used ${claim.txAmountCents}, transaction is ${truth}`);
+    if (!rows.length) return fail(`source not found: purchase item ${claim.itemId} for this family`);
+    const truth = col(rows[0], 'amount_cents') as number | null;
+    const claimed = Number(claim.itemAmountCents);
+    if (truth === null || truth === undefined || !Number.isFinite(claimed) || Math.abs(claimed - truth) > CENT_TOLERANCE) {
+      // The claimed refund is built on the item's price, so it cannot be trusted either.
+      return fail(`amount mismatch: card used ${claim.itemAmountCents}, purchase item is ${truth ?? 'unpriced'}`);
     }
-    return { ok: true, reason: null, corrected: null };
-  }
-
-  if (type === 'fsa_reimbursement') {
-    const sql = `SELECT amount_cents, family_id FROM bundle_pg.v_clawback_tx WHERE id = ${q(claim.txId)} AND family_id = ${q(ctx.family.id)}`;
-    const { rows } = await ctx.z.runQuery(sql);
-    if (!rows.length) return fail(`source not found: transaction ${claim.txId} for this family`);
-    const truth = col(rows[0], 'amount_cents') as number;
-    const claimed = Number(claim.txAmountCents);
-    if (!Number.isFinite(claimed) || Math.abs(claimed - truth) > CENT_TOLERANCE) {
-      return fail(`amount mismatch: card used ${claim.txAmountCents}, transaction is ${truth}`);
-    }
-    return compare(c, truth, null);
+    return type === 'clawback' ? { ok: true, reason: null, corrected: null } : compare(c, truth, null);
   }
 
   if (type === 'price_adjustment') {
     // Independent path: pull every possible price row and apply the window rule here, in code.
     const sql =
-      'SELECT t.amount_cents AS amount_cents, t.date AS tx_date, sp.adjustment_window_days AS window_days, ' +
+      'SELECT p.price_cents AS amount_cents, p.purchased_on AS tx_date, sp.adjustment_window_days AS window_days, ' +
       'po.price_cents AS price_cents, po.observed_at AS observed_at ' +
-      'FROM bundle_pg.v_clawback_tx t ' +
-      'JOIN bundle_pg.store_policies sp ON lower(sp.store) = lower(t.merchant) ' +
+      'FROM bundle_pg.v_purchase_items p ' +
+      'JOIN bundle_pg.store_policies sp ON lower(sp.store) = lower(COALESCE(p.store, p.seller)) ' +
       'JOIN bundle_pg.price_observations po ON lower(po.store) = lower(sp.store) ' +
-      "AND lower(t.category) LIKE concat('%', lower(po.keyword), '%') " +
-      `WHERE t.id = ${q(claim.txId)} AND t.family_id = ${q(ctx.family.id)}`;
+      "AND lower(p.product_name) LIKE concat('%', lower(po.keyword), '%') " +
+      `WHERE p.id = ${quoteInt(claim.itemId)} AND p.family_id = ${q(ctx.family.id)}`;
     const { rows } = await ctx.z.runQuery(sql);
-    if (!rows.length) return fail(`source not found: price check for transaction ${claim.txId}`);
+    if (!rows.length) return fail(`source not found: price check for purchase item ${claim.itemId}`);
     const paid = col(rows[0], 'amount_cents') as number;
-    const claimed = Number(claim.txAmountCents);
+    const claimed = Number(claim.itemAmountCents);
     if (!Number.isFinite(claimed) || Math.abs(claimed - paid) > CENT_TOLERANCE) {
-      return fail(`amount mismatch: card used ${claim.txAmountCents}, transaction is ${paid}`);
+      return fail(`amount mismatch: card used ${claim.itemAmountCents}, purchase item is ${paid}`);
     }
     let best: number | null = null;
     let deadline: string | null = null;
@@ -162,23 +148,6 @@ async function check(c: Candidate, ctx: AgentContext): Promise<VerifyResult> {
     }
     if (best === null || deadline === null) return fail('source not found: no lower price inside the store window');
     return compare(c, paid - best, deadline);
-  }
-
-  if (type === 'dcfsa_childcare') {
-    if (!ctx.family.dcfsaOffered) return fail('source not found: employer does not offer a Dependent Care FSA');
-    const year = intId(claim.planYear);
-    if (year === null || year < 2000 || year > 2100) return fail('cannot verify: planYear is not a year');
-    const sql =
-      'SELECT COALESCE(SUM(p.amount_cents), 0) AS total_cents, COUNT(*) AS n FROM ' +
-      '(SELECT DISTINCT t.merchant AS merchant, t.date AS date, t.amount_cents AS amount_cents ' +
-      "FROM bundle_pg.v_clawback_tx t JOIN bundle_pg.fsa_eligible_categories c ON c.account = 'DCFSA' " +
-      "AND (lower(t.category) LIKE concat('%', lower(c.keyword), '%') OR lower(t.merchant) LIKE concat('%', lower(c.keyword), '%')) " +
-      `WHERE t.family_id = ${q(ctx.family.id)} AND t.amount_cents > 0 ` +
-      `AND t.date >= ${quoteDate(`${year}-01-01`)} AND t.date <= ${quoteDate(`${year}-12-31`)}) p`;
-    const { rows } = await ctx.z.runQuery(sql);
-    const total = rows.length ? Number(col(rows[0], 'total_cents')) : 0;
-    if (!Number.isFinite(total) || total <= 0) return fail('source not found: no daycare payments this plan year');
-    return compare(c, Math.min(total, DCFSA_CAP_CENTS), null);
   }
 
   return fail(`cannot verify: unknown claim type "${type}"`);
