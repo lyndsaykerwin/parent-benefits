@@ -14,28 +14,28 @@ const maya = {
 const leo = { ...maya, id: 'leo', dcfsaOffered: false, dataConnected: false };
 const res = (rows: any[]) => ({ headers: Object.keys(rows[0] ?? {}), rows, ms: 1 });
 
-// Maya's purchases: 3 Amazon orders + distinct card items (refund excluded, Walgreens pair counted once).
+// Maya's purchase_items: an email receipt line, receipt-photo lines and item-photo lines (read through v_purchase_items).
 const ITEMS = [
-  { item_text: 'KEAWIS Crib Mattress, Dual-Sided Firm Baby Mattress', source: 'amazon' },
-  { item_text: 'Aden + Anais Muslin Swaddle Blankets, 4 Pack', source: 'amazon' },
-  { item_text: 'Hatch Baby Rest Sound Machine and Night Light', source: 'amazon' },
-  { item_text: 'Frida baby thermometer', source: 'card' },
-  { item_text: 'Pampers Swaddlers newborn diapers', source: 'card' },
+  { item_text: 'KEAWIS Crib Mattress, Dual-Sided Firm Baby Mattress', source: 'email' },
+  { item_text: 'Aden + Anais Muslin Swaddle Blankets, 4 Pack', source: 'email' },
+  { item_text: 'Hatch Baby Rest Sound Machine and Night Light', source: 'email' },
+  { item_text: 'Frida baby thermometer', source: 'photo_receipt' },
+  { item_text: 'Pampers Swaddlers newborn diapers', source: 'photo_receipt' },
 ];
 const CPSC_PAIR = {
-  item_text: 'KEAWIS Crib Mattress, Dual-Sided Firm Baby Mattress', purchased_on: '2026-09-10', source: 'amazon',
+  item_text: 'KEAWIS Crib Mattress, Dual-Sided Firm Baby Mattress', purchased_on: '2026-09-10', source: 'email',
   recall_source: 'cpsc', recall_id: 10560, recall_number: '26191', recall_date: '2026-01-15',
   recall_title: 'Yixing Trading Recalls KEAWIS Crib Mattresses Due to Risk of Serious Injury or Death from Entrapment and Suffocation',
   recall_url: 'https://www.cpsc.gov/Recalls/2026/Yixing-Trading-Recalls-KEAWIS-Crib-Mattresses', recalled_product: 'KEAWIS Crib Mattress',
 };
 // A loose token match that is NOT the same product (the model must say no).
 const LOOSE_PAIR = {
-  item_text: 'Hatch Baby Rest Sound Machine and Night Light', purchased_on: '2026-10-02', source: 'amazon',
+  item_text: 'Hatch Baby Rest Sound Machine and Night Light', purchased_on: '2026-10-02', source: 'email',
   recall_source: 'cpsc', recall_id: 777, recall_number: '25001', recall_date: '2026-02-01',
   recall_title: 'Acme Recalls Baby Night Lights', recall_url: 'https://www.cpsc.gov/Recalls/2026/acme', recalled_product: 'Acme Baby Night Light',
 };
 const FDA_PAIR = {
-  item_text: 'Enfamil NeuroPro infant formula', purchased_on: '2026-09-02', source: 'card',
+  item_text: 'Enfamil NeuroPro infant formula', purchased_on: '2026-09-02', source: 'photo_receipt',
   recall_source: 'fda', recall_id: null, recall_number: 'F-0123-2026', recall_date: '2026-03-04',
   recall_title: 'Infant formula recall', recall_url: 'https://www.fda.gov/safety/recalls', recalled_product: 'Enfamil NeuroPro Infant Formula powder 12.5 oz',
 };
@@ -46,7 +46,7 @@ function ctxWith(family: any, items: any[], pairs: any[], llm: any) {
   const runQuery = jest.fn(async (sql: string) => {
     if (sql.includes("= 'terminated'")) return { headers: ['recall_number'], rows: [], ms: 1 };
     if (sql.includes('LATERAL VIEW')) return res(pairs);
-    if (sql.includes('v_recall_orders')) return res(items);
+    if (sql.includes('v_purchase_items')) return res(items);
     throw new Error('unexpected sql ' + sql);
   });
   const ctx = { runId: 't', family, z: { runQuery } as any, llm, memory: {} as any, trace } as AgentContext;
@@ -110,14 +110,6 @@ describe('recall checker', () => {
     const { ctx } = ctxWith(maya, ITEMS, [...noise, CPSC_PAIR], no());
     const out = await checkRecalls(ctx);
     expect(out.candidates.map((c) => c.claim.recallId)).toEqual([10560]);
-  });
-
-  it('item list leaves out services and generic categories (daycare, groceries) but keeps products', async () => {
-    const { ctx, runQuery } = ctxWith(maya, ITEMS, [], yes());
-    await checkRecalls(ctx);
-    const sql = String(runQuery.mock.calls[0][0]);
-    expect(sql).toContain("lower(category) LIKE '%daycare%'");
-    expect(sql).toContain("'groceries'");
   });
 
   it('an FDA match carries recallSource fda and the recall number', async () => {
@@ -209,5 +201,58 @@ describe('W1-RECALL: finished FDA recalls and no false recalls', () => {
     const ids = candidates.map((c) => c.id);
     expect(ids).toEqual(['recall-cpsc-10560']);
     expect(ids.some((i) => i.includes('10490') || i.includes('10453'))).toBe(false);
+  });
+});
+
+describe('W2-PURCH: purchase_items is the only purchase source (#8)', () => {
+  it('reads only v_purchase_items: no card transactions, Amazon orders or old views, and every query is scoped to the family', async () => {
+    const { ctx, runQuery } = ctxWith(maya, ITEMS, [CPSC_PAIR], yes());
+    await checkRecalls(ctx);
+    const sqls = runQuery.mock.calls.map((c) => String(c[0]));
+    for (const s of sqls.filter((x) => !x.includes("= 'terminated'"))) {
+      expect(s).toContain('bundle_pg.v_purchase_items');
+      expect(s).not.toMatch(/v_recall_orders|v_clawback_tx|transactions|amazon_orders|bank|plaid/i);
+    }
+    expect(sqls.filter((s) => s.includes('v_purchase_items')).every((s) => s.includes("family_id = 'maya'"))).toBe(true);
+  });
+
+  it('the item list sent to Zetaris carries the structured codes (UPC, model number, lot code) and no bank-text category filter', async () => {
+    const { itemsSql, pairsSql } = await import('../agents/recall');
+    for (const sql of [itemsSql('maya'), pairsSql('maya')]) {
+      expect(sql).not.toMatch(/daycare|childcare|groceries|category/i);
+    }
+    const pairs = pairsSql('maya');
+    for (const c of ['upc', 'lot_code', 'model_number']) expect(pairs).toContain(c);
+  });
+
+  it('a UPC found in the recall text is an exact match: accepted without the model, with an evidence line', async () => {
+    const UPC_PAIR = {
+      ...FDA_PAIR, item_text: 'Little Sprout Infant Formula 12.4 oz', upc: '070074123456', lot_code: null, model_number: null,
+      recalled_product: 'Brightstar Infant Formula Powder 12.4 oz can UPC 070074123456 lot 26A1234',
+    };
+    const llm = no();
+    const { ctx } = ctxWith(maya, ITEMS, [UPC_PAIR], llm);
+    const out = await checkRecalls(ctx);
+    expect(out.candidates).toHaveLength(1);
+    expect(out.candidates[0].verdict).toBe('verified');
+    expect(out.candidates[0].body).toContain('UPC 070074123456');
+    expect(llm.prompts.some((p) => p.includes('SAME product'))).toBe(false);
+  });
+
+  it('a lot code found in the recall text is an exact match too', async () => {
+    const LOT_PAIR = {
+      ...FDA_PAIR, item_text: 'Little Sprout Infant Formula 12.4 oz', upc: null, lot_code: '26A1234', model_number: null,
+      recalled_product: 'Brightstar Infant Formula Powder 12.4 oz can lot 26A1234 exp 2027',
+    };
+    const { ctx } = ctxWith(maya, ITEMS, [LOT_PAIR], no());
+    const out = await checkRecalls(ctx);
+    expect(out.candidates).toHaveLength(1);
+    expect(out.candidates[0].body).toContain('lot code 26A1234');
+  });
+
+  it('a code that is only a short fragment of another number does not count as a match', async () => {
+    const SHORT = { ...FDA_PAIR, item_text: 'Little Sprout Infant Formula', upc: null, lot_code: '12', model_number: null, recalled_product: 'Brightstar Infant Formula lot 1234' };
+    const { ctx } = ctxWith(maya, ITEMS, [SHORT], new UnavailableGenerator('off'));
+    expect((await checkRecalls(ctx)).candidates).toEqual([]);
   });
 });

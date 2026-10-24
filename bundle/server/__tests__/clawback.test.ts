@@ -15,28 +15,22 @@ const leo = { ...maya, id: 'leo', birthDate: null, dueDate: '2026-12-07', dcfsaO
 
 const res = (rows: any[]) => ({ headers: Object.keys(rows[0] ?? {}), rows, ms: 1 });
 
-// Rows shaped like the fixtures in scripts/seed.ts and data/sample/plaid-transactions.json.
+// Rows shaped like the sample receipt rows in data/sample/purchase-items.json (read through v_purchase_items).
 const FSA_ROWS = [
-  // the refund (-24.00) and the Walgreens duplicate must never come out as candidates, even if a query returned them
-  { tx_id: 'maya-tx-01', merchant: 'Target', date: '2026-10-05', amount_cents: 2899, item: 'Frida baby thermometer', keyword: 'thermometer', fsa_category: 'Baby thermometer', account: 'FSA', source_url: 'https://fsastore.com/baby-thermometers.html' },
-  { tx_id: 'maya-tx-04', merchant: 'Target', date: '2026-10-14', amount_cents: -2400, item: 'Carter onesies (returned)', keyword: 'onesies', fsa_category: 'x', account: 'FSA', source_url: 'https://x.test' },
-  { tx_id: 'maya-tx-05', merchant: 'Walgreens', date: '2026-10-15', amount_cents: 3149, item: 'Pampers Swaddlers diaper rash cream', keyword: 'diaper rash', fsa_category: 'Diaper rash ointment', account: 'FSA', source_url: 'https://fsastore.com/skin-care.html' },
-  { tx_id: 'maya-tx-06', merchant: 'Walgreens', date: '2026-10-15', amount_cents: 3149, item: 'Pampers Swaddlers diaper rash cream', keyword: 'diaper rash', fsa_category: 'Diaper rash ointment', account: 'FSA', source_url: 'https://fsastore.com/skin-care.html' },
+  // a zero-price line, a negative price and a same-day duplicate must never come out as candidates, even if a query returned them
+  { item_id: 1, merchant: 'Target', date: '2026-10-05', amount_cents: 2899, item: 'Frida baby thermometer', keyword: 'thermometer', fsa_category: 'Baby thermometer', account: 'FSA', source_url: 'https://fsastore.com/baby-thermometers.html' },
+  { item_id: 4, merchant: 'Target', date: '2026-10-14', amount_cents: -2400, item: 'Carter onesies (returned)', keyword: 'onesies', fsa_category: 'x', account: 'FSA', source_url: 'https://x.test' },
+  { item_id: 5, merchant: 'Walgreens', date: '2026-10-15', amount_cents: 3149, item: 'Pampers Swaddlers diaper rash cream', keyword: 'diaper rash', fsa_category: 'Diaper rash ointment', account: 'FSA', source_url: 'https://fsastore.com/skin-care.html' },
+  { item_id: 6, merchant: 'Walgreens', date: '2026-10-15', amount_cents: 3149, item: 'Pampers Swaddlers diaper rash cream', keyword: 'diaper rash', fsa_category: 'Diaper rash ointment', account: 'FSA', source_url: 'https://fsastore.com/skin-care.html' },
 ];
 const PRICE_ROWS = [
-  { tx_id: 'maya-tx-02', merchant: 'Target', date: '2026-10-09', amount_cents: 8999, item: "Graco Pack 'n Play playard", window_days: 14, observed_price_cents: 6999, observed_at: '2026-10-20', store_source_url: 'https://help.target.com/x', price_source_url: 'https://www.target.com/c/playards/-/N-5xtbz' },
-];
-const DAYCARE_ROWS = [
-  { tx_id: 'maya-tx-07', merchant: 'Bright Horizons', date: '2026-08-01', amount_cents: 185000, source_url: 'https://www.irs.gov/publications/p503' },
-  { tx_id: 'maya-tx-08', merchant: 'Bright Horizons', date: '2026-09-01', amount_cents: 185000, source_url: 'https://www.irs.gov/publications/p503' },
-  { tx_id: 'maya-tx-09', merchant: 'Bright Horizons', date: '2026-10-01', amount_cents: 185000, source_url: 'https://www.irs.gov/publications/p503' },
+  { item_id: 2, merchant: 'Target', date: '2026-10-09', amount_cents: 8999, item: "Graco Pack 'n Play playard", window_days: 14, observed_price_cents: 6999, observed_at: '2026-10-20', store_source_url: 'https://help.target.com/x', price_source_url: 'https://www.target.com/c/playards/-/N-5xtbz' },
 ];
 
-function ctxWith(family: any, rows: { fsa?: any[]; price?: any[]; dcfsa?: any[] }, llm = new FakeGenerator([])) {
+function ctxWith(family: any, rows: { fsa?: any[]; price?: any[] }, llm = new FakeGenerator([])) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cb-'));
   const trace = new TraceLogger('t', dir);
   const runQuery = jest.fn(async (sql: string) => {
-    if (sql.includes("account = 'DCFSA'")) return res(rows.dcfsa ?? []);
     if (sql.includes('store_policies')) return res(rows.price ?? []);
     if (sql.includes('fsa_eligible_categories')) return res(rows.fsa ?? []);
     throw new Error('unexpected sql ' + sql);
@@ -48,49 +42,54 @@ function ctxWith(family: any, rows: { fsa?: any[]; price?: any[]; dcfsa?: any[] 
 describe('clawback hunter', () => {
   beforeEach(() => { process.env.TODAY = '2026-10-23'; });
 
-  it('maya: finds the FSA thermometer (2899), the Pack n Play price adjustment (2000) and DCFSA childcare', async () => {
-    const { ctx } = ctxWith(maya, { fsa: FSA_ROWS, price: PRICE_ROWS, dcfsa: DAYCARE_ROWS });
+  it('maya: finds the FSA thermometer (2899) and the Pack n Play price adjustment (2000), and nothing about daycare', async () => {
+    const { ctx } = ctxWith(maya, { fsa: FSA_ROWS, price: PRICE_ROWS });
     const out = await findClawbacks(ctx);
     const by: Record<string, any> = Object.fromEntries(out.map((c) => [c.claim.type, c]));
-    by.fsa_reimbursement = out.find((c) => c.claim.txId === 'maya-tx-01')!;
+    by.fsa_reimbursement = out.find((c) => c.claim.itemId === '1')!;
     expect(by.fsa_reimbursement.amountCents).toBe(2899);
-    expect(by.fsa_reimbursement.claim.txId).toBe('maya-tx-01');
-    expect(by.fsa_reimbursement.claim.txAmountCents).toBe(2899);
+    expect(by.fsa_reimbursement.claim.itemAmountCents).toBe(2899);
     expect(by.price_adjustment.amountCents).toBe(2000);
     expect(by.price_adjustment.deadline).toBe('2026-10-23'); // 2026-10-09 + 14 days
-    expect(by.dcfsa_childcare.amountCents).toBe(555000);
-    expect(by.dcfsa_childcare.verdict).toBe('likely');
+    expect(out.some((c) => c.claim.type === 'dcfsa_childcare' || c.id.includes('dcfsa'))).toBe(false);
     for (const c of out) {
       expect(c.kind).toBe('clawback');
       expect(c.sources.length).toBeGreaterThan(0);
-      expect(c.claim.txId).toBeTruthy();
-      expect(c.claim.txAmountCents).toBeGreaterThan(0);
+      expect(c.claim.itemId).toBeTruthy();
+      expect(c.claim.itemAmountCents).toBeGreaterThan(0);
       expect(c.agent).toBe('clawback');
       expect(c.retryCount).toBe(0);
       expect(c.traceId).toBeTruthy();
     }
   });
 
+  it('reads only purchase_items (through v_purchase_items): never card transactions, Amazon orders or the old views', async () => {
+    const { ctx, runQuery } = ctxWith(maya, { fsa: FSA_ROWS, price: PRICE_ROWS });
+    await findClawbacks(ctx);
+    expect(runQuery.mock.calls.length).toBe(2); // FSA + price; the daycare query is gone
+    for (const [sql] of runQuery.mock.calls) {
+      expect(sql).toContain('bundle_pg.v_purchase_items');
+      expect(sql).not.toMatch(/v_clawback_tx|v_recall_orders|transactions|amazon_orders|DCFSA/i);
+    }
+  });
+
   it('does not make candidates from the refund or the duplicate pair', async () => {
-    const { ctx } = ctxWith(maya, { fsa: FSA_ROWS, price: [], dcfsa: [] });
+    const { ctx } = ctxWith(maya, { fsa: FSA_ROWS, price: [] });
     const out = await findClawbacks(ctx);
     const fsa = out.filter((c) => c.claim.type === 'fsa_reimbursement');
-    expect(fsa.map((c) => c.claim.txId)).toEqual(['maya-tx-01', 'maya-tx-05']); // one Walgreens, no refund
+    expect(fsa.map((c) => c.claim.itemId)).toEqual(['1', '5']); // one Walgreens, no refund
     expect(out.some((c) => c.amountCents !== null && c.amountCents <= 0)).toBe(false);
   });
 
-  it('a family with no transactions gets []', async () => {
+  it('a family with no purchase items gets []', async () => {
     const { ctx } = ctxWith(leo, {});
     expect(await findClawbacks(ctx)).toEqual([]);
   });
 
-  it('skips DCFSA when the employer does not offer it, and caps at 750000', async () => {
-    const no = ctxWith({ ...maya, dcfsaOffered: false }, { dcfsa: DAYCARE_ROWS });
-    expect((await findClawbacks(no.ctx)).length).toBe(0);
-    expect(no.runQuery.mock.calls.some((c) => String(c[0]).includes("account = 'DCFSA'"))).toBe(false);
-    const big = Array.from({ length: 6 }, (_, i) => ({ ...DAYCARE_ROWS[0], tx_id: `d${i}`, date: `2026-0${i + 1}-01` }));
-    const out = await findClawbacks(ctxWith(maya, { dcfsa: big }).ctx);
-    expect(out[0].amountCents).toBe(750000);
+  it('only prices lines that have a price (a line with no price cannot be money back)', async () => {
+    const { ctx, runQuery } = ctxWith(maya, {});
+    await findClawbacks(ctx);
+    for (const [sql] of runQuery.mock.calls) expect(sql).toMatch(/price_cents > 0/);
   });
 
   it('ignores a price observation outside the store window or not lower', async () => {
@@ -129,7 +128,7 @@ describe('clawback hunter', () => {
   });
 
   it('sends no trailing semicolons and scopes every query to the family', async () => {
-    const { ctx, runQuery } = ctxWith(maya, { fsa: FSA_ROWS, price: PRICE_ROWS, dcfsa: DAYCARE_ROWS });
+    const { ctx, runQuery } = ctxWith(maya, { fsa: FSA_ROWS, price: PRICE_ROWS });
     await findClawbacks(ctx);
     for (const [sql] of runQuery.mock.calls) {
       expect(sql).not.toMatch(/;\s*$/);
@@ -138,13 +137,13 @@ describe('clawback hunter', () => {
   });
 
   it('revise re-derives a fresh candidate, bumps retryCount, or gives up with null', async () => {
-    const h = ctxWith(maya, { fsa: FSA_ROWS, price: PRICE_ROWS, dcfsa: DAYCARE_ROWS });
+    const h = ctxWith(maya, { fsa: FSA_ROWS, price: PRICE_ROWS });
     const first = (await findClawbacks(h.ctx)).find((c) => c.claim.type === 'price_adjustment')!;
     const stale = { ...first, amountCents: 1, retryCount: 0 };
     const fixed = await revise(stale, 'amount mismatch', h.ctx);
     expect(fixed?.amountCents).toBe(2000);
     expect(fixed?.retryCount).toBe(1);
-    const gone = ctxWith(maya, { fsa: [], price: [], dcfsa: [] });
+    const gone = ctxWith(maya, { fsa: [], price: [] });
     expect(await revise(stale, 'source not found', gone.ctx)).toBeNull();
   });
 });
