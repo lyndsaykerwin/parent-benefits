@@ -15,7 +15,7 @@ Started Sat Oct 24, 2026 (cloud session). Coordinator: main Claude session. Suba
 
 ## Phase 1 (parallel, read-only research)
 - [ ] R1 Photo + barcode intake with NVIDIA models → `research-photo-barcode-intake.md`
-- [ ] R2 Onboarding mocks review (top row + bottom row B) vs spec; questions for Lyndsay → `onboarding-design/round4-mock-review.md`
+- [x] R2 (done; 4 questions for Lyndsay) Onboarding mocks review (top row + bottom row B) vs spec; questions for Lyndsay → `onboarding-design/round4-mock-review.md`
 - [ ] R3 Audit: Neon→Zetaris, FDA recalls, offer_checks/OpenAPI status, every Plaid + work-benefits mention, every background decision baked into the plan → `audit-round4.md`
 - [ ] R4 What can be built in the cloud now (incl. Nightshift code behind a switch) → `cloud-build-assessment.md`
 
