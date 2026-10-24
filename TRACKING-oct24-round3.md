@@ -15,6 +15,6 @@ Lyndsay's asks:
 
 ## Phase 2 (after Phase 1)
 - [x] W1 (done; 17 open decisions in section 9) Update bundle-plan-v3.md (email + Nightshift + open decisions list); freeze copy in plan-history/ first
-- [ ] W2 Rewrite bundle-plan-executive-summary.md (ELI12, all technical details)
+- [x] W2 (done) Rewrite bundle-plan-executive-summary.md (ELI12, all technical details)
 - [ ] W3 Words-only flow chart → `flow-chart.md`
 - [ ] QC by coordinator, commit, merge to main
