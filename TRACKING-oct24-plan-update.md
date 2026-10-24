@@ -43,7 +43,7 @@ Steps:
 ## Resumed Oct 24 in the cloud session (branch main-vwo411)
 - [x] E1 (done; numbers checked against the test file) Fill in the PENDING "Product matching" section of bundle-plan-v3.md from entity-resolution-test.md (mark step A done)
 - [x] E2 (done: 268 pass / 8 skipped, server answers) Health check: install bundle app, run tests in SAMPLE_MODE=true, confirm it starts → `cloud-health-check.md` (runs alongside E1)
-- [ ] D Future-state grade (after E1) → `plan-grade-future-state.md`
+- [x] D Future-state grade (done: about 79 of 100 if fully built; 3 open questions answered in section 4) → `plan-grade-future-state.md`
 - [ ] Nightshift hookup: cannot install in the cloud box; stays for the next Mac session
 
 - Next when resuming (original note): 1) read entity-resolution-test.md and fill in the PENDING "Product matching" section of the plan; 2) run step D, the future-state grade (plan-grade-future-state.md), focused on hard-to-reverse choices, measured against the strong-submission examples; 3) connect the app to Nightshift once installed.
