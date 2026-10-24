@@ -42,5 +42,5 @@ Started Sat Oct 24, 2026 (cloud session). Coordinator: main Claude session. Suba
 - Agentic looping among the agents was cut from the story; needed for scoring. Work it back in and handle latency. (She mentioned "the below feedback" on latency but none came through: asked her to paste it.)
 - Then: updated exec summary for her feedback, QC'd by a subagent against all her high-priority feedback.
 - [x] L1 (done) Plan + exec summary: agent loops + latency + photo priority
-- [ ] L2 Flow chart: add the agent loops
-- [ ] Q1 QC subagent: every high-priority item from Lyndsay present → `qc-round4.md`
+- [x] L2 (done) Flow chart: add the agent loops
+- [x] Q1 (done; 7 fixes, 4 questions) QC subagent: every high-priority item from Lyndsay present → `qc-round4.md`
