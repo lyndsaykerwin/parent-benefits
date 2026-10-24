@@ -254,6 +254,8 @@ export const api = {
   startRun: (body: RunRequest) =>
     fetch('/api/run', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then((r) => json<{ runId: string }>(r)),
   run: (runId: string) => fetch(`/api/runs/${encodeURIComponent(runId)}`).then((r) => json<RunStatus>(r)),
+  /** Newest saved result for a family (the instant feed). Rejects with the server's message (404) when there is none yet. */
+  latestRun: (familyId: string) => fetch(`/api/families/${encodeURIComponent(familyId)}/latest-run`).then((r) => json<RunStatus>(r)),
   trace: (runId: string) => fetch(`/api/runs/${encodeURIComponent(runId)}/trace`).then((r) => json<TraceLine[]>(r)),
   feedback: (body: { familyId: string; cardId: string; kind: 'got_it' | 'issue'; note?: string }) =>
     fetch('/api/feedback', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then((r) => json<{ ok: true; proposals: unknown[] }>(r)),
