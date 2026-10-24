@@ -20,7 +20,7 @@ Started Sat Oct 24, 2026 (cloud session). Coordinator: main Claude session. Suba
 - [x] R4 (done: all buildable here; only Nightshift + video need the Mac) What can be built in the cloud now (incl. Nightshift code behind a switch) → `cloud-build-assessment.md`
 
 ## Phase 2 (after Phase 1 + Lyndsay's answers)
-- [ ] W1 Plan: apply her decisions, undo the baked-in recommendations (proposals only, in the open-decisions list)
+- [x] W1 (done; QC: Strategy 2 section, OpenAPI must-do, FDA, Plaid/work removed, 28 proposals) Plan: apply her decisions, undo the baked-in recommendations (proposals only, in the open-decisions list)
 - [ ] W2 Exec summary + flow chart refresh
 - [ ] QC, commit, merge
 

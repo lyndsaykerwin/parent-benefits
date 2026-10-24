@@ -1,262 +1,420 @@
-# Bundle plan v3 (Fri Oct 23, 2026, evening; updated Sat Oct 24, rounds 2 and 3)
+# Bundle plan v3 (Fri Oct 23, 2026; updated Sat Oct 24, round 4)
 
-Replaces the v2 summary's open items. Submission: Tue Oct 27, 23:45 UTC (7:45pm Boston; our target is 5pm Boston). Earlier versions are saved in `plan-history/`: the Oct 23 version (`bundle-plan-v3-2026-10-24-before-update.md`), this morning's round-1 version (`bundle-plan-v3-2026-10-24-round1.md`) and this afternoon's round-2 version (`bundle-plan-v3-2026-10-24-round2.md`).
+Submission: Tue Oct 27, 23:45 UTC (7:45pm Boston; our target is 5pm Boston). Earlier versions are frozen in `plan-history/`: Oct 23 (`bundle-plan-v3-2026-10-24-before-update.md`), round 1 (`...-round1.md`), round 2 (`...-round2.md`) and round 3 (`...-round3.md`).
 
-## Oct 24 round 3 update (what changed this evening)
+**How to read this plan.** Only Lyndsay's recorded decisions are written into the body. Every suggestion from an agent, a research file or a grading file sits in **section 10, "Open proposals for Lyndsay"**, and the body does not assume any of them. Where round 3 had written a suggestion in as if it were accepted, the round-2 wording is back.
 
-Round 3 is merged into the whole plan below. Where it conflicts with rounds 1–2, round 3 wins. Sources: `research-email-receipts.md`, `research-nightshift-setup.md`, `plan-grade-future-state.md` (sections 3–5), `entity-resolution-test.md`. Items marked **Recommended, awaiting Lyndsay's OK** are written into the plan as if accepted, so the plan hangs together; each one is also in section 9 for a yes/no.
+Where her decisions are recorded: `TRACKING-oct24-plan-update.md` (rounds 1–2), `onboarding-design/gap-answers.md` (top "Lyndsay's decisions" block, Oct 24), `TRACKING-oct24-round4.md` (round-4 feedback, onboarding answers and "Lyndsay's correction").
 
-**Decided by Lyndsay:**
-1. **Email receipts become the item-level purchase source** ("item-level" means one row per product bought, not just the store and total). For the hackathon: a forwarding address on the agents' existing **Agentmail** inbox (Agentmail is an email service that gives a program its own inbox it can read through code) plus a **"Use sample receipts"** button that feeds made-up receipts through the same reader. Code keeps only item rows (store, date, product, brand, size, price) and throws the rest of each email away. A new `receipt_items` table is registered in Zetaris behind a safe-columns view (a saved query that only shows harmless columns) and joined into the recall query. It **replaces the "Upload Amazon orders" tile**. Plaid stays for store-level jobs. Roadmap only: a one-tap guide to set up a Gmail auto-forward rule, then full "Connect Gmail" later, because Google classes inbox reading as "restricted", which needs a paid outside security review every 12 months (`research-email-receipts.md` §1a). Should-do: daycare invoices feed the Dependent Care FSA card. Details: section 4, item 9.
-2. **Nightshift on the Mac is the main AI provider, with NVIDIA's Nemotron behind it.** Fallback order: **Nightshift → Nemotron direct (straight to NVIDIA) → saved offline text**. This replaces round 2's "one fallback: Nightshift's own models". Also: a timeout and retry fix, a `LIVE_MODEL` switch (real AI on the Mac while Zetaris answers are replayed from saved files), live runs and the video on the Mac, any hosted copy replays saved traces, and a **go/no-go at Monday 9am Boston**. Step list: `research-nightshift-setup.md` §2 (Mac setup) and §3c (code changes). Details: section 4, item 2.
+## Round 4: what Lyndsay decided (Oct 24 evening)
 
-**Recommended, awaiting Lyndsay's OK (written in as if accepted):**
-3. **Plaid card rows come out of recall matching.** A bank line names only the store, never the product, so in recall matching it can only cause wrong alarms (`entity-resolution-test.md` §1, §3; `plan-grade-future-state.md` §4a).
-4. **The product-matcher upgrade (brand + product type + date rules) moves from should-do to must-do,** because email receipts and recalls both depend on it: run through today's matcher, receipts would find almost nothing (0 of 12 without AI; `research-email-receipts.md` §4, `plan-grade-future-state.md` risk 1).
-5. **The judges' line "the AI decides the hard cases" is replaced** with the accurate wording from `plan-grade-future-state.md` risk 2 (section 3 below).
-6. **"Four Zetaris joins" is corrected:** there is one genuine cross-source join (our database plus the live government recall feeds), plus filtered views for each helper (`plan-grade-future-state.md` risk 4). Section 3 is rewritten.
-7. **Parent taps feed Meterless memory:** "I got this" / "Report issue" / "Not mine" / "Returned it" adjust a learned rule's confidence, shown in the owner view (`plan-grade-future-state.md` risk 5). Section 4, item 10.
+1. **Strategy 2, the "Living Fine-Print Database", is a headline innovation and a must-do** (section 1).
+2. **The data product:** the offer-grading data is served through one read-only web address, `GET /api/offer-audit`, with an OpenAPI description. This was decided in round 2 with no "if time" condition. It is a must-do and is in the timeline. Selling the data and "Points Guy"-style brand report cards (Strategy 3) are a pitch slide only, with no brand portal. MCP comes later.
+3. **Strategy 1, the "Virtual Household Profile", is the existing Matcher, kept as it is.** The story is told better (section 2).
+4. **Parent feedback is not the focus.** There are no users at launch. The Coach and learning demo already built stay as they are, but parent taps are not the main loop.
+5. **Data comes in three ways:** forwarded email receipts, barcode scanning, and photos (of items or paper receipts) read by NVIDIA vision models. All three land in one purchase-items table (section 3). How real each path will be by Oct 27 is **not decided** (section 10).
+6. **Plaid is out everywhere. The work-benefits question is cut everywhere.** Plaid is the service apps use to read bank and card purchases.
+7. **FDA recalls stay.** Only *finished* ("Terminated") FDA recalls are filtered out, because a parent shouldn't get a scary card about a recall that ended years ago.
+8. **Zetaris stays the only way agents read data.**
+9. **Onboarding:** the top row of mocks, then Version B (bottom tabs). Never the middle row. Her answers on the "+" button, expecting families and the light checklist/share/save are in section 7.
+10. **Nightshift:** all the code is built and tested in the cloud against a fake Nightshift server. Lyndsay switches it on at her Mac later (section 6, item 2).
 
-**Honest time check:** the must-do list is now bigger than the time left. See section 5 for the numbers and the cut order.
-
-## Oct 24 update (rounds 1 and 2, kept for the record)
-
-Round 1 (morning) and round 2 (afternoon, Lyndsay's final decisions) are merged here. Where they conflict, round 2 wins. Round 3 (above) overrides both.
-
-1. **Meterless Nightshift is the main ("primary") AI provider, and NVIDIA's Nemotron answers through it.** Nightshift is Meterless's app that turns your Mac into a private AI server for your apps. Meterless announced today that its full connection (the "Runtime API") now works on M1–M4 Macs and that NVIDIA models are visible in it; a Sunday Oct 25 update adds picking an exact model and longer waits for NVIDIA's slower "reasoning" models. Lyndsay is installing it now. Target setup: **the app → Nightshift → Nemotron**. This replaces the morning's "3 possible outcomes" plan. *(Round 3: fallback order is now Nightshift → Nemotron direct → offline.)*
-2. **Plaid "Connect a card" is back in** (round 2; undoes the morning cut). Plaid is the service apps use to read bank and card purchases; we use its sandbox, meaning practice mode with fake banks. Real purchase data is what makes Bundle valuable. To make room: NVIDIA embeddings, the confidence-score bands and the Nightshift backup branches move out (section 4, ranking). *(Round 3: the NVIDIA-direct backup is back, as part of the fallback chain.)*
-3. **Middle-class parents, not low-income.** The poverty-guideline / WIC / SNAP / Medicaid angle is dropped. (WIC is a food program for lower-income families; no sample family qualified anyway, so no demo number changes.) The Benefits Planner now uses the Child Tax Credit, the Dependent Care FSA (a work account that pays for daycare before tax), state paid family leave (MA, NY, CA), work benefits, plus the CPSC/FDA recall feeds.
-4. **No Massachusetts hardcoding.** Federal programs for everyone; state programs are rows in a table; any US ZIP code works. The weak `non_ma_family` test is replaced by a 5-family `state_agnostic` test, and the saved Ohio example that approves the auto-renew trap gets fixed.
-5. **Fine-print checks get much deeper.** 12 new fine-print tests plus 3 "should still pass" controls, and a third verdict, "approve, with a catch." Each check is saved as structured fields in `offer_checks` (the agents' scorecard table), which feeds the parent's **Value Score** and the brand audit.
-6. **Recall matching:** finished ("Terminated") FDA recalls are filtered out and a test proves known wrong recalls don't show. **The 0.85 / 0.50 confidence bands are dropped.** The matching test is done (`entity-resolution-test.md`): brand + product type + date rules found 7 of 8 recalls on fresh test data, and bank lines carry no product names, so recalls need item-level data (section 4, item 6).
-7. **Brand audit ("Strategy 3"):** a Zetaris view with per-brand totals only, plus one read-only web address with an OpenAPI description. An MCP server is "later" (a pitch slide).
-8. Unchanged from the morning: new one-question-per-screen onboarding (decisions in section 8); owner view split; Neon (not Supabase) is the database; no Redis; never say "real-time"; Meterless = memory engines, not fine-print reading. Store price feeds (Amazon, Walmart, Target) stay cut.
+Still standing from rounds 1–2 (`TRACKING-oct24-plan-update.md`): middle-class parents, not low-income (poverty, WIC, SNAP and Medicaid dropped); no Massachusetts hardcoding; deeper fine-print checks; no confidence-score bands; Neon (not Supabase) is the database; no Redis; never say "real-time"; Meterless = memory engines, not fine-print reading; store price feeds cut; brand audit = data only, no brand screens. From `gap-answers.md`: every US ZIP works, with "Support for your state's programs is coming soon"; the work question is dropped and the Dependent Care FSA becomes a gentle "Check with your job" card; accounts use Better Auth on Neon, Google only; bottom tabs with the 5 tabs in the mock.
 
 ---
 
-## 1. In one minute
+## 1. Headline innovation: the Living Fine-Print Database (Strategy 2)
 
-**What Bundle does:** a new parent opens it and sees one calm page: money they can get back, benefits with deadlines, recalls, and deals. Behind the scenes, a team of AI helpers (agents) checks every claim and throws out tricky "free" offers that hide a fee, a membership or a lot of hassle.
+**The idea in one line:** the agents' own conclusions become a new data source that Zetaris searches alongside the government sources.
 
-Every helper looks things up through Zetaris — one door that combines the family's private data (purchases from forwarded receipts and a connected card), our rule lists, official tax and leave figures, and live government recall feeds, without copying the outside feeds.
+**What gets saved.** Every time the Fact-Checker and the Fine Print Court judge an offer, they save **one row per judged offer** to a Neon table called `offer_checks`. (The Fine Print Court is where the Deal Hunter argues for an offer, the Fine Print Lawyer argues against it, and the Judge rules. The original plan called this judging role the "Parent Panel".) A row holds:
+- the offer;
+- the **hidden strings** ("$8 shipping", "renews at $29.99/month");
+- what it takes to claim: **sign-up and effort** (account, app, mail-in, phone call, steps, minutes);
+- **recall status** of the product, and when that was last checked;
+- the **value** and **score**;
+- the **evidence quote** (the exact words from the fine print);
+- the **fine-print fingerprint**, a short code computed from the exact wording, so any change in wording is noticed.
 
-**Done:** the whole app works and passes its tests. It runs on made-up families, with saved answers standing in for the AI, so it needs no keys.
+**No family data.** The table has no family column.
 
-**What changes:**
-1. Two screens. Parents get the simple page plus one short "We checked this" line per card and a "We caught these for you" list. A separate "Behind the scenes" screen, opened with a reviewer code, shows the agents debating, the data sources, the learned rules and the scoreboard.
-2. Real AI switches on through **Nightshift on your Mac, with Nemotron behind it**, falling back to NVIDIA directly and then to saved text. We rerun the scoreboard and the learning demo with it and say plainly what was real.
-3. **"Forward your receipts"** (plus "Use sample receipts") tells Bundle *what* you bought; **"Connect a card"** (Plaid practice banks) tells it *where* you shop.
-4. A better recall matcher (brand + product type + date rules) that shows its evidence on every alert.
-5. Works for middle-class families in any state, with no Massachusetts-only code.
-6. Deeper fine-print checks, a Value Score on each offer, and the brand audit data.
-7. A quick, one-question-per-screen onboarding replaces the single form.
-8. Parent taps teach Meterless memory, visibly.
+**It is stored as rows in Neon, never as loose JSON files.** (JSON is a machine-readable text format.) It is registered in Zetaris with `REGISTER DATASOURCE TABLE`, the Zetaris command that adds a table as a source it can search.
 
-**Left for you:** finish the Nightshift setup on your Mac (`research-nightshift-setup.md` §2, about 30 minutes plus model downloads), and answer the "decide now" items in section 9.
+**Full field list** (kept from round 3; still **no family column**):
+- **Identity:** `offer_id`, `store`, `source_url`, `fine_print_hash` (the wording fingerprint), `checked_at`, `agent`, `model`.
+- **Money:** `face_value_cents`, `hidden_cost_cents`, `true_value_cents`, `min_purchase_cents`, `auto_renew`, `renewal_price_cents`.
+- **Dates:** `deadline_date`, `expired`, `claim_window_days`, `payout_wait_days_max`.
+- **Effort:** `steps_count`, `effort_level`, `effort_minutes_estimate`, plus yes/no flags such as `mail_in`, `needs_receipt`, `needs_phone_call`, `account_required`.
+- **Availability:** `limited_stock`, `regions_excluded`.
+- **Judgment:** `catch_types`, `verdict`, `catch_summary`, `evidence_quote`, `injection_detected`.
+- **Added for Strategy 2 (Lyndsay's "recall status"):** `recall_status` (none found / open recall / finished), `recall_ids`, `recall_checked_at`.
 
-**Timeline:** Sat Nightshift setup and code switch, owner view, any-state rules, recall safety, scorecard table; Sun matcher upgrade, sample receipts, Plaid, fine-print tests, onboarding, Sunday-evening real-AI smoke test; Mon 9am go/no-go, real-AI rerun, memory taps, evidence, 3pm freeze, video; Tue final check.
+Code fills the dollar amounts, dates and flags. The AI fills only the soft fields (summary, effort level), and code checks them. Every dollar figure must appear in the exact quoted fine print or be computed by code from it.
+
+**Cross-source questions this makes possible.** These are questions that combine rows from two different places in one go:
+- *"Which offers did our agents rate truly free, where the product hasn't been recalled since we checked?"* This joins `offer_checks` with the live CPSC and openFDA recall feeds. (CPSC is the Consumer Product Safety Commission. openFDA is the FDA's public data service. FDA recalls stay in; only finished ones are filtered out.)
+- The Coach asks: *"Which fine-print problems show up most in 'Report issue' clicks?"* This joins `offer_checks` with the `feedback` table. (The Coach is the agent that suggests new rules from parent reports.)
+
+**This is the plan's systematic feedback loop.** It runs automatically and needs no users:
+1. **Before grading a new offer,** the agents ask Zetaris for past findings on the same store, the same brand or the same wording, and use them. A finding about one offer becomes an answer for the others.
+2. **When an offer's wording fingerprint changes,** the offer is checked again.
+3. **When the agents get one wrong** (caught by a fine-print test or the Fact-Checker), the case becomes a new test.
+
+**Value Score (shown to parents):** "Worth $40 after strings attached" instead of "20% off". That is the true dollar value (face value minus hidden costs), an effort badge (low, medium or high) and the list of catches, with "How we scored this" in plain words. Effort is not turned into dollars, because that would need a made-up hourly rate.
+
+**The data product (decided, must-do):** one read-only web address, `GET /api/offer-audit?store=...`. It runs a fixed query against the Zetaris view `v_offer_audit` (per-brand totals only: catch rate, average true vs. advertised value, average effort), is rate-limited (capped at a number of requests per minute), and uses saved answers in sample mode. It comes with an **OpenAPI description**, the standard file that tells any program or AI agent how to call it, plus a test that the answer never contains family fields. Protection rules are already designed in `architecture.md` (lines 368–372) and `research-matching-and-agent-api.md` (Question 2).
+
+**Future (pitch slide only):** sell this data, and offer brand report cards in the style of "The Points Guy" (Strategy 3). There is no brand portal. An MCP server (the standard plug-in that lets AI agents use a tool) comes "later".
+
+## 2. Strategy 1, the Virtual Household Profile: the existing Matcher, story told better
+
+Nothing is built differently. The Matcher (the "front desk" in the original plan) asks Zetaris one question that combines the family's profile (stage, birth or due date, state) with the rules and approved offers. The pitch line:
+
+> *"Zetaris does the filtering, so the AI gets a short, already-checked list instead of the family's whole history: fewer tokens, lower cost, less room to make things up."*
+
+(A **token** is a small chunk of text. AI services charge by the token, and fewer tokens also means fewer chances for the AI to invent things.)
 
 ---
 
-## 2. What the parent sees vs. what the owner sees
+## 3. Getting purchases in: three paths into one table
 
-| | Parent view (simple, calm) | Owner view ("Behind the scenes") |
+Lyndsay's decision (round 4). Sources: `research-email-receipts.md`, `research-photo-barcode-intake.md`, `cloud-build-assessment.md`.
+
+**The three paths:**
+1. **Forward email receipts** to a Bundle address on the agents' existing **Agentmail** inbox. Agentmail is an email service that gives a program its own inbox it can read through code.
+2. **Scan a barcode** with the phone camera.
+3. **Take a photo** of an item (the label under a baby walker, the bottom of a formula can) or of a **paper receipt**. An NVIDIA vision model (an AI that can read pictures) turns it into a tidy row of facts.
+
+**Vision models named in the research** (all on build.nvidia.com):
+- `nvidia/nemotron-nano-12b-v2-vl`: built for receipts and labels.
+- `nvidia/nemotron-3-nano-omni-30b-a3b-reasoning`: reads labels and understands the object. Turn "thinking" off.
+- `nvidia/nemotron-3.5-super-vl-120b-a12b`: NVIDIA's newest big vision model, for messy photos. Announced Oct 15, 2026, and not yet tested by us.
+
+Which one is the default is open (section 10).
+
+**One table for everything: `purchase_items` in Neon.** It replaces the separate `receipt_items` table from round 3, so the "one structured purchase-items table" decision covers all three paths.
+- Columns: `family_id`, `source` (`email`, `barcode`, `photo_item`, `photo_receipt`), `store`, `purchased_on`, `product_name`, `brand`, `model_number`, `lot_code`, `upc`, `size_text`, `price_cents`, `confidence`, `extractor`, `input_hash` (a fingerprint that stops the same receipt or photo being counted twice), `created_at`.
+- It is registered in Zetaris behind a **safe-columns view**, `v_purchase_items`: a saved query that shows agents only the harmless columns.
+- It is joined against the live CPSC and openFDA recalls (FDA recalls stay in; only finished ones are filtered out), and, as Lyndsay asked, against offers and benefit rules. The exact offer and benefit-rule queries are still to be designed.
+
+**Key finding (research, live feeds checked Oct 24).** Model numbers and formula lot codes and UPCs live in the recall *text*, so photos of labels and can bottoms unlock exact matches. (A UPC is the 12-digit number under a barcode. A lot code is the batch number printed on a formula can.)
+- **CPSC model numbers:** the official model-number field is empty in all 739 recalls since June 2025. But about 50 of the 86 baby recalls write the model number in the description, for example *"Model No.: RV001 is printed on a label under the walker's seat."* A photo of that label is what captures it.
+- **CPSC UPCs:** only 22 of 739 recalls fill in the UPC field (1 of 86 baby recalls), so barcodes rarely match CPSC on their own.
+- **openFDA formula recalls:** 31 of 42 write the UPC in the product description, and 36 of 42 list lot codes. So **barcode → formula recall** works well, and **photo of the can bottom → lot code → exact recall** is even more precise.
+- **Finished FDA recalls:** 17 of the 42 formula recalls are finished ("Terminated") and are filtered out, so no parent gets a scary card about a recall that ended years ago.
+
+**How matching uses this.** Exact codes are checked first: UPC, model number, then lot code, each a "contains this exact code" check that Zetaris can do. Brand and product-type words come second.
+
+**Barcode, in brief.** A normal photo button opens the phone camera, and the `barcode-detector` library reads the code on every phone. iPhone Safari has no built-in reader turned on. There is always a "type the numbers instead" backup. Product lookups run from our server (Open Food Facts first, then UPCitemdb), and every answer is saved so the demo never depends on those services.
+
+**Email, in brief** (`research-email-receipts.md`):
+- Code keeps only item rows and throws the rest of each email away: raw text, addresses, names, phone numbers, card digits, tracking links. It also drops any email that isn't a receipt.
+- Read emails are deleted from Agentmail.
+- A "Use sample receipts" button feeds made-up receipts through the same reader, because the project rule is no real personal data.
+- This replaces the "Upload Amazon orders" tile. The Amazon reader code stays, because the sample families load from it.
+- Roadmap only: a guide for setting up a Gmail auto-forward rule. Full "Connect Gmail" waits, because Google classes inbox reading as "restricted", which needs a paid outside security review every 12 months.
+
+**Photo privacy:**
+- The phone strips hidden location data (EXIF, the hidden details inside every photo) and shrinks the photo before upload.
+- The AI is sent only the photo, never family details, and must reject any photo showing people, faces or addresses.
+- The photo is deleted right after reading. It never goes into a log, trace or Meterless memory.
+- A "Forget my items" button deletes the family's rows.
+
+**Effort from the research** (information, not a ranking):
+- Email, sample version: 5.5–6.5 hours, plus 2–3 hours for the live inbox.
+- Barcode: about 6–8 hours.
+- Photos (item and receipt): about 9–12 hours.
+- Tests for barcode and photos: 2–3 hours.
+- Shared pieces (table, view, exact-code joins) are counted once.
+
+Everything except real-phone camera checks, the first live model answers and the Zetaris registration can be built and tested in the cloud.
+
+**Not decided:** how real each path is by Oct 27 (section 10).
+
+---
+
+## 4. What the parent sees vs. what the owner sees
+
+| | Parent view (simple, calm; Version B bottom tabs) | Owner view ("Behind the scenes") |
 |---|---|---|
-| Headline | The Receipt: money back, benefits you likely qualify for, deadlines, items safety-checked | Same Receipt, plus the scoreboard (traps caught, before vs. after learning, match accuracy, fine-print accuracy, AI calls that worked / total) |
-| Cards | Title, amount, source links, a short "We checked this" line; offers show a Value Score (true dollar value, effort badge, catches) | Same cards, plus the Zetaris data sources used for each |
-| Purchases | "Forward your receipts" (shows the forwarding address) and "Use sample receipts" add items; "Connect a card" (Plaid practice bank) adds store-level purchases; results update on the next run | Which item rows came from receipts vs. sample orders, and which card lines came from Plaid; receipt-to-card links ("proven purchase") |
-| Recalls | "Recall alert" for confirmed matches, with "Not mine" and "Returned it" buttons. Each alert shows its evidence and what to check on the item (section 4, item 6) | Every pair considered, including "considered and rejected" with the reason |
-| Rejected items | "We caught these for you": plain-language list of offers and claims we stopped, including expired offers | Fine Print Court debate (Deal Hunter vs. Fine Print Lawyer, then the Judge) and Fact-Checker send-backs, in full |
-| Learning | Parents tap "I got this" / "Report issue" / "Not mine" / "Returned it"; the next run respects it ("skipped: you told us you returned this") | Meterless memory and case law, with the Approve button; proposed vs. approved rules; each rule's confidence moving up or down after parent taps |
+| Headline | Home: money back, benefits you likely qualify for, deadlines, items safety-checked | Same, plus the scoreboard (traps caught, before vs. after learning, match accuracy, fine-print accuracy) |
+| Cards | Title, amount, source links, a short "We checked this" line. Offers show a Value Score ("worth $40 after strings attached", effort badge, catches) | Same cards, plus the Zetaris data sources used for each |
+| Purchases | A "+" button on every tab opens: forward receipts, scan a barcode, take a photo | Which item rows came from email, barcode or photo, and how sure each reader was |
+| Recalls | "Recall alert" for confirmed matches, with a "Not mine" button. Each alert shows its evidence and what to check on the item | Every pair considered, including "considered and rejected" with the reason |
+| Rejected items | "We caught these for you": a plain-language list of offers and claims we stopped, including expired offers | The Fine Print Court debate and Fact-Checker send-backs in full, plus the `offer_checks` rows and the past findings the agents used |
+| Learning | Parents tap "I got this" (with $ claimed on Home) / "Report issue" | Meterless memory and case law, with the Approve button; proposed vs. approved rules |
 | Proof | Nothing technical | Full trace of every agent step, including which AI provider and model actually answered |
-| Access | Anyone (guest) | Reviewer code only (the existing reviewer token), shown to judges in the demo |
+| Access | Anyone | Reviewer code only (the existing reviewer token), shown to judges in the demo |
 
-## 3. Where Zetaris does the work
+## 5. Where Zetaris does the work
 
-Zetaris is the required "data door": one question in SQL (a database language) can read several separate data stores. **Honest count (round 3, per `plan-grade-future-state.md` risk 4):** Bundle has **one genuine cross-source join**, meaning one question that combines rows from two different places: the family's purchases in our own database (Neon) with the live CPSC and openFDA recall feeds. Everything else is Neon tables read through **separate filtered views per helper**, so, for example, the deal Judge never sees family data. We say exactly that; we do not say "four joins."
+Zetaris is the required "data door": one question in SQL (a database language) can read several separate data stores. Zetaris must join several real sources in one question. How to count and word the joins on slides is an open proposal (section 10).
 
 | Helper | The question it asks Zetaris | What gets combined | Where you see it |
 |---|---|---|---|
-| Recall Checker (**the cross-source join**) | Which of this family's purchased items are on a recall list? | Item rows (sample orders + `receipt_items` from email receipts, both in Neon, read through the safe-columns view `v_purchase_items`) + live CPSC and openFDA recall feeds (finished FDA recalls dropped). **Plaid card rows are no longer included** (recommended, round 3) | Recall card; "We checked 7 items" |
-| Clawback Hunter | Which purchases are FSA-eligible, inside a store's price-drop window, or daycare bills? | Plaid card lines (store-level, plus a list of daycare names, since Plaid's own labels were wrong on 3 of 8 baby lines) + receipt items (exact item and price) + FSA-eligible list + store policies, all in Neon | "Money back" cards, the Dependent Care FSA card and the Receipt total |
-| Benefits Planner | Which programs does this family likely qualify for, by when? | Family profile + benefit rules (federal and state rows) + `tax_parameters` (IRS 2026 limits: Child Tax Credit $2,200 per child, Dependent Care FSA $7,500) + `state_programs` (MA, NY, CA paid family leave) + full ZIP-to-state table + the parent's work-benefits answer, all in Neon | Benefit/deadline cards |
+| Recall Checker | Which of this family's purchased items are on a recall list? | Item rows (sample orders + `purchase_items`, through `v_purchase_items`) + live CPSC and openFDA recall feeds (FDA recalls stay; only finished ones are filtered out) | Recall card; "We checked 7 items" |
+| Fine-Print Database (Strategy 2) | What have we already found about this store, brand or wording? Which "truly free" offers' products haven't been recalled since we checked? | `offer_checks` + offers + live CPSC/openFDA recalls; for the Coach, `offer_checks` + `feedback`. No family data | Value Score; "We caught these"; `/api/offer-audit` |
+| Matcher / Benefits Planner (Strategy 1) | Which programs and offers fit this family, by when? | Family profile + benefit rules (federal and state rows) + `tax_parameters` (IRS 2026: Child Tax Credit $2,200 per child; Dependent Care FSA $7,500) + `state_programs` (MA, NY, CA paid family leave) + full ZIP-to-state table | Taxes, Insurance and Home cards |
+| Clawback Hunter | Which purchases are FSA-eligible or inside a store's price-drop window? | Today: card-style sample rows (`v_clawback_tx`) + FSA-eligible list + store policies. **Its purchase source depended on Plaid, which is now removed: open question** (section 10) | Savings "money back" cards |
 | Fact-Checker | Is this exact dollar amount, date **and state** right? (asks a separate question) | Re-reads the source row, including its state | Blocks or sends back wrong cards, including a wrong-state card |
-| Agents' scorecard | What did the agents find in each offer's fine print? | Offers + `offer_checks` (agent-made, registered in Zetaris as its own source) + parent feedback counts. No family data | Value Score on offers; brand audit view |
-| Privacy views | — | Each helper gets its own filtered view (the deal Judge never sees family data; agents read `v_purchase_items`, never the raw `receipt_items` table) | Owner view: "Data sources" per card |
+| Privacy views | — | Each helper gets its own filtered view (the deal Judge never sees family data; agents read `v_purchase_items`, never the raw table) | Owner view: "Data sources" per card |
 
-Should-do (round 3, `plan-grade-future-state.md` risk 4a, about 1 to 2 hours): a **second genuine cross-source join** — the brand audit view `v_offer_audit` also pulls open CPSC recalls per brand ("fine-print catch rate, true vs. advertised value, *and open safety recalls*"). Only claim two joins if this is built.
+**Two direct database reads (from `audit-round4.md` section A).** Every agent search goes through Zetaris, except two places where agent input is read from Neon directly:
+1. The family profile, loaded in live mode (`server/agents/orchestrator.ts:48-55`).
+2. The Coach reading parents' reports (`server/bundleStore.ts:76-79`).
 
-Honest note on "real sources": CPSC and openFDA are live outside feeds; Plaid data arrives from Plaid's practice API and is copied into Neon (Zetaris can't do Plaid's sign-in step); receipt items are read from fake emails and copied into Neon; IRS and state leave figures are official numbers stored as rows with their source link and year, checked Oct 24 (`audit-ma-poverty-evals.md` section 2b). The MA leave figure should be confirmed on mass.gov by a person before it goes on a slide.
+Routing both through Zetaris is an open proposal (section 10).
 
-Remove Zetaris and the app can't produce a single personal card. **Honest line for judges (round 3, from `plan-grade-future-state.md` risk 2; recommended, awaiting Lyndsay's OK):** *"Zetaris finds candidate matches across private and public data in one question. Code rules make the safety decisions and show their evidence. The AI argues over fine print, explains, fills gaps the rules can't, and learns new rules from parents, and code can overrule it."* This replaces "the AI decides the hard cases" everywhere (README, deck, video). Show it in the trace and video: one moment where code overrules an AI "approve", and one where the AI catches something the code rules missed (`plan-grade-future-state.md` §4c). Pitch line for purchases: *"Bank data tells us where you shop. Your receipts tell us what you bought. Recalls need the second, so just forward them."* (`research-email-receipts.md` §4.)
+**Honest note on sources:**
+- CPSC and openFDA are live outside feeds (FDA recalls stay in; only finished ones are filtered out).
+- Receipt, barcode and photo items are read from made-up inputs and copied into Neon.
+- IRS and state leave figures are official numbers stored as rows with their source link and year, checked Oct 24 (`audit-ma-poverty-evals.md` section 2b). A person should confirm the MA leave figure on mass.gov before it goes on a slide.
 
-## 4. Technical plan (for the CTO)
+Remove Zetaris and the app can't produce a single personal card. **Line for judges (round-2 wording, restored):** "Zetaris finds the candidate pairs across private and public data in one question; the AI decides the hard cases." (Zetaris has no built-in fuzzy matching, meaning it can't match "close enough" spellings.) A replacement line is an open proposal (section 10).
 
-Starting point: repo `bundle/`, 268 tests passing (8 skipped), `SAMPLE_MODE=true` is always offline by design, Zetaris Neon x CPSC join working, reviewer token already gates Approve. No Redis: agents write results to Neon and screens read from Neon.
+---
 
-**Ranking for the days left (re-ranked in round 3).**
-- **Must-do:** 1 owner view split; 2 Nightshift → Nemotron (with NVIDIA-direct fallback, timeout/retry fix, `LIVE_MODEL`) and the real-AI rerun; 6a recall safety half (FDA filter, `no_false_recall`, Plaid rows out); **6b product-matcher upgrade (promoted from should-do)**; **9 email receipts, sample-receipt version (new)**; 3 Plaid "Connect a card"; 4 any-state, middle-class rules; 5 fine-print tests, `offer_checks` fields, Value Score and the brand audit view; **10 parent taps → Meterless memory (new)**; 7 onboarding core screens; 8 regenerate evidence. Wording fixes (the judges' line, "four joins") are must-do but take minutes.
-- **Must-do, but first to cut inside its item:** 9 live Agentmail forwarding inbox (the sample-receipt button stays).
-- **Should-do, only once must-dos are green, in this order:** daycare invoice → Dependent Care FSA card (item 9); brand audit + live-recall join (section 3); Neon results table (`plan-grade-future-state.md` §3 smaller items; no estimate in any file); brand audit read-only web address with OpenAPI description; onboarding extras.
-- **Moved out:** NVIDIA embeddings for the memory (Nemotron through Nightshift is NVIDIA's real job); the confidence-score bands (dropped by decision); the onboarding "Checking" screen shows the steps from the run but gets no extra polish; the Amazon upload tile (replaced by receipts; the Amazon reader code stays because the sample families load from it).
-- **Cut:** MCP server (pitch slide only), brand screens, tabbed layout, save/reminders screen, location pre-fill, store price feeds, NeMo Guardrails, paid hosting, Redis, "Connect Gmail" (roadmap), a hosted site that runs live AI.
+## 6. Technical plan (for the CTO)
+
+**Starting point:**
+- Repo `bundle/`, with 268 tests passing (8 skipped).
+- `SAMPLE_MODE=true` is always offline by design.
+- The Zetaris join of Neon with CPSC already works.
+- The reviewer token already gates Approve.
+- No Redis: agents write results to Neon and screens read from Neon.
+
+**Ranking** (round 2, plus Lyndsay's round-4 decisions):
+- **Must-do:**
+  1. Owner view split.
+  2. Nightshift code (built in the cloud) and the real-AI rerun.
+  3. Any-state, middle-class rules.
+  4. **Living Fine-Print Database:** fine-print tests, `offer_checks`, the feedback loop, the Value Score, the `v_offer_audit` view **and `GET /api/offer-audit` with its OpenAPI description**.
+  5. Recall safety: the finished-FDA-recall filter and the `no_false_recall` test.
+  6. Onboarding (top row + Version B).
+  7. Regenerate evidence.
+  8. Data intake, three paths. How real each path is by Oct 27 is open.
+- **Should-do (round 2):** the product-matching upgrade (brand + product type + date and seller rules); onboarding extras.
+- **Moved out in round 2:** NVIDIA embeddings for the memory; confidence-score bands (dropped by decision); no extra polish on the "Checking" screen.
+- **Cut (recorded decisions):** Plaid; the work-benefits question; brand screens and brand portal; MCP server (pitch slide, "later"); store price feeds; Redis; poverty, WIC, SNAP and Medicaid; the middle row of mocks. Also carried from round 2: NeMo Guardrails (NVIDIA's add-on safety filter) and paid hosting.
+- **Cut order: not decided — Lyndsay decides.**
 
 **1. Owner view split** (must-do)
-- Goal: parent view shows only Receipt, cards, a one-line "We checked this" per card, and "We caught these for you". Everything agent-internal moves behind an owner entry point.
-- Key areas: `client/` (card detail, "Bundle got smarter" screen, new owner route), run/trace API in `server/` (a parent-safe response shape vs. the full one), reviewer-token check (`x-reviewer-token`). "We checked this" and "We caught these" are built from fields the Fact-Checker and Court already record.
-- Done when: with no token, the API and UI never expose debate text, data-source names, memory rules, traces or Approve; with the token, all of those appear and Approve still works; a test asserts the parent payload has none of those fields; the learning loop (report twice, approve, run again, offer blocked) still passes end to end.
-- Risk: leaks through the API (hiding in the UI is not enough); the parent payload must be trimmed on the server. Medium effort; mostly moving existing screens.
+- **Goal:** the parent view shows only the tabs, cards, a one-line "We checked this" per card, and "We caught these for you". Everything agent-internal moves behind an owner entry point.
+- **Key areas:** `client/`; the run/trace API in `server/` (a parent-safe response vs. the full one); the `x-reviewer-token` check.
+- **Done when:** with no token, the API and UI never expose debate text, data-source names, memory rules, traces or Approve; with the token, all of those appear and Approve still works; a test checks the parent response has none of those fields; the learning loop (report twice, approve, run again, offer blocked) still passes end to end.
+- **Risk:** leaks through the API. The parent response must be trimmed on the server, not just hidden in the screen.
 
-**2. Nightshift → Nemotron, fallback chain, live run and honest labeling** (must-do; decided by Lyndsay in round 3). Full step list: `research-nightshift-setup.md` §2 (Mac setup), §3b–3c (settings and code changes), §3d (test plan).
-- Goal: real model text for the court debate, explanations and Coach rules comes through Nightshift, which passes the hard steps to NVIDIA's Nemotron. Scoreboard and learning demo rerun with it. Both sponsor rules are met in one request: Nightshift is primary, NVIDIA contributes.
-- Step 0 (Lyndsay, today, about 30 minutes plus model download time; `research-nightshift-setup.md` §2 steps A–F): install and open Nightshift (right-click, Open, because it isn't Apple-stamped); choose "cloud allowed" if asked; add your NVIDIA key inside Nightshift; check Nemotron appears and screenshot it; find the `proxy-token` file with the Terminal command in step 9 and put its location (not the token) in `.secrets/bundle.env.local` as `NIGHTSHIFT_TOKEN_FILE`; run the two quick checks in steps 11–12. If the key menu can't be found in 5 minutes, ask in HackOS "Help Meterless" (questions in §5) and carry on.
-- **Fallback order: Nightshift → Nemotron direct → saved offline text.** A new "chain" in `server/adapters/llm.ts` tries Nightshift; if it can't connect, rejects the token or doesn't know the model, it is marked "down" for the rest of the run and NVIDIA direct answers; if a call times out after its retry, NVIDIA direct tries that one call; if both fail, the agent uses its saved offline text exactly as today (`research-nightshift-setup.md` §3c item 1).
-- **Timeout and retry fix** (also `plan-grade-future-state.md` risk 3, `entity-resolution-test.md` §3): a hard stop on the *whole* call, not just the wait for data; one retry after a short pause for timeouts, "too many requests" and server errors (never for a wrong key); a bigger reply-length cap (`MODEL_MAX_TOKENS`, default 4096) so the model's "thinking" doesn't cut off the answer; "thinking" off for NVIDIA direct (and in Nightshift once Sunday's update names the setting); a whole-run time limit (`RUN_DEADLINE_SECONDS`, default 300); the timeout borrowed from data sources (20 seconds) is replaced by 180 seconds for Nightshift and 90 for NVIDIA direct; `askJson` gives a timed-out call its second try instead of stopping at once.
-- **`LIVE_MODEL` switch:** `server/bundleDeps.ts` lets the app use real AI when `LIVE_MODEL=true`, even in `SAMPLE_MODE`, while Zetaris keeps replaying saved answers. This is how the demo runs on the Mac without slow live Zetaris calls.
-- Other files: `scripts/check-model.ts` (`--provider nightshift|nvidia`, clear "token is wrong" vs. "Nightshift isn't running" messages), `scripts/eval.ts` (labels `nightshift:<mode→model>`, `nvidia-direct:...`, `mixed:...`; scoreboard "AI calls that worked / total"), tests with fake clients, `.env.example` (placeholders only), README, `metadata.json`, `render.yaml` comment. Effort: about 3–5 hours with tests (`research-nightshift-setup.md` §3c).
-- **Where it runs:** the hosted site and this cloud machine cannot reach your Mac (`127.0.0.1` means "this same computer"; a public "tunnel" would put the token on the open internet and is not recommended, §4). So **live AI runs and the video happen on the Mac** (`SAMPLE_MODE=true LIVE_MODEL=true`). A fresh download and any hosted copy stay on `SAMPLE_MODE=true` and **replay the saved traces from the real Nightshift run**, and the README says so plainly.
-- Sunday evening (after Meterless's Oct 25 update, Pacific time): pin Nemotron exactly instead of automatic swapping, raise its timeout, turn "thinking" off if offered, then a **one-family real-AI smoke test** (`research-nightshift-setup.md` §3d step 3).
-- **Go/no-go: Monday 9am Boston.** If Nemotron isn't answering through Nightshift by then, run the real-AI rerun with NVIDIA direct (labeled `nvidia-direct:...`) and the README says Nightshift was attempted but not used for that run (§4).
-- Done when: `llmMode` in the scoreboard reads `nightshift:...` with the model named (or says honestly which provider answered); "AI calls that worked / total" is shown; the new run-1 and run-2 learning traces are saved; no call runs past its limit; every README/slide line that says "offline", "supported, not exercised", "no real model" or "NVIDIA-hosted" matches what was actually run. Two modes are labeled separately: saved offline replay (no keys, judges' default) and the real-model run (replayed Zetaris answers, live Nightshift).
-- Risk: the Sunday update could slip or change names; the menu for the cloud key, the `proxy-token` folder and whether replies name the real model are not yet documented (§1, §6 "Unconfirmed"); the score may drop below 6 of 6 and we report what it is; macOS will warn the app is unsigned.
+**2. Nightshift → Nemotron: build in the cloud, switch on at the Mac** (must-do; Lyndsay's round-4 decision)
+- **Goal:** real AI text for the court debate, explanations and Coach rules comes through Nightshift (Meterless's app that turns the Mac into a private AI server), which passes the hard steps to NVIDIA's Nemotron. Both sponsor rules are met: Nightshift is primary, NVIDIA contributes.
+- **Built and tested in the cloud against a fake Nightshift server:**
+  - the adapter in `server/adapters/llm.ts` (the file that talks to the AI service);
+  - a fallback path to NVIDIA direct and to the saved offline text;
+  - the timeout and retry fix: a hard stop on the whole call, one retry for timeouts and server errors, a bigger reply-length cap, and a whole-run time limit;
+  - the `LIVE_MODEL` switch (real AI while Zetaris answers are replayed from saved files);
+  - `model:check --provider nightshift|nvidia`;
+  - scoreboard labels that name the provider and model.
 
-**3. Plaid "Connect a card"** (must-do; about half a day)
-- Goal: the "Connect a card" tile (on the results page, not the first onboarding screen) opens Plaid Link (Plaid's pop-up), the parent picks Plaid's test bank, and the fake purchases flow into Bundle and through Zetaris for **store-level jobs only**: money back, Dependent Care FSA daycare bills, spotting baby spending, and proving a receipt's purchase happened.
-- Key areas: server routes for Plaid's two steps (create a link token; swap the public token for an access token), re-added; the existing `mapPlaidTxn` and fixtures; the Neon `transactions` table; the connect tile in `client/`.
-- Where data lands: Plaid sandbox → our server → `mapPlaidTxn` → rows in Neon under a demo family id → Zetaris reads Neon as before.
-- Baby-relevant data: the entity-resolution test already proved Plaid's custom sandbox user (a test bank login where we write the purchases ourselves) works (`entity-resolution-test.md` §1), so use it with made-up baby lines, including "BRIGHT HORIZONS TUITION ACH" so the demo shows a Dependent Care FSA card from Plaid data (`plan-grade-future-state.md` §4a). Add the test's `plaid_childcare` and `plaid_not_childcare` cases.
-- Receipt link: where possible, a card line is linked to its receipt by store + amount + date (within 3 days), so the bank line proves the purchase and the receipt names the product. This now works for Target and Walmart as well as Amazon (`research-email-receipts.md` §2).
-- Done when: Connect on a guest/demo family completes Plaid Link with sandbox logins, rows appear in Neon, a local live run produces store-level cards that use them, **no Plaid row reaches recall matching**, Plaid secrets live only in the git-ignored env file and `.env.example` holds placeholders. Only demo families can connect.
-- Risk: `SAMPLE_MODE` is always offline, so this needs the local live mode; saved Zetaris answers won't cover new purchases, so live Zetaris runs apply (they have been slow: 13 to 171 seconds). The saved-replay path stays the judges' default.
+  The fake server was proven on this machine (`cloud-build-assessment.md` §1): it receives the Nightshift labels, cuts off hung calls, returns "not allowed" for a wrong password, and retries a server error. Estimate: 4–5 hours.
+- **The fallback order and a Monday go/no-go time are open proposals** (section 10). The code keeps the order as a setting.
+- **Lyndsay switches it on at her Mac** using the flip-on checklist in `cloud-build-assessment.md` §4:
+  - Nightshift setup steps A–F (`research-nightshift-setup.md` §2);
+  - put `NIGHTSHIFT_TOKEN_FILE` in `.secrets/bundle.env.local`;
+  - run `model:check` for both providers;
+  - after Meterless's Sunday Oct 25 update, pin Nemotron and turn "thinking" off;
+  - run `SAMPLE_MODE=true LIVE_MODEL=true npm run eval:live-model`.
+- **Where it runs:** the cloud machine and any hosted site cannot reach the Mac, so live AI runs and the video happen on the Mac. A fresh download replays saved traces, and the README says so.
+- **Done when:** the scoreboard names the provider and model that answered (or says honestly which one did); the run-1 and run-2 learning traces are saved; no call runs past its limit; every README and slide line about "offline" or "real model" matches what was run.
+- **Risk:** the Sunday update could slip or rename settings (they are kept as settings, not built into the code); the score may drop and we report what it is.
 
-**4. Any state, middle-class rules** (must-do; about half a day). Details: `audit-ma-poverty-evals.md` sections 1c, 1d, 2.
-- Remove poverty/WIC: delete the WIC rule, the poverty table and its query, the WIC tests and the "Federal poverty guidelines" label; stop reading exact income (the Child Tax Credit only shrinks above $200,000, or $400,000 joint, so at most ask that as a yes/no later).
-- New data tables: `tax_parameters` (one row per IRS 2026 figure, with year and link: Child Tax Credit, Dependent Care FSA $7,500, health FSA $3,400; the $7,500 limit moves out of `factChecker.ts`) and `state_programs` (MA, NY, CA paid family leave rows, plus the existing MA child credit). Register both in Zetaris.
-- Code never names a state: the rule `scope` accepts "federal" or any 2-letter state; the Planner skips any rule whose scope isn't federal or the family's state; card wording comes from a `plain_summary` column in the row, not from code; Scout can save any state's rule; the Fact-Checker re-checks state.
-- ZIP codes: load every 3-digit ZIP prefix; an unknown state still runs, with federal programs and a calm "We don't have [State] programs yet" note. Never an error.
-- Work benefits: the onboarding answer replaces today's always-"yes" FSA setting and fixed household size.
-- New `state_agnostic` test (replaces `non_ma_family`): 5 fake families — Maya (MA), Ava (OH, federal only plus the note), Noor (NY, gets NY leave), Cal (CA, gets CA leave, 8 weeks), Fern (FL, no state rows, no ZIP error). Every card's rule must be federal or the family's state (looked up by rule, not by card name); federal cards must exactly match the date rules; never empty; a "swap test" (change a row, card changes with no code edit); a guard test that fails if "MA" or "Massachusetts" appears in agent or route code; and the Fact-Checker must block a planted wrong-state card.
-- Done when: the 5-family test passes offline and with the real AI, and no WIC/poverty mention remains in app code or the README. Also replace the WIC statistic on deck slide 2 with a checked middle-class one.
+**3. Any state, middle-class rules** (must-do; about half a day; `audit-ma-poverty-evals.md` sections 1c, 1d, 2)
+- **Remove poverty/WIC:** delete the rule, the table, the query, the tests and the label; stop reading exact income.
+- **New tables:** `tax_parameters` (IRS 2026 figures with year and link) and `state_programs` (MA, NY, CA paid family leave, plus the existing MA child credit), both registered in Zetaris.
+- **Code never names a state.** Rule scope is "federal" or any 2-letter state, and card wording comes from a `plain_summary` column. Every 3-digit ZIP prefix is loaded. An uncovered state shows federal programs plus "Support for your state's programs is coming soon" (Lyndsay's wording, `gap-answers.md`). Never an error.
+- **Work question cut (decided):** the Dependent Care FSA becomes a gentle "Check with your job" card for every family: no dollar amount, not in the total, never "your employer offers" (`gap-answers.md` decision 2). This replaces today's always-"yes" setting (`dcfsaOffered`). The employer box is removed.
+- **New `state_agnostic` test** (replaces `non_ma_family`), with 5 fake families: Maya (MA), Ava (OH), Noor (NY), Cal (CA), Fern (FL). It checks that every card's rule is federal or the family's state, that federal cards match the date rules, that results are never empty, the swap test, a guard against "MA"/"Massachusetts" in agent code, and that the Fact-Checker blocks a planted wrong-state card. Also replace the WIC statistic on deck slide 2.
 
-**5. Fine-print tests, `offer_checks` dataset, Value Score and brand audit** (tests, fields, Value Score and view must-do; web address should-do). Details: `audit-ma-poverty-evals.md` section 3.
-- New verdict: `approve`, **`approve_with_catch`** (worth it, but the parent sees the catch and the Receipt counts only the true value), `reject`. A code "reject" always overrides an AI "approve."
-- 12 new tests (all fake offers): FP-01 shipping fee on "free"; FP-02 shipping costs more than the item; FP-03 already expired; FP-04 about to expire; FP-05 mail-in rebate (high effort); FP-06 phone call, forms and waiting period; FP-07 auto-renewing subscription; FP-08 minimum purchase; FP-09 limited stock or excluded states; FP-10 required account, app or marketing texts; FP-11 true value after several strings; FP-12 prompt injection (fine print that tries to give the AI orders). Plus 3 controls that must still be approved: "free shipping over $50", "subscription is optional and can be skipped", and a plain "one per household" welcome box.
-- Ohio fix: FP-07 makes the code reject the auto-renew trap for **every** family on the first run, so the saved Ohio (Ava) example no longer shows it approved. Regenerate `output_examples/ava.json`. The learning demo moves to a subtler trap (for example "autoship must remain active for 2 deliveries") — this is also the "AI catches something the code missed" moment for the video (section 3).
-- `offer_checks` key fields (still **no family column**): identity (`offer_id`, `store`, `source_url`, `fine_print_hash` — a fingerprint of the exact wording so changes are noticed, `checked_at`, `agent`, `model`); money (`face_value_cents`, `hidden_cost_cents`, `true_value_cents`, `min_purchase_cents`, `auto_renew`, `renewal_price_cents`); dates (`deadline_date`, `expired`, `claim_window_days`, `payout_wait_days_max`); effort (`steps_count`, `effort_level`, `effort_minutes_estimate`, plus yes/no flags such as `mail_in`, `needs_receipt`, `needs_phone_call`, `account_required`); availability (`limited_stock`, `regions_excluded`); judgment (`catch_types`, `verdict`, `catch_summary`, `evidence_quote`, `injection_detected`). Code fills dollar amounts, dates and flags; the AI fills only the soft fields (summary, effort level), and code checks them. Every dollar figure must appear in the exact quoted fine print or be computed by code from it.
-- Value Score (shown to parents): the true dollar value (face value minus hidden costs), an effort badge (low / medium / high) and the list of catches, with "How we scored this" in plain words. Effort is not turned into dollars (that would need a made-up hourly rate).
-- Why this dataset matters: it grows with every run and holds no family data; the wording fingerprint builds a history of each brand's terms; parent reports show where agents were wrong and become new tests and learned rules; it makes offers comparable ("free offers worth over $20, low effort, no auto-renew"); and it **is** the brand audit product.
-- Brand audit: Zetaris view `v_offer_audit` with **per-brand totals only** (catch rate, average true vs. advertised value, average effort). Should-do: add open CPSC recalls per brand (the second cross-source join, section 3). Should-do: one read-only web address (`GET /api/offer-audit?store=...`, fixed query, rate-limited, saved answers in sample mode) with an OpenAPI description (the standard file that tells any program or agent how to call it), plus a test that the answer never contains family fields. MCP server (the standard plug-in for AI agents): pitch slide, "later."
-- Scoreboard additions: fine-print catches found / total, false alarms on controls, field accuracy against the answer key.
-- Done when: all 12 tests and 3 controls pass offline (and are reported with the real AI), a run fills `offer_checks`, Zetaris can query it, and offers show a Value Score.
+**4. Living Fine-Print Database and data product** (must-do; section 1)
+- **New verdicts:** `approve`, `approve_with_catch` (worth it, but the parent sees the catch and the total counts only the true value), and `reject`. A code "reject" always overrides an AI "approve".
+- **12 fine-print tests** (FP-01 to FP-12: shipping fee on "free", shipping costing more than the item, expired, about to expire, mail-in rebate, phone call and forms, auto-renew, minimum purchase, limited stock or regions, required account or app, true value after several strings, prompt injection), **plus 3 controls** that must still be approved (`audit-ma-poverty-evals.md` 3b).
+- **Ohio fix:** FP-07 rejects the auto-renew trap for every family. Regenerate `output_examples/ava.json`. The learning demo moves to a subtler trap.
+- **`offer_checks`:** the table and fields from section 1, written by the Fact-Checker and the Court, registered in Zetaris.
+- **Feedback loop:** past findings looked up through Zetaris before grading; re-check when the fingerprint changes; misses become tests.
+- **Value Score** on offers.
+- **`v_offer_audit` and `GET /api/offer-audit` + OpenAPI:**
+  - a fixed query and rate limit, with saved answers in sample mode;
+  - a test that the response has no family fields;
+  - estimate: 2–3 hours (`cloud-build-assessment.md` #15).
+- **Scoreboard:** fine-print catches found / total, false alarms on controls, field accuracy.
+- **Done when:**
+  - the 12 tests and 3 controls pass offline (and are reported with real AI);
+  - a run fills `offer_checks`;
+  - Zetaris answers the "truly free and not recalled" question;
+  - a second offer from the same store uses the first one's finding;
+  - offers show a Value Score;
+  - `/api/offer-audit` answers, with its OpenAPI file.
 
-**6. Recall safety and product matching** (both halves must-do after round 3)
+**5. Recall safety and product matching**
+- **Must-do (about 2 hours):**
+  - filter out finished ("Terminated") FDA recalls only, so a parent never gets a scary card about a recall that ended years ago (the FDA feed stays in);
+  - add the `no_false_recall` test (Maya's run must not show CPSC 10490 or 10453);
+  - run it offline and with real AI.
+- **Product-matching upgrade (should-do, per round 2; promoting it is an open proposal):**
+  - "Fields + hard rules": brand + product type from a fixed list, sale dates, seller, FDA status (finished recalls filtered out), and size or model clash, with an evidence line on each alert.
+  - New for round 4: exact-code checks (UPC, model number, lot code) from barcode and photo items, checked first.
+  - Test result to quote (`entity-resolution-test.md`): on fresh cases, **7 of 8 real recalls found, with 1 wrong alarm**. Today's matcher found 0 of 12 without AI and 2 of 12 with it.
+  - Known fixes: "sold in April 2026" dates; "pad/liner/insert" in the type list.
+  - Key areas: `server/agents/recall.ts`, `v_recall_orders` in `scripts/zetaris/register.ts`, `evals/expected.json`.
+- **Plaid removal touches this:** `recall.ts:38` and `v_recall_orders` read card-style sample rows today. What happens to those sample rows is open (section 10).
+- Formula recalls keep the "check the lot number on the can" line.
 
-**6a. Safety half** (must-do, about 2 hours, plan round 2): drop FDA recalls marked "Terminated" (finished); add the `no_false_recall` test (the maya run must not show CPSC 10490 or 10453, today's known near-misses); **stop feeding Plaid card rows into recall matching** (recommended, round 3; `entity-resolution-test.md` §5 fix b). Run it offline and with the real AI; report both.
+**6. Data intake** (section 3)
+- **Shared pieces:**
+  - the `purchase_items` table;
+  - the `v_purchase_items` view;
+  - the `v_recall_orders` change;
+  - the exact-code joins;
+  - the `register.ts` update.
+- **Email:**
+  - fake receipt emails in `bundle/data/sample/receipts/`;
+  - the reader `server/ingest/emailReceipt.ts`, with per-store rules and an AI fallback that sees only item lines;
+  - the "Use sample receipts" button;
+  - privacy tests;
+  - the live Agentmail inbox: polling (checking for new mail on a timer), an allowlist so only our own test address gets in, and delete after reading.
+- **Barcode:**
+  - a photo button with `barcode-detector`;
+  - a type-it-in backup;
+  - UPC check-digit validation;
+  - server lookups with saved answers;
+  - sample barcode images.
+- **Photo:**
+  - a `see()` method and a `MODEL_VISION` setting in `llm.ts`;
+  - location-data stripping and shrinking on the phone;
+  - the reject rule;
+  - saved answers;
+  - sample label photos and made-up receipt images.
+- **Tests:** field accuracy, made-up rate (target 0), recall alerts right and caught, rejects (`research-photo-barcode-intake.md` §6).
+- **Done when:**
+  - each path that is built puts rows into `purchase_items`;
+  - the recall check finds a planted recalled item through Zetaris, with its evidence line;
+  - no name, address, raw email or photo is stored anywhere.
+- **How real each path is: open (section 10).**
 
-**6b. Product-matcher upgrade** (**promoted to must-do in round 3**, recommended, awaiting Lyndsay's OK; email receipts depend on it. No file gives an hour estimate for it.)
-- Why promoted: today's matcher finds **0 of 12** real recalls without AI and **2 of 12** with it; its word search made 192 pairs for 30 purchases, and only 25 reached the AI (`entity-resolution-test.md` §3). Receipts or any item data run through it would look broken on camera (`research-email-receipts.md` §4; `plan-grade-future-state.md` risk 1).
-- Approach: "fields + hard rules", with no AI needed to raise an alert. Code pulls the same facts out of each recall and each purchased item (from sample orders and receipts): brand, product type from a fixed list (a crib mattress is not a play-yard mattress; a car-seat adapter is not a stroller), product-line word (such as "Max View"), model number and size, the "sold from … through …" dates, the seller, and the FDA status. Zetaris pairs them on brand + product type in `v_recall_orders`, an exact match it handles well (it has no fuzzy matching). Code then requires: bought inside the sale dates, seller fits the notice, FDA recall not finished, formula bought within the recalled cans' shelf life, and no size or model clash. Each alert shows its evidence ("brand ✓, type ✓, bought inside the Aug 2024–Jul 2025 Amazon window ✓, check the label for model …"). The AI is only a helper: it may fill in a brand or type when the rules find none (useful for shortened receipt titles like "Graco 4Ever DLX…"), and a missing or slow AI answer never decides an alert.
-- Must-do scope: the brand + type pairing, the sale-date and seller rules, the evidence line, the two known fixes from the fresh test ("sold in April 2026" dates; "pad/liner/insert" in the type list), logging when the 25-pair cap is hit, and the test's 14 new scoreboard cases (`entity-resolution-test.md` §6).
-- What the test found (fake purchases, all 781 real CPSC and FDA recall rows): on fresh test cases written after the rules were frozen, **7 of 8 real recalls found, with 1 wrong alarm** (88% of alerts right, 88% of recalls caught). That is the number to quote; the 12 of 12 on the first set is flattering, because the rules were tuned on it.
-- Receipts: expected accuracy on receipt items is about the same as on order history, minus a little for shortened titles. That is a reasoned estimate, not a test; a quick re-run of the test with receipt-shaped items (about 1 hour) would confirm it (`research-email-receipts.md` §2, §4).
-- Formula recalls keep the "check the lot number on the can" line. Key areas: `server/agents/recall.ts`, the `v_recall_orders` view in `scripts/zetaris/register.ts`, `evals/expected.json`, `scripts/eval.ts`, test scripts in `experiments/entity-resolution/`.
-
-**7. New onboarding** (core screens must-do, about half a day; extras should-do)
-- Must-do: screen 1 "We're expecting / Baby's here" plus "Try a sample family"; screen 2 exact date (birthday or due date, matched to the choice, with the baby's-age line); screen 3 ZIP with "Found it: showing [State] programs" (any state; see item 4); screen 4 optional work benefits Yes / No / Not sure / Skip; screen 5 "Checking" with the run's agent steps; then the list. All numbers come from the real run, never typed into the page. "Forward your receipts" / "Use sample receipts" and "Connect a card" sit on the results page, not up front (Lyndsay's "no bank information up front" rule, `onboarding-spec.md` §2 screen 8, §4).
-- Key areas: `client/src/pages/Onboarding.tsx`, the run request in `server/routes/bundleRoutes.ts`. Full spec: `onboarding-spec.md`.
-- Done when: both paths reach a result with made-up dates and ZIPs (including a non-MA ZIP), wrong-direction dates get a clear message, and the sample family still works in one tap.
+**7. Onboarding** (must-do; section 7). Key areas: `client/src/pages/Onboarding.tsx`, the Version B tab screens, and the run request in `server/routes/bundleRoutes.ts`. Estimates (`cloud-build-assessment.md`): top row 4–5 hours, Version B 5–7 hours.
 
 **8. Regenerate evidence** (must-do)
-- Goal: scoreboard, saved example runs and learning traces reflect the real model, the any-state rules, the new fine-print tests, the new matcher, receipts and the new views.
-- Key areas: `npm run eval`, `eval:live-model`, `examples:regen`, `output_examples/`, `logs/sample/`, `logs/scoreboard.json`, README section 8. Pitch-slide content: brand audit + MCP "later"; roadmap slide (Gmail auto-forward guide, "Connect Gmail", registry import, receipt photos); maya's money back is $48.99 (an older deck draft says $46.99); no WIC stat; the new judges' line; "one cross-source join plus per-helper views"; soften "take Meterless away and Bundle stops working" to "take Meterless memory away and the Court never learns" (`plan-grade-future-state.md` risk 5).
-- Done when: committed files match the README numbers; the full test suite is green; a clean copy with no keys still runs the sample.
-- Risk: README claims drifting from the saved files; check by comparing after regeneration.
+- **What:** the scoreboard, saved examples and learning traces reflect the real model, the any-state rules, the fine-print tests, `offer_checks`, the intake paths built and the new views.
+- **Key areas:** `npm run eval`, `eval:live-model`, `examples:regen`, `output_examples/`, `logs/`, README section 8.
+- **Slides:**
+  - Strategy 1 and 2 lines;
+  - Strategy 3 / sell-the-data / MCP "later";
+  - roadmap (Gmail auto-forward guide, "Connect Gmail", registry import);
+  - Maya's money back is $48.99;
+  - no WIC statistic.
+- **Done when:**
+  - the committed files match the README numbers;
+  - all tests are green;
+  - a clean copy with no keys still runs the sample.
 
-**9. Email receipts** (new in round 3; decided by Lyndsay). Details: `research-email-receipts.md` §1b, §3, §4.
-- Goal: a parent forwards store receipts (Target, Walmart, Amazon, Babylist and others) to a Bundle address; code reads the item lines; the items join the recall check through Zetaris. For the demo, every receipt is fake.
-- **Sample-receipt version (must-do, about 5.5 to 6.5 hours, §4 table):** 5 to 6 fake receipt emails (Amazon, Target, Walmart, Babylist, a daycare invoice, one non-receipt) stored in `bundle/data/sample/receipts/` with "SAMPLE – NOT A REAL ORDER" in the subject (about 1 hour); a reader `server/ingest/emailReceipt.ts` with small per-store rules for 3 to 4 stores, handling of "Forwarded message" headers, and an AI fallback that sees **only the item lines** for unknown stores, with a timeout (2 to 2.5 hours); the `receipt_items` table in Neon, registered in Zetaris, added to `v_recall_orders` with `'email' AS source`, plus the safe-columns view `v_purchase_items` that agents read instead of the table (about 1 hour); the "Use sample receipts" button replacing the Amazon tile (about 1 hour); tests: each sample gives the expected items, a non-receipt stores nothing, and no address or name is saved (0.5 to 1 hour).
-- **What is kept (Lyndsay's decision):** one row per item with store, date, product, brand, size and price, plus a family id, source ("email") and a fingerprint of the email so the same receipt isn't counted twice. The research also keeps seller and quantity (§3); whether to keep **seller** is open (section 9), because the matcher's seller rule uses it.
-- **What is dropped at once:** the raw email text and formatting, sender and recipient addresses, names, shipping and billing addresses, phone numbers, card digits, tracking links, and any email that isn't a receipt (reply "we only read receipts"). Read emails are deleted from Agentmail. Raw email text never goes into Meterless memory or to an AI model. A "forget my receipts" button deletes the family's rows.
-- **Live forwarding inbox (must-do, first to cut inside this item; about 2 to 3 hours, §4):** one shared Agentmail inbox with a family code in the subject ("BUNDLE-maya"); an **allowlist** so only our own test sending address can get in (no real person's email); **polling** (the app asks "anything new?" every so often), so no public web address is needed and it works from the Mac; delete after reading; the Agentmail key only in the git-ignored env file. Optional on camera: one live forward. Free tier: 3 inboxes, 100 emails a day (§1b).
-- **Should-do: daycare invoice → Dependent Care FSA card** (about 1 hour, §4 open question 3): the fake daycare invoice (provider, dates, amount; the child's name is dropped) fills the Dependent Care FSA card, which is more reliable than Plaid's wrong label on the daycare line (§2).
-- **Roadmap only:** a one-tap guide that sets up a Gmail filter to auto-forward store receipts to the Bundle address (Bundle never gets inbox access, so no Google review); full "Connect Gmail" only once Bundle has real users and money, because Google classes inbox reading (`gmail.readonly`, even `gmail.metadata`) as **restricted**, which needs a paid outside security assessment ("CASA") every 12 months and a review of weeks (§1a). Outlook, registry import and receipt photos also go on the roadmap slide.
-- Done when: "Use sample receipts" on a sample family adds items to `receipt_items`; the recall check finds the planted recalled item through Zetaris with its evidence line; tests pass offline; no name, address or raw email text is stored anywhere.
-- Depends on: item 6b (the matcher). Without it, receipts find almost nothing.
+**Zetaris saved answers.** Any new or changed Zetaris question needs one live recording run (with keys) before the offline replay can show it (`cloud-build-assessment.md` §2). Saved answers are never written by hand.
 
-**10. Parent taps → Meterless memory** (new in round 3; recommended, awaiting Lyndsay's OK; about 1 to 2 hours, `plan-grade-future-state.md` risk 5)
-- Goal: the "learn from parent feedback" promise is visible. Wire the existing `memory.feedback()` (already written, `architecture.md` §2) to "I got this" / "Report issue" on any card whose ruling cited a learned rule, and to "Not mine" / "Returned it" on recall cards (memory points to the item's row id, never copies receipt text; `research-email-receipts.md` §3).
-- Done when: a tap moves the rule's confidence up or down in the owner view, and the next run respects a recall tap ("skipped: you told us you returned this"); a test covers both.
+## 7. Onboarding (Lyndsay's decisions)
 
-## 5. Timeline
+**Top row of mocks, then Version B. Never the middle row.**
 
-**Honest time check.** Hour estimates from the files for the must-dos: Nightshift code 3–5 hours (`research-nightshift-setup.md` §3c) plus Lyndsay's 30-minute Mac setup (§2); recall safety half about 2 hours (round-2 plan); sample receipts 5.5–6.5 hours and live inbox 2–3 hours (`research-email-receipts.md` §4); memory taps 1–2 hours (`plan-grade-future-state.md` risk 5); Plaid, any-state rules and onboarding core about half a day each (round-2 plan). That is **about 14 to 19 hours plus three half-days**. On top of that, four must-dos have **no estimate in any file**: owner view split ("medium effort"), the fine-print package (12 tests, `offer_checks`, Value Score, audit view), the matcher upgrade, and evidence regeneration. With code freeze at Monday 3pm Boston, **the must-do list is larger than the time left.** Plan on using the cut order below; ask the coding agents for estimates on the four unestimated items first thing.
+**Top row (3 questions; progress "1 of 3", "2 of 3", "Last one"):**
+1. **Main:** "We're expecting / Baby's here", plus "Try a sample family".
+2. **Date:** the baby's birthday, or **the due date for expecting families** ("When's your baby due?"). The due date is in her mocks; the builder swaps the wording on the same screen.
+3. **ZIP:** "Found it: showing [State] programs plus federal ones". Any US ZIP works, and an uncovered state gets "Support for your state's programs is coming soon".
+4. **Checking:** the run's real agent steps. It then opens **Version B Home**, not the middle-row list ("Try a sample family" goes there too).
+
+The Work screen is cut.
+
+**Version B (bottom navigation: Home, Taxes, Savings, Insurance, Deals):**
+- **Add purchases:** a **"+" button on every tab** opens the three intake paths (forward receipts, scan a barcode, take a photo).
+- **Expecting families** get the same tabs, adjusted:
+  - Home leads with free gifts;
+  - deadlines say "starts at birth" instead of "10 days left".
+- **Light versions of the middle-row extras:**
+  - an "I got this" tick on cards, with "$ claimed" on Home;
+  - a small share bar;
+  - a "Save your list" card on Home.
+- **Accounts:** Better Auth on Neon, Google only (`gap-answers.md` decision 3). How much real sign-in is built by Oct 27 is open.
+- **Wording:**
+  - The mock's Taxes tab shows the Dependent Care FSA as "Through work, 10 days left". It must use the decided "Check with your job" card instead (no dollars).
+  - The big number's "cash" wording is an open proposal.
+
+All numbers come from the real run, never typed into the page. Full screen spec: `onboarding-spec.md` (parts of it are out of date; see `onboarding-design/round4-mock-review.md` §3).
+
+## 8. Timeline
+
+**Honest hours vs. time left (information only, not a decision).**
+- **Work estimate:** `cloud-build-assessment.md` puts the whole build at **about 75–90 hours of coding-agent work** (written before the photo research). The photo research then put barcode at 6–8 hours and photos at 9–12 hours, against that file's 4–6 hours each.
+- **Time left:** many pieces are independent, so several agents can work at once. From Saturday evening to a Monday 3pm Boston code freeze is roughly 40 hours on the clock.
+- **Mac-only:** the Nightshift switch-on, the real-AI rerun and the video need Lyndsay at the Mac.
+- **Cut order: not decided — Lyndsay decides.**
 
 | Day | What happens | Done when |
 |---|---|---|
-| Sat Oct 24 | **Lyndsay:** Nightshift setup steps A–F (`research-nightshift-setup.md` §2); post the HackOS questions (§5); answer the "decide now" items in section 9. **Build:** item 2 code switch (chain, timeout/retry, `LIVE_MODEL`; 3–5 h) so the Sunday smoke test is possible. Item 1 owner view split. Item 4 any-state rules and the 5-family test (half day). Item 6a recall safety + Plaid rows out (about 2 h). Item 5: `offer_checks` table with the key fields, registered in Zetaris. Wording fixes (judges' line, "one cross-source join") | Parent view clean, owner view behind the token, `state_agnostic` and recall tests passing, `model:check --provider nightshift` and `--provider nvidia` both "ok" on the Mac, tests green |
-| Sun Oct 25 | Item 6b matcher upgrade (no estimate). Item 9 sample receipts (5.5–6.5 h). Item 3 Plaid (half day). Item 5: 12 fine-print tests, controls, new verdict, Value Score, `v_offer_audit`. Item 7 core onboarding (half day). **Sunday evening** after the Nightshift update: pin Nemotron, longer wait, thinking off, then a one-family real-AI smoke test (§3d step 3) | Matcher passes the 14 new cases; sample receipts reach a recall alert with evidence; Plaid rows in Neon and in store-level cards only; fine-print tests green; onboarding works on both paths; smoke-test trace shows provider + model and no call over its limit |
-| Mon Oct 26 | **9am Boston go/no-go** on Nightshift → Nemotron (else NVIDIA direct, labeled). Morning: real-AI rerun and learning traces (item 2, `npm run eval:live-model`), item 10 memory taps (1–2 h), item 9 live inbox (2–3 h) if green, item 8 evidence and README. Should-dos only if green, in section 4 order. **Code freeze 3pm Boston**, then a clean-setup rehearsal | Scoreboard and traces saved with the real provider named; README matches files; fresh-copy test passes |
-| Tue Oct 27 | Final fresh-download test, target 5pm Boston | Ready before 23:45 UTC |
+| Sat Oct 24 | **Lyndsay:** Nightshift setup steps A–F if possible; look at section 10. **Build (cloud):** Nightshift adapter + fake-server tests; local database setup with every new table (`purchase_items`, `offer_checks` with the Strategy 2 fields, `tax_parameters`, `state_programs`); owner view split; any-state rules + work-question cut + Plaid clean-up; recall safety (finished-FDA filter, `no_false_recall`) | Tests green; owner view behind the token; `state_agnostic` and recall tests pass; `offer_checks` table exists |
+| Sun Oct 25 | **Build:** fine-print tests, verdicts, Value Score, feedback loop, `v_offer_audit`, **`GET /api/offer-audit` + OpenAPI**; intake shared pieces and the paths Lyndsay chooses; onboarding top row + Version B. **Sunday evening (Mac):** after the Nightshift update, flip-on checklist steps 1–8 (`cloud-build-assessment.md` §4) | Fine-print tests green; endpoint answers with no family fields; onboarding works on both paths; a first Nightshift trace names the provider and model |
+| Mon Oct 26 | **Mac:** register new tables in Zetaris, record saved answers, real-AI rerun (`eval:live-model`), `examples:regen`. **Build:** evidence and README. **Code freeze 3pm Boston**, then a clean-copy rehearsal. Video in the evening, on the Mac | Scoreboard and traces saved with the real provider named; README matches files |
+| Tue Oct 27 | Final fresh-download test; make the repo public; submit; target 5pm Boston | Ready before 23:45 UTC |
 
-Reminder (Lyndsay handles these): record the video Monday evening **on the Mac** (live AI only works there; Nightshift's window visible once); make the repo public and submit Tuesday.
+## 9. Not changing / out of scope, and keys
 
-If behind, cut in this order: audit web address (keep the Zetaris view), onboarding extras, Neon results table, brand + live-recall join (then say "one cross-source join"), daycare invoice card, **live Agentmail inbox (keep "Use sample receipts")**, AI soft fields in `offer_checks` (keep the code-checked ones), then trim onboarding to screens 1–3. Never cut: the owner view, Nightshift as main AI with the fallback chain, the real-model rerun, the learning demo, Plaid "Connect a card", the any-state fix, the 12 fine-print tests, the matcher upgrade, sample receipts, or the honest wording fixes. If even that doesn't fit, the next hardest call is between Plaid and sample receipts; raise it with Lyndsay rather than cutting silently (section 9).
+**Not changing:**
+- Agents, Fact-Checker send-backs, Fine Print Court, the never-empty feed, the Receipt split, the learning loop and Coach (as built), Meterless memory (H-MEM, our required engine), trace logs, `POST /api/run`, `SAMPLE_MODE`.
+- Firebase stays unused. Paid hosting: none; test locally (`render.yaml` stays for later).
 
-## 6. Not changing / out of scope
+**Out of scope:**
+- No real inboxes, photos or personal data: receipts, barcodes and photos in the demo are made up or public, and the live inbox only accepts our own test address.
+- Insurance and medical emails.
+- Zetaris data-quality rules (the Fact-Checker's "no source" rule is the backstop).
 
-- Agents, Fact-Checker send-backs, Fine Print Court, the never-empty feed, the Receipt split, the learning loop, Zetaris joins, Meterless memory (H-MEM, our one required engine, already working), trace logs, `POST /api/run`, `SAMPLE_MODE`.
-- Guest only: no sign-in. Firebase stays unused. The save/reminders screen stays a labelled demo, not real sign-in.
-- Paid hosting: none. Test locally only; `render.yaml` stays for later. The hosted site can't reach Nightshift on your Mac, so any hosted copy only replays saved traces.
-- Cut: live store price feeds, Redis, an MCP server, brand screens, NVIDIA embeddings, confidence-score bands, "Connect Gmail" (roadmap). The Amazon upload tile is replaced by "Forward your receipts" (the Amazon reader code stays for the sample families).
-- Dropped for good: poverty guidelines, WIC, SNAP, Medicaid and any low-income targeting.
-- No real bank connections, no real inboxes and no real personal data. Plaid is sandbox only, demo families only. Receipts are made up; the live inbox only accepts our own test address. Testers and the video use made-up dates and ZIPs.
-- Insurance and medical emails (bills, explanations of benefits) are out of scope: high privacy risk (`research-email-receipts.md` §2).
-- Zetaris data-quality rules stay deferred; the Fact-Checker's "no source" rule remains the backstop.
-
-## 7. Keys and access status
+**Keys:**
 
 | Service | Status |
 |---|---|
-| Zetaris | Ready (cluster active; Neon and live recall feeds connected) |
+| Zetaris | Ready (Neon and live recall feeds connected) |
 | Neon | Ready (the database; not Supabase) |
-| Meterless Nightshift | Downloaded on Lyndsay's Mac; setup steps in `research-nightshift-setup.md` §2. Token comes from its `proxy-token` file (location to be found with the step-9 command); Sunday Oct 25 update needed for exact model choice |
-| NVIDIA | Key available; added inside Nightshift so Nemotron answers through it, and also kept as `MODEL_API_KEY` for the NVIDIA-direct fallback |
-| Plaid sandbox | Keys available; feature back in (sandbox only); custom test user proven |
-| Agentmail | The agents' existing account; its key goes in the git-ignored env file on the machine that runs the live inbox. Free tier: 3 inboxes, 100 emails a day |
-| Render | Deferred; local testing only |
-| Firebase | Unused for the hackathon |
+| Meterless Nightshift | On Lyndsay's Mac; setup in `research-nightshift-setup.md` §2; token location goes in `NIGHTSHIFT_TOKEN_FILE` |
+| NVIDIA | Key available; inside Nightshift, and as `MODEL_API_KEY` for direct calls and vision models |
+| Agentmail | The agents' existing account; key only in the git-ignored env file |
+| Barcode lookups | Open Food Facts needs no key; UPCitemdb free trial is rate-limited |
 
-Keys go only in the git-ignored env file (or inside Nightshift); never in the repo, slides or video.
+Keys go only in the git-ignored env file (or inside Nightshift), never in the repo, slides or video.
 
-## 8. Decisions for Lyndsay (onboarding)
+---
 
-My recommended answer follows "Recommend:" in each item. Details in `onboarding-spec.md` section 6. All still-open items are also in the full list in section 9.
+## 10. Open proposals for Lyndsay
 
-1. **Missing due-date screen** ("We're expecting" goes to the birthday screen by mistake). Recommend: build it (same screen, "When's your baby due?", and the doctor's date is fine).
-2. **Dependent Care FSA always shown** (the server today assumes every family's job offers it). Recommend: Yes = show it with an amount; No = hide it; Not sure or Skip = show "Check with your job" with no dollar amount in the big total. Also recommend: drop the employer-name box.
-3. ~~ZIP codes only recognized in 6 states.~~ **Decided Oct 24 (round 2):** every US ZIP works; federal programs everywhere plus a kind "We don't have [State] programs yet" note, never an error (section 4, item 4).
-4. **"Cash" wording in the big number** ("in cash and tax credits" over-promises: the $1,000 goes into a savings account and the tax credits arrive as lower taxes next spring). You said "keep these" on Oct 23, so this is your call. Recommend: a light fix, saying "savings and tax credits," and add a "How we got this number" link.
-5. **Single list or tabs after onboarding.** Recommend: single list for the hackathon; tabs go on a slide as "next."
-6. **Location pre-fill** (the browser's "Allow location?" box must be explained by our own screen first). Recommend: drop it for the hackathon, so the parent types a ZIP. If kept, use a "Use my location" button the parent taps, and keep only the ZIP.
+Nothing below is in the plan until you say yes. Each item gives a recommendation and why.
 
-## 9. Open decisions for Lyndsay
-
-Every outstanding decision in one list. "Decide now" means it changes what gets built on Saturday or Sunday; "can wait" means Sunday evening or later is fine. Already decided (not repeated here): email receipts with forwarding + sample button replacing the Amazon tile, Gmail on the roadmap, daycare card as should-do, Nightshift → Nemotron → offline fallback chain, keep NVIDIA direct as backup, `LIVE_MODEL`, Mac-only live runs, Monday 9am go/no-go, every ZIP works.
-
-1. **Plaid card rows out of recall matching.** Recommend: yes. Why: a bank line never names the product, so it can only cause wrong alarms (`entity-resolution-test.md` §1, §3). **Decide now.**
-2. **Matcher upgrade promoted to must-do.** Recommend: yes. Why: receipts and recalls both depend on it; today's matcher finds 0 of 12 (`plan-grade-future-state.md` risk 1). **Decide now.**
-3. **Replace "the AI decides the hard cases" with the risk-2 wording** (section 3). Recommend: yes. Why: the design says rules decide; a judge who reads the code would mark down credibility (`plan-grade-future-state.md` risk 2). **Decide now.**
-4. **"Four Zetaris joins": reword to "one cross-source join plus per-helper views" now, and add the brand + live-recall join as a should-do.** Recommend: both. Why: only one join crosses two places today; the second join is 1–2 hours and makes the claim true (`plan-grade-future-state.md` risk 4). **Decide now.**
-5. **Wire parent taps to Meterless memory confidence.** Recommend: yes. Why: "learn from parent feedback" is in the one-line pitch and memory is the thinnest required piece; 1–2 hours (`plan-grade-future-state.md` risk 5). **Decide now.**
-6. **Keep "seller" (and quantity) on receipt item rows**, in addition to store, date, product, brand, size, price. Recommend: keep seller. Why: the matcher's seller rule needs it ("sold only at Hobby Lobby"; Amazon's "Sold by"), and it is not personal data (`research-email-receipts.md` §3, `entity-resolution-test.md` §4). **Decide now.**
-7. **Live Agentmail inbox is the first receipts piece to cut if behind.** Recommend: yes, keep "Use sample receipts" as the must-have. Why: the sample version alone is 5.5–6.5 hours; the live inbox adds 2–3 (`research-email-receipts.md` §4). **Decide now.**
-8. **Accept the honest time check and the new cut order** (section 5), including raising Plaid vs. sample receipts with you if both can't fit. Recommend: yes. Why: the must-dos exceed the time left; cutting in a known order beats cutting in a panic. **Decide now.**
-9. **Neon results table** (so saved results survive a restart). Recommend: top of the should-do list, not must-do. Why: `plan-grade-future-state.md` §5 wants it must-do, but no file estimates it and the judges' default path is saved replay. **Decide now.**
-10. **Which Nemotron for the Judge.** Recommend: Nemotron 3 Super with "thinking" off; Ultra only if Super's rulings look weak; Nemotron 3.5 Lightning for fast steps. Why: Super is faster, and slowness is our main AI failure (`research-nightshift-setup.md` §5 A). **Can wait** (Sunday evening, when pinning).
-11. **Hosted site at all.** Recommend: stay local; GitHub repo + offline replay + video is enough, and any hosted copy can only replay saved traces. Why: the host can't reach your Mac, and a public tunnel would expose the token (`research-nightshift-setup.md` §4, §5 C). **Can wait.**
-12. **Year-one "what a middle-class family can get back" table in the repo.** Recommend: yes, short and sourced. Why: judges discount unsupported value claims (`plan-grade-future-state.md` §2a, §5). **Can wait.**
-13. **Missing due-date screen** (section 8, item 1). Recommend: build it. Why: "We're expecting" currently lands on the wrong screen. **Decide now** (onboarding is built Sunday).
-14. **Dependent Care FSA display by work-benefits answer** (section 8, item 2). Recommend: Yes = amount, No = hide, Not sure/Skip = "Check with your job" with no dollars; drop the employer box. Why: stops inflated totals. **Decide now.**
-15. **"Cash" wording in the big number** (section 8, item 4). Recommend: "savings and tax credits" plus a "How we got this number" link. Why: "cash" over-promises. **Can wait.**
-16. **Single list or tabs** (section 8, item 5). Recommend: single list; tabs on a "next" slide. Why: less to build. **Can wait.**
-17. **Location pre-fill** (section 8, item 6). Recommend: drop it; the parent types a ZIP. Why: avoids a browser permission box that needs its own explainer screen. **Can wait.**
+1. **How real each intake path is by Oct 27.** *Proposal:* build email forwarding plus "Use sample receipts" for real; barcode and photo work end to end on made-up sample items, labelled "Demo". *Why:* all three can be built and tested in the cloud, but barcode and photo add about 15–20 hours together (`research-photo-barcode-intake.md` §7).
+2. **Live Agentmail inbox as the first email piece to drop if short on time.** *Proposal:* yes, keep "Use sample receipts" either way. *Why:* the sample version is the part judges can run without keys.
+3. **Keep "seller" and quantity on item rows.** *Proposal:* keep seller. *Why:* the matcher's seller rule needs it, and it isn't personal data.
+4. **Which NVIDIA vision model is the default.** *Proposal:* Nemotron 3 Nano Omni as the default, Nano 12B v2 VL for receipts, and try 3.5 Super VL as an upgrade. *Why:* Omni reads labels and objects and is tested by others; Super VL is 9 days old.
+5. **Barcode: one photo, or also a live camera scanner.** *Proposal:* one photo first. *Why:* it works on every phone; the live scanner adds 1.5–2 hours and needs real-phone testing.
+6. **Use CPSC recall-notice photos (credited) as sample item photos.** *Proposal:* yes. *Why:* they show the real "Model No" labels, and they are public government images, not personal data.
+7. **Promote the product-matching upgrade from should-do to must-do.** *Proposal:* yes. *Why:* every intake path feeds it, and today's matcher finds 0 of 12 recalls without AI.
+8. **What happens to the card-style sample rows now that Plaid is out.** The Clawback Hunter's money-back cards and today's recall view read them. *Proposal:* stop feeding them into recall matching, and point the Clawback Hunter at `purchase_items` for money back. *Why:* a bank line never names the product, so in recall matching it can only cause wrong alarms.
+9. **Clawback money-back cards: their purchase source depended on Plaid (now removed).** *Proposal:* same as item 8, using receipt and photo item rows with prices. *Why:* without some purchase source the Savings tab's money-back cards go empty.
+10. **Daycare demo and daycare invoice.** The daycare demo depended on a Plaid line, now removed. *Proposal:* drop the daycare-invoice card for the hackathon. *Why:* your FSA decision is a "Check with your job" card with no dollar amount, so an invoice adds little.
+11. **Nightshift fallback order.** *Proposal:* Nightshift → NVIDIA Nemotron direct → saved offline text. *Why:* keeps NVIDIA in every real run and never leaves the demo blank.
+12. **Monday 9am Boston go/no-go on Nightshift.** *Proposal:* yes; if Nemotron isn't answering through Nightshift by then, rerun with NVIDIA direct, labelled. *Why:* leaves time for the rerun and video before the 3pm freeze.
+13. **Which Nemotron for the Judge.** *Proposal:* Nemotron 3 Super with "thinking" off. *Why:* slowness is our main AI failure.
+14. **Route the two direct database reads through Zetaris** (family profile; the Coach's reports). *Proposal:* yes. *Why:* makes "Zetaris is the only way agents read data" fully true; the views and tables are already registered, so it's a small fix.
+15. **Replace the judges' line "the AI decides the hard cases".** *Proposal:* "Zetaris finds candidate matches across private and public data in one question. Code rules make the safety decisions and show their evidence. The AI argues over fine print, explains, and fills gaps the rules can't, and code can overrule it." *Why:* in the design, rules decide alerts; a judge reading the code would spot the mismatch.
+16. **How to count Zetaris joins on slides.** *Proposal:* name the real cross-source joins (purchases × live recalls; `offer_checks` × live recalls), plus per-helper views, rather than "four joins". *Why:* only questions that combine two different places count as cross-source; an exact count is safer with technical judges.
+17. **Add open CPSC recalls per brand to `v_offer_audit`.** *Proposal:* yes if time (1–2 hours). *Why:* gives the brand report card a safety column.
+18. **Parent taps feed Meterless memory confidence** ("I got this", "Report issue", "Not mine", "Returned it"). *Proposal:* a small add-on, not the main loop. *Why:* it shows the memory engine doing visible work for 1–2 hours, without depending on users.
+19. **Set a cut order.** *Proposal:* decide Sunday midday, once coding agents have given estimates for the unestimated pieces. *Why:* the work exceeds the time; a known order beats cutting in a panic.
+20. **Neon results table** (saved results survive a restart). *Proposal:* should-do. *Why:* the judges' default path is saved replay; no file estimates it.
+21. **How much real Google sign-in to build for "Save your list"** (your recorded accounts decision). *Proposal:* get an estimate first; if over 3 hours, ship the Save card as a labelled demo. *Why:* `gap-answers.md` puts all four onboarding gaps at 12–16 hours.
+22. **"Cash" wording in the big number.** *Proposal:* "savings and tax credits", plus a "How we got this number" link. *Why:* the $1,000 goes into an account and tax credits arrive next spring.
+23. **Location pre-fill on the ZIP screen** (the mock says "Filled in from your location"). *Proposal:* the parent types a ZIP; at most a "Use my location" button. *Why:* avoids a browser permission box that needs its own explainer screen.
+24. **Hosted site at all.** *Proposal:* stay local; GitHub, offline replay and the video are enough. *Why:* a host can't reach the Mac, and a public tunnel would expose the Nightshift token.
+25. **Phone-camera testing.** *Proposal:* test barcode and photo with the Mac's webcam at `localhost`. *Why:* phones only allow the camera on secure pages, and a hosted site isn't decided.
+26. **The "Parent Panel" name in Strategy 2.** *Proposal:* the Fine Print Court's Judge fills that role; don't build a separate panel. *Why:* the panel was never built, and the Court already saves the judgment.
+27. **Year-one "what a middle-class family can get back" table in the repo.** *Proposal:* yes, short and sourced. *Why:* judges discount value claims without sources.
+28. **NVIDIA embeddings stay out** (moved out in round 2 to make room for Plaid, which is now gone). *Proposal:* keep them out. *Why:* Nemotron and the vision models are NVIDIA's real jobs now.
