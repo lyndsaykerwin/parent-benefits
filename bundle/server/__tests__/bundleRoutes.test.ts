@@ -73,7 +73,8 @@ describe('POST /api/run', () => {
     }
     expect(body.status).toBe('done');
     expect(body.result.runId).toBe(runId);
-    const trace = await request(app).get(`/api/runs/${runId}/trace`);
+    expect((await request(app).get(`/api/runs/${runId}/trace`)).status).toBe(403); // parents never get the trace
+    const trace = await request(app).get(`/api/runs/${runId}/trace`).set('x-reviewer-token', 'sekret');
     expect(trace.status).toBe(200);
     expect(trace.body.length).toBeGreaterThan(0);
     expect(trace.body[0]).toHaveProperty('agent_name');
@@ -182,11 +183,11 @@ describe('feedback and case law', () => {
     const a = await request(app).post('/api/feedback').send({ familyId: 'maya', cardId: 'd1', kind: 'issue', note: 'shipping fee' });
     expect(a.status).toBe(200);
     expect(a.body.proposals).toEqual([]);
-    const b = await request(app).post('/api/feedback').send({ familyId: 'leo', cardId: 'd2', kind: 'issue', note: 'shipping charge' });
+    const b = await request(app).post('/api/feedback').set('x-reviewer-token', 'sekret').send({ familyId: 'leo', cardId: 'd2', kind: 'issue', note: 'shipping charge' });
     expect(b.body.proposals).toHaveLength(1);
     expect(b.body.proposals[0].confidence).toBe(0.7);
     expect((await store.listProposals())).toHaveLength(1);
-    const list = await request(app).get('/api/case-law');
+    const list = await request(app).get('/api/case-law').set('x-reviewer-token', 'sekret');
     expect(list.body.proposals).toHaveLength(1);
     expect(list.body.approved).toHaveLength(0);
   });
@@ -228,7 +229,7 @@ describe('feedback and case law', () => {
     expect(res.status).toBe(200);
     expect(memory.addRule).toHaveBeenCalledWith('Reject shipping fees', 'case_law:1', 0.7, ['1', '2']);
     expect((await store.getProposal(1))!.status).toBe('approved');
-    expect((await request(app).get('/api/case-law')).body.approved).toHaveLength(1);
+    expect((await request(app).get('/api/case-law').set('x-reviewer-token', 'sekret')).body.approved).toHaveLength(1);
     expect((await request(app).post('/api/case-law/99/approve').set('x-reviewer-token', 'sekret')).status).toBe(404);
   });
 });
@@ -250,5 +251,90 @@ describe('UI helpers (Task 12)', () => {
     expect((await request(app).get('/api/scoreboard')).body).toEqual({ scoreboard: null });
     fs.writeFileSync(file, JSON.stringify({ trapsCaught: 6, trapsTotal: 6 }));
     expect((await request(app).get('/api/scoreboard')).body).toEqual({ scoreboard: { trapsCaught: 6, trapsTotal: 6 } });
+  });
+});
+
+describe('W1-OWNER: owner view split (parent response trimmed on the server)', () => {
+  const HIDDEN_KEYS = ['traceId', 'agent', 'claim', 'evidenceSql', 'retryCount'];
+  const HIDDEN_TEXT = [/zetaris/i, /\bv_[a-z_]+\b/, /cited mem-/i, /case law/i, /court was offline/i, /SELECT /i, /Reject offers that turn into paid memberships/];
+  const PARENT_CARD_KEYS = ['amountCents', 'body', 'deadline', 'id', 'kind', 'sources', 'title', 'verdict'];
+
+  function withLeakyCards() {
+    const ctx = build();
+    (court.judgeOffers as jest.Mock).mockImplementation(async (c: any) => {
+      c.blocked.push({ id: 'blocked-7', kind: 'discount', title: 'Free box', body: 'Court was offline; case law applies: Reject offers that turn into paid memberships. [cited mem-1]', amountCents: null, deadline: null, verdict: 'blocked', sources: [], traceId: 't-9' });
+      return [{ id: 'discount-8', kind: 'discount', title: 'Wipes deal', body: 'Store X has an offer.', amountCents: 500, deadline: null, verdict: 'likely', sources: [{ label: 'Store X offer page', url: 'https://example.com' }], traceId: 't-8', agent: 'fine_print_court', claim: { type: 'offer', offerId: 8 }, evidenceSql: 'SELECT * FROM v_judge_offers WHERE id = 8', retryCount: 0 }];
+    });
+    return ctx;
+  }
+  const expectParentSafe = (result: any) => {
+    for (const c of [...result.cards, ...(result.blocked ?? [])]) {
+      expect(Object.keys(c).sort()).toEqual(PARENT_CARD_KEYS);
+      for (const k of HIDDEN_KEYS) expect(c).not.toHaveProperty(k);
+    }
+    const text = JSON.stringify(result);
+    for (const re of HIDDEN_TEXT) expect(text).not.toMatch(re);
+  };
+
+  it('POST /api/run?wait=true without a token: no debate text, data-source names, memory rules or trace ids', async () => {
+    const { app } = withLeakyCards();
+    const res = await request(app).post('/api/run?wait=true').send({ familyId: 'leo' });
+    expect(res.status).toBe(200);
+    expect(res.body.blocked).toHaveLength(1);
+    expect(res.body.blocked[0].body).toBe('Other parents reported a catch like this one, so we left it out.');
+    expectParentSafe(res.body);
+  });
+
+  it('GET /api/runs/:id without a token is trimmed and carries parent-safe progress steps', async () => {
+    const { app } = withLeakyCards();
+    const { runId } = (await request(app).post('/api/run').send({ familyId: 'leo' })).body;
+    let body: any;
+    for (let i = 0; i < 50; i++) { body = (await request(app).get(`/api/runs/${runId}`)).body; if (body.status === 'done') break; await new Promise((r) => setTimeout(r, 20)); }
+    expect(body.owner).toBe(false);
+    expectParentSafe(body.result);
+    expect(body.progress).toHaveLength(5);
+    for (const s of body.progress) {
+      expect(Object.keys(s).sort()).toEqual(['key', 'label', 'state']);
+      expect(s.state).toBe('done');
+      expect(s.label).not.toMatch(/court|fact-checker|agent|zetaris|clawback/i);
+    }
+  });
+
+  it('with the reviewer token: the full result (trace ids, debate text) and the trace come back', async () => {
+    const { app } = withLeakyCards();
+    const full = await request(app).post('/api/run?wait=true').set('x-reviewer-token', 'sekret').send({ familyId: 'leo' });
+    expect(full.body.blocked[0].traceId).toBe('t-9');
+    expect(full.body.blocked[0].body).toMatch(/case law applies/);
+    expect(full.body.cards.some((c: any) => c.traceId)).toBe(true);
+    const { runId } = full.body;
+    expect((await request(app).get(`/api/runs/${runId}`).set('x-reviewer-token', 'sekret')).body.owner).toBe(true);
+    expect((await request(app).get(`/api/runs/${runId}/trace`).set('x-reviewer-token', 'wrong')).status).toBe(403);
+  });
+
+  it('GET /api/case-law hides rule text without the token, shows it with the token', async () => {
+    const { app, store } = build();
+    await store.saveProposals([{ text: 'Reject shipping fees', confidence: 0.7, sourceFeedbackIds: ['1', '2'] }]);
+    const parent = await request(app).get('/api/case-law');
+    expect(parent.status).toBe(200);
+    expect(parent.body).toEqual({ proposals: [], approved: [], proposedCount: 1, approvedCount: 0 });
+    expect(JSON.stringify(parent.body)).not.toContain('shipping');
+    const owner = await request(app).get('/api/case-law').set('x-reviewer-token', 'sekret');
+    expect(owner.body.proposals[0].text).toBe('Reject shipping fees');
+  });
+
+  it('POST /api/feedback without a token never returns the proposed rule text', async () => {
+    const { app } = build();
+    await request(app).post('/api/feedback').send({ familyId: 'maya', cardId: 'd1', kind: 'issue', note: 'shipping fee' });
+    const b = await request(app).post('/api/feedback').send({ familyId: 'leo', cardId: 'd2', kind: 'issue', note: 'shipping charge' });
+    expect(b.status).toBe(200);
+    expect(b.body.proposals).toEqual([]);
+    expect(b.body.proposedCount).toBe(1);
+    expect(JSON.stringify(b.body)).not.toMatch(/Reject offers with shipping fees/);
+  });
+
+  it('an empty REVIEWER_MODE_TOKEN never unlocks the owner view', async () => {
+    const { app } = build({ reviewerToken: () => '' });
+    const { runId } = (await request(app).post('/api/run?wait=true').set('x-reviewer-token', '').send({ familyId: 'leo' })).body;
+    expect((await request(app).get(`/api/runs/${runId}/trace`).set('x-reviewer-token', '')).status).toBe(403);
   });
 });
