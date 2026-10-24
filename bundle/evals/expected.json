@@ -87,6 +87,21 @@
     "non_ma_family": {
       "family": "ava",
       "mustNotHaveIdPrefix": "benefit-ma_"
+    },
+    "no_false_recall": {
+      "family": "maya",
+      "note": "Maya's run must not show the Play Yards recall (CPSC 10490) or the Modera Pack N Play pad recall (CPSC 10453): they share words with her purchases but are not the same product",
+      "mustNotHaveIdContains": [
+        "recall-cpsc-10490",
+        "recall-cpsc-10453"
+      ]
+    },
+    "no_terminated_fda": {
+      "family": "maya",
+      "note": "Finished (Terminated) FDA recalls never become cards, e.g. a2 Platinum formula H-0891-2026",
+      "mustNotHaveIdContains": [
+        "recall-fda-H-0891-2026"
+      ]
     }
   }
 }

@@ -44,6 +44,7 @@ function ctxWith(family: any, items: any[], pairs: any[], llm: any) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'rc-'));
   const trace = new TraceLogger('t', dir);
   const runQuery = jest.fn(async (sql: string) => {
+    if (sql.includes("= 'terminated'")) return { headers: ['recall_number'], rows: [], ms: 1 };
     if (sql.includes('LATERAL VIEW')) return res(pairs);
     if (sql.includes('v_recall_orders')) return res(items);
     throw new Error('unexpected sql ' + sql);
@@ -165,5 +166,48 @@ describe('I4: typed-in family', () => {
     const { ctx, runQuery } = ctxWith({ ...maya, id: 'guest-ab12cd34', dataConnected: false }, ITEMS, [], yes());
     expect(await checkRecalls(ctx)).toEqual({ candidates: [], itemsChecked: 0 });
     expect(runQuery).not.toHaveBeenCalled();
+  });
+});
+
+describe('W1-RECALL: finished FDA recalls and no false recalls', () => {
+  it('finished ("Terminated") FDA recalls are dropped; ongoing FDA recalls stay', async () => {
+    const sql = (await import('../agents/recall')).finishedFdaSql();
+    expect(sql).toContain('bundle_live.fda_food_recalls');
+    expect(sql).toMatch(/lower\(x\.status\) = 'terminated'/);
+    const DONE = { ...FDA_PAIR, recall_number: 'H-0891-2026', recalled_product: 'a2 Platinum Premium infant formula', item_text: 'a2 Platinum Premium infant formula' };
+    const LIVE = { ...FDA_PAIR, item_text: 'Enfamil NeuroPro Infant Formula powder 12.5 oz' };
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'rc-'));
+    const runQuery = jest.fn(async (q: string) => {
+      if (q.includes("= 'terminated'")) return res([{ recall_number: 'H-0891-2026' }]);
+      if (q.includes('LATERAL VIEW')) return res([DONE, LIVE]);
+      return res(ITEMS);
+    });
+    const ctx = { runId: 't', family: maya, z: { runQuery } as any, llm: new UnavailableGenerator('offline'), memory: {} as any, trace: new TraceLogger('t', dir) } as AgentContext;
+    const ids = (await checkRecalls(ctx)).candidates.map((c) => c.id);
+    expect(ids).toEqual(['recall-fda-F-0123-2026']);
+  });
+
+  it('if the finished-recall list cannot be read, FDA rows are kept (never hide a live recall)', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'rc-'));
+    const runQuery = jest.fn(async (q: string) => {
+      if (q.includes("= 'terminated'")) throw new Error('No saved response for this query');
+      if (q.includes('LATERAL VIEW')) return res([{ ...FDA_PAIR, item_text: 'Enfamil NeuroPro Infant Formula powder 12.5 oz' }]);
+      return res(ITEMS);
+    });
+    const ctx = { runId: 't', family: maya, z: { runQuery } as any, llm: new UnavailableGenerator('offline'), memory: {} as any, trace: new TraceLogger('t', dir) } as AgentContext;
+    expect((await checkRecalls(ctx)).candidates.map((c) => c.id)).toEqual(['recall-fda-F-0123-2026']);
+  });
+
+  it('no_false_recall: Maya never gets CPSC 10490 (Play Yards) or 10453 (Pack N Play pad) without a real match', async () => {
+    const shared = (id: number, product: string) => ({
+      ...CPSC_PAIR, item_text: 'Graco Pack n Play Portable Playard', recall_id: id, recall_number: String(id),
+      recall_title: `Recall ${id}`, recall_url: `https://www.cpsc.gov/${id}`, recalled_product: product,
+    });
+    const pairs = [CPSC_PAIR, shared(10490, 'Play Yards'), shared(10453, 'Organic Cotton Pack N Play Mattress Dual-Sided Portable Baby Crib Pad')];
+    const { ctx } = ctxWith(maya, ITEMS, pairs, new UnavailableGenerator('offline'));
+    const { candidates } = await checkRecalls(ctx);
+    const ids = candidates.map((c) => c.id);
+    expect(ids).toEqual(['recall-cpsc-10560']);
+    expect(ids.some((i) => i.includes('10490') || i.includes('10453'))).toBe(false);
   });
 });

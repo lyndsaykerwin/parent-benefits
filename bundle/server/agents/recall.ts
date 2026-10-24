@@ -69,6 +69,34 @@ export function pairsSql(familyId: string): string {
   );
 }
 
+/**
+ * Finished ("Terminated") FDA recalls, by recall number. Kept as its own small Zetaris query (not folded into
+ * pairsSql) so the saved replay of the main pairs query stays valid until a new recording run.
+ */
+export function finishedFdaSql(): string {
+  return (
+    'SELECT x.recall_number AS recall_number FROM bundle_live.fda_food_recalls LATERAL VIEW explode(results) t AS x ' +
+    "WHERE lower(x.status) = 'terminated'"
+  );
+}
+
+/** Drop pairs whose FDA recall is finished, so no parent gets a card about a recall that ended. The FDA feed stays. */
+async function dropFinishedFda(ctx: AgentContext, rows: Row[]): Promise<Row[]> {
+  if (!rows.some((r) => s(r, 'recall_source') === 'fda')) return rows;
+  let finished: Set<string>;
+  try {
+    const res = await ctx.z.runQuery(finishedFdaSql());
+    finished = new Set(res.rows.map((r) => s(r, 'recall_number')));
+  } catch (e: any) {
+    // Safer to keep a possibly-finished recall than to hide a live one: keep the rows and say so.
+    log(ctx, 'filter_finished_fda', 'FDA recall status', `status list unavailable (${String(e?.message ?? e).slice(0, 80)}): FDA rows kept`, 'fallback');
+    return rows;
+  }
+  const kept = rows.filter((r) => !(s(r, 'recall_source') === 'fda' && finished.has(s(r, 'recall_number'))));
+  log(ctx, 'filter_finished_fda', `${rows.length} pairs`, `${rows.length - kept.length} pair(s) on finished FDA recalls dropped`);
+  return kept;
+}
+
 const norm = (t: string) => t.toLowerCase().replace(/\s+/g, ' ').trim();
 /** The only match we accept without a model: the recalled product's whole name appears in what was bought. */
 export const exactContainment = (item: string, product: string): boolean => {
@@ -148,7 +176,8 @@ export async function checkRecalls(ctx: AgentContext): Promise<{ candidates: Can
     return { candidates: [], itemsChecked: 0 };
   }
 
-  const { rows } = await ctx.z.runQuery(pairs);
+  const { rows: allRows } = await ctx.z.runQuery(pairs);
+  const rows = await dropFinishedFda(ctx, allRows);
   const seenPair = new Set<string>();
   const deduped = rows.filter((r) => {
     const k = `${norm(s(r, 'item_text'))}|${s(r, 'recall_source')}|${s(r, 'recall_id')}|${s(r, 'recall_number')}`;
