@@ -318,9 +318,9 @@ describe('sample mode: saved vision answers', () => {
 });
 
 describe('photo routes', () => {
-  async function withApp(d: PhotoDeps, fn: (url: string) => Promise<void>) {
+  async function withApp(d: PhotoDeps, fn: (url: string) => Promise<void>, limit?: number) {
     const app = express();
-    app.use(createPhotoRouter({ makeDeps: () => d }));
+    app.use(createPhotoRouter({ makeDeps: () => d, limit }));
     const server = app.listen(0, '127.0.0.1');
     await new Promise((r) => server.once('listening', r));
     try { await fn(`http://127.0.0.1:${(server.address() as AddressInfo).port}`); } finally { server.close(); }
@@ -335,6 +335,7 @@ describe('photo routes', () => {
       expect(res.status).toBe(200);
       const j = await res.json();
       expect(j.status).toBe('ok');
+      expect(j.stored).toBe(1);
       expect(j.items[0]).toMatchObject({ productName: 'Baby walker', modelNumber: 'RV001' });
       expect(JSON.stringify(j)).not.toMatch(/inputHash|extractor|readText/);
     });
@@ -358,6 +359,15 @@ describe('photo routes', () => {
       const huge = Buffer.concat([fakePhoto('big'), Buffer.alloc(8 * 1024 * 1024)]).toString('base64');
       expect((await post(`${url}/api/photo/read`, body('x', { imageBase64: huge }))).status).toBe(413);
     });
+  });
+
+  it('answers 429 once a visitor sends too many photos', async () => {
+    const { gen } = fakeVision([GOOD_ITEM]);
+    await withApp(deps(gen), async (url) => {
+      expect((await post(`${url}/api/photo/read`, body('l1'))).status).toBe(200);
+      expect((await post(`${url}/api/photo/read`, body('l2'))).status).toBe(200);
+      expect((await post(`${url}/api/photo/read`, body('l3'))).status).toBe(429);
+    }, 2);
   });
 
   it('forgets a family\'s items', async () => {

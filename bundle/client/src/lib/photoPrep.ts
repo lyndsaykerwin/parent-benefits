@@ -60,7 +60,7 @@ export async function preparePhoto(file: File, codec: PhotoCodec = browserCodec)
 }
 
 export type PhotoReadResponse =
-  | { status: 'ok'; rounds?: number; items: Record<string, unknown>[] }
+  | { status: 'ok'; rounds?: number; stored?: number; items: Record<string, unknown>[] }
   | { status: 'needs_clearer_photo' | 'rejected' | 'unavailable'; message: string };
 
 export async function sendPhoto(

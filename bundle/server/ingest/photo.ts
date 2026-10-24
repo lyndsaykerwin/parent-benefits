@@ -193,7 +193,7 @@ function parseJson(raw: string): unknown {
 export interface PhotoStore {
   /** Inserts rows; a row whose (family, input_hash, line_index) already exists is skipped. Returns how many were new. */
   insertItems(rows: PurchaseItemRow[]): Promise<number>;
-  /** "Forget my items": deletes every row for one family. Returns how many. */
+  /** "Forget my items": per the plan (section 3) deletes ALL of the family's purchase_items rows, whatever the source (email, barcode, photo). Returns how many. */
   deleteForFamily(familyId: string): Promise<number>;
 }
 

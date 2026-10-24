@@ -14,6 +14,8 @@ import {
 export interface PhotoApiDeps {
   /** Fresh dependencies for one photo (model, store, trace, saved answers). Tests inject fakes. */
   makeDeps: () => PhotoDeps;
+  /** Photos one visitor may send per 15 minutes (default 30). Tests lower it. */
+  limit?: number;
 }
 
 /** One shared store: Neon when a database is set, otherwise memory (SAMPLE_MODE and local tries). */
@@ -43,7 +45,7 @@ const JSON_LIMIT = `${Math.ceil((MAX_PHOTO_BYTES * 4) / 3 / 1024 / 1024) + 1}mb`
 export function createPhotoRouter(api: PhotoApiDeps = createDefaultPhotoDeps()): Router {
   const router = Router();
   const limiter = rateLimit({
-    windowMs: 15 * 60 * 1000, limit: 30, standardHeaders: true, legacyHeaders: false,
+    windowMs: 15 * 60 * 1000, limit: api.limit ?? 30, standardHeaders: true, legacyHeaders: false,
     message: { error: 'Too many photos from this connection. Please try again in a few minutes.' },
   });
   const json = express.json({ limit: JSON_LIMIT });
@@ -63,6 +65,7 @@ export function createPhotoRouter(api: PhotoApiDeps = createDefaultPhotoDeps()):
       return res.json({
         status: 'ok',
         rounds: out.rounds,
+        stored: out.stored,
         items: out.items.map((i) => ({
           productName: i.productName, brand: i.brand, modelNumber: i.modelNumber, lotCode: i.lotCode,
           upc: i.upc, sizeText: i.sizeText, store: i.store, purchasedOn: i.purchasedOn,
