@@ -296,11 +296,18 @@ export class ChainGenerator implements Generator {
     }
     return d;
   }
-  resetStats(): void { for (const p of this.providers) p.resetStats(); }
-  /** The first provider's model names (for labels). */
+  /** Calls no provider answered (the caller used its offline text instead). */
+  unanswered = 0;
+  resetStats(): void { this.unanswered = 0; for (const p of this.providers) p.resetStats(); }
+  /** The first provider's model names. Not proof of who answered: use each provider's stats for labels. */
   get models() { return this.providers[0].models; }
 
   private async run(fn: (p: OpenAICompatGenerator) => Promise<string>, eligible: (p: OpenAICompatGenerator) => boolean): Promise<string> {
+    try { return await this.tryProviders(fn, eligible); }
+    catch (e) { this.unanswered++; throw e; }
+  }
+
+  private async tryProviders(fn: (p: OpenAICompatGenerator) => Promise<string>, eligible: (p: OpenAICompatGenerator) => boolean): Promise<string> {
     this.clock.check();
     let last: ModelUnavailable | undefined;
     for (const p of this.providers) {

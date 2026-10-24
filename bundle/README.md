@@ -82,7 +82,7 @@ Put the key in `../.secrets/bundle.env.local` as `MODEL_API_KEY=...` (never comm
 
 ```bash
 npm run model:check -- --write   # 1. asks NVIDIA which Nemotron models your key can use, saves MODEL_REASONING and MODEL_FAST, sends one tiny test message to each and prints how long it took
-npm run eval:live-model          # 2. the full eval, then the learning demo, with the real model; the scoreboard's llmMode becomes "nvidia:<model ids>" instead of "offline-fallback"
+npm run eval:live-model          # 2. the full eval, then the learning demo, with the real model; the scoreboard's llmMode names who really answered, e.g. "nightshift:<model ids>" or "nvidia-direct:<model ids>" ("mixed:" with counts if both did), instead of "offline-fallback"
 npm run examples:regen           # 3. re-runs the saved example families into output_examples/ and logs/sample/ (replays the saved Zetaris answers; add -- --live to ask Zetaris live)
 ```
 

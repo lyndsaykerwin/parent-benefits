@@ -84,12 +84,12 @@ describe('llmMode only claims a model that really answered', () => {
     await expect(g.generate('b')).rejects.toThrow();
     await g.generate('c');
     expect(llmCallsOf(g)).toEqual({ ok: 2, failed: 1 });
-    expect(llmModeOf(g)).toBe('nvidia-partial:r+f');
+    expect(llmModeOf(g)).toBe('nvidia-direct-partial:r+f');
   });
-  it('all ok is nvidia:, all failed is offline-fallback, no calls is not a real-model claim', async () => {
+  it('all ok is nvidia-direct:, all failed is offline-fallback, no calls is not a real-model claim', async () => {
     const ok = new NvidiaGenerator('k', 'http://x', { reasoning: 'r', fast: 'f' }, fakeClient(good));
     await ok.generate('a');
-    expect(llmModeOf(ok)).toBe('nvidia:r+f');
+    expect(llmModeOf(ok)).toBe('nvidia-direct:r+f');
     const dead = new NvidiaGenerator('k', 'http://x', { reasoning: 'r', fast: 'f' }, fakeClient(bad));
     await expect(dead.generate('a')).rejects.toThrow();
     expect(llmModeOf(dead)).toBe('offline-fallback');

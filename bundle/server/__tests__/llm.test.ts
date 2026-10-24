@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { llmModeOf } from '../../scripts/eval';
 import {
   FakeGenerator, NvidiaGenerator, OpenAICompatGenerator, ChainGenerator, askJson, createGenerator,
   generatorConfigFromEnv, ModelUnavailable, withRunDeadline, NIGHTSHIFT_HEADERS, providerLabel, isLiveModel,
@@ -217,6 +218,43 @@ describe('ChainGenerator (Nightshift → NVIDIA direct → offline)', () => {
     await expect(c.generate('q')).rejects.toBeInstanceOf(ModelUnavailable);
     const r = await askJson(c, 'p', isOk, { ok: false });
     expect(r.usedFallback).toBe(true);
+  });
+
+  it('scoreboard label names the provider that really answered (Nightshift down, NVIDIA answers)', async () => {
+    const ns = await mk({ script: [{ kind: 'status', status: 500 }] });
+    const nv = await mk({ script: [{ kind: 'reply', content: 'from-nv' }] });
+    const nsGen = new OpenAICompatGenerator('t', ns.baseUrl, { reasoning: 'meterless/text.deep', fast: 'meterless/text.fast' }, undefined, 300,
+      { provider: 'nightshift', headers: NIGHTSHIFT_HEADERS, retryDelayMs: 0 });
+    const nvGen = new OpenAICompatGenerator('t', nv.baseUrl, { reasoning: 'nvidia/nemotron-3-super', fast: 'nvidia/nano' }, undefined, 300,
+      { provider: 'nvidia', retryDelayMs: 0 });
+    const c = new ChainGenerator([nsGen, nvGen]);
+    expect(await c.generate('q')).toBe('from-nv');
+    const mode = llmModeOf(c);
+    expect(mode).toBe('nvidia-direct:nvidia/nemotron-3-super+nvidia/nano');
+    expect(mode).not.toContain('meterless');
+  });
+
+  it('scoreboard label says mixed (with counts) when both providers answered in one eval', async () => {
+    const ns = await mk({ script: [{ kind: 'reply', content: 'a' }, { kind: 'status', status: 500 }] });
+    const nv = await mk({ script: [{ kind: 'reply', content: 'b' }] });
+    const c = new ChainGenerator([gen('nightshift', ns.baseUrl), gen('nvidia', nv.baseUrl)]);
+    expect(await c.generate('q1')).toBe('a');
+    expect(await c.generate('q2')).toBe('b');
+    expect(llmModeOf(c)).toBe('mixed:nightshift=1(r+f),nvidia-direct=1(r+f)');
+  });
+
+  it('scoreboard label is offline-fallback when nothing answered, and -partial when some calls got no answer', async () => {
+    const ns = await mk({ script: [{ kind: 'status', status: 500 }] });
+    const nv = await mk({ script: [{ kind: 'status', status: 500 }] });
+    const c = new ChainGenerator([gen('nightshift', ns.baseUrl), gen('nvidia', nv.baseUrl)]);
+    await expect(c.generate('q')).rejects.toBeInstanceOf(ModelUnavailable);
+    expect(llmModeOf(c)).toBe('offline-fallback');
+    const ns2 = await mk({ script: [{ kind: 'reply', content: 'a' }, { kind: 'status', status: 500 }] });
+    const nv2 = await mk({ script: [{ kind: 'status', status: 500 }] });
+    const c2 = new ChainGenerator([gen('nightshift', ns2.baseUrl), gen('nvidia', nv2.baseUrl)]);
+    expect(await c2.generate('q1')).toBe('a');
+    await expect(c2.generate('q2')).rejects.toBeInstanceOf(ModelUnavailable);
+    expect(llmModeOf(c2)).toBe('nightshift-partial:r+f');
   });
 
   it('refuses new calls after the run deadline', async () => {
