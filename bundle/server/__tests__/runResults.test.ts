@@ -181,34 +181,35 @@ describe('run results are saved and served after a restart', () => {
   });
 });
 
-// ---- Live local Postgres (skipped with a note when no test database is reachable) ----
-const TEST_URL = process.env.TEST_DATABASE_URL ?? 'postgres://bundle:bundle@127.0.0.1:5432/bundle_test';
-describe('DrizzleStore run results on local Postgres', () => {
-  let ready = false;
-  let dbMod: typeof import('../db') | undefined;
+// ---- Live local Postgres: runs only when TEST_DATABASE_URL is set (otherwise shows as skipped) ----
+const TEST_URL = process.env.TEST_DATABASE_URL;
+const liveDescribe = TEST_URL ? describe : describe.skip;
+liveDescribe('DrizzleStore run results on local Postgres', () => {
+  let dbMod: typeof import('../db');
   const savedUrl = process.env.DATABASE_URL;
+  const tag = `t${Date.now()}`;
+  const runIds: string[] = [];
+  const row = (runId: string, familyId: string, over: Partial<SavedRunRow> = {}) => { runIds.push(runId); return { ...sampleRow(runId, familyId), ...over }; };
 
   beforeAll(async () => {
-    const { Client } = await import('pg');
-    const c = new Client({ connectionString: TEST_URL, connectionTimeoutMillis: 1500 });
-    try { await c.connect(); await c.query('select 1 from run_results limit 1'); ready = true; } catch { ready = false; } finally { await c.end().catch(() => undefined); }
-    if (!ready) { console.warn(`[runResults.test] no test Postgres at ${TEST_URL}; skipping live checks`); return; }
-    process.env.DATABASE_URL = TEST_URL;
+    process.env.DATABASE_URL = TEST_URL; // a throwaway local database, never Neon
     dbMod = await import('../db');
+    await dbMod.pool.query('select 1 from run_results limit 1'); // fails loudly if the test database is not set up
   });
   afterAll(async () => {
-    if (dbMod) await dbMod.pool.end();
+    if (dbMod) {
+      await dbMod.pool.query('delete from run_results where run_id = any($1) or run_id like $2', [runIds, `${tag}%`]);
+      await dbMod.pool.end();
+    }
     if (savedUrl === undefined) delete process.env.DATABASE_URL; else process.env.DATABASE_URL = savedUrl;
   });
 
   it('round-trips a saved run, replaces on the same runId, and finds the latest per family', async () => {
-    if (!ready) return;
     const s = new DrizzleStore();
-    const tag = `t${Date.now()}`;
-    await s.saveRunResult(sampleRow(`${tag}-a`, `fam-${tag}`));
-    await s.saveRunResult({ ...sampleRow(`${tag}-a`, `fam-${tag}`), today: '2026-10-25' });
+    await s.saveRunResult(row(`${tag}-a`, `fam-${tag}`));
+    await s.saveRunResult(row(`${tag}-a`, `fam-${tag}`, { today: '2026-10-25' }));
     await new Promise((r) => setTimeout(r, 15));
-    await s.saveRunResult(sampleRow(`${tag}-b`, `fam-${tag}`));
+    await s.saveRunResult(row(`${tag}-b`, `fam-${tag}`));
     const a = await s.getRunResult(`${tag}-a`);
     expect(a?.today).toBe('2026-10-25');
     expect(a?.sampleMode).toBe(true);
@@ -216,5 +217,17 @@ describe('DrizzleStore run results on local Postgres', () => {
     expect(a?.family.name).toBe(`fam-${tag}`);
     expect((await s.latestRunResult(`fam-${tag}`))?.runId).toBe(`${tag}-b`);
     expect(await s.getRunResult('missing')).toBeNull();
+  });
+
+  it('a run made through one router is served by a brand-new router and store (a restart) from the database', async () => {
+    const res = await request(build(new DrizzleStore()).app).post('/api/run?wait=true').send({ familyId: 'leo' });
+    expect(res.status).toBe(200);
+    const runId = res.body.runId as string;
+    runIds.push(runId);
+    const back = await request(build(new DrizzleStore()).app).get(`/api/runs/${runId}`);
+    expect(back.status).toBe(200);
+    expect(back.body.status).toBe('done');
+    expect(back.body.result.cards.length).toBe(res.body.cards.length);
+    expect(back.body.owner).toBe(false);
   });
 });

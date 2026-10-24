@@ -95,4 +95,19 @@ describe('RunEventHub', () => {
     hub.history('r1').pop();
     expect(hub.history('r1')).toHaveLength(1);
   });
+
+  it('a throwing replay listener or onEnd handler does not break subscribe() or finish()', () => {
+    const spy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    const hub = new RunEventHub();
+    hub.emit('r1', { type: 'card_ready', card: card('a') });
+    expect(() => hub.subscribe('r1', () => { throw new Error('replay boom'); })).not.toThrow();
+    const ok = jest.fn();
+    hub.subscribe('r1', () => undefined, { onEnd: () => { throw new Error('end boom'); } });
+    hub.subscribe('r1', () => undefined, { onEnd: ok });
+    expect(() => hub.finish('r1')).not.toThrow();
+    expect(ok).toHaveBeenCalledTimes(1); // the next listener still hears the end
+    expect(() => hub.subscribe('r1', () => undefined, { onEnd: () => { throw new Error('late end boom'); } })).not.toThrow();
+    expect(hub.isFinished('r1')).toBe(true);
+    spy.mockRestore();
+  });
 });
