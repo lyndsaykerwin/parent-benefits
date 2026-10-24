@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 // H-MEM (Meterless, Apache-2.0) is vendored in vendor/hmem; see vendor/hmem/NOTICE.
 import { HMEM, tokenize } from '../../vendor/hmem/src/index';
-import type { TraceLogger, AgentLogHint } from '../agents/trace';
+import type { TraceLogger } from '../agents/trace';
 
 const STOP = new Set(['the', 'and', 'for', 'not', 'are', 'was', 'with', 'this', 'that']);
 
@@ -31,10 +31,10 @@ export class BundleMemory {
     return view;
   }
 
-  private log(action: string, input: string, output: string, confidence: number | null = null, agentLog?: AgentLogHint): void {
+  private log(action: string, input: string, output: string, confidence: number | null = null): void {
     this.trace?.log({
       agent_name: 'memory', action, input_summary: input.slice(0, 200), output_summary: output.slice(0, 200),
-      target_agent: null, confidence, retry_count: 0, status: 'ok', caller: this.traceCaller, agentLog,
+      target_agent: null, confidence, retry_count: 0, status: 'ok', caller: this.traceCaller,
     });
   }
 

@@ -160,6 +160,36 @@ describe('Workspace backend honesty', () => {
   });
 });
 
+describe('Workspace mid-run failure', () => {
+  it('switches to fallback-memory honestly when the store fails after opening fine', () => {
+    let broken = false;
+    const real = new BundleMemory(path.join(dir, 'h'));
+    const flaky: NoteStore = {
+      addNote: (...a) => { if (broken) throw new Error('disk full'); return real.addNote(...a); },
+      notesForRun: (r) => { if (broken) throw new Error('disk full'); return real.notesForRun(r); },
+      addLesson: (...a) => real.addLesson(...a), recallLessons: (...a) => real.recallLessons(...a),
+      feedback: (...a) => real.feedback(...a),
+    };
+    const trace = new TraceLogger('mid', path.join(dir, 'logs'));
+    const ws = new Workspace('mid', flaky, trace);
+    ws.post(note({ body: 'before failure' }));
+    expect(ws.backend).toBe('hmem-local');
+    broken = true;
+    ws.post(note({ body: 'after failure' }));
+    expect(ws.backend).toBe('fallback-memory');
+    expect(ws.read({}).map((n: any) => n.body)).toEqual(['before failure', 'after failure']);
+    const lines = trace.lines().filter((l) => l.agent_name === 'memory');
+    expect(lines.some((l) => l.action === 'workspace_fallback' && l.status === 'fallback')).toBe(true);
+    expect(lines.filter((l) => l.action === 'post_note').map((l) => l.status)).toEqual(['ok', 'fallback']);
+  });
+
+  it('masks sender, recipient and item names too', () => {
+    const { ws } = make();
+    const n = ws.post(note({ about: 'offer income $77,000', from_agent: 'password: zzz1', to_agent: 'income 88,000' }));
+    expect(JSON.stringify(n)).not.toMatch(/77,000|88,000|zzz1/);
+  });
+});
+
 describe('Workspace lessons', () => {
   it('stores a grading lesson pointing at an offer_checks row and recalls it by topic', () => {
     const { ws } = make();

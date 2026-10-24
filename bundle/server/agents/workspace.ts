@@ -35,7 +35,7 @@ export type NoteInput = Omit<WorkspaceNote, 'run_id'>;
 export interface NoteFilter { about?: string; from_agent?: string; to_agent?: string; type?: WorkspaceNoteType }
 
 export interface LessonInput { text: string; offerCheckId: string; confidence: number }
-export interface Lesson { id: string; text: string; offerCheckId: string | null; confidence: number; score: number }
+export type Lesson = StoredLesson;
 
 export type WorkspaceBackend = 'hmem-local' | 'fallback-memory';
 
@@ -186,10 +186,10 @@ export class Workspace {
     if (!Number.isInteger(input.round) || input.round < 0 || input.round > 2) throw new Error('note round must be 0, 1 or 2');
     return {
       run_id: this.runId,
-      from_agent: input.from_agent.trim(),
-      to_agent: input.to_agent.trim(),
+      from_agent: redact(input.from_agent).trim(),
+      to_agent: redact(input.to_agent).trim(),
       type: input.type,
-      about: input.about.trim(),
+      about: redact(input.about).trim(),
       body: redact(input.body).trim().slice(0, BODY_MAX),
       evidence_sql: redact(String(input.evidence_sql ?? '')).trim().slice(0, SQL_MAX),
       round: input.round,
