@@ -3,8 +3,8 @@
  * The server still decides which programs apply; this only words the confirmation line.
  */
 
-/** States whose own programs Bundle already checks (program rules cover federal + MA). Everyone else sees federal programs plus "coming soon". */
-export const COVERED_STATES = ['MA'] as const;
+/** States whose own programs Bundle checks. Must match the states in data/sample/state-programs.json (a test enforces it). Everyone else sees federal programs plus "coming soon". */
+export const COVERED_STATES = ['CA', 'MA', 'NY'] as const;
 
 export const UNCOVERED_STATE_NOTE = 'Support for your state’s programs is coming soon';
 

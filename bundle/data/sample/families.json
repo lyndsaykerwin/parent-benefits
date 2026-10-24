@@ -10,7 +10,7 @@
     "state": "MA",
     "employer": "Northwind Robotics",
     "householdSize": 3,
-    "annualIncomeCents": 14500000,
+    "annualIncomeCents": null,
     "dcfsaOffered": true,
     "dataConnected": true
   },
@@ -25,7 +25,7 @@
     "state": "MA",
     "employer": "Harbor Analytics",
     "householdSize": 2,
-    "annualIncomeCents": 9800000,
+    "annualIncomeCents": null,
     "dcfsaOffered": false,
     "dataConnected": false
   },
@@ -40,8 +40,53 @@
     "state": "OH",
     "employer": "Buckeye Logistics",
     "householdSize": 3,
-    "annualIncomeCents": 6200000,
+    "annualIncomeCents": null,
     "dcfsaOffered": false,
     "dataConnected": true
+  },
+  {
+    "id": "noor",
+    "userId": null,
+    "isGuest": true,
+    "name": "Noor (sample family)",
+    "birthDate": null,
+    "dueDate": "2026-12-14",
+    "zip": "11201",
+    "state": "NY",
+    "employer": "",
+    "householdSize": 3,
+    "annualIncomeCents": null,
+    "dcfsaOffered": false,
+    "dataConnected": false
+  },
+  {
+    "id": "cal",
+    "userId": null,
+    "isGuest": true,
+    "name": "Cal (sample family)",
+    "birthDate": "2026-09-29",
+    "dueDate": null,
+    "zip": "94110",
+    "state": "CA",
+    "employer": "",
+    "householdSize": 3,
+    "annualIncomeCents": null,
+    "dcfsaOffered": false,
+    "dataConnected": false
+  },
+  {
+    "id": "fern",
+    "userId": null,
+    "isGuest": true,
+    "name": "Fern (sample family)",
+    "birthDate": "2026-10-10",
+    "dueDate": null,
+    "zip": "33101",
+    "state": "FL",
+    "employer": "",
+    "householdSize": 2,
+    "annualIncomeCents": null,
+    "dcfsaOffered": false,
+    "dataConnected": false
   }
 ]

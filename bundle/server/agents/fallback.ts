@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import type { Family } from '../../shared/bundle';
 import type { Candidate } from './types';
-import { screenRule, ruleFallbackText } from './benefits';
+import { screenRule, ruleFallbackText, isCheckWithJob } from './benefits';
 import { addDays, fmtUsd } from './sql';
 import { offlineProblem } from './offerScreen';
 
@@ -29,13 +29,14 @@ export function buildFallbackFillers(family: Family, today: string): { approvedG
   const unborn = !family.birthDate && !!family.dueDate;
   const federalBenefits: Candidate[] = [];
   for (const r of readJson<FallbackRule>('fallback-rules.json')) {
-    if (r.scope !== 'federal' || r.code === 'WIC_SCREEN') continue; // WIC needs the poverty line, which needs Zetaris
-    const screened = screenRule({ code: r.code, scope: r.scope, windowEndDays: r.windowEndDaysFromBirth }, family, family.dcfsaOffered, today);
+    if (r.scope !== 'federal') continue; // stand-ins are federal only; a state's own programs need the checked source
+    const screened = screenRule({ code: r.code, scope: r.scope, windowEndDays: r.windowEndDaysFromBirth }, family, today);
     if ('skip' in screened) continue;
-    const text = ruleFallbackText(r.code, r.title, r.amountCents, screened.deadline, unborn);
+    const checkWithJob = isCheckWithJob(r.code);
+    const text = ruleFallbackText(r.code, r.title, checkWithJob ? null : r.amountCents, screened.deadline, unborn);
     federalBenefits.push({
-      id: `fallback-benefit-${r.code.toLowerCase()}`, kind: 'benefit', title: `${r.title}${unborn ? ' (after birth)' : ''}`,
-      body: `${text} ${NOT_VERIFIED}`, amountCents: r.amountCents, deadline: screened.deadline, verdict: 'info',
+      id: `fallback-benefit-${r.code.toLowerCase()}`, kind: 'benefit', title: `${r.title}${unborn && !checkWithJob ? ' (after birth)' : ''}`,
+      body: `${text} ${NOT_VERIFIED}`, amountCents: checkWithJob ? null : r.amountCents, deadline: screened.deadline, verdict: 'info',
       sources: [{ label: r.title, url: r.sourceUrl }], traceId: 'fallback', agent: 'fallback',
       claim: { type: 'rule', ref: r.code }, evidenceSql: '', retryCount: 0,
     });

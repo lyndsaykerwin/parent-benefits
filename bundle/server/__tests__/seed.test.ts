@@ -28,10 +28,10 @@ describeWithDb('seed()', () => {
     await pool.end();
   });
 
-  it('creates the three seed families', async () => {
+  it('creates the six seed families', async () => {
     const rows = await db.select().from(s.families);
     const ids = rows.map((r: any) => r.id).sort();
-    expect(ids).toEqual(['ava', 'leo', 'maya']);
+    expect(ids).toEqual(['ava', 'cal', 'fern', 'leo', 'maya', 'noor']);
     const ava = rows.find((r: any) => r.id === 'ava');
     expect(ava.state).toBe('OH');
     expect(ava.zip).toBe('43215');
@@ -77,15 +77,19 @@ describeWithDb('seed()', () => {
     expect(orders.length).toBeGreaterThan(0);
   });
 
-  it('seeds zip prefixes, poverty guidelines and is repeatable', async () => {
+  it('seeds every ZIP prefix, the tax and state-program rows, and is repeatable', async () => {
     const zips = await db.select().from(s.zipStates);
     expect(zips.some((z: any) => z.zip3 === '021' && z.state === 'MA')).toBe(true);
     expect(zips.some((z: any) => z.zip3 === '432' && z.state === 'OH')).toBe(true);
-    const pg = await db.select().from(s.povertyGuidelines);
-    expect(pg.find((p: any) => p.householdSize === 4).annualCents).toBe(3300000);
+    expect(zips.length).toBeGreaterThan(900);
+    expect(zips.some((z: any) => z.zip3 === '941' && z.state === 'CA')).toBe(true);
+    const tax = await db.select().from(s.taxParameters);
+    expect(tax.find((p: any) => p.code === 'CHILD_TAX_CREDIT').amountCents).toBe(220000);
+    const sp = await db.select().from(s.statePrograms);
+    expect(sp.map((p: any) => p.code).sort()).toEqual(['CA_PFL', 'MA_CHILD_TAX_CREDIT', 'MA_PFML', 'NY_PFL']);
     const { seed } = await import('../../scripts/seed');
     await seed();
-    expect((await db.select().from(s.families)).length).toBe(3);
+    expect((await db.select().from(s.families)).length).toBe(6);
   }, 60000);
   it('keeps every planted trap in the fixtures', async () => {
     const tx = await db.select().from(s.transactions);
@@ -111,18 +115,21 @@ describeWithDb('seed()', () => {
     for (const o of obs) expect((o.sourceUrl ?? '').trim()).not.toBe('');
   });
 
-  it('pins the fixed ISO dates and cites the poverty guidelines', async () => {
+  it('pins the fixed ISO dates and gives every tax and state row a year and a source link', async () => {
     const fams = await db.select().from(s.families);
     const f = (id: string) => fams.find((x: any) => x.id === id);
     expect(f('maya').birthDate).toBe('2026-10-03');
     expect(f('leo').dueDate).toBe('2026-12-07');
     expect(f('leo').birthDate).toBeNull();
     expect(f('ava').birthDate).toBe('2026-08-24');
-    const pg = await db.select().from(s.povertyGuidelines);
-    expect(pg.length).toBeGreaterThanOrEqual(8);
-    for (const p of pg) {
-      expect(p.year).toBe(2026);
-      expect(p.sourceUrl).toMatch(/aspe\.hhs\.gov/);
+    for (const table of [s.taxParameters, s.statePrograms]) {
+      const rows = await db.select().from(table);
+      expect(rows.length).toBeGreaterThan(0);
+      for (const r of rows) {
+        expect(r.year).toBeGreaterThanOrEqual(2026);
+        expect((r.sourceUrl ?? '').trim()).toMatch(/^https:\/\//);
+      }
     }
+    expect((await db.select().from(s.benefitRules)).some((r: any) => r.code === 'WIC_SCREEN')).toBe(false);
   });
 });

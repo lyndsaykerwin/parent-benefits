@@ -1,0 +1,54 @@
+[
+  {
+    "state": "MA",
+    "year": 2026,
+    "code": "MA_CHILD_TAX_CREDIT",
+    "title": "Massachusetts Child and Family Tax Credit",
+    "amountCents": 44000,
+    "windowStartDaysFromBirth": null,
+    "windowEndDaysFromBirth": null,
+    "condition": "Massachusetts resident filing a state tax return; $440 per eligible individual for tax year 2024 and later",
+    "sourceUrl": "https://www.mass.gov/info-details/massachusetts-child-and-family-tax-credit",
+    "verified": true,
+    "checkedOn": "2026-10-24"
+  },
+  {
+    "state": "MA",
+    "year": 2026,
+    "code": "MA_PFML",
+    "title": "Massachusetts Paid Family and Medical Leave",
+    "amountCents": null,
+    "windowStartDaysFromBirth": 0,
+    "windowEndDaysFromBirth": 365,
+    "condition": "worked in Massachusetts and paid into the leave program; up to 12 weeks to bond with a child, finished before the child's first birthday",
+    "sourceUrl": "https://www.mass.gov/info-details/paid-family-and-medical-leave-pfml-overview-and-benefits",
+    "verified": true,
+    "checkedOn": "2026-10-24"
+  },
+  {
+    "state": "NY",
+    "year": 2026,
+    "code": "NY_PFL",
+    "title": "New York Paid Family Leave",
+    "amountCents": null,
+    "windowStartDaysFromBirth": 0,
+    "windowEndDaysFromBirth": 365,
+    "condition": "worked in New York and covered by Paid Family Leave; up to 12 weeks of job-protected leave in 2026",
+    "sourceUrl": "https://paidfamilyleave.ny.gov",
+    "verified": true,
+    "checkedOn": "2026-10-24"
+  },
+  {
+    "state": "CA",
+    "year": 2026,
+    "code": "CA_PFL",
+    "title": "California Paid Family Leave",
+    "amountCents": null,
+    "windowStartDaysFromBirth": 0,
+    "windowEndDaysFromBirth": 365,
+    "condition": "worked in California and paid into State Disability Insurance; up to 8 weeks of paid leave in a 12-month period",
+    "sourceUrl": "https://edd.ca.gov/en/disability/faq_pfl_benefits_payments/",
+    "verified": true,
+    "checkedOn": "2026-10-24"
+  }
+]

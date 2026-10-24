@@ -2,6 +2,7 @@ import os from 'os';
 import fs from 'fs';
 import path from 'path';
 import { planBenefits, revise } from '../agents/benefits';
+import { BENEFIT_RULES } from '../../scripts/seed';
 import { verify } from '../agents/factChecker';
 import { TraceLogger } from '../agents/trace';
 import { FakeGenerator } from '../adapters/llm';
@@ -11,41 +12,26 @@ const TODAY = '2026-10-23';
 
 const maya = {
   id: 'maya', userId: null, isGuest: true, name: 'Maya', birthDate: '2026-10-03', dueDate: null,
-  zip: '02139', state: 'MA', employer: 'Northwind', householdSize: 3, annualIncomeCents: 14500000,
-  dcfsaOffered: true, dataConnected: true,
+  zip: '02139', state: 'MA', employer: '', householdSize: 3, annualIncomeCents: null,
+  dcfsaOffered: false, dataConnected: true,
 };
-const leo = { ...maya, id: 'leo', birthDate: null, dueDate: '2026-12-07', householdSize: 2, annualIncomeCents: 9800000, dcfsaOffered: false, dataConnected: false };
-const ava = { ...maya, id: 'ava', birthDate: '2026-08-24', zip: '43215', state: 'OH', annualIncomeCents: 6200000, dcfsaOffered: false };
+const leo = { ...maya, id: 'leo', birthDate: null, dueDate: '2026-12-07', dataConnected: false };
+const ava = { ...maya, id: 'ava', birthDate: '2026-08-24', zip: '43215', state: 'OH' };
 
 const res = (rows: any[]) => ({ headers: Object.keys(rows[0] ?? {}), rows, ms: 1 });
 
-// Rows shaped like the benefit_rules seed in scripts/seed.ts.
-const RULES = [
-  { code: 'TRUMP_ACCOUNT', title: 'Trump Account: $1,000 federal starter deposit', scope: 'federal', amount_cents: 100000, window_start_days_from_birth: null, window_end_days_from_birth: null, condition: 'born 2025-01-01..2028-12-31', source_url: 'https://trumpaccounts.gov' },
-  { code: 'FEDERAL_CHILD_TAX_CREDIT', title: 'Federal Child Tax Credit', scope: 'federal', amount_cents: 220000, window_start_days_from_birth: null, window_end_days_from_birth: null, condition: 'claimed on the yearly tax return', source_url: 'https://www.irs.gov/ctc' },
-  { code: 'INSURANCE_ADD_BABY', title: 'Add your baby to health insurance', scope: 'federal', amount_cents: null, window_start_days_from_birth: 0, window_end_days_from_birth: 30, condition: 'birth is a qualifying life event', source_url: 'https://www.healthcare.gov/sep' },
-  { code: 'DCFSA_LIFE_EVENT', title: 'Start or change your Dependent Care FSA', scope: 'federal', amount_cents: null, window_start_days_from_birth: 0, window_end_days_from_birth: 30, condition: 'employer offers a Dependent Care FSA', source_url: 'https://www.irs.gov/p503' },
-  { code: 'MA_CHILD_TAX_CREDIT', title: 'Massachusetts Child and Family Tax Credit', scope: 'MA', amount_cents: 44000, window_start_days_from_birth: null, window_end_days_from_birth: null, condition: 'MA resident', source_url: 'https://www.mass.gov/ctc' },
-  { code: 'MA_PFML', title: 'Massachusetts Paid Family and Medical Leave', scope: 'MA', amount_cents: null, window_start_days_from_birth: 0, window_end_days_from_birth: 365, condition: 'worked in MA', source_url: 'https://www.mass.gov/pfml' },
-  { code: 'WIC_SCREEN', title: 'WIC food benefits screening', scope: 'federal', amount_cents: null, window_start_days_from_birth: null, window_end_days_from_birth: null, condition: 'income <= 185% FPL', source_url: 'https://www.fns.usda.gov/wic' },
-];
-const POVERTY: Record<number, number> = { 1: 1596000, 2: 2164000, 3: 2732000, 4: 3300000 };
+// Rows shaped exactly like the benefit_rules seed (federal rules + every state program), built from the real seed data.
+const RULES = BENEFIT_RULES.map((r) => ({
+  code: r.code, title: r.title, scope: r.scope, amount_cents: r.amountCents ?? null,
+  window_start_days_from_birth: r.windowStartDaysFromBirth ?? null, window_end_days_from_birth: r.windowEndDaysFromBirth ?? null,
+  condition: r.condition ?? '', source_url: r.sourceUrl,
+}));
 
-function ctxWith(family: any, opts: { income?: number | null; poverty?: Record<number, number>; llm?: FakeGenerator } = {}) {
+function ctxWith(family: any, opts: { llm?: FakeGenerator; rules?: any[] } = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ben-'));
   const trace = new TraceLogger('t', dir);
-  const income = opts.income === undefined ? family.annualIncomeCents : opts.income;
-  const poverty = opts.poverty ?? POVERTY;
   const runQuery = jest.fn(async (sql: string) => {
-    if (sql.includes('poverty_guidelines')) {
-      const m = /household_size = (\d+)/.exec(sql);
-      const size = m ? Number(m[1]) : -1;
-      return res(poverty[size] ? [{ household_size: size, annual_cents: poverty[size], year: 2026 }] : []);
-    }
-    if (sql.includes('v_planner_family')) {
-      return res([{ id: family.id, birth_date: family.birthDate, due_date: family.dueDate, state: family.state, household_size: family.householdSize, annual_income_cents: income, dcfsa_offered: family.dcfsaOffered }]);
-    }
-    if (sql.includes('benefit_rules')) return res(RULES);
+    if (sql.includes('benefit_rules')) return res(opts.rules ?? RULES);
     throw new Error('unexpected sql ' + sql);
   });
   const ctx = { runId: 't', family, z: { runQuery } as any, llm: opts.llm ?? new FakeGenerator([]), memory: {} as any, trace } as AgentContext;
@@ -64,12 +50,11 @@ describe('benefits planner', () => {
     expect(out.MA_CHILD_TAX_CREDIT.amountCents).toBe(44000);
     expect(out.FEDERAL_CHILD_TAX_CREDIT.amountCents).toBe(220000);
     expect(out.FEDERAL_CHILD_TAX_CREDIT.deadline).toBeNull();
-    expect(out.DCFSA_LIFE_EVENT.deadline).toBe('2026-11-02'); // employer offers a DCFSA
     expect(out.MA_PFML.deadline).toBe('2027-10-03');
-    expect(out.WIC_SCREEN).toBeUndefined(); // income is above 185% of the line
+    expect(out.WIC_SCREEN).toBeUndefined(); // poverty/WIC rule is gone
     for (const c of Object.values(out) as any[]) {
       expect(c.kind).toBe('benefit');
-      expect(c.verdict).toBe('likely');
+      expect(c.verdict).toBe(c.claim.ref === 'DCFSA_LIFE_EVENT' ? 'info' : 'likely');
       expect(c.agent).toBe('benefits');
       expect(c.claim.type).toBe('rule');
       expect(c.sources.length).toBeGreaterThan(0);
@@ -83,6 +68,7 @@ describe('benefits planner', () => {
     const { ctx } = ctxWith(ava);
     const out = await planBenefits(ctx, TODAY);
     expect(out.some((c) => String(c.claim.ref).startsWith('MA_'))).toBe(false);
+    expect(out.some((c) => /Massachusetts/.test(c.title + c.body))).toBe(false);
     const refs = out.map((c) => c.claim.ref);
     expect(refs).toEqual(expect.arrayContaining(['TRUMP_ACCOUNT', 'FEDERAL_CHILD_TAX_CREDIT']));
     expect(out.length).toBeGreaterThanOrEqual(2);
@@ -94,7 +80,6 @@ describe('benefits planner', () => {
     const out = byRef(await planBenefits(ctx, TODAY));
     expect(out.INSURANCE_ADD_BABY.deadline).toBe('2027-01-06');
     expect(out.INSURANCE_ADD_BABY.title).toContain('(after birth)');
-    expect(out.DCFSA_LIFE_EVENT).toBeUndefined(); // leo's employer has no DCFSA
   });
 
   it('a family born 2026-06-01 has no INSURANCE_ADD_BABY', async () => {
@@ -116,32 +101,43 @@ describe('benefits planner', () => {
     function ctx2(birth: string) { return ctxWith({ ...maya, birthDate: birth }).ctx; }
   });
 
-  it('WIC: shown at or below 185% of the poverty line from the table, hidden above, skipped when income is unknown', async () => {
-    // household of 3: line 27,320 dollars -> 185% = 50,542 dollars = 5054200 cents
-    const at = byRef(await planBenefits(ctxWith(maya, { income: 5054200 }).ctx, TODAY));
-    expect(at.WIC_SCREEN).toBeDefined();
-    expect(at.WIC_SCREEN.amountCents).toBeNull();
-    expect(at.WIC_SCREEN.deadline).toBeNull();
-    const over = byRef(await planBenefits(ctxWith(maya, { income: 5054201 }).ctx, TODAY));
-    expect(over.WIC_SCREEN).toBeUndefined();
-    const unknown = byRef(await planBenefits(ctxWith(maya, { income: null }).ctx, TODAY));
-    expect(unknown.WIC_SCREEN).toBeUndefined();
-    // the line comes from the table, not from code: change the table and the answer changes
-    const bigger = byRef(await planBenefits(ctxWith(maya, { income: 6000000, poverty: { 3: 4000000 } }).ctx, TODAY));
-    expect(bigger.WIC_SCREEN).toBeDefined();
-    // no table row for this household size: skipped, not guessed
-    const none = byRef(await planBenefits(ctxWith(maya, { income: 100, poverty: {} }).ctx, TODAY));
-    expect(none.WIC_SCREEN).toBeUndefined();
+  it('Dependent Care FSA is a "Check with your job" card for every family: no dollars, no deadline, not counted, never "your employer offers"', async () => {
+    for (const fam of [maya, leo, ava, { ...maya, dcfsaOffered: true }]) {
+      const out = byRef(await planBenefits(ctxWith(fam, { llm: new FakeGenerator([JSON.stringify({ body: 'Your employer offers it, worth $7,500.' })]) }).ctx, TODAY));
+      const c = out.DCFSA_LIFE_EVENT;
+      expect(c).toBeDefined();
+      expect(c.title).toMatch(/check with your job/i);
+      expect(c.amountCents).toBeNull();
+      expect(c.deadline).toBeNull();
+      expect(c.verdict).toBe('info'); // 'info' cards never count in the Receipt
+      expect(c.body).not.toMatch(/\$|your employer offers|employer offers a/i);
+      expect(c.body).toMatch(/ask|check/i);
+    }
   });
 
-  it('never puts income in the trace, even for a WIC card', async () => {
-    const { ctx, trace } = ctxWith(maya, { income: 5000000 });
+  it('never reads exact income or household size, and never puts income in the trace', async () => {
+    const { ctx, trace, runQuery } = ctxWith({ ...maya, annualIncomeCents: 5000000, householdSize: 4 });
     const out = await planBenefits(ctx, TODAY);
-    expect(out.map((c) => c.claim.ref)).toContain('WIC_SCREEN');
+    for (const [sql] of runQuery.mock.calls) expect(String(sql)).not.toMatch(/income|household|poverty|v_planner_family/i);
     const text = JSON.stringify(trace.lines()) + out.map((c) => c.body + c.title).join(' ');
     expect(text).not.toContain('5000000');
     expect(text).not.toContain('50000');
-    expect(text).not.toMatch(/145000|14500000/);
+  });
+
+  it('only asks for federal rules and the family\'s own state, and drops any other state\'s rule even if the source sends it', async () => {
+    const { ctx, runQuery } = ctxWith(ava);
+    const out = await planBenefits(ctx, TODAY);
+    const sql = String(runQuery.mock.calls[0][0]);
+    expect(sql).toMatch(/scope = 'federal' OR scope = 'OH'/);
+    expect(out.map((c) => c.claim.ref)).not.toEqual(expect.arrayContaining(['MA_PFML']));
+    expect(out.every((c) => !['MA_PFML', 'NY_PFL', 'CA_PFL', 'MA_CHILD_TAX_CREDIT'].includes(String(c.claim.ref)))).toBe(true);
+  });
+
+  it('a state with no programs in the table still gets the federal cards and a "coming soon" trace line, never an error', async () => {
+    const { ctx, trace } = ctxWith({ ...ava, state: 'FL' });
+    const out = await planBenefits(ctx, TODAY);
+    expect(out.length).toBeGreaterThanOrEqual(2);
+    expect(JSON.stringify(trace.lines())).toContain('Support for your state’s programs is coming soon');
   });
 
   it('uses the model body when it only mentions allowed dollar amounts, else the deterministic text', async () => {
@@ -158,21 +154,21 @@ describe('benefits planner', () => {
     expect(c.INSURANCE_ADD_BABY.body).toMatch(/likely/);
   });
 
-  it('I4: a typed-in family skips the planner-view lookup and still gets benefit cards from the rules table', async () => {
+  it('a typed-in family needs no family lookup and still gets benefit cards from the rules table', async () => {
     const guest = { ...maya, id: 'guest-ab12cd34', dataConnected: false, annualIncomeCents: null };
     const { ctx, runQuery } = ctxWith(guest);
     const cards = await planBenefits(ctx, TODAY);
     expect(runQuery.mock.calls.some(([sql]) => String(sql).includes('v_planner_family'))).toBe(false);
-    expect(runQuery.mock.calls.some(([sql]) => String(sql).includes('poverty_guidelines'))).toBe(false);
     const refs = cards.map((c) => c.claim.ref);
     expect(refs).toEqual(expect.arrayContaining(['TRUMP_ACCOUNT', 'FEDERAL_CHILD_TAX_CREDIT', 'INSURANCE_ADD_BABY']));
-    expect(refs).not.toContain('WIC_SCREEN');
   });
 
-  it('refuses an unsafe family id without querying', async () => {
-    const { ctx, runQuery } = ctxWith({ ...maya, id: "x'; DROP" });
-    expect(await planBenefits(ctx, TODAY)).toEqual([]);
-    expect(runQuery).not.toHaveBeenCalled();
+  it('an unsafe state value is never put in the query: federal rules only', async () => {
+    const { ctx, runQuery } = ctxWith({ ...maya, state: "MA' OR 1=1 --" });
+    const out = await planBenefits(ctx, TODAY);
+    expect(String(runQuery.mock.calls[0][0])).not.toContain('1=1');
+    expect(String(runQuery.mock.calls[0][0])).toMatch(/scope = 'federal'/);
+    expect(out.length).toBeGreaterThan(0);
   });
 
   it('every candidate passes the Fact-Checker when the source agrees', async () => {
