@@ -132,3 +132,12 @@ No wave-2 chunk is blocked from being built and tested offline.
 - g. DONE: `SEED_FAMILY_IDS` now includes noor, cal, fern (`bundleRoutes` reads that list, so no separate whitelist); demoDate test extended. `scripts/eval.ts` FAMILIES left at the 3 trap families on purpose.
 - h. DONE: `poverty_guidelines` label removed from `client/src/lib/howWeChecked.ts`.
 - i. DONE: new migration `migrations/0001_drop_poverty_guidelines.sql` (`DROP TABLE IF EXISTS`) plus drizzle journal/snapshot. Not applied to Neon (only to a throwaway local scratch database, since deleted).
+
+## Mac flip-on (live) results (Oct 24)
+
+- Neon: `drizzle-kit push` created the 5 new tables (purchase_items, offer_checks, run_results, tax_parameters, state_programs). Its extra plan (drop NOT NULL on id/other columns, DROP SEQUENCE spike0_amazon_orders_id_seq) errored on the first id statement and changed nothing; no data lost, spike0_amazon_orders untouched (5 rows). benefit_rules.scope needed no DB change (TypeScript-only type). poverty_guidelines dropped by running migrations/0001 SQL directly. Do not use `db:push` again without checking its plan (it wants to drop NOT NULL constraints and the spike0 sequence).
+- Seed: re-ran `npm run seed` (deletes only the 6 sample family ids and the reference tables, all sample data): 6 families, 11 purchase items, 8 benefit rules, 16 offers, 3 tax parameters, 4 state programs, 929 ZIP3 rows.
+- Zetaris register: `--apply --replace=v_recall_orders,v_clawback_tx` all OK: 5 tables + 7 views (v_purchase_items, v_clawback_tx, v_recall_orders, v_offer_verdicts, v_offer_audit, v_family_profile, v_coach_feedback). ROW_NUMBER/CAST accepted (no rejection).
+- Recorded live: `zetaris:record` (saved verdicts and offer audit return 0 rows, 6 family profiles, 6 coach issues), agents-live, benefits-live, court-live, `examples:regen -- --live` (all 6 families plus guest runs). A few first attempts hit transient Zetaris errors (thrift/ResultSet null) and succeeded on retry.
+- Model: MODEL_FAST set to nvidia/nemotron-3-nano-omni-30b-a3b-reasoning; model:check nvidia fast OK, vision item and receipt OK (reasoning model check hit 429 rate limit; some suggested ids 404 on this account).
+- Tests: eval.test.ts and sampleMode.test.ts loosenings reverted to strict; `npm test` 634 passed, 10 skipped, 0 failed. Offline eval: maya $48.99, leo $0, ava $14.58, scout 3 accepted / 2 rejected.
