@@ -151,49 +151,49 @@ All paths are inside `bundle/` unless they start with the repo root.
 - **Owns:** `server/adapters/llm.ts`, `scripts/check-model.ts`, `server/__tests__/llm.test.ts`, `server/__tests__/checkModel.test.ts`, `server/__tests__/fallback.test.ts`, new `server/__tests__/helpers/fakeOpenAiServer.ts`.
 - **Depends on:** nothing.
 - **Cloud-testable:** fully, against the fake OpenAI-compatible server (proved in `cloud-build-assessment.md` §1: labels received, hung call cut off, 401 on wrong password, retry after a server error). The real Nightshift run is a Mac flip-on step.
-- **Status:** pending
+- **Status:** building (dispatched 18:17 UTC, own worktree, deadline 18:45 UTC)
 
 **W1-DB: local Postgres test setup + Neon schema for every new table**
 - **Scope:** section 6 timeline Saturday; `cloud-build-assessment.md` item 21 and its database note. Switch to the standard `pg` library when `DATABASE_URL` points at this machine; a one-command local test database; new tables `purchase_items` (with `seller`, `quantity`, `input_hash`; section 3), `offer_checks` (every section 1 field including the value and time fields `true_value_cents`, `effort_minutes_estimate`, `steps_count`, `payout_wait_days_max`, `payout_wait_days_min`, `claim_window_days`, plus `status`, `rule_citations`, recall fields; no family column), `run_results` (section 6 item 9), `tax_parameters`, `state_programs`; all added to `BUNDLE_TABLE_NAMES`; generated setup SQL; `package.json` entries for `pg`, a `db:test` script and a `zetaris:record` script name (the script itself is W2-ZREG's).
 - **Owns:** `shared/schema.ts`, `server/db.ts`, `drizzle.config.ts`, `package.json`, `package-lock.json`, `migrations/` (new), new `scripts/db-test-setup.sh`, new `server/__tests__/schema.test.ts`.
 - **Depends on:** nothing.
 - **Cloud-testable:** fully on the local Postgres 16 (`service postgresql start`). Applying to the real Neon (`npm run db:push`) is a Mac flip-on step.
-- **Status:** pending
+- **Status:** building (dispatched 18:17 UTC, own worktree, deadline 18:45 UTC)
 
 **W1-TRACE: Lyndsay's JSONL trace logger**
 - **Scope:** plan section 1c. Inside `TraceLogger.log()`, also write her 10-field line to `logs/run_<trace_id>.jsonl` (trace id `bundle_<runId>`) and print it to stdout; keep today's `run-<runId>.jsonl` unchanged. Her enums as fixed lists in a shared file; the translation rules from section 1c (agent names, actions, statuses, confidence rule, housekeeping lines kept out); a checker that rejects any line with a wrong field or value; `redact()` applied. Let the Zetaris and memory adapters take the calling agent's name (`withTrace(trace, agentName)`), so their lines are written under that agent.
 - **Owns:** `server/agents/trace.ts`, new `shared/agentLog.ts`, `server/__tests__/trace.test.ts`, new `server/__tests__/agentLog.test.ts`, `server/adapters/zetaris.ts`, `server/adapters/memory.ts`, `server/__tests__/zetaris.test.ts`, `server/__tests__/memory.test.ts`.
 - **Depends on:** nothing.
 - **Cloud-testable:** fully (sample mode; tests read the file and capture stdout).
-- **Status:** pending
+- **Status:** building (dispatched 18:17 UTC, own worktree, deadline 18:45 UTC)
 
 **W1-OWNER: owner view split (server-side trimming + screens)**
 - **Scope:** section 6 item 1 and section 4. The parent response is trimmed on the server; debate text, data-source names, memory rules, traces and Approve appear only with `x-reviewer-token`; the learning loop still passes end to end. The "Checking" screen shows only parent-safe step wording.
 - **Owns:** `server/routes/bundleRoutes.ts`, `server/security.ts`, `server/__tests__/bundleRoutes.test.ts`, `server/__tests__/securityHeaders.test.ts`, `client/src/pages/Feed.tsx`, `client/src/pages/CardDetail.tsx`, `client/src/pages/Smarter.tsx`, `client/src/components/HowWeCheckedSections.tsx`, `client/src/lib/howWeChecked.ts` and their tests in `client/src/**/__tests__/`.
 - **Depends on:** nothing.
 - **Cloud-testable:** fully (Jest + Testing Library; the `agent-browser` skill for screenshots).
-- **Status:** pending
+- **Status:** building (dispatched 18:17 UTC, own worktree, deadline 18:45 UTC)
 
 **W1-FP: fine-print tests, verdicts and Value Score (pure rules, no agent wiring)**
 - **Scope:** section 6 item 4 and section 1. Verdicts `approve`, `approve_with_catch`, `reject` (a code "reject" always overrides an AI "approve"); code rules for FP-01 to FP-12 and the 3 controls (`audit-ma-poverty-evals.md` 3b), including FP-07 auto-renew for every family (Ohio fix); fine-print fingerprint; Value Score (value + time to get it) and the "worth your time" rule with the four labelled default settings (`WORTH_MIN_VALUE_CENTS` 500, `WORTH_MAX_EFFORT_MINUTES` 30, `WORTH_EFFORT_VALUE_CENTS` 2000, `WORTH_MAX_PAYOUT_DAYS` 90) and `payout_wait_days_min` wording; card type fields for the Value Score.
 - **Owns:** `server/agents/offerScreen.ts`, new `server/agents/finePrintRules.ts`, new `server/agents/valueScore.ts`, new `server/__tests__/finePrintRules.test.ts`, new `server/__tests__/valueScore.test.ts`, new `data/sample/fine-print-cases/` (made-up FP-01..12 + control offer texts), `shared/bundle.ts`, `server/agents/types.ts`.
 - **Depends on:** nothing.
 - **Cloud-testable:** fully offline (code rules decide). Real-AI results are reported later with the Mac rerun.
-- **Status:** pending
+- **Status:** building (dispatched 18:17 UTC, own worktree, deadline 18:45 UTC)
 
 **W1-ONB: onboarding top row from the mocks**
 - **Scope:** section 7 top row; mocks `onboarding-design/project/Main.dc.html`, `Date.dc.html`, `Zip.dc.html` (never the middle row; `Work.dc.html` is cut); `onboarding-spec.md` where still current (`onboarding-design/round4-mock-review.md` §3). Expecting / baby's here, due-date wording, typed ZIP with at most a "Use my location" button, uncovered-state message; hands off to the Checking screen.
 - **Owns:** `client/src/pages/Onboarding.tsx`, new `client/src/pages/__tests__/Onboarding.test.tsx`, new `client/src/lib/onboarding.ts`.
 - **Depends on:** nothing (the run request shape change, if any, is a hand-off patch for W2-RESULTS).
 - **Cloud-testable:** fully (screen tests + `agent-browser` screenshots compared against the mocks).
-- **Status:** pending
+- **Status:** building (dispatched 18:17 UTC, own worktree, deadline 18:45 UTC)
 
 **W1-RECALL: recall safety + product-matching rules**
 - **Scope:** section 6 item 5 and section 3 "Key finding". Finished-FDA filter; `no_false_recall` test; a pure matcher module (exact codes first: UPC, model number, lot code; then brand + product type from a fixed list, sale dates, seller, size/model clash; evidence line), scored on the saved 739 CPSC + FDA rows in `experiments/entity-resolution/data/` and the 14 new test cases.
 - **Owns:** `server/agents/recall.ts` (filter only this wave), new `server/agents/recallMatch.ts`, `server/__tests__/recall.test.ts`, new `server/__tests__/recallMatch.test.ts`, `evals/expected.json`.
 - **Depends on:** nothing.
 - **Cloud-testable:** fully offline on the saved recall rows. The changed Zetaris view needs a recording run (Mac list).
-- **Status:** pending
+- **Status:** building (dispatched 18:17 UTC, own worktree, deadline 18:45 UTC)
 
 ### Wave 2: data, intake and memory (needs wave 1)
 
