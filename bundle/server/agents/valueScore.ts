@@ -13,6 +13,35 @@ import type { DayRange, ValueScore } from '../../shared/bundle';
 export interface WorthSettings { minValueCents: number; maxEffortMinutes: number; effortValueCents: number; maxPayoutDays: number }
 export const WORTH_DEFAULTS: WorthSettings = { minValueCents: 500, maxEffortMinutes: 30, effortValueCents: 2000, maxPayoutDays: 90 };
 
+/**
+ * Effort-minute ESTIMATES used by the fine-print check (finePrintRules.ts). These are rough guesses at how long each
+ * kind of step takes a parent, not measurements; each is a {min, max} range in minutes and can be changed in the
+ * environment as "min,max" (e.g. EFFORT_MAIL_IN_MINUTES=10,20).
+ *   EFFORT_BASE_MINUTES       2,5    – reading the offer and clicking through, for every offer
+ *   EFFORT_PER_STEP_MINUTES   5,10   – each thing to do (receipt, form, account, app, opt-in, mail-in, call...)
+ *   EFFORT_MAIL_IN_MINUTES    10,20  – extra for printing, packing and posting a mail-in
+ *   EFFORT_PHONE_CALL_MINUTES 10,30  – extra for a phone call (hold times vary)
+ *   EFFORT_IN_STORE_MINUTES   15,30  – extra for a trip to the store
+ */
+export interface MinuteRange { min: number; max: number }
+export interface EffortSettings { base: MinuteRange; perStep: MinuteRange; mailIn: MinuteRange; phoneCall: MinuteRange; inStore: MinuteRange }
+export const EFFORT_DEFAULTS: EffortSettings = {
+  base: { min: 2, max: 5 }, perStep: { min: 5, max: 10 }, mailIn: { min: 10, max: 20 }, phoneCall: { min: 10, max: 30 }, inStore: { min: 15, max: 30 },
+};
+const range = (v: string | undefined, fallback: MinuteRange): MinuteRange => {
+  const parts = (v ?? '').split(',').map((x) => Number(x.trim()));
+  return parts.length === 2 && parts.every((n) => Number.isFinite(n) && n >= 0) && parts[0] <= parts[1] && v!.trim() !== '' ? { min: parts[0], max: parts[1] } : fallback;
+};
+export function effortSettings(env: Record<string, string | undefined> = process.env): EffortSettings {
+  return {
+    base: range(env.EFFORT_BASE_MINUTES, EFFORT_DEFAULTS.base),
+    perStep: range(env.EFFORT_PER_STEP_MINUTES, EFFORT_DEFAULTS.perStep),
+    mailIn: range(env.EFFORT_MAIL_IN_MINUTES, EFFORT_DEFAULTS.mailIn),
+    phoneCall: range(env.EFFORT_PHONE_CALL_MINUTES, EFFORT_DEFAULTS.phoneCall),
+    inStore: range(env.EFFORT_IN_STORE_MINUTES, EFFORT_DEFAULTS.inStore),
+  };
+}
+
 const num = (v: string | undefined, fallback: number): number => {
   const n = Number(v);
   return v !== undefined && v.trim() !== '' && Number.isFinite(n) && n >= 0 ? n : fallback;
