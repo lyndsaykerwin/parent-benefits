@@ -15,7 +15,8 @@ import * as benefits from '../agents/benefits';
 import * as fc from '../agents/factChecker';
 import { runBundle, assembleFeed, BANNER } from '../agents/orchestrator';
 import { ZetarisUnavailable } from '../adapters/zetaris';
-import { FakeGenerator } from '../adapters/llm';
+import { ChainGenerator, FakeGenerator, OpenAICompatGenerator } from '../adapters/llm';
+import { makeGenerator } from '../bundleDeps';
 import type { Candidate } from '../agents/types';
 import type { Family } from '../../shared/bundle';
 
@@ -291,5 +292,42 @@ describe('runBundle', () => {
     (benefits.revise as jest.Mock).mockImplementation(async (c: Candidate) => ({ ...c, retryCount: 1 }));
     const r = await runBundle('maya', deps);
     expect(r.cards.find((c) => c.id === 'benefit-fix')).toBeDefined();
+  });
+});
+
+describe('run clock resets per family run', () => {
+  afterEach(() => { jest.restoreAllMocks(); });
+
+  it('two runs more than 300 s apart both get real AI answers (no stale deadline)', async () => {
+    let now = Date.parse('2026-10-24T12:00:00Z');
+    jest.spyOn(Date, 'now').mockImplementation(() => now);
+    const okClient = { chat: { completions: { create: jest.fn().mockResolvedValue({ choices: [{ message: { content: 'ok' } }] }) } } };
+    const provider = new OpenAICompatGenerator('k', 'http://x', { reasoning: 'r', fast: 'f' }, okClient, 1000, { provider: 'nvidia', runDeadlineMs: 300_000, retryDelayMs: 0 });
+    const chain = new ChainGenerator([provider], { runDeadlineMs: 300_000 });
+    const { deps } = setup();
+    const answers: string[] = [];
+    (benefits.planBenefits as jest.Mock).mockImplementation(async (ctx: { llm: { generate(p: string): Promise<string> } }) => {
+      answers.push(await ctx.llm.generate('q').catch((e: { reason?: string }) => `failed:${e.reason}`));
+      return [ben('a', { amountCents: 100 }), ben('b', { amountCents: 200 })];
+    });
+    now += 10_000;
+    await runBundle('maya', { ...deps, llm: chain });
+    now += 400_000; // more than the 300 s run limit after the first run started
+    await runBundle('maya', { ...deps, llm: chain });
+    expect(answers).toEqual(['ok', 'ok']);
+  });
+
+  it('LIVE_MODEL=true with SAMPLE_MODE=true picks the live chain generator', () => {
+    const keys = ['SAMPLE_MODE', 'LIVE_MODEL', 'MODEL_PROVIDER', 'NIGHTSHIFT_TOKEN', 'NIGHTSHIFT_TOKEN_FILE', 'MODEL_API_KEY', 'MODEL_REASONING', 'MODEL_FAST'];
+    const saved = Object.fromEntries(keys.map((k) => [k, process.env[k]]));
+    try {
+      Object.assign(process.env, { SAMPLE_MODE: 'true', LIVE_MODEL: 'true', MODEL_PROVIDER: 'auto', NIGHTSHIFT_TOKEN: 'fake-token', MODEL_API_KEY: 'fake-key', MODEL_REASONING: 'r', MODEL_FAST: 'f' });
+      delete process.env.NIGHTSHIFT_TOKEN_FILE;
+      expect(makeGenerator()).toBeInstanceOf(ChainGenerator);
+      process.env.LIVE_MODEL = 'false';
+      expect(makeGenerator()).not.toBeInstanceOf(ChainGenerator);
+    } finally {
+      for (const k of keys) { if (saved[k] === undefined) delete process.env[k]; else process.env[k] = saved[k]; }
+    }
   });
 });

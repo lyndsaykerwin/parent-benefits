@@ -16,7 +16,7 @@ import path from 'path';
 import type { BundleResult, Family } from '../shared/bundle';
 import { loadEnv } from '../server/env';
 import { ZetarisClient } from '../server/adapters/zetaris';
-import { createGenerator, FakeGenerator, NvidiaGenerator, UnavailableGenerator, type Generator } from '../server/adapters/llm';
+import { ChainGenerator, createGenerator, FakeGenerator, isLiveModel, NvidiaGenerator, UnavailableGenerator, type Generator } from '../server/adapters/llm';
 import { BundleMemory } from '../server/adapters/memory';
 import { runBundle } from '../server/agents/orchestrator';
 import { TraceLogger } from '../server/agents/trace';
@@ -25,7 +25,14 @@ import { MemoryStore, type BundleStore } from '../server/bundleStore';
 import { resolveToday } from '../server/demoDate';
 import { scout, type ScoutResult } from './scout';
 
-export type LlmMode = 'real-model' | 'offline-fallback' | 'fake-llm' | `nvidia:${string}` | `nvidia-partial:${string}`;
+/**
+ * Which model really produced the numbers, named after the provider that answered (never just the first one configured):
+ * `nightshift:<reasoning>+<fast>` / `nvidia-direct:<reasoning>+<fast>`; `-partial` when some calls got no answer (offline text used);
+ * `mixed:` with per-provider answer counts when both providers answered during one eval.
+ */
+export type ProviderMode = 'nightshift' | 'nvidia-direct';
+export type LlmMode = 'real-model' | 'offline-fallback' | 'fake-llm'
+  | `${ProviderMode}:${string}` | `${ProviderMode}-partial:${string}` | `mixed:${string}` | `mixed-partial:${string}`;
 
 export interface Scoreboard {
   trapsCaught: number;
@@ -77,7 +84,7 @@ const loadFamily = async (id: string): Promise<Family> => {
 };
 
 export function llmCallsOf(llm: Generator): { ok: number; failed: number } | null {
-  return llm instanceof NvidiaGenerator ? { ...llm.stats } : null;
+  return llm instanceof NvidiaGenerator || llm instanceof ChainGenerator ? { ...llm.stats } : null;
 }
 
 /** Before a real-model eval: needs a key and model ids, and one tiny call to each model must work. Returns an error message, or null if fine. */
@@ -87,20 +94,29 @@ export async function preflightModel(llm: Generator): Promise<string | null> {
     try { await llm.generate('Reply with one word: ok', undefined, which); }
     catch (e) { return `Pre-flight call to the ${which} model failed: ${(e as Error).message}. Nothing was changed.`; }
   }
-  if (llm instanceof NvidiaGenerator) llm.resetStats();
+  if (llm instanceof NvidiaGenerator || llm instanceof ChainGenerator) llm.resetStats();
   return null;
 }
+
+const providerMode = (p: NvidiaGenerator): ProviderMode => (p.provider === 'nvidia' ? 'nvidia-direct' : 'nightshift');
 
 export function llmModeOf(llm: Generator): LlmMode {
   if (llm instanceof UnavailableGenerator) return 'offline-fallback';
   if (llm instanceof FakeGenerator) return 'fake-llm';
-  // A real NVIDIA model: record exactly which ids were behind the numbers.
-  // Only claim a real model if calls actually succeeded; any failed call (offline text used instead) makes it "partial".
-  if (llm instanceof NvidiaGenerator) {
-    const ids = `${llm.models.reasoning}+${llm.models.fast}`;
-    const { ok, failed } = llm.stats;
-    if (ok === 0) return 'offline-fallback';
-    return failed > 0 ? `nvidia-partial:${ids}` : `nvidia:${ids}`;
+  // Only claim a real model if calls actually succeeded, and name the provider(s) that really answered.
+  // Any call that got no answer at all (offline text used instead) makes it "partial".
+  if (llm instanceof NvidiaGenerator || llm instanceof ChainGenerator) {
+    const providers = llm instanceof ChainGenerator ? llm.providers : [llm];
+    const unanswered = llm instanceof ChainGenerator ? llm.unanswered : llm.stats.failed;
+    const answered = providers.filter((p) => p.stats.ok > 0);
+    if (answered.length === 0) return 'offline-fallback';
+    const partial = unanswered > 0 ? '-partial' : '';
+    if (answered.length === 1) {
+      const p = answered[0];
+      return `${providerMode(p)}${partial}:${p.models.reasoning}+${p.models.fast}` as LlmMode;
+    }
+    const counts = answered.map((p) => `${providerMode(p)}=${p.stats.ok}(${p.models.reasoning}+${p.models.fast})`).join(',');
+    return `mixed${partial}:${counts}` as LlmMode;
   }
   return 'real-model';
 }
@@ -267,7 +283,9 @@ export function mergeLearning(existing: Record<string, unknown> | null, sb: Scor
 async function main() {
   loadEnv();
   const args = new Set(process.argv.slice(2));
-  const llm = createGenerator();
+  // Only build a live model chain when asked (LIVE_MODEL=true or --require-model); otherwise the eval runs offline on purpose.
+  const wantLive = args.has('--require-model') || isLiveModel();
+  const llm = wantLive ? createGenerator() : new UnavailableGenerator('live model not requested (set LIVE_MODEL=true or pass --require-model)');
   if (args.has('--require-model')) {
     const problem = await preflightModel(llm);
     if (problem) { console.error(problem); process.exit(llm instanceof UnavailableGenerator ? 2 : 1); }

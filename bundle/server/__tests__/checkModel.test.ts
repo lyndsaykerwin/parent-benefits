@@ -1,7 +1,8 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { pickModels, updateEnvText, writeEnvFileAtomic } from '../../scripts/check-model';
+import { pickModels, updateEnvText, writeEnvFileAtomic, pickNightshiftModels, checkNightshift } from '../../scripts/check-model';
+import { startFakeOpenAiServer, type FakeOpenAiServer } from './helpers/fakeOpenAiServer';
 import { llmModeOf, llmCallsOf, preflightModel } from '../../scripts/eval';
 import { FakeGenerator, NvidiaGenerator, UnavailableGenerator } from '../adapters/llm';
 
@@ -83,12 +84,12 @@ describe('llmMode only claims a model that really answered', () => {
     await expect(g.generate('b')).rejects.toThrow();
     await g.generate('c');
     expect(llmCallsOf(g)).toEqual({ ok: 2, failed: 1 });
-    expect(llmModeOf(g)).toBe('nvidia-partial:r+f');
+    expect(llmModeOf(g)).toBe('nvidia-direct-partial:r+f');
   });
-  it('all ok is nvidia:, all failed is offline-fallback, no calls is not a real-model claim', async () => {
+  it('all ok is nvidia-direct:, all failed is offline-fallback, no calls is not a real-model claim', async () => {
     const ok = new NvidiaGenerator('k', 'http://x', { reasoning: 'r', fast: 'f' }, fakeClient(good));
     await ok.generate('a');
-    expect(llmModeOf(ok)).toBe('nvidia:r+f');
+    expect(llmModeOf(ok)).toBe('nvidia-direct:r+f');
     const dead = new NvidiaGenerator('k', 'http://x', { reasoning: 'r', fast: 'f' }, fakeClient(bad));
     await expect(dead.generate('a')).rejects.toThrow();
     expect(llmModeOf(dead)).toBe('offline-fallback');
@@ -121,5 +122,34 @@ describe('writeEnvFileAtomic', () => {
     expect(fs.readFileSync(file, 'utf8')).toBe('KEEP=1\nMODEL_FAST=f\nMODEL_REASONING=r\n');
     expect(fs.statSync(file).mode & 0o777).toBe(0o600);
     expect(fs.readdirSync(dir)).toEqual(['x.env']);
+  });
+});
+
+describe('Nightshift check', () => {
+  let srv: FakeOpenAiServer | undefined;
+  afterEach(async () => { await srv?.close(); srv = undefined; });
+
+  it('pickNightshiftModels prefers the meterless deep/fast modes, and exact Nemotron names when listed', () => {
+    expect(pickNightshiftModels(['meterless/text.deep', 'meterless/text.fast', 'other'])).toEqual(
+      expect.objectContaining({ reasoning: 'meterless/text.deep', fast: 'meterless/text.fast', modes: ['meterless/text.deep', 'meterless/text.fast'] }));
+    expect(pickNightshiftModels(['meterless/deep', 'meterless/fast']).reasoning).toBe('meterless/deep');
+    const p = pickNightshiftModels(['meterless/text.deep', 'nvidia/nemotron-3-super-120b', 'nvidia/nemotron-3-nano-30b']);
+    expect(p).toEqual(expect.objectContaining({ reasoning: 'nvidia/nemotron-3-super-120b', fast: 'nvidia/nemotron-3-nano-30b' }));
+  });
+
+  it('lists models with the token and the meterless-app label', async () => {
+    srv = await startFakeOpenAiServer({ token: 'tok', models: ['meterless/text.deep', 'meterless/text.fast'] });
+    const r = await checkNightshift(srv.baseUrl, 'tok');
+    expect(r).toEqual({ status: 'ok', ids: ['meterless/text.deep', 'meterless/text.fast'] });
+    expect(srv.requests[0].headers['meterless-app']).toBe('bundle');
+  });
+
+  it('says the token is wrong on 401 (not "offline")', async () => {
+    srv = await startFakeOpenAiServer({ token: 'right' });
+    expect((await checkNightshift(srv.baseUrl, 'wrong')).status).toBe('wrong-token');
+  });
+
+  it('says Nightshift is not running when nothing answers', async () => {
+    expect((await checkNightshift('http://127.0.0.1:1/v1', 't')).status).toBe('not-running');
   });
 });
