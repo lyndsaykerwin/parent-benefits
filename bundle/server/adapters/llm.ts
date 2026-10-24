@@ -23,6 +23,8 @@ export interface Generator {
   generate(prompt: string, system?: string, model?: ModelMode): Promise<string>;
   /** Vision: an image plus a question in, text out. Only some generators have it. */
   see?(req: SeeRequest): Promise<string>;
+  /** Start a new family run: resets the run time limit. Only some generators keep one. */
+  startRun?(): void;
 }
 
 /** Why a model call did not give text. */
@@ -99,11 +101,15 @@ class RunClock {
   }
 }
 
-/** Race any promise against a hard time limit. Used for the per-call stop and by the orchestrator for a whole run. */
-export function withRunDeadline<T>(p: Promise<T>, ms: number, what = 'run deadline'): Promise<T> {
+/**
+ * Race any promise against a hard time limit. Used for the per-call stop and by the orchestrator for a whole run.
+ * The failure reason is 'deadline' unless the caller says otherwise (the per-call stop passes 'timeout' so it is retried);
+ * the label only changes the message.
+ */
+export function withRunDeadline<T>(p: Promise<T>, ms: number, what = 'run deadline', reason: FailReason = 'deadline'): Promise<T> {
   let timer: NodeJS.Timeout | undefined;
   const late = new Promise<never>((_, reject) => {
-    timer = setTimeout(() => reject(new ModelUnavailable(`${what} (${ms} ms) reached`, what === 'run deadline' ? 'deadline' : 'timeout')), ms);
+    timer = setTimeout(() => reject(new ModelUnavailable(`${what} (${ms} ms) reached`, reason)), ms);
   });
   return Promise.race([p, late]).finally(() => clearTimeout(timer));
 }
@@ -186,7 +192,7 @@ export class OpenAICompatGenerator implements Generator {
     const req = this.client.chat.completions.create(this.body(model, messages), { signal: ac.signal, timeout: this.timeoutMs });
     req.catch(() => {}); // the race below may abandon it
     try {
-      const res = await withRunDeadline(req, this.timeoutMs, 'call time limit');
+      const res = await withRunDeadline(req, this.timeoutMs, 'call time limit', 'timeout');
       const text = res.choices[0]?.message?.content;
       if (!text) throw new ModelUnavailable('empty response', 'empty');
       return { text, model: res.model ?? model };
@@ -267,8 +273,15 @@ export class ChainGenerator implements Generator {
     this.clock = new RunClock(opts.runDeadlineMs);
   }
 
-  /** Call at the start of each family run: resets the deadline and gives every provider another chance. */
-  startRun(): void { this.clock.start(); this.down.clear(); }
+  /**
+   * Call at the start of each family run: resets the deadline (the chain's and every provider's own clock,
+   * which otherwise keeps counting from server start) and gives every provider another chance.
+   */
+  startRun(): void {
+    this.clock.start();
+    for (const p of this.providers) p.startRun();
+    this.down.clear();
+  }
 
   get stats(): CallStats {
     const s = emptyStats();
@@ -310,6 +323,9 @@ export class ChainGenerator implements Generator {
   }
 
   see(req: SeeRequest): Promise<string> {
+    if (!this.providers.some((p) => p.hasVision())) {
+      return Promise.reject(new ModelUnavailable('no AI provider in the chain has a vision model (MODEL_VISION / MODEL_VISION_RECEIPT)', 'config'));
+    }
     return this.run((p) => p.see(req), (p) => p.hasVision());
   }
 }
@@ -371,7 +387,14 @@ export const isLiveModel = (env: NodeJS.ProcessEnv = process.env): boolean => en
 
 function readToken(env: NodeJS.ProcessEnv): string {
   if (env.NIGHTSHIFT_TOKEN_FILE) {
-    try { return fs.readFileSync(env.NIGHTSHIFT_TOKEN_FILE, 'utf8').trim(); } catch { return ''; }
+    try {
+      return fs.readFileSync(env.NIGHTSHIFT_TOKEN_FILE, 'utf8').trim();
+    } catch (e) {
+      // Never print the token itself; only the file path and why it could not be read.
+      const why = (e as NodeJS.ErrnoException)?.code ?? 'unreadable';
+      process.stderr.write(`[llm] warning: could not read NIGHTSHIFT_TOKEN_FILE at ${env.NIGHTSHIFT_TOKEN_FILE} (${why}); Nightshift will be skipped.\n`);
+      return '';
+    }
   }
   return (env.NIGHTSHIFT_TOKEN ?? '').trim();
 }

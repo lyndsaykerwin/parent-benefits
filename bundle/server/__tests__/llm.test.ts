@@ -6,6 +6,7 @@ import {
   generatorConfigFromEnv, ModelUnavailable, withRunDeadline, NIGHTSHIFT_HEADERS, providerLabel, isLiveModel,
 } from '../adapters/llm';
 import { startFakeOpenAiServer, type FakeOpenAiServer } from './helpers/fakeOpenAiServer';
+import { checkNightshift } from '../../scripts/check-model';
 
 type Ok = { ok: boolean };
 const isOk = (x: unknown): x is Ok => typeof x === 'object' && x !== null && typeof (x as Ok).ok === 'boolean';
@@ -230,10 +231,52 @@ describe('ChainGenerator (Nightshift → NVIDIA direct → offline)', () => {
   });
 });
 
+describe('ChainGenerator run clock (long server uptime)', () => {
+  afterEach(() => { jest.useRealTimers(); });
+  const okClient = () => ({ chat: { completions: { create: jest.fn().mockResolvedValue({ choices: [{ message: { content: 'ok' } }] }) } } });
+
+  it('startRun() resets every provider clock, so calls work after 5+ minutes of uptime', async () => {
+    jest.useFakeTimers({ now: new Date('2026-10-24T12:00:00Z') });
+    const mkP = (provider: 'nightshift' | 'nvidia') =>
+      new OpenAICompatGenerator('k', 'http://x', { reasoning: 'r', fast: 'f' }, okClient(), 1000, { provider, runDeadlineMs: 300_000, retryDelayMs: 0 });
+    const c = new ChainGenerator([mkP('nightshift'), mkP('nvidia')], { runDeadlineMs: 300_000 });
+    jest.setSystemTime(new Date('2026-10-24T12:06:00Z')); // 6 minutes after the chain (and providers) were built
+    c.startRun();
+    await expect(c.generate('q')).resolves.toBe('ok');
+    expect(c.lastAnswer?.provider).toBe('nightshift');
+  });
+
+  it('the Generator interface exposes startRun so callers can reset any generator', () => {
+    const g: import('../adapters/llm').Generator = new ChainGenerator([]);
+    expect(typeof g.startRun).toBe('function');
+  });
+});
+
+describe('ChainGenerator.see without a vision provider', () => {
+  it('fails with a clear config error and makes no call', async () => {
+    const create = jest.fn();
+    const p = new OpenAICompatGenerator('k', 'http://x', { reasoning: 'r', fast: 'f' }, { chat: { completions: { create } } }, 1000, { provider: 'nightshift' });
+    const c = new ChainGenerator([p]);
+    const err = await c.see({ prompt: 'x', imageBase64: 'A', mimeType: 'image/png' }).catch((e) => e);
+    expect(err).toBeInstanceOf(ModelUnavailable);
+    expect(err.reason).toBe('config');
+    expect(err.message).toMatch(/vision model/);
+    expect(create).not.toHaveBeenCalled();
+  });
+});
+
 describe('withRunDeadline', () => {
   it('returns the value when in time and throws ModelUnavailable when late', async () => {
     expect(await withRunDeadline(Promise.resolve(1), 100)).toBe(1);
     await expect(withRunDeadline(new Promise(() => {}), 20)).rejects.toBeInstanceOf(ModelUnavailable);
+  });
+
+  it('reports "deadline" even with a custom label, unless a reason is given', async () => {
+    const e1 = (await withRunDeadline(new Promise(() => {}), 10, 'family run').catch((e) => e)) as ModelUnavailable;
+    expect(e1.reason).toBe('deadline');
+    expect(e1.message).toMatch(/family run/);
+    const e2 = (await withRunDeadline(new Promise(() => {}), 10, 'call time limit', 'timeout').catch((e) => e)) as ModelUnavailable;
+    expect(e2.reason).toBe('timeout');
   });
 });
 
@@ -252,6 +295,27 @@ describe('settings → chain', () => {
     const g = createGenerator(cfg);
     expect(g).toBeInstanceOf(ChainGenerator);
     expect((g as ChainGenerator).providers.map((p) => p.provider)).toEqual(['nightshift', 'nvidia']);
+  });
+
+  it('warns on stderr (path, never a token) when NIGHTSHIFT_TOKEN_FILE cannot be read, and skips Nightshift', () => {
+    const missing = path.join(os.tmpdir(), 'ns-missing-dir-xyz', 'proxy-token');
+    const spy = jest.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    try {
+      const cfg = generatorConfigFromEnv({ NIGHTSHIFT_TOKEN_FILE: missing, NIGHTSHIFT_TOKEN: 'env-secret', MODEL_API_KEY: 'k', MODEL_REASONING: 'r', MODEL_FAST: 'f' });
+      expect(cfg.nightshift?.token).toBe('');
+      const out = spy.mock.calls.map((c) => String(c[0])).join('');
+      expect(out).toContain(missing);
+      expect(out).toMatch(/warning/i);
+      expect(out).not.toContain('env-secret');
+      expect(createGenerator(cfg)).toBeInstanceOf(NvidiaGenerator);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it('checkNightshift says "not-running" when nothing listens at the address', async () => {
+    const r = await checkNightshift('http://127.0.0.1:1/v1', 'tok', 2000);
+    expect(r.status).toBe('not-running');
   });
 
   it('MODEL_PROVIDER=nvidia skips Nightshift; offline gives the unavailable generator', async () => {
