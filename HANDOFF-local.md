@@ -17,7 +17,7 @@ Each chunk: builder → independent done check + tightness check → fixer → r
 | W1-FP | Code rules for FP-01..12 + 3 controls, verdicts approve / approve_with_catch / reject (code reject beats AI approve), fingerprint, Value Score = value + time to get it, worth-your-time settings | Fixed: S&H fees, prompt injection, auto-bill, negation, month-name dates; one rule set shared with offerScreen. Known gap: fees written in words ("five dollars and ninety-nine cents") |
 | W1-ONB | Onboarding top row from the mocks (expecting / baby's here / sample family → due date or birthday → ZIP), "1 of 3" | Fixed: only MA shown as covered; honest message when the server can't check a state yet |
 | W1-RECALL | Only finished ("Terminated") FDA recalls filtered (FDA feed stays); no_false_recall; pure matcher (UPC, model no., lot code, brand + type, dates, seller, evidence line) | Fixed: partial barcodes, phone numbers, brand check on model match. Honest held-out score to quote: **7 of 8, 0 false alarms (first run)** |
-| W1-LLM | Nightshift → NVIDIA Nemotron direct → saved text; per-call time limit + one retry; run clock reset per run; LIVE_MODEL switch; vision `see()`; scoreboard label names the provider that actually answered | See status line at the bottom |
+| W1-LLM | Nightshift → NVIDIA Nemotron direct → saved text; per-call time limit + one retry; run clock reset per run; LIVE_MODEL switch; vision `see()`; scoreboard label names the provider that actually answered | Fixed: run clock reset per run, deadline label, token-file warning, scoreboard label names the provider that answered |
 
 ## Hand-off patches still to apply (files owned by later chunks)
 - `server/agents/orchestrator.ts` (W4-ORCH): give each agent its own traced Zetaris/memory connection (`withTrace(trace, agentName)`) so log lines name the right agent.
@@ -40,3 +40,5 @@ Waves 2–6 in the tracker: W2 (Zetaris registration + saved-verdict query #38, 
 
 ## How to resume locally
 `git pull origin main`, open `bundle-plan-v3.build-tracker.md`, and continue with wave 2 using the same rule: builders in separate worktrees, separate QC agents, fixers, re-QC, merge only on pass.
+
+**Status at handoff:** all 7 wave-1 chunks QC-passed and merged. Full suite on the merged result: 460 passed, 8 skipped, 0 failed (`npx tsc --noEmit` clean). Integration QC across the merged whole was dispatched at 18:42 UTC; result recorded in the tracker if it finished before the stop.

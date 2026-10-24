@@ -151,7 +151,7 @@ All paths are inside `bundle/` unless they start with the repo root.
 - **Owns:** `server/adapters/llm.ts`, `scripts/check-model.ts`, `server/__tests__/llm.test.ts`, `server/__tests__/checkModel.test.ts`, `server/__tests__/fallback.test.ts`, new `server/__tests__/helpers/fakeOpenAiServer.ts`.
 - **Depends on:** nothing.
 - **Cloud-testable:** fully, against the fake OpenAI-compatible server (proved in `cloud-build-assessment.md` §1: labels received, hung call cut off, 401 on wrong password, retry after a server error). The real Nightshift run is a Mac flip-on step.
-- **Status:** built; re-QC FAIL on eval label honesty only → fixer running
+- **Status:** qc-pass (merged; fixes: run clock per run, deadline label, token warning, honest provider label 166e43e; re-QC pass)
 
 **W1-DB: local Postgres test setup + Neon schema for every new table**
 - **Scope:** section 6 timeline Saturday; `cloud-build-assessment.md` item 21 and its database note. Switch to the standard `pg` library when `DATABASE_URL` points at this machine; a one-command local test database; new tables `purchase_items` (with `seller`, `quantity`, `input_hash`; section 3), `offer_checks` (every section 1 field including the value and time fields `true_value_cents`, `effort_minutes_estimate`, `steps_count`, `payout_wait_days_max`, `payout_wait_days_min`, `claim_window_days`, plus `status`, `rule_citations`, recall fields; no family column), `run_results` (section 6 item 9), `tax_parameters`, `state_programs`; all added to `BUNDLE_TABLE_NAMES`; generated setup SQL; `package.json` entries for `pg`, a `db:test` script and a `zetaris:record` script name (the script itself is W2-ZREG's).
