@@ -3,7 +3,7 @@ import path from 'path';
 import crypto from 'crypto';
 import { Router, type Request, type Response } from 'express';
 import rateLimit from 'express-rate-limit';
-import type { BundleResult, Family } from '../../shared/bundle';
+import type { BundleReceipt, BundleResult, Family, FeedCard } from '../../shared/bundle';
 import type { Generator } from '../adapters/llm';
 import type { BundleMemory } from '../adapters/memory';
 import { runBundle, newRunId, type RunDeps } from '../agents/orchestrator';
@@ -52,6 +52,84 @@ function tokenOk(supplied: unknown, expected: string): boolean {
   return crypto.timingSafeEqual(a, b);
 }
 
+// ---------- owner view split (plan section 4 / section 6 item 1) ----------
+// Parents get a trimmed result, built here on the server, so nothing owner-only can leak through the API:
+// no trace ids, agent names, SQL, debate text or memory-rule text. The reviewer token unlocks the full result.
+
+const PARENT_CARD_KEYS = ['id', 'kind', 'title', 'body', 'amountCents', 'deadline', 'verdict', 'sources'] as const;
+type ParentCard = Pick<FeedCard, (typeof PARENT_CARD_KEYS)[number]>;
+export const CAUGHT_BY_PARENT_REPORTS = 'Other parents reported a catch like this one, so we left it out.';
+const CAUGHT_GENERIC = 'We found a catch in the fine print, so we left it out.';
+const OWNER_ONLY_TEXT = /zetaris|\bv_[a-z_]+\b|\bselect\b|\bcited\b|case law|court|memory|mem-[\w-]+/i;
+
+/** One plain sentence for a caught offer. A memory rule's own text and the court's argument stay owner-only. */
+export function parentCaughtReason(body: string): string {
+  if (/case law applies/i.test(body) || /\[cited [^\]]+\]/i.test(body)) return CAUGHT_BY_PARENT_REPORTS;
+  const one = body.replace(/^Court was offline;\s*/i, '').trim();
+  const first = (one.split(/(?<=[.!?])\s/)[0] ?? '').trim();
+  if (!first || OWNER_ONLY_TEXT.test(first)) return CAUGHT_GENERIC;
+  const text = first.charAt(0).toUpperCase() + first.slice(1);
+  return text.length > 120 ? `${text.slice(0, 117)}…` : text;
+}
+
+function parentCard(c: FeedCard, caught = false): ParentCard {
+  const out = {} as Record<string, unknown>;
+  for (const k of PARENT_CARD_KEYS) out[k] = (c as unknown as Record<string, unknown>)[k];
+  out.sources = (c.sources ?? []).map((s) => ({ label: s.label, url: s.url }));
+  out.body = caught ? parentCaughtReason(c.body) : parentBody(c.body);
+  return out as ParentCard;
+}
+
+/** finePrintCourt's offline approval says "Not reviewed by the AI court." Parents get plain words instead. */
+export const PARENT_UNCHECKED_TEXT = "We couldn't fully check this offer's fine print.";
+export function parentBody(body: string): string {
+  return body
+    .replace(/Offline screen:\s*no flagged terms found\./gi, 'No flagged terms found.')
+    .replace(/Not reviewed by the AI court\./g, PARENT_UNCHECKED_TEXT);
+}
+
+/** Receipt fields copied one by one, so a field added later never reaches parents by accident. */
+function parentReceipt(r: BundleReceipt): BundleReceipt {
+  return {
+    moneyBackCents: r.moneyBackCents, likelyBenefitsCents: r.likelyBenefitsCents,
+    deadlineCount: r.deadlineCount, nextDeadline: r.nextDeadline, itemsChecked: r.itemsChecked,
+  };
+}
+
+/** The parent-safe copy of a run result. */
+export function parentResult(r: BundleResult): BundleResult {
+  return {
+    familyId: r.familyId, runId: r.runId, receipt: parentReceipt(r.receipt), banner: r.banner,
+    cards: r.cards.map((c) => parentCard(c)) as FeedCard[],
+    ...(r.blocked ? { blocked: r.blocked.map((c) => parentCard(c, true)) as FeedCard[] } : {}),
+  };
+}
+
+/** The "Checking" screen's steps, in parent words (no agent names), and which trace line marks each one. */
+export const PARENT_STEPS: { key: string; label: string; started: (l: TraceLine[]) => boolean; done: (l: TraceLine[]) => boolean }[] = [
+  { key: 'money', label: 'Money you can get back', started: (l) => l.some((x) => x.agent_name === 'clawback'), done: (l) => l.some((x) => x.action === 'find_clawbacks') },
+  { key: 'recalls', label: 'Your items vs. official recall lists', started: (l) => l.some((x) => x.agent_name === 'recall'), done: (l) => l.some((x) => x.action === 'check_recalls') },
+  { key: 'benefits', label: 'Programs and deadlines for your family', started: (l) => l.some((x) => x.agent_name === 'benefits'), done: (l) => l.some((x) => x.action === 'plan_benefits') },
+  { key: 'deals', label: 'Deals, read for hidden catches', started: (l) => l.some((x) => x.agent_name === 'fine_print_court'), done: (l) => l.some((x) => x.agent_name === 'fact_checker') },
+  { key: 'double_check', label: 'Every card double-checked against its source', started: (l) => l.some((x) => x.agent_name === 'fact_checker'), done: (l) => l.some((x) => x.action === 'assemble') },
+];
+export type ParentStep = { key: string; label: string; state: 'waiting' | 'working' | 'done' };
+
+function readTrace(e: RunEntry): TraceLine[] {
+  const file = path.join(e.logsDir, `run-${e.runId.replace(/[^A-Za-z0-9_-]/g, '_')}.jsonl`);
+  try {
+    return fs.readFileSync(file, 'utf8').split('\n').filter(Boolean).flatMap((l) => { try { return [JSON.parse(l) as TraceLine]; } catch { return []; } });
+  } catch { return []; }
+}
+
+function progressFor(e: RunEntry): ParentStep[] {
+  const lines = readTrace(e);
+  return PARENT_STEPS.map((s) => ({
+    key: s.key, label: s.label,
+    state: e.status === 'done' || s.done(lines) ? 'done' : s.started(lines) ? 'working' : 'waiting',
+  }));
+}
+
 export function createBundleRouter(deps: ApiDeps): Router {
   const router = Router();
   const runs = new Map<string, RunEntry>();
@@ -60,6 +138,8 @@ export function createBundleRouter(deps: ApiDeps): Router {
   const maxPerIp = deps.maxInFlightPerIp ?? 2;
   const inFlightByIp = new Map<string, number>();
   const knownFamilies = new Set<string>(SEED_FAMILY_IDS);
+  const isOwner = (req: Request) => tokenOk(req.header('x-reviewer-token'), deps.reviewerToken());
+  const view = (req: Request, r: BundleResult) => (isOwner(req) ? r : parentResult(r));
 
   const runLimiter = rateLimit({
     windowMs: deps.runLimit?.windowMs ?? WINDOW_MS, limit: deps.runLimit?.limit ?? 10,
@@ -136,7 +216,7 @@ export function createBundleRouter(deps: ApiDeps): Router {
       const { entry, done } = startRun(family, ip);
       if (req.query.wait === 'true') {
         await done;
-        if (entry.status === 'done') return res.json(entry.result);
+        if (entry.status === 'done') return res.json(view(req, entry.result!));
         return res.status(500).json({ error: entry.error, runId: entry.runId });
       }
       return res.status(202).json({ runId: entry.runId });
@@ -149,18 +229,17 @@ export function createBundleRouter(deps: ApiDeps): Router {
   router.get('/api/runs/:runId', (req, res) => {
     const e = runs.get(req.params.runId);
     if (!e) return res.status(404).json({ error: 'Run not found' });
-    return res.json({ runId: e.runId, familyId: e.familyId, status: e.status, startedAt: e.startedAt, family: e.family, today: e.today, demoDate: e.demoDate, result: e.result ?? null, error: e.error ?? null });
+    return res.json({
+      runId: e.runId, familyId: e.familyId, status: e.status, startedAt: e.startedAt, family: e.family, today: e.today, demoDate: e.demoDate,
+      result: e.result ? view(req, e.result) : null, error: e.error ?? null, progress: progressFor(e), owner: isOwner(req),
+    });
   });
 
   router.get('/api/runs/:runId/trace', (req, res) => {
     const e = runs.get(req.params.runId);
     if (!e) return res.status(404).json({ error: 'Run not found' });
-    const file = path.join(e.logsDir, `run-${e.runId.replace(/[^A-Za-z0-9_-]/g, '_')}.jsonl`);
-    let lines: TraceLine[] = [];
-    try {
-      lines = fs.readFileSync(file, 'utf8').split('\n').filter(Boolean).flatMap((l) => { try { return [JSON.parse(l) as TraceLine]; } catch { return []; } });
-    } catch { /* no lines yet */ }
-    return res.json(lines);
+    if (!isOwner(req)) return res.status(403).json({ error: 'The audit log is for the reviewer only.' });
+    return res.json(readTrace(e));
   });
 
   router.post('/api/feedback', feedbackLimiter, async (req, res) => {
@@ -180,14 +259,18 @@ export function createBundleRouter(deps: ApiDeps): Router {
       } catch (e) {
         console.error('Coach failed:', (e as Error)?.message); // feedback is saved either way
       }
-      return res.json({ ok: true, feedbackId: saved.id, proposals });
+      if (!isOwner(req)) return res.json({ ok: true, feedbackId: saved.id, proposals: [], proposedCount: proposals.length }); // rule text is owner-only
+      return res.json({ ok: true, feedbackId: saved.id, proposals, proposedCount: proposals.length });
     } catch (e) {
       console.error('POST /api/feedback failed:', (e as Error)?.message);
       return res.status(500).json({ error: 'Could not save feedback.' });
     }
   });
 
-  router.get('/api/scoreboard', (_req, res) => {
+  // The scoreboard holds memory-rule text, memory ids, storage details and the model mode: owner-only.
+  // No parent screen shows it (Smarter.tsx asks only with the reviewer code), so parents get a 403.
+  router.get('/api/scoreboard', (req, res) => {
+    if (!isOwner(req)) return res.status(403).json({ error: 'The scoreboard is for the reviewer only.' });
     const file = deps.scoreboardFile?.() ?? path.resolve('logs', 'scoreboard.json');
     try {
       return res.json({ scoreboard: JSON.parse(fs.readFileSync(file, 'utf8')) });
@@ -196,10 +279,13 @@ export function createBundleRouter(deps: ApiDeps): Router {
     }
   });
 
-  router.get('/api/case-law', async (_req, res) => {
+  router.get('/api/case-law', async (req, res) => {
     try {
       const all = await deps.store.listProposals();
-      return res.json({ proposals: all.filter((p) => p.status === 'proposed'), approved: all.filter((p) => p.status === 'approved') });
+      const proposals = all.filter((p) => p.status === 'proposed');
+      const approved = all.filter((p) => p.status === 'approved');
+      if (!isOwner(req)) return res.json({ proposals: [], approved: [], proposedCount: proposals.length, approvedCount: approved.length });
+      return res.json({ proposals, approved, proposedCount: proposals.length, approvedCount: approved.length });
     } catch (e) {
       console.error('GET /api/case-law failed:', (e as Error)?.message);
       return res.status(500).json({ error: 'Could not load case law.' });

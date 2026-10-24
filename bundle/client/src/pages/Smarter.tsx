@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import AppShell from '@/components/AppShell';
 import { api, loadRun, reviewerToken, type Proposal, type Scoreboard } from '@/lib/bundle';
+import { ownerApi } from '@/lib/howWeChecked';
 import { cn } from '@/lib/utils';
 
 function Confidence({ value, dark = false }: { value: number; dark?: boolean }) {
@@ -28,7 +29,7 @@ function Stat({ value, label, accent }: { value: string; label: string; accent?:
 }
 
 export default function Smarter() {
-  const [data, setData] = useState<{ proposals: Proposal[]; approved: Proposal[] } | null>(null);
+  const [data, setData] = useState<{ proposals: Proposal[]; approved: Proposal[]; approvedCount?: number } | null>(null);
   const [board, setBoard] = useState<Scoreboard | null | undefined>(undefined);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [token, setToken] = useState(reviewerToken.get());
@@ -37,10 +38,12 @@ export default function Smarter() {
   const [busyId, setBusyId] = useState<number | null>(null);
   const last = loadRun();
 
+  // Rule text, proposals and the scoreboard are owner-only: the server sends rule text only with the reviewer code.
   const refresh = useCallback(() => {
-    api.caseLaw().then(setData).catch((e) => setLoadError((e as Error).message));
-    api.scoreboard().then((r) => setBoard(r.scoreboard)).catch(() => setBoard(null));
-  }, []);
+    const owner = ownerApi(token);
+    owner.caseLaw().then(setData).catch((e) => setLoadError((e as Error).message));
+    if (token) owner.scoreboard().then((r) => setBoard(r.scoreboard)).catch(() => setBoard(null));
+  }, [token]);
   useEffect(refresh, [refresh]);
 
   async function approve(p: Proposal) {
@@ -77,6 +80,15 @@ export default function Smarter() {
 
       {loadError && <p role="alert" className="mt-5 rounded-2xl bg-[#FBE3E0] px-4 py-3 text-[15px] font-semibold text-[#9E2A21]">{loadError}</p>}
 
+      {!token && data && (
+        <p className="mt-8 rounded-2xl bg-paper px-4 py-3 text-[15px] text-ink-2" data-testid="parent-rules">
+          {(data.approvedCount ?? 0) === 0
+            ? 'Nothing new learned yet. Your reports help Bundle get better for every family.'
+            : `Parents have taught Bundle ${data.approvedCount} ${data.approvedCount === 1 ? 'lesson' : 'lessons'} so far. Thank you for your reports.`}
+        </p>
+      )}
+
+      {token && <>
       <section className="mt-8" aria-labelledby="approved-title">
         <h2 id="approved-title" className="eyebrow text-ink-2">Rules Bundle follows now</h2>
         {data && data.approved.length === 0 && (
@@ -145,6 +157,8 @@ export default function Smarter() {
           </>
         )}
       </section>
+
+      </>}
 
       <details className="mt-10 rounded-2xl border border-line bg-paper p-4" open={!!token}>
         <summary className="min-h-[28px] cursor-pointer text-[15px] font-bold text-ink">Reviewer mode</summary>
