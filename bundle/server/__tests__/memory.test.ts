@@ -77,3 +77,22 @@ describe('BundleMemory', () => {
     expect(t.lines()[0].agent_name).toBe('memory');
   });
 });
+
+describe('BundleMemory notes and lessons (workspace storage)', () => {
+  it('stores run notes with their tags and reads them back in order, scoped to the run', () => {
+    const m = new BundleMemory(path.join(dir, 'h'));
+    m.addNote('r1', '{"a":1}', ['about:o1'], 0.9);
+    m.addNote('r1', '{"a":2}', ['about:o2'], 0.9);
+    m.addNote('r2', '{"a":3}', ['about:o1'], 0.9);
+    expect(m.notesForRun('r1').map((n) => n.content)).toEqual(['{"a":1}', '{"a":2}']);
+    expect(m.notesForRun('r1')[0].tags).toEqual(expect.arrayContaining(['about:o1']));
+    expect(m.notesForRun('r2')).toHaveLength(1);
+  });
+
+  it('keeps notes and lessons out of recallRules', () => {
+    const m = new BundleMemory(path.join(dir, 'h'));
+    m.addNote('r1', 'free shipping offer note', [], 0.9);
+    m.addLesson('free shipping offer lesson', 'oc-1', 0.7);
+    expect(m.recallRules('free shipping offer')).toEqual([]);
+  });
+});
