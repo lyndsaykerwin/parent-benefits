@@ -103,11 +103,11 @@ describe('SAMPLE_MODE learning loop (README steps)', () => {
     expect(res.status).toBe(200);
     // TODO(after `npm run zetaris:record` on the Mac): expect banner null and a 'likely' benefit again. The benefits question changed
     // (any-state rules), so its saved Zetaris answer is stale until re-recorded; until then the honest banner and stand-in cards show.
-    expect([null, "Some sources didn't respond: showing what we could check."]).toContain(res.body.banner);
+    expect(res.body.banner).toBe("Some sources didn't respond: showing what we could check.");
     expect(res.body.cards.length).toBeGreaterThanOrEqual(9);
     expect(res.body.cards.some((c: any) => c.kind === 'benefit')).toBe(true);
     expect(res.body.cards.some((c: any) => c.kind === 'discount' && c.verdict === 'likely')).toBe(true);
-    expect(res.body.receipt.likelyBenefitsCents).toBeGreaterThanOrEqual(0); // TODO: > 0 again after the re-recording (see above)
+    // TODO: assert receipt.likelyBenefitsCents > 0 again after the re-recording (see above)
     expect(res.body.receipt.itemsChecked).toBe(0);
   });
 });

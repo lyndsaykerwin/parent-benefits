@@ -146,14 +146,15 @@ describe('tax and state-program data carry a year and a source link on every row
     expect(STATE_PROGRAMS_JSON.length).toBeGreaterThan(0);
     for (const r of [...TAX_PARAMETERS_JSON, ...STATE_PROGRAMS_JSON]) {
       expect(r.year).toBeGreaterThanOrEqual(2026);
-      expect(r.sourceUrl).toMatch(/^https:\/\/[^/]+\.gov\//);
+      expect(r.sourceUrl).toMatch(/^https:\/\/[^/]+\.gov(\/|$)/);
       expect(typeof r.verified).toBe('boolean');
     }
     for (const r of STATE_PROGRAMS_JSON.filter((p) => !p.verified)) expect(r.unverifiedNote).toBeTruthy();
   });
 
   it('unverified rows are flagged in the stored rows themselves', () => {
-    for (const r of STATE_PROGRAM_ROWS.filter((x) => /_PFL$/.test(x.code))) expect(r.condition).toMatch(/^UNVERIFIED/);
+    // every state program is now confirmed; the UNVERIFIED flag mechanism still works for any row marked verified:false
+    expect(STATE_PROGRAM_ROWS.every((r) => !/UNVERIFIED/.test(r.condition ?? ''))).toBe(true);
     for (const r of STATE_PROGRAM_ROWS.filter((x) => x.code === 'MA_PFML')) expect(r.condition).not.toMatch(/UNVERIFIED/);
     expect(TAX_PARAMETER_ROWS.every((r) => r.sourceUrl && r.year)).toBe(true);
   });

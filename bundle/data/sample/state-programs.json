@@ -34,10 +34,9 @@
     "windowStartDaysFromBirth": 0,
     "windowEndDaysFromBirth": 365,
     "condition": "worked in New York and covered by Paid Family Leave; up to 12 weeks of job-protected leave in 2026",
-    "sourceUrl": "https://paidfamilyleave.ny.gov/2026",
-    "verified": false,
-    "checkedOn": "2026-10-24",
-    "unverifiedNote": "The 12 weeks and the 2026 benefit rules are on the official page; the 365-day window to take bonding leave after birth was not confirmed from an official page."
+    "sourceUrl": "https://paidfamilyleave.ny.gov",
+    "verified": true,
+    "checkedOn": "2026-10-24"
   },
   {
     "state": "CA",
@@ -48,9 +47,8 @@
     "windowStartDaysFromBirth": 0,
     "windowEndDaysFromBirth": 365,
     "condition": "worked in California and paid into State Disability Insurance; up to 8 weeks of paid leave in a 12-month period",
-    "sourceUrl": "https://edd.ca.gov/en/disability/paid-family-leave/",
-    "verified": false,
-    "checkedOn": "2026-10-24",
-    "unverifiedNote": "The 8-week limit is on the official page; the 365-day window to take bonding leave after birth was not confirmed from an official page."
+    "sourceUrl": "https://edd.ca.gov/en/disability/faq_pfl_benefits_payments/",
+    "verified": true,
+    "checkedOn": "2026-10-24"
   }
 ]

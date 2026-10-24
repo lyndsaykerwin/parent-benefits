@@ -3,7 +3,7 @@ import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/re
 import { Router } from 'wouter';
 import { memoryLocation } from 'wouter/memory-location';
 import Onboarding from '../Onboarding';
-import { stateForZip, zipMessage, babyAgeLine } from '@/lib/onboarding';
+import { stateForZip, zipMessage, babyAgeLine, COVERED_STATES } from '@/lib/onboarding';
 
 afterEach(() => cleanup());
 
@@ -19,16 +19,23 @@ const body = (m: jest.Mock) => JSON.parse((m.mock.calls[0] as any[])[1].body);
 const future = (days: number) => new Date(Date.now() + days * 86_400_000).toISOString().slice(0, 10);
 
 describe('onboarding helpers', () => {
+  it('covered states match the states in data/sample/state-programs.json', () => {
+    const fs = require('fs');
+    const path = require('path');
+    const rows = JSON.parse(fs.readFileSync(path.resolve(process.cwd(), 'data/sample/state-programs.json'), 'utf8'));
+    expect([...new Set(rows.map((r: any) => r.state))].sort()).toEqual([...COVERED_STATES].sort());
+  });
   it('maps ZIPs to states', () => {
     expect(stateForZip('02139')).toEqual({ code: 'MA', name: 'Massachusetts', covered: true });
     expect(stateForZip('44101')).toEqual({ code: 'OH', name: 'Ohio', covered: false });
-    expect(stateForZip('94110')).toEqual({ code: 'CA', name: 'California', covered: false });
+    expect(stateForZip('94110')).toEqual({ code: 'CA', name: 'California', covered: true });
+    expect(stateForZip('60601')).toEqual({ code: 'IL', name: 'Illinois', covered: false });
     expect(stateForZip('123')).toBeNull();
   });
   it('covered vs uncovered state wording', () => {
     expect(zipMessage('02139')).toBe('Found it: showing Massachusetts programs plus federal ones');
-    expect(zipMessage('94110')).toContain('Support for your state’s programs is coming soon');
-    expect(zipMessage('94110')).toContain('federal');
+    expect(zipMessage('60601')).toContain('Support for your state’s programs is coming soon');
+    expect(zipMessage('60601')).toContain('federal');
     expect(zipMessage('44101')).toBe('Ohio: showing federal programs. Support for your state’s programs is coming soon.');
   });
   it('baby age line only while 30-day deadlines can still be open', () => {
@@ -73,11 +80,11 @@ describe('Onboarding top row', () => {
     const born = future(-10);
     fireEvent.change(screen.getByLabelText('Birth date'), { target: { value: born } });
     fireEvent.click(screen.getByRole('button', { name: 'Next' }));
-    fireEvent.change(screen.getByLabelText('ZIP code'), { target: { value: '94110' } });
+    fireEvent.change(screen.getByLabelText('ZIP code'), { target: { value: '60601' } });
     expect(screen.getByText(/Support for your state’s programs is coming soon/)).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Looks right' }));
     await waitFor(() => expect(fetchMock).toHaveBeenCalled());
-    expect(body(fetchMock)).toEqual({ zip: '94110', birthDate: born });
+    expect(body(fetchMock)).toEqual({ zip: '60601', birthDate: born });
   });
 
   it('blocks a missing date and a bad ZIP with plain messages', () => {
