@@ -13,17 +13,20 @@ export class BundleMemory {
     this.hmem = new HMEM({ persistDir, actor: 'bundle' });
   }
 
-  /** A view of the same memory that writes every call to the given run trace. */
-  withTrace(trace: TraceLogger): BundleMemory {
+  private traceCaller?: string;
+
+  /** A view of the same memory that writes every call to the given run trace, under the calling agent's name. */
+  withTrace(trace: TraceLogger, agentName?: string): BundleMemory {
     const view = Object.create(this) as BundleMemory;
     (view as any).trace = trace;
+    if (agentName) (view as any).traceCaller = agentName;
     return view;
   }
 
   private log(action: string, input: string, output: string, confidence: number | null = null): void {
     this.trace?.log({
       agent_name: 'memory', action, input_summary: input.slice(0, 200), output_summary: output.slice(0, 200),
-      target_agent: null, confidence, retry_count: 0, status: 'ok',
+      target_agent: null, confidence, retry_count: 0, status: 'ok', caller: this.traceCaller,
     });
   }
 

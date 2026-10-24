@@ -25,6 +25,8 @@ export interface ZetarisOptions {
   cacheDir: string;
   fetchFn?: typeof fetch;
   trace?: TraceLogger;
+  /** Raw name of the agent making the queries (e.g. 'recall'), so its trace lines go under that agent. */
+  traceCaller?: string;
 }
 
 const NUMERIC = /^-?\d+(\.\d+)?$/;
@@ -47,9 +49,9 @@ export class ZetarisClient {
     this.fetchFn = opts.fetchFn ?? fetch;
   }
 
-  /** A copy of this client that writes every query to the given run trace. */
-  withTrace(trace: TraceLogger): ZetarisClient {
-    return new ZetarisClient({ ...this.opts, trace, fetchFn: this.fetchFn });
+  /** A copy of this client that writes every query to the given run trace, under the calling agent's name. */
+  withTrace(trace: TraceLogger, agentName?: string): ZetarisClient {
+    return new ZetarisClient({ ...this.opts, trace, traceCaller: agentName ?? this.opts.traceCaller, fetchFn: this.fetchFn });
   }
 
   private cachePath(sql: string): string {
@@ -79,6 +81,7 @@ export class ZetarisClient {
       agent_name: 'zetaris', action, input_summary: sql.slice(0, 200),
       output_summary: summary, target_agent: null, confidence: null, retry_count: 0,
       status: status === 'degraded' ? 'fallback' : status,
+      caller: this.opts.traceCaller,
     });
   }
 

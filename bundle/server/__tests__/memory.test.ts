@@ -3,6 +3,7 @@ import os from 'os';
 import path from 'path';
 import { BundleMemory } from '../adapters/memory';
 import { TraceLogger } from '../agents/trace';
+import { checkAgentLogLine } from '@shared/agentLog';
 import { FEEDBACK_DELTAS } from '../../vendor/hmem/src/types';
 
 let dir: string;
@@ -59,5 +60,20 @@ describe('BundleMemory', () => {
     m.feedback(id, 'helpful');
     expect(t.lines().map((l) => l.action)).toEqual(['add_rule', 'recall_rules', 'feedback']);
     expect(t.lines().every((l) => l.agent_name === 'memory')).toBe(true);
+  });
+
+  it('writes recall_hmem lines in Lyndsay\'s log under the calling agent', () => {
+    jest.spyOn(process.stdout, 'write').mockImplementation(() => true);
+    const t = new TraceLogger('m2', path.join(dir, 'logs'));
+    const base = new BundleMemory(path.join(dir, 'h'));
+    const id = base.addRule(TEXT, 'feedback:3', 0.7, ['fb1']);
+    const m = base.withTrace(t, 'fine_print_court');
+    m.recallRules('free shipping offer');
+    m.feedback(id, 'helpful');
+    const her = t.agentLines();
+    expect(her).toHaveLength(1);
+    expect(her[0]).toMatchObject({ agent_name: 'FinePrintCourt', action: 'recall_hmem', status: 'success', confidence: 0.7 });
+    expect(checkAgentLogLine(her[0])).toEqual([]);
+    expect(t.lines()[0].agent_name).toBe('memory');
   });
 });
