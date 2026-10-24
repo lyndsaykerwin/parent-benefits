@@ -10,7 +10,7 @@ Lyndsay's asks:
 5. Flow chart in words only (Excalidraw-style boxes and arrows): user input, guardrails, agent system, evals, Zetaris's job, NVIDIA's job, Meterless's job. For submission docs.
 
 ## Phase 1 (parallel)
-- [ ] R1 Email receipts: how to get them (Gmail connect vs forwarding address vs Agentmail inbox), privacy, Google approval rules, fake-data demo, how matching improves → `research-email-receipts.md`
+- [x] R1 (done: forwarding address via Agentmail for hackathon; Gmail connect later) Email receipts: how to get them (Gmail connect vs forwarding address vs Agentmail inbox), privacy, Google approval rules, fake-data demo, how matching improves → `research-email-receipts.md`
 - [ ] R2 Nightshift + NVIDIA: setup steps on the Mac, how the app talks to it, code changes needed, where Nemotron fits, test plan → `research-nightshift-setup.md`
 
 ## Phase 2 (after Phase 1)
