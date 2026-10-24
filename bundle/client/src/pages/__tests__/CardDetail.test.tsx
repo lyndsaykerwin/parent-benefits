@@ -31,3 +31,21 @@ describe('CardDetail feedback section', () => {
     expect(screen.getByText('Report issue')).toBeTruthy();
   });
 });
+
+describe('CardDetail owner view split (W1-OWNER)', () => {
+  const calls = () => ((global as any).fetch as jest.Mock).mock.calls as [string, RequestInit | undefined][];
+  it('a parent (no reviewer code) never asks for the audit log and sees one plain "We checked this" line', async () => {
+    open(base({ id: 'discount-2', title: 'Fine deal', sources: [{ label: 'Store offer page', url: 'https://example.com' }] }), 'cards');
+    await waitFor(() => expect(screen.getByText(/We checked this/)).toBeTruthy());
+    expect(calls().some(([u]) => String(u).includes('/trace'))).toBe(false);
+    expect(screen.queryByText(/audit log/i)).toBeNull();
+    expect(screen.queryByText(/agents? /i)).toBeNull();
+  });
+  it('the owner (reviewer code set) gets the audit log, asked for with the reviewer header', async () => {
+    sessionStorage.setItem('bundle:reviewerToken', 'sekret');
+    open(base({ id: 'discount-2', title: 'Fine deal' }), 'cards');
+    await waitFor(() => expect(calls().some(([u]) => String(u).includes('/trace'))).toBe(true));
+    const [, init] = calls().find(([u]) => String(u).includes('/trace'))!;
+    expect((init?.headers as Record<string, string>)['x-reviewer-token']).toBe('sekret');
+  });
+});

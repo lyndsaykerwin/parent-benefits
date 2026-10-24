@@ -4,6 +4,7 @@ import AppShell from '@/components/AppShell';
 import FeedCardView from '@/components/FeedCardView';
 import { PLAID_TILE, safeSources, agentLabel, api, familyChip, loadRun, saveRun, traceForCard, type SavedRun, type TraceLine } from '@/lib/bundle';
 import { ZetarisSection, MemorySection } from '@/components/HowWeCheckedSections';
+import { ownerApi, ownerToken } from '@/lib/howWeChecked';
 import { cn } from '@/lib/utils';
 
 const STATUS_TEXT: Record<TraceLine['status'], { label: string; cls: string }> = {
@@ -44,7 +45,7 @@ export default function CardDetail() {
   // Opened from a link in a new tab: fetch the finished run from the server instead of this tab's memory.
   useEffect(() => {
     if (!looking || !runParam) return;
-    api.run(runParam)
+    ownerApi().run(runParam)
       .then((st) => {
         if (st.status === 'done' && st.result) {
           const saved: SavedRun = { runId: st.runId, familyId: st.familyId, family: st.family, today: st.today, result: st.result };
@@ -64,10 +65,11 @@ export default function CardDetail() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const owner = !!ownerToken();
   useEffect(() => {
-    if (!run) return;
-    api.trace(run.runId).then(setLines).catch(() => setTraceError(true));
-  }, [run?.runId]);
+    if (!run || !owner) return; // the audit log is owner-only; parents get the plain line below
+    ownerApi().trace(run.runId).then(setLines).catch(() => setTraceError(true));
+  }, [run?.runId, owner]);
 
   const feedHref = run ? `/feed/${encodeURIComponent(run.runId)}` : '/';
   const chip = familyChip(run?.family, run?.today);
@@ -111,10 +113,19 @@ export default function CardDetail() {
 
       <section className="mt-7" aria-labelledby="how-title">
         <h2 id="how-title" className="text-[22px] font-extrabold tracking-[-0.02em]">How we checked</h2>
-        <p className="mt-1 text-[15px] text-ink-2">Every step our agents took for this card, straight from the run’s audit log.</p>
+        {!owner && (
+          <p className="mt-2 rounded-2xl bg-paper px-4 py-3 text-[15px] text-ink-2" data-testid="we-checked">
+            {card.verdict === 'blocked'
+              ? 'We checked this offer’s fine print and left it out of your feed.'
+              : card.kind === 'coming_soon'
+                ? 'This is a preview of a feature we are still building.'
+                : 'We checked this against its official source before showing it to you.'}
+          </p>
+        )}
+        {owner && <p className="mt-1 text-[15px] text-ink-2">Every step our agents took for this card, straight from the run’s audit log.</p>}
 
-        {lines === null && !traceError && <p className="mt-4 text-[15px] text-ink-2">Loading the audit log…</p>}
-        {traceError && <p className="mt-4 text-[15px] text-ink-2">The audit log for this run is no longer available on the server.</p>}
+        {owner && lines === null && !traceError && <p className="mt-4 text-[15px] text-ink-2">Loading the audit log…</p>}
+        {owner && traceError && <p className="mt-4 text-[15px] text-ink-2">The audit log for this run is no longer available on the server.</p>}
         {lines !== null && steps.length === 0 && (
           <p className="mt-4 rounded-2xl bg-paper px-4 py-3 text-[15px] text-ink-2">
             {card.traceId === 'fallback'

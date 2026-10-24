@@ -1,5 +1,35 @@
 import type { FeedCard } from '@shared/bundle';
-import type { TraceLine } from './bundle';
+import { reviewerToken, type RunStatus, type TraceLine } from './bundle';
+
+// ---------- owner view split (W1-OWNER) ----------
+// The server trims what parents get; these helpers send the reviewer code so the owner gets the full view.
+
+/** One "Checking" step in parent words, as served on GET /api/runs/:id (`progress`). */
+export interface ParentStep { key: string; label: string; state: 'waiting' | 'working' | 'done' }
+export type OwnerRunStatus = RunStatus & { progress?: ParentStep[]; owner?: boolean };
+
+/** The reviewer code for this tab, or '' for a parent. */
+export const ownerToken = (): string => reviewerToken.get();
+
+async function ownerJson<T>(url: string, token: string): Promise<T> {
+  const res = await fetch(url, token ? { headers: { 'x-reviewer-token': token } } : undefined);
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const err = new Error((body as { error?: string }).error || `Something went wrong (${res.status}).`) as Error & { status: number };
+    err.status = res.status;
+    throw err;
+  }
+  return body as T;
+}
+
+/** Run status and trace calls. A parent's trace call never reaches the server (it is owner-only there). */
+export function ownerApi(token: string = ownerToken()) {
+  return {
+    run: (runId: string) => ownerJson<OwnerRunStatus>(`/api/runs/${encodeURIComponent(runId)}`, token),
+    trace: (runId: string): Promise<TraceLine[]> =>
+      token ? ownerJson<TraceLine[]>(`/api/runs/${encodeURIComponent(runId)}/trace`, token) : Promise.reject(new Error('owner only')),
+  };
+}
 
 /** Plain-English names for the tables Zetaris reads. Order = display order. */
 const SOURCE_NAMES: { re: RegExp; name: string }[] = [
