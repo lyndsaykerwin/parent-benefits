@@ -1,4 +1,11 @@
-import { FakeGenerator, NvidiaGenerator, askJson, createGenerator, generatorConfigFromEnv, ModelUnavailable } from '../adapters/llm';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import {
+  FakeGenerator, NvidiaGenerator, OpenAICompatGenerator, ChainGenerator, askJson, createGenerator,
+  generatorConfigFromEnv, ModelUnavailable, withRunDeadline, NIGHTSHIFT_HEADERS, providerLabel, isLiveModel,
+} from '../adapters/llm';
+import { startFakeOpenAiServer, type FakeOpenAiServer } from './helpers/fakeOpenAiServer';
 
 type Ok = { ok: boolean };
 const isOk = (x: unknown): x is Ok => typeof x === 'object' && x !== null && typeof (x as Ok).ok === 'boolean';
@@ -53,7 +60,7 @@ describe('NvidiaGenerator', () => {
     expect(create).toHaveBeenCalledWith(expect.objectContaining({
       model: 'F-model',
       messages: [{ role: 'system', content: 'be brief' }, { role: 'user', content: 'hi' }],
-    }));
+    }), expect.objectContaining({ timeout: 90000 }));
     await g.generate('hi');
     expect(create.mock.calls[1][0].model).toBe('R-model');
     expect(create.mock.calls[1][0].messages).toEqual([{ role: 'user', content: 'hi' }]);
@@ -73,13 +80,198 @@ describe('NvidiaGenerator', () => {
     expect(g).toBeInstanceOf(NvidiaGenerator);
   });
 
-  it('generatorConfigFromEnv uses SOURCE_TIMEOUT_SECONDS (default 20)', () => {
-    expect(generatorConfigFromEnv({}).timeoutMs).toBe(20000);
-    expect(generatorConfigFromEnv({ SOURCE_TIMEOUT_SECONDS: '5' }).timeoutMs).toBe(5000);
+  it('generatorConfigFromEnv uses MODEL_TIMEOUT_SECONDS (default 90) for NVIDIA direct', () => {
+    expect(generatorConfigFromEnv({}).timeoutMs).toBe(90000);
+    expect(generatorConfigFromEnv({ MODEL_TIMEOUT_SECONDS: '5' }).timeoutMs).toBe(5000);
   });
 
   it('createGenerator with a key but missing model ids is unavailable', async () => {
     const g = createGenerator({ apiKey: 'k', baseUrl: 'http://x', reasoning: '', fast: '' });
     await expect(g.generate('x')).rejects.toBeInstanceOf(ModelUnavailable);
+  });
+});
+
+describe('OpenAI-compatible providers against a fake server', () => {
+  let srv: FakeOpenAiServer;
+  afterEach(async () => { await srv?.close(); });
+
+  const nightshift = (timeoutMs = 2000) =>
+    new OpenAICompatGenerator('tok', srv.baseUrl, { reasoning: 'meterless/text.deep', fast: 'meterless/text.fast' }, undefined, timeoutMs,
+      { provider: 'nightshift', headers: NIGHTSHIFT_HEADERS, retryDelayMs: 0 });
+  const nvidia = (baseUrl: string, timeoutMs = 2000, extra: Record<string, unknown> = {}) =>
+    new OpenAICompatGenerator('k', baseUrl, { reasoning: 'nvidia/nemotron-3-super', fast: 'nvidia/nano' }, undefined, timeoutMs,
+      { provider: 'nvidia', retryDelayMs: 0, ...extra });
+
+  it('sends the Nightshift labels and token, a reply cap, and records who answered', async () => {
+    srv = await startFakeOpenAiServer({ token: 'tok', script: [{ kind: 'reply', content: 'hi', model: 'nvidia/nemotron-x' }] });
+    const g = nightshift();
+    expect(await g.generate('q')).toBe('hi');
+    const r = srv.requests[0];
+    expect(r.headers['meterless-app']).toBe('bundle');
+    expect(r.headers['meterless-scope']).toBe('user');
+    expect(r.headers.authorization).toBe('Bearer tok');
+    expect(r.body.max_tokens).toBe(4096);
+    expect(g.lastAnswer).toEqual(expect.objectContaining({ provider: 'nightshift', model: 'nvidia/nemotron-x' }));
+    expect(g.stats.ok).toBe(1);
+    expect(providerLabel(g.lastAnswer!)).toBe('nightshift:meterless/text.deep→nvidia/nemotron-x');
+  });
+
+  it('stops a hung call at the limit (then retries once, then gives up)', async () => {
+    srv = await startFakeOpenAiServer({ script: [{ kind: 'hang' }] });
+    const g = nightshift(300);
+    const t0 = Date.now();
+    await expect(g.generate('q')).rejects.toBeInstanceOf(ModelUnavailable);
+    expect(Date.now() - t0).toBeLessThan(2500);
+    expect(srv.requests.length).toBe(2);
+    expect(g.stats.failed).toBe(1);
+    expect(g.details.retried).toBe(1);
+  });
+
+  it('retries once after a server error and succeeds', async () => {
+    srv = await startFakeOpenAiServer({ script: [{ kind: 'status', status: 503 }, { kind: 'reply', content: 'second' }] });
+    const g = nightshift();
+    expect(await g.generate('q')).toBe('second');
+    expect(srv.requests.length).toBe(2);
+    expect(g.stats.ok).toBe(1);
+    expect(g.details).toEqual({ retried: 1, answeredBy: ['meterless/text.deep'] });
+  });
+
+  it('does not retry a wrong password (401) and marks it as an auth failure', async () => {
+    srv = await startFakeOpenAiServer({ token: 'right' });
+    const g = nightshift();
+    const err = await g.generate('q').catch((e) => e);
+    expect(err).toBeInstanceOf(ModelUnavailable);
+    expect(err.reason).toBe('auth');
+    expect(srv.requests.length).toBe(1);
+  });
+
+  it('NVIDIA direct with thinking off sends enable_thinking false and no Nightshift labels', async () => {
+    srv = await startFakeOpenAiServer();
+    const g = nvidia(srv.baseUrl, 2000, { thinking: 'off', maxTokens: 1234 });
+    await g.generate('q');
+    const r = srv.requests[0];
+    expect(r.body.chat_template_kwargs).toEqual({ enable_thinking: false });
+    expect(r.body.max_tokens).toBe(1234);
+    expect(r.headers['meterless-app']).toBeUndefined();
+  });
+
+  it('see() sends an image to the vision model and returns text', async () => {
+    srv = await startFakeOpenAiServer({ script: [{ kind: 'reply', content: '{"items":[]}' }] });
+    const g = nvidia(srv.baseUrl, 2000, { vision: { item: 'nvidia/omni', receipt: 'nvidia/vl-12b' } });
+    const out = await g.see({ prompt: 'read this', imageBase64: 'AAAA', mimeType: 'image/jpeg', kind: 'receipt' });
+    expect(out).toBe('{"items":[]}');
+    const body = srv.requests[0].body;
+    expect(body.model).toBe('nvidia/vl-12b');
+    const parts = body.messages[body.messages.length - 1].content;
+    expect(parts).toEqual(expect.arrayContaining([
+      { type: 'text', text: 'read this' },
+      { type: 'image_url', image_url: { url: 'data:image/jpeg;base64,AAAA' } },
+    ]));
+    await g.see({ prompt: 'x', imageBase64: 'B', mimeType: 'image/png' });
+    expect(srv.requests[1].body.model).toBe('nvidia/omni');
+  });
+
+  it('see() without a vision model setting is unavailable', async () => {
+    srv = await startFakeOpenAiServer();
+    await expect(nvidia(srv.baseUrl).see({ prompt: 'x', imageBase64: 'A', mimeType: 'image/png' })).rejects.toBeInstanceOf(ModelUnavailable);
+  });
+});
+
+describe('ChainGenerator (Nightshift → NVIDIA direct → offline)', () => {
+  const servers: FakeOpenAiServer[] = [];
+  afterEach(async () => { while (servers.length) await servers.pop()!.close(); });
+  const mk = async (o: Parameters<typeof startFakeOpenAiServer>[0]) => { const s = await startFakeOpenAiServer(o); servers.push(s); return s; };
+  const gen = (provider: 'nightshift' | 'nvidia', baseUrl: string, token = 't') =>
+    new OpenAICompatGenerator(token, baseUrl, { reasoning: 'r', fast: 'f' }, undefined, 300,
+      { provider, headers: provider === 'nightshift' ? NIGHTSHIFT_HEADERS : undefined, retryDelayMs: 0 });
+
+  it('uses Nightshift when it answers', async () => {
+    const ns = await mk({ script: [{ kind: 'reply', content: 'from-ns' }] });
+    const nv = await mk({ script: [{ kind: 'reply', content: 'from-nv' }] });
+    const c = new ChainGenerator([gen('nightshift', ns.baseUrl), gen('nvidia', nv.baseUrl)]);
+    expect(await c.generate('q')).toBe('from-ns');
+    expect(nv.requests.length).toBe(0);
+  });
+
+  it('falls to NVIDIA when Nightshift rejects the token, and stops asking Nightshift for the rest of the run', async () => {
+    const ns = await mk({ token: 'right' });
+    const nv = await mk({ script: [{ kind: 'reply', content: 'from-nv' }] });
+    const c = new ChainGenerator([gen('nightshift', ns.baseUrl, 'wrong'), gen('nvidia', nv.baseUrl)]);
+    expect(await c.generate('q')).toBe('from-nv');
+    expect(await c.generate('q2')).toBe('from-nv');
+    expect(ns.requests.length).toBe(1);
+    expect(c.lastAnswer?.provider).toBe('nvidia');
+  });
+
+  it('falls to NVIDIA when Nightshift is not running (connection refused)', async () => {
+    const nv = await mk({ script: [{ kind: 'reply', content: 'from-nv' }] });
+    const c = new ChainGenerator([gen('nightshift', 'http://127.0.0.1:1/v1'), gen('nvidia', nv.baseUrl)]);
+    expect(await c.generate('q')).toBe('from-nv');
+  });
+
+  it('throws ModelUnavailable when both fail, so askJson uses the offline text', async () => {
+    const ns = await mk({ script: [{ kind: 'status', status: 500 }] });
+    const nv = await mk({ script: [{ kind: 'status', status: 500 }] });
+    const c = new ChainGenerator([gen('nightshift', ns.baseUrl), gen('nvidia', nv.baseUrl)]);
+    await expect(c.generate('q')).rejects.toBeInstanceOf(ModelUnavailable);
+    const r = await askJson(c, 'p', isOk, { ok: false });
+    expect(r.usedFallback).toBe(true);
+  });
+
+  it('refuses new calls after the run deadline', async () => {
+    const nv = await mk({ script: [{ kind: 'reply', content: 'x' }] });
+    const c = new ChainGenerator([gen('nvidia', nv.baseUrl)], { runDeadlineMs: 50 });
+    c.startRun();
+    await new Promise((r) => setTimeout(r, 80));
+    const err = await c.generate('q').catch((e) => e);
+    expect(err).toBeInstanceOf(ModelUnavailable);
+    expect(err.reason).toBe('deadline');
+    expect(nv.requests.length).toBe(0);
+  });
+});
+
+describe('withRunDeadline', () => {
+  it('returns the value when in time and throws ModelUnavailable when late', async () => {
+    expect(await withRunDeadline(Promise.resolve(1), 100)).toBe(1);
+    await expect(withRunDeadline(new Promise(() => {}), 20)).rejects.toBeInstanceOf(ModelUnavailable);
+  });
+});
+
+describe('settings → chain', () => {
+  it('reads the Nightshift token from NIGHTSHIFT_TOKEN_FILE and builds the chain in auto mode', () => {
+    const f = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'ns-')), 'proxy-token');
+    fs.writeFileSync(f, 'secret-token\n');
+    const cfg = generatorConfigFromEnv({ NIGHTSHIFT_TOKEN_FILE: f, MODEL_API_KEY: 'k', MODEL_REASONING: 'r', MODEL_FAST: 'f' });
+    expect(cfg.provider).toBe('auto');
+    expect(cfg.nightshift?.token).toBe('secret-token');
+    expect(cfg.nightshift?.baseUrl).toBe('http://127.0.0.1:8088/v1');
+    expect(cfg.nightshift?.timeoutMs).toBe(180000);
+    expect(cfg.nightshift?.reasoning).toBe('meterless/text.deep');
+    expect(cfg.maxTokens).toBe(4096);
+    expect(cfg.thinking).toBe('off');
+    const g = createGenerator(cfg);
+    expect(g).toBeInstanceOf(ChainGenerator);
+    expect((g as ChainGenerator).providers.map((p) => p.provider)).toEqual(['nightshift', 'nvidia']);
+  });
+
+  it('MODEL_PROVIDER=nvidia skips Nightshift; offline gives the unavailable generator', async () => {
+    const env = { NIGHTSHIFT_TOKEN: 't', MODEL_API_KEY: 'k', MODEL_REASONING: 'r', MODEL_FAST: 'f' };
+    const g = createGenerator(generatorConfigFromEnv({ ...env, MODEL_PROVIDER: 'nvidia' }));
+    expect(g).toBeInstanceOf(NvidiaGenerator);
+    const off = createGenerator(generatorConfigFromEnv({ ...env, MODEL_PROVIDER: 'offline' }));
+    await expect(off.generate('x')).rejects.toBeInstanceOf(ModelUnavailable);
+  });
+
+  it('reads vision and judge settings with the approved defaults', () => {
+    const cfg = generatorConfigFromEnv({});
+    expect(cfg.vision).toEqual({ item: 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning', receipt: 'nvidia/nemotron-nano-12b-v2-vl' });
+    expect(cfg.judge).toBe('');
+    expect(generatorConfigFromEnv({ MODEL_VISION: 'a', MODEL_VISION_RECEIPT: 'b', MODEL_JUDGE: 'j' })).toEqual(
+      expect.objectContaining({ vision: { item: 'a', receipt: 'b' }, judge: 'j' }));
+  });
+
+  it('isLiveModel follows LIVE_MODEL=true', () => {
+    expect(isLiveModel({ LIVE_MODEL: 'true' })).toBe(true);
+    expect(isLiveModel({})).toBe(false);
   });
 });
