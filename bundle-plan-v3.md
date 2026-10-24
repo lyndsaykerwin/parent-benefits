@@ -105,17 +105,17 @@ Code fills the dollar amounts, dates and flags. The AI fills only the soft field
    - **Built:** the general send-back loop already does this for every agent, including the Court: a wrong card goes back with the reason and the corrected values (`orchestrator.ts` lines 225–261, `checkOne`; `MAX_RETRIES` default 2), and the Court re-argues and re-judges with the reason added (`finePrintCourt.ts` lines 187–197). Each round is a `send_back` line in the trace.
    - **Planned:** the line-by-line correction wording, and letting a corrected offer come back as "approve with a catch" (today the Court's re-judge keeps only "approve").
 
-**Loops kept from before:**
+**Other loops** (4, 5 and 9 kept from before; 6 is Strategy 2; 7 and 8 are open proposals):
 
 4. **Fact-Checker send-back for every agent. BUILT.** As in loop 3, for all four maker agents (Clawback Hunter, Recall Checker, Benefits Planner, Fine Print Court). A card that **couldn't be checked** (source down) is never sent back: it gets one retry after a 1.5-second pause, then is dropped with an honest banner.
 5. **Fine Print Court debate. BUILT (one round).** Deal Hunter argues for, Fine Print Lawyer argues against, and the Judge reads both plus the **case law** (approved rules recalled from Meterless memory) and rules, citing the rule ids it relied on; if the AI answer is missing or badly shaped, a code screen applies the case law (`finePrintCourt.ts` lines 71–119). **Checked: there are no rebuttal rounds today**; adding one is an open proposal (section 10, item 29).
 6. **Living Fine-Print Database loop. PLANNED (must-do; details in "The database loop" below).**
-7. **Photo intake loop. PLANNED (the photo path is the round-4b priority).**
+7. **Photo intake loop. PLANNED; open proposal (added by an agent in round 4b, not in Lyndsay's feedback; section 10, item 40).** The photo path itself is her round-4b priority.
    - The vision model reads the photo and returns fields (product name, brand, model number, lot code, UPC, size, price).
    - **Code checks the fields:** required fields are present; a UPC has 12 digits and a correct check digit (the last digit that proves the others were read right); a model number or lot code looks like a code, not a sentence; every value appears in what the model says it read. (Exact limits: section 10, item 32.)
    - If a check fails, the vision model is **asked again once, told exactly what was wrong**. **At most 1 retry.**
    - If still unclear, the parent is asked for a **clearer photo or a specific close-up** ("the label under the seat", "the bottom of the can").
-8. **Recall verification loop. PLANNED.** The Recall Checker proposes a match; the Fact-Checker checks it against the recall record (the exact code or the recall's words); missing evidence sends it back, inside the same 2-round cap; no evidence, no alert.
+8. **Recall verification loop. PLANNED; open proposal (added by an agent in round 4b; section 10, item 41).** The Recall Checker proposes a match; the Fact-Checker checks it against the recall record (the exact code or the recall's words); missing evidence sends it back, inside the same 2-round cap; no evidence, no alert.
 9. **Coach / learning loop. BUILT (small).** Parent "Report issue" taps → the Coach proposes a rule when 2 or more reports share a theme (`coach.ts` lines 57–63) → the owner approves → the rule goes into Meterless memory → next run the Judge must cite it. Proven by `server/__tests__/sampleMode.test.ts`.
 
 ### The database loop (Lyndsay's point 3, with `offer_checks` from section 1)
@@ -308,8 +308,8 @@ Remove Zetaris and the app can't produce a single personal card. **Line for judg
   5. Recall safety: the finished-FDA-recall filter and the `no_false_recall` test.
   6. Onboarding (top row + Version B).
   7. Regenerate evidence.
-  8. Data intake: **the photo path first** (round 4b), with the shared pieces and the photo intake loop. Email forwarding and barcode are kept for after the hackathon (Lyndsay's decision), not must-do.
-  9. **The agent loops, visible and fast** (section 1b, Lyndsay's design): the shared workspace; her three agent-to-agent loops; the photo and recall loops; the database loop; the fast screen (instant saved feed, fast-path streaming, background updates by server-sent events, status pills, optimistic checking); and the speed limits (per-call time limit and retry and the 300-second run budget are already in item 2; the `offer_checks` skip is in item 4). Hours for this are **not yet estimated**.
+  8. Data intake: **the photo path first** (round 4b), with the shared pieces (the photo intake loop is an open proposal, section 10 item 40). Email forwarding and barcode are kept for after the hackathon (Lyndsay's decision), not must-do.
+  9. **The agent loops, visible and fast** (section 1b, Lyndsay's design): the shared workspace; her three agent-to-agent loops; the database loop (the photo and recall loops are open proposals, section 10 items 40–41); the fast screen (instant saved feed, fast-path streaming, background updates by server-sent events, status pills, optimistic checking); and the speed limits (per-call time limit and retry and the 300-second run budget are already in item 2; the `offer_checks` skip is in item 4). Hours for this are **not yet estimated**.
 - **Should-do (round 2):** the product-matching upgrade (brand + product type + date and seller rules); onboarding extras.
 - **Moved out in round 2:** NVIDIA embeddings for the memory; confidence-score bands (dropped by decision); no extra polish on the "Checking" screen.
 - **Cut (recorded decisions):** Plaid; the work-benefits question; brand screens and brand portal; MCP server (pitch slide, "later"); store price feeds; Redis; poverty, WIC, SNAP and Medicaid; the middle row of mocks. Also carried from round 2: NeMo Guardrails (NVIDIA's add-on safety filter) and paid hosting.
@@ -407,7 +407,7 @@ Remove Zetaris and the app can't produce a single personal card. **Line for judg
   - a `see()` method and a `MODEL_VISION` setting in `llm.ts`;
   - location-data stripping and shrinking on the phone;
   - the reject rule;
-  - **the photo intake loop** (section 1b, loop 4): code checks on the fields (required fields, UPC check digit, model-number and lot-code shape, values found in the label text), one retry to the vision model with what was wrong, then a "clearer photo / close-up of the label or can bottom" request to the parent;
+  - **the photo intake loop** (section 1b, loop 7; open proposal, section 10 item 40): code checks on the fields (required fields, UPC check digit, model-number and lot-code shape, values found in the label text), one retry to the vision model with what was wrong, then a "clearer photo / close-up of the label or can bottom" request to the parent;
   - saved answers;
   - sample label photos and made-up receipt images.
 - **Tests:** field accuracy, made-up rate (target 0), recall alerts right and caught, rejects (`research-photo-barcode-intake.md` §6), plus a test that a bad first reading triggers exactly one retry and then the "clearer photo" request.
@@ -550,3 +550,5 @@ Nothing below is in the plan until you say yes. Each item gives a recommendation
 37. **Message format for the shared workspace.** Lyndsay was offered a JSON event schema (a fixed shape for the messages agents send each other). *Proposal:* one shape for every message, `{run_id, from_agent, to_agent, type (claim / question / answer / correction / verdict), about (card or offer id), body, evidence_sql, round}`, stored as trace lines in Neon. *Why:* the trace already records agent steps, so the bus and the judges' trace stay one thing.
 38. **The Zetaris question that pulls saved verdicts.** *Proposal:* one fixed query per run that reads `offer_checks` for the offers in play, returning the latest `verdict`, `status`, `confidence`, `rule_citations`, `fine_print_hash` and whether the cited rule is universal, through a view with no family data. *Why:* it powers both the instant saved feed and the "skip the AI" step; it needs one live recording run for sample mode.
 39. **Cut order for the loop and screen work.** *Proposal:* if time runs short, keep in this order: the targeted-correction loop (mostly built) → safety-value loop → instant saved feed and streaming cards → eligibility loop → status pills → server-sent-event push (fall back to today's once-a-second polling). *Why:* it keeps what judges score (visible loops) first and the screen polish last. Lyndsay decides.
+40. **Photo intake loop (section 1b, loop 7).** Added by an agent in round 4b, not in Lyndsay's feedback. *Proposal:* code checks what the vision model read, one retry told what was wrong, then ask the parent for a close-up (exact rules: item 32). *Why:* photo is her priority path, and a misread label would give a wrong recall match; it is also a visible loop for judges.
+41. **Recall verification loop (section 1b, loop 8).** Added by an agent in round 4b, not in Lyndsay's feedback. *Proposal:* the Fact-Checker checks each recall match against the recall record inside the existing 2-round cap; no evidence, no alert. *Why:* a false recall alert scares a parent and breaks trust.
