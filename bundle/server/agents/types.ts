@@ -3,6 +3,7 @@ import type { ZetarisClient } from '../adapters/zetaris';
 import type { Generator } from '../adapters/llm';
 import type { BundleMemory } from '../adapters/memory';
 import type { TraceLogger } from './trace';
+import type { Workspace } from './workspace';
 
 export interface CourtRuling {
   verdict: 'approve' | 'reject';
@@ -63,6 +64,8 @@ export interface AgentContext {
   llm: Generator;
   memory: BundleMemory;
   trace: TraceLogger;
+  /** Shared notes agents leave for each other during this run (Meterless H-MEM). Optional until the orchestrator creates it. */
+  workspace?: Workspace;
   /** The date this run is evaluated at (ISO). Falls back to the TODAY env var, then the real date. */
   today?: string;
   /** Offers the court rejected, filled by the court so the app can show "we caught these for you" (never counted in totals). */
