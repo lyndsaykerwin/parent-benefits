@@ -35,3 +35,12 @@ Started Sat Oct 24, 2026 (cloud session). Coordinator: main Claude session. Suba
 - Strategy 2 "Living Fine-Print Database": BUILD. Agents' own conclusions become a new source Zetaris can search next to the government ones. Fact-Checker + Parent Panel save a row per judged offer to `offer_checks` (offer, hidden strings like "$8 shipping", recall status, score, effort/sign-up needs, value); REGISTER DATASOURCE TABLE; cross-source questions like "offers rated truly free whose product hasn't been recalled since we checked"; Coach asks "which fine-print problems show up most in Report issue clicks?". Rows in Neon, never loose JSON files. THIS is the systematic feedback loop: past findings feed how agents grade new offers, and are answers for other offers. Value Score "worth $40 after strings attached". Future: sell this data.
 - Strategy 3 "Points Guy" brand report cards: pitch, don't build a brand portal. But Strategy 2's data is exposed as a read-only endpoint with an OpenAPI spec (decided, not a should-do).
 - Parent feedback is NOT the focus (no users at launch). Don't make it the main loop.
+
+## Lyndsay round 4b (Oct 24)
+- Prioritize photo → structured data (NVIDIA vision model). Do NOT drop email receipts or barcode: keep them in the plan for after the hackathon.
+- The 3 gap-answers items (FSA "check with your job" card, Google-only sign-in, "state support coming soon") are fine = decided.
+- Agentic looping among the agents was cut from the story; needed for scoring. Work it back in and handle latency. (She mentioned "the below feedback" on latency but none came through: asked her to paste it.)
+- Then: updated exec summary for her feedback, QC'd by a subagent against all her high-priority feedback.
+- [ ] L1 Plan + exec summary: agent loops + latency + photo priority
+- [ ] L2 Flow chart: add the agent loops
+- [ ] Q1 QC subagent: every high-priority item from Lyndsay present → `qc-round4.md`
