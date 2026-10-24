@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import {
-  matchRecall, matchAll, fromCpsc, fromFda, extractModels, extractUpcs, extractLots, saleWindow, typesIn,
+  matchRecall, matchAll, fromCpsc, fromFda, extractModels, extractUpcs, extractLots, saleWindow, typesIn, normUpc,
   type PurchaseItem, type RecallRecord,
 } from '../agents/recallMatch';
 
@@ -71,8 +71,10 @@ describe('recallMatch: exact codes come first', () => {
     expect(matchRecall({ text: 'label photo', model: withModel.models[0] }, withModel)).toMatchObject({ match: true, reason: 'exact_model' });
     const brandWord = withModel.productNames[0].split(' ')[0];
     const typeWord = [...typesIn(withModel.productNames[0])][0];
-    const clash = matchRecall({ text: `${brandWord} ${typeWord} ZZ9999Q` }, withModel);
-    expect(clash.match).toBe(false);
+    // Same letter/digit pattern as the recalled model, different digits: a real model clash.
+    const otherModel = withModel.models[0].replace(/\d/g, (d) => String((Number(d) + 1) % 10)).toUpperCase();
+    const clash = matchRecall({ text: `${brandWord} ${typeWord} ${otherModel}` }, withModel);
+    expect(clash).toMatchObject({ match: false, reason: 'model_clash' });
   });
   it('a matching model number bought before the sale window is not an alert (VEVOR BB702A, May 2024)', () => {
     const m = matchRecall({ text: 'VEVOR Electric Baby Swing BB702A', date: '2024-05-15' }, byId('cpsc-10474'));
@@ -82,6 +84,67 @@ describe('recallMatch: exact codes come first', () => {
   it('a finished FDA recall never matches, even on an exact UPC', () => {
     const done = FDA.find((r) => r.status === 'terminated' && r.upcs.length)!;
     expect(matchRecall({ text: 'formula', upc: done.upcs[0] }, done)).toMatchObject({ match: false, reason: 'fda_terminated' });
+  });
+});
+
+// A small hand-made recall for rule tests (FAKE data, not a real recall).
+const fake = (over: Partial<RecallRecord>): RecallRecord => ({
+  id: 'cpsc-test', source: 'cpsc', title: 'Acme Recalls Baby Walkers', productNames: ['Acme Baby Walker'],
+  description: 'This recall involves Acme baby walkers.', recallDate: '2026-03-01', status: 'ongoing',
+  upcs: [], models: [], lots: [], soldAt: '', firm: 'Acme', ...over,
+});
+
+describe('recallMatch: barcode, phone, brand and model-clash rules', () => {
+  const nara = () => byId('fda-H-1137-2026');
+  it('barcode match needs a full 11–14 digit code: "1" or a short tail never matches', () => {
+    for (const upc of ['1', '5', '901', '13251901', '0013251901']) {
+      expect(matchRecall({ text: 'formula can', upc }, nara()).reason).not.toBe('exact_upc');
+    }
+    const seven = fake({ upcs: ['7'], productNames: ['Acme Baby Walker'] });
+    expect(matchRecall({ text: 'walker', upc: '5' }, seven).match).toBe(false);
+    expect(normUpc('1')).toBeNull();
+    expect(normUpc('123456789012345')).toBeNull();
+  });
+  it('a single extra leading zero still matches (EAN-13 form of a UPC)', () => {
+    expect(matchRecall({ text: 'formula can', upc: '0860013251901' }, nara())).toMatchObject({ match: true, reason: 'exact_upc' });
+    expect(matchRecall({ text: 'formula can', upc: '00860013251901' }, nara())).toMatchObject({ match: true, reason: 'exact_upc' });
+    expect(matchRecall({ text: 'formula can', upc: '860013251902' }, nara()).reason).not.toBe('exact_upc');
+  });
+  it('phone numbers in recall text are not read as barcodes', () => {
+    expect(extractUpcs('Call Acme toll-free at 1-800-555-1234 from 9 a.m.')).toEqual([]);
+    expect(extractUpcs('Contact (800) 555-1234 or 1 800 555 1234')).toEqual([]);
+    expect(extractUpcs('Call 1-800-555-1234. UPC: 860013251901')).toEqual(['860013251901']);
+  });
+  it('a model-number match also needs the brand to agree when the purchase names one', () => {
+    const r = byId('cpsc-10474');
+    expect(matchRecall({ text: 'Graco Electric Baby Swing BB702A', date: '2025-03-01' }, r)).toMatchObject({ match: false, reason: 'brand_mismatch' });
+    expect(matchRecall({ text: 'VEVOR Electric Baby Swing BB702A', date: '2025-03-01' }, r)).toMatchObject({ match: true, reason: 'exact_model' });
+    expect(matchRecall({ text: 'label photo', model: 'BB702A', date: '2025-03-01' }, r)).toMatchObject({ match: true, reason: 'exact_model' });
+  });
+  it('a letters+digits product name ("Aer2") is not a model clash; a model-shaped word is', () => {
+    const r = fake({ title: 'Joolz Recalls Aer2 Car Seat Adapters', productNames: ['Joolz Aer2 Car Seat Adapters'], firm: 'Joolz', models: ['jz12345'] });
+    expect(matchRecall({ text: 'Joolz Aer2 Car Seat Adapters', date: '2026-02-01' }, r)).toMatchObject({ match: true, reason: 'rules' });
+    expect(matchRecall({ text: 'Joolz Aer2 Car Seat Adapters JZ54321', date: '2026-02-01' }, r)).toMatchObject({ match: false, reason: 'model_clash' });
+    expect(matchRecall({ text: 'Joolz Aer2 Car Seat Adapters', model: 'JZ99999', date: '2026-02-01' }, r)).toMatchObject({ match: false, reason: 'model_clash' });
+  });
+  it('real Joolz adapter recall still matches the adapter purchase despite "Aer2" in the name', () => {
+    const r = byId('cpsc-10829');
+    const m = matchRecall({ text: 'Joolz Aer2 Car Seat Adapters', source: 'amazon', date: r.recallDate }, r);
+    expect(m.reason).not.toBe('model_clash');
+  });
+  it('seller check: sold only at Target, bought at Walmart → no alert; bought at Target → alert', () => {
+    const r = fake({ soldAt: 'Sold exclusively at Target stores and Target.com' });
+    expect(matchRecall({ text: 'Acme Baby Walker', merchant: 'Walmart', date: '2026-02-01' }, r)).toMatchObject({ match: false, reason: 'seller_mismatch' });
+    const ok = matchRecall({ text: 'Acme Baby Walker', merchant: 'Target', date: '2026-02-01' }, r);
+    expect(ok).toMatchObject({ match: true, reason: 'rules' });
+    expect(ok.evidence).toContain('sold at target');
+    // Not "only/exclusively": the store is not a reason to reject.
+    expect(matchRecall({ text: 'Acme Baby Walker', merchant: 'Walmart', date: '2026-02-01' }, fake({ soldAt: 'Sold at Target and online' })).match).toBe(true);
+  });
+  it('size clash: a 12.4 oz can is not the recalled 24.7 oz can; the same size still alerts', () => {
+    const r = fake({ id: 'fda-test', source: 'fda', title: 'FDA recall: Acme Nutrition', productNames: ['Acme Infant Formula Powder, NET WT 24.7 OZ'], firm: 'Acme Nutrition', recallDate: '2026-05-01' });
+    expect(matchRecall({ text: 'Acme Infant Formula 12.4 oz', date: '2026-05-10' }, r)).toMatchObject({ match: false, reason: 'size_clash' });
+    expect(matchRecall({ text: 'Acme Infant Formula 24.7 oz', date: '2026-05-10' }, r)).toMatchObject({ match: true, reason: 'rules' });
   });
 });
 

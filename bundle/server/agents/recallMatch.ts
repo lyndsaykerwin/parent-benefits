@@ -132,14 +132,33 @@ export function extractModels(text: string): string[] {
   return [...out];
 }
 
-/** UPCs (12-digit barcode numbers) written in text, spaces and dashes allowed. */
+/**
+ * A barcode number in one comparable form: 11–14 digits (UPC-A with or without its check digit, EAN-13, GTIN-14),
+ * leading zeros stripped so "0860013251901" and "860013251901" are the same code. Anything else is not a barcode.
+ */
+export function normUpc(raw: string): string | null {
+  const d = digits(raw);
+  if (d.length < 11 || d.length > 14) return null;
+  const stripped = d.replace(/^0+/, '');
+  return stripped.length >= 8 ? stripped : null;
+}
+
+/** US phone layouts: 1-800-555-1234, 1 800 555 1234, 800-555-1234, (800) 555-1234. */
+const PHONE_RE = /^(?:\+?1[\s.-]?)?\(?\d{3}\)?[\s.-]?\d{3}[\s.-]\d{4}$/;
+
+/** UPCs (12-digit barcode numbers) written in text, spaces and dashes allowed. Phone numbers are skipped. */
 export function extractUpcs(text: string): string[] {
   const out = new Set<string>();
+  const t = text || '';
   const re = /(?<![\d])(\d[\d\s-]{10,16}\d)(?![\d])/g;
   let m: RegExpExecArray | null;
-  while ((m = re.exec(text || ''))) {
-    const d = digits(m[1]);
-    if (d.length === 12 || d.length === 13 || d.length === 11) out.add(d.length === 13 && d.startsWith('0') ? d.slice(1) : d);
+  while ((m = re.exec(t))) {
+    const raw = m[1].trim();
+    const before = t.slice(Math.max(0, m.index - 20), m.index);
+    // "1-800-555-1234", or a number right after "(800) " / "call" / "phone" / "tel", is a phone number, not a barcode.
+    if (PHONE_RE.test(raw) || /\(\d{3}\)\s*$/.test(before) || /(?:call|phone|tel|telephone|toll[- ]free|fax)\W*$/i.test(before)) continue;
+    const u = normUpc(raw);
+    if (u) out.add(u);
   }
   return [...out];
 }
@@ -220,6 +239,11 @@ function brandKeys(text: string): string[] {
   return keys;
 }
 
+/** Letter/digit pattern of a code: "bb702a" → "a9a", "rv001" → "a9". */
+const codeShape = (w: string) => compact(w).replace(/[a-z]+/g, 'a').replace(/\d+/g, '9');
+/** Does a purchase word look like the same kind of code as a recalled model number? */
+const looksLikeModel = (w: string, recallModel: string) => codeShape(w) === codeShape(recallModel) && Math.abs(compact(w).length - recallModel.length) <= 1;
+
 /** Name text of the recall used for the brand check: title, product names and firm. */
 const recallNameText = (r: RecallRecord) => `${r.title} ${r.productNames.join(' ')} ${r.firm}`;
 
@@ -235,8 +259,9 @@ export function matchRecall(p: PurchaseItem, r: RecallRecord): MatchResult {
   const recallAll = `${recallNameText(r)} ${r.description} ${r.soldAt}`;
 
   // 2. Exact codes.
-  const pUpc = p.upc ? digits(p.upc) : '';
-  if (pUpc && r.upcs.some((u) => u === pUpc || u.endsWith(pUpc) || pUpc.endsWith(u))) {
+  // Exact barcode only: both sides normalised (11–14 digits, leading zeros stripped) and compared whole. No "ends with".
+  const pUpc = p.upc ? normUpc(p.upc) : null;
+  if (pUpc && r.upcs.some((u) => normUpc(u) === pUpc)) {
     return { recallId: id, match: true, level: 'exact', reason: 'exact_upc', evidence: `Exact barcode match: UPC ${pUpc} is listed in recall ${id}.` };
   }
   const pLot = p.lot ? compact(p.lot) : '';
@@ -245,6 +270,16 @@ export function matchRecall(p: PurchaseItem, r: RecallRecord): MatchResult {
   }
   const pModels = [...new Set([...(p.model ? [compact(p.model)] : []), ...pWords.filter((w) => isModelCode(w)).map(compact)])];
   const modelHit = pModels.find((m) => r.models.includes(m));
+  // A model number only counts when the brands agree. The purchase "has a brand" when its text starts with a
+  // capitalised word (VEVOR, Joolz); a bare "label photo" has none, so the model number alone decides.
+  const pBrandKeys = /^\s*[A-Z]/.test(p.text || '') ? brandKeys(p.text) : [];
+  const rName = recallNameText(r);
+  const rNameWords = new Set(words(rName));
+  const rNameCompact = compact(rName);
+  const brandAgrees = (keys: string[]) => keys.some((k) => (k.length >= 3 && rNameWords.has(k)) || (k.length >= 6 && rNameCompact.includes(k)));
+  if (modelHit && pBrandKeys.length && rName.trim() && !brandAgrees(pBrandKeys)) {
+    return no(id, 'brand_mismatch', `Model ${modelHit.toUpperCase()} matches, but the brand of "${p.text.slice(0, 40)}" is not named in recall ${id}.`);
+  }
   if (modelHit) {
     // A matching model number bought outside the recall's sale dates is an earlier, unaffected unit.
     const outside = outsideSaleDates(p, r);
@@ -268,9 +303,15 @@ export function matchRecall(p: PurchaseItem, r: RecallRecord): MatchResult {
   const sharedType = [...pTypes].find((t) => rTypes.has(t));
   if (!sharedType) return no(id, 'type_mismatch', `Same brand, but a ${[...pTypes].join('/')} is not the recalled ${[...rTypes].join('/') || 'product'}.`);
 
-  // 3c. Model clash: the recall lists model numbers and the purchase shows a different one.
-  if (r.models.length && pModels.length) {
-    return no(id, 'model_clash', `Model ${pModels[0].toUpperCase()} is not one of the recalled models (${r.models.slice(0, 4).join(', ').toUpperCase()}).`);
+  // 3c. Model clash: the recall lists model numbers and the purchase shows a different one. Only a real model
+  // field, or a word shaped like the recall's model numbers (same letter/digit pattern, similar length), counts:
+  // a product name such as "Aer2" is not a model number.
+  const clashModels = [
+    ...(p.model ? [compact(p.model)] : []),
+    ...words(p.text).filter((w) => isModelCode(w) && r.models.some((rm) => looksLikeModel(w, rm))).map(compact),
+  ];
+  if (r.models.length && clashModels.length) {
+    return no(id, 'model_clash', `Model ${clashModels[0].toUpperCase()} is not one of the recalled models (${r.models.slice(0, 4).join(', ').toUpperCase()}).`);
   }
 
   // 3d. Distinctive series word (e.g. "Max View", "Elmo"): if the recalled name has one, the purchase must share it.
