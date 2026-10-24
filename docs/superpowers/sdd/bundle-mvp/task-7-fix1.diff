@@ -1,0 +1,114 @@
+3948a67 fix: court fee screen ignores thresholds, whole-word trigger match
+diff --git a/server/__tests__/finePrintCourt.test.ts b/server/__tests__/finePrintCourt.test.ts
+index 3e18824..bc48f8e 100644
+--- a/server/__tests__/finePrintCourt.test.ts
++++ b/server/__tests__/finePrintCourt.test.ts
+@@ -109,10 +109,45 @@ describe('fine print court', () => {
+       const bad = setup([offer(1, { fine_print: 'Free box. $7.99 shipping applies.' })], off());
+       expect(await judgeOffers(bad.ctx, IN)).toEqual([]);
+       const ok = setup([offer(2, { fine_print: 'Free box. $3.99 shipping applies.' })], off());
+       expect(await judgeOffers(ok.ctx, IN)).toHaveLength(1);
+     });
++    it('(c2) thresholds and free shipping are not fees; attached fees are', async () => {
++      for (const fp of ['Free shipping on orders over $50.', 'Free shipping with a $25 minimum purchase. Handling is free.', 'Spend $75 and shipping is free.']) {
++        const { ctx } = setup([offer(1, { fine_print: fp })], off());
++        expect(await judgeOffers(ctx, IN)).toHaveLength(1);
++      }
++      for (const fp of ['Shipping and handling $7.95.', 'A shipping fee of $9 applies.', 'Plus $12 postage.', 'Free box. Shipping: $6.50']) {
++        const { ctx } = setup([offer(1, { fine_print: fp })], off());
++        expect(await judgeOffers(ctx, IN)).toEqual([]);
++      }
++    });
++  });
++
++  it('matches trigger keywords as whole words only', async () => {
++    const rows = [offer(1, { trigger_keyword: 'diaper' }), offer(2, { trigger_keyword: 'car seat' })];
++    const run = async (kw: string) => {
++      const { ctx } = setup(rows, new FakeGenerator(['p', 'c', APPROVE]));
++      return (await judgeOffers(ctx, { ...IN, includeGeneral: false, purchaseKeywords: [kw] })).map((c) => c.claim.offerId);
++    };
++    expect(await run('Pampers diapers size 1')).toEqual([1]);
++    expect(await run('dia')).toEqual([]);
++    expect(await run('diaper-genie refill')).toEqual([1]);
++    expect(await run('carseat')).toEqual([]);
++  });
++
++  it('drops cited rule ids the court never recalled, and traces a Judge approve as ok', async () => {
++    const llm = new FakeGenerator(['pro', 'con', '{"verdict":"approve","citedRuleIds":["made-up-id"],"reason":"fine"}']);
++    const { ctx, trace } = setup([offer(1)], llm);
++    expect(await judgeOffers(ctx, IN)).toHaveLength(1);
++    const j = trace.lines().find((l) => l.agent_name === 'judge')!;
++    expect(j.status).toBe('ok');
++    expect(j.output_summary).not.toContain('made-up-id');
++    const llm2 = new FakeGenerator(['pro', 'con', '{"verdict":"reject","citedRuleIds":["made-up-id"],"reason":"no"}']);
++    const s2 = setup([trap], llm2);
++    await judgeOffers(s2.ctx, IN);
++    expect(s2.trace.lines().find((l) => l.agent_name === 'judge')!.output_summary).not.toContain('made-up-id');
+   });
+ 
+   it('revise re-judges one offer with the reason in the prompts', async () => {
+     const llm = new FakeGenerator(['pro', 'con', APPROVE]);
+     const { ctx, runQuery } = setup([offer(1)], llm);
+diff --git a/server/agents/finePrintCourt.ts b/server/agents/finePrintCourt.ts
+index d401111..2aa5a51 100644
+--- a/server/agents/finePrintCourt.ts
++++ b/server/agents/finePrintCourt.ts
+@@ -49,15 +49,24 @@ function ruleMatches(finePrint: string, rule: Rule): boolean {
+   const rk = keywords(rule.text);
+   const fk = keywords(finePrint);
+   const shared = [...rk].filter((w) => fk.has(w)).length;
+   return shared >= Math.min(2, rk.size) && shared > 0;
+ }
+-/** An explicit shipping or handling fee over $5 stated in the fine print. */
++const FEE_WORD = '(?:shipping|handling|postage)';
++const AMOUNT = '\\$\\s?(\\d[\\d,]*(?:\\.\\d+)?)';
++// "$7.99 shipping" / "$7.99 shipping fee"
++const FEE_BEFORE = new RegExp(`${AMOUNT}\\s+${FEE_WORD}\\b`, 'gi');
++// "shipping fee of $7.99" / "shipping and handling: $7.95" / "shipping is $6"
++const FEE_AFTER = new RegExp(`\\b${FEE_WORD}(?:\\s+(?:and|&)\\s+${FEE_WORD})?(?:\\s+(?:fees?|charges?|costs?))?(?:\\s*:|\\s+(?:of|is|are|costs?|will be))?\\s*${AMOUNT}`, 'gi');
++const THRESHOLD_WORDS = /(over|above|than|minimum|least|exceed\w*|spend\w*|orders?\s+of)\s*$/i;
++
++/** A dollar amount directly attached to shipping/handling/postage and over $5. Thresholds like "free shipping on orders over $50" do not count. */
+ function bigFee(finePrint: string): number | null {
+-  for (const sentence of finePrint.split(/(?<=[.!?])\s+/)) {
+-    if (!/\b(shipping|handling|postage)\b/i.test(sentence)) continue;
+-    for (const m of sentence.matchAll(/\$\s?(\d[\d,]*(?:\.\d+)?)/g)) {
++  for (const re of [FEE_BEFORE, FEE_AFTER]) {
++    for (const m of finePrint.matchAll(re)) {
++      const amountAt = (m.index ?? 0) + m[0].indexOf('$');
++      if (THRESHOLD_WORDS.test(finePrint.slice(Math.max(0, amountAt - 20), amountAt))) continue;
+       const n = Number(m[1].replace(/,/g, ''));
+       if (n > FEE_LIMIT_DOLLARS) return n;
+     }
+   }
+   return null;
+@@ -134,10 +143,16 @@ function toCandidate(ctx: AgentContext, offer: Offer, ruling: CourtRuling, retry
+     verdict: 'likely', sources: [{ label: `${offer.store} offer page`, url: offer.sourceUrl }], traceId,
+     agent: AGENT, claim: { type: 'offer', offerId: offer.id }, evidenceSql: sql, retryCount: retry,
+   };
+ }
+ 
++/** Is `needle` a whole word or phrase in `hay` (a plural -s/-es is fine: "diaper" matches "diapers", "dia" does not match "diaper")? */
++function wholeWord(needle: string, hay: string): boolean {
++  const esc = needle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
++  return new RegExp(`(^|[^a-z0-9])${esc}(?:e?s)?($|[^a-z0-9])`, 'i').test(hay);
++}
++
+ const OFFER_COLS = 'id, title, store, min_age_days, max_age_days, trigger_keyword, value_cents, fine_print, source_url';
+ 
+ /**
+  * Offers go to court: Deal Hunter argues for, Fine Print Lawyer against, Judge rules with recalled case law.
+  * Reads bundle_pg.v_judge_offers (offer columns only, no family data).
+@@ -149,11 +164,11 @@ export async function judgeOffers(
+   const age = quoteInt(input.ageDays);
+   const sql = `SELECT ${OFFER_COLS} FROM bundle_pg.v_judge_offers WHERE min_age_days <= ${age} AND max_age_days >= ${age} ORDER BY id`;
+   const { rows } = await ctx.z.runQuery(sql);
+   const kws = input.purchaseKeywords.map((k) => k.toLowerCase().trim()).filter(Boolean);
+   const offers = rows.map(toOffer);
+-  const triggered = offers.filter((o) => o.trigger && kws.some((k) => k.includes(o.trigger) || (k.length >= 3 && o.trigger.includes(k))));
++  const triggered = offers.filter((o) => o.trigger && kws.some((k) => wholeWord(o.trigger, k) || (k.length >= 3 && wholeWord(k, o.trigger))));
+   const general = input.includeGeneral ? offers.filter((o) => !o.trigger) : [];
+   const picked = [...triggered, ...general].slice(0, MAX_OFFERS);
+   log(ctx, AGENT, 'select_offers', `age ${input.ageDays}d, ${kws.length} keyword(s)`, `${picked.length} offer(s) go to court (cap ${MAX_OFFERS})`);
+ 
+   const out: Candidate[] = [];

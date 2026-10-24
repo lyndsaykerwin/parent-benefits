@@ -1,0 +1,685 @@
+[
+  {
+    "account_id": "WjAmvXzy5qHqEQ66NQvWCAEKq79Renc6N458l",
+    "account_owner": null,
+    "amount": 89.99,
+    "authorized_date": "2026-09-02",
+    "authorized_datetime": null,
+    "category": [
+      "Shops",
+      "Digital Purchase"
+    ],
+    "category_id": "19019000",
+    "check_number": null,
+    "counterparties": [
+      {
+        "confidence_level": "VERY_HIGH",
+        "entity_id": "2gOwmq9qK56K60oDm3eLrREV2B2mVadkRn8MW",
+        "logo_url": "https://plaid-merchant-logos.plaid.com/amazon_44.png",
+        "name": "Amazon",
+        "phone_number": null,
+        "type": "merchant",
+        "website": "amazon.com"
+      }
+    ],
+    "date": "2026-09-02",
+    "datetime": null,
+    "iso_currency_code": "USD",
+    "location": {
+      "address": null,
+      "city": null,
+      "country": null,
+      "lat": null,
+      "lon": null,
+      "postal_code": null,
+      "region": "WA",
+      "store_number": null
+    },
+    "logo_url": "https://plaid-merchant-logos.plaid.com/amazon_44.png",
+    "merchant_category_code": null,
+    "merchant_entity_id": "2gOwmq9qK56K60oDm3eLrREV2B2mVadkRn8MW",
+    "merchant_name": "Amazon",
+    "name": "AMAZON MKTPL*2K4RT81Q3 Amzn.com/bill",
+    "original_description": "AMAZON MKTPL*2K4RT81Q3 Amzn.com/bill WA",
+    "payment_channel": "online",
+    "payment_meta": {
+      "by_order_of": null,
+      "payee": null,
+      "payer": null,
+      "payment_method": null,
+      "payment_processor": null,
+      "ppd_id": null,
+      "reason": null,
+      "reference_number": null
+    },
+    "pending": false,
+    "pending_transaction_id": null,
+    "personal_finance_category": {
+      "confidence_level": "HIGH",
+      "detailed": "GENERAL_MERCHANDISE_ONLINE_MARKETPLACES",
+      "primary": "GENERAL_MERCHANDISE",
+      "version": "v2"
+    },
+    "personal_finance_category_icon_url": "https://plaid-category-icons.plaid.com/PFC_GENERAL_MERCHANDISE.png",
+    "running_balance": null,
+    "transaction_code": null,
+    "transaction_id": "Nzyov8gj5aSMaxzzrx6ZCZa6Jo48eptyjz56G",
+    "transaction_type": "digital",
+    "unofficial_currency_code": null,
+    "website": "amazon.com"
+  },
+  {
+    "account_id": "WjAmvXzy5qHqEQ66NQvWCAEKq79Renc6N458l",
+    "account_owner": null,
+    "amount": 249.99,
+    "authorized_date": "2026-09-03",
+    "authorized_datetime": null,
+    "category": [
+      "Shops",
+      "Department Stores"
+    ],
+    "category_id": "19018000",
+    "check_number": null,
+    "counterparties": [
+      {
+        "confidence_level": "VERY_HIGH",
+        "entity_id": "Eaq3KXm0jJ61KrmMrV0aw9VaY2grqv517d3ep",
+        "logo_url": "https://plaid-merchant-logos.plaid.com/target_997.png",
+        "name": "Target",
+        "phone_number": null,
+        "type": "merchant",
+        "website": "target.com"
+      }
+    ],
+    "date": "2026-09-03",
+    "datetime": null,
+    "iso_currency_code": "USD",
+    "location": {
+      "address": null,
+      "city": "Boston",
+      "country": null,
+      "lat": null,
+      "lon": null,
+      "postal_code": null,
+      "region": "MA",
+      "store_number": null
+    },
+    "logo_url": "https://plaid-merchant-logos.plaid.com/target_997.png",
+    "merchant_category_code": null,
+    "merchant_entity_id": "Eaq3KXm0jJ61KrmMrV0aw9VaY2grqv517d3ep",
+    "merchant_name": "Target",
+    "name": "Target",
+    "original_description": "TARGET 00012345 BOSTON MA",
+    "payment_channel": "in store",
+    "payment_meta": {
+      "by_order_of": null,
+      "payee": null,
+      "payer": null,
+      "payment_method": null,
+      "payment_processor": null,
+      "ppd_id": null,
+      "reason": null,
+      "reference_number": null
+    },
+    "pending": false,
+    "pending_transaction_id": null,
+    "personal_finance_category": {
+      "confidence_level": "HIGH",
+      "detailed": "GENERAL_MERCHANDISE_SUPERSTORES",
+      "primary": "GENERAL_MERCHANDISE",
+      "version": "v2"
+    },
+    "personal_finance_category_icon_url": "https://plaid-category-icons.plaid.com/PFC_GENERAL_MERCHANDISE.png",
+    "running_balance": null,
+    "transaction_code": null,
+    "transaction_id": "P3A8vkoZ5NhZwa33GaVvcdaVDbPA1pFoknW6k",
+    "transaction_type": "place",
+    "unofficial_currency_code": null,
+    "website": "target.com"
+  },
+  {
+    "account_id": "WjAmvXzy5qHqEQ66NQvWCAEKq79Renc6N458l",
+    "account_owner": null,
+    "amount": 34.97,
+    "authorized_date": "2026-09-05",
+    "authorized_datetime": null,
+    "category": [
+      "Shops",
+      "Supermarkets and Groceries"
+    ],
+    "category_id": "19047000",
+    "check_number": null,
+    "counterparties": [
+      {
+        "confidence_level": "VERY_HIGH",
+        "entity_id": "O5W5j4dN9OR3E6ypQmjdkWZZRoXEzVMz2ByWM",
+        "logo_url": "https://plaid-merchant-logos.plaid.com/walmart_1100.png",
+        "name": "Walmart",
+        "phone_number": null,
+        "type": "merchant",
+        "website": "walmart.com"
+      }
+    ],
+    "date": "2026-09-05",
+    "datetime": null,
+    "iso_currency_code": "USD",
+    "location": {
+      "address": "1575 Coshocton Ave",
+      "city": "Mount Vernon",
+      "country": null,
+      "lat": 40.404697,
+      "lon": -82.441589,
+      "postal_code": "43050",
+      "region": "OH",
+      "store_number": "2149"
+    },
+    "logo_url": "https://plaid-merchant-logos.plaid.com/walmart_1100.png",
+    "merchant_category_code": null,
+    "merchant_entity_id": "O5W5j4dN9OR3E6ypQmjdkWZZRoXEzVMz2ByWM",
+    "merchant_name": "Walmart",
+    "name": "Walmart",
+    "original_description": "WAL-MART #2149 DORCHESTER MA",
+    "payment_channel": "in store",
+    "payment_meta": {
+      "by_order_of": null,
+      "payee": null,
+      "payer": null,
+      "payment_method": null,
+      "payment_processor": null,
+      "ppd_id": null,
+      "reason": null,
+      "reference_number": null
+    },
+    "pending": false,
+    "pending_transaction_id": null,
+    "personal_finance_category": {
+      "confidence_level": "VERY_HIGH",
+      "detailed": "GENERAL_MERCHANDISE_SUPERSTORES",
+      "primary": "GENERAL_MERCHANDISE",
+      "version": "v2"
+    },
+    "personal_finance_category_icon_url": "https://plaid-category-icons.plaid.com/PFC_GENERAL_MERCHANDISE.png",
+    "running_balance": null,
+    "transaction_code": null,
+    "transaction_id": "jy6jBLPmlrCkme778ePBfEe34nWl6As6MjLW4",
+    "transaction_type": "place",
+    "unofficial_currency_code": null,
+    "website": "walmart.com"
+  },
+  {
+    "account_id": "WjAmvXzy5qHqEQ66NQvWCAEKq79Renc6N458l",
+    "account_owner": null,
+    "amount": 159.99,
+    "authorized_date": "2026-09-07",
+    "authorized_datetime": null,
+    "category": [
+      "Shops",
+      "Clothing and Accessories",
+      "Kids' Store"
+    ],
+    "category_id": "19012006",
+    "check_number": null,
+    "counterparties": [
+      {
+        "confidence_level": "LOW",
+        "entity_id": null,
+        "logo_url": null,
+        "name": "Buybuy Baby",
+        "phone_number": null,
+        "type": "merchant",
+        "website": null
+      }
+    ],
+    "date": "2026-09-07",
+    "datetime": null,
+    "iso_currency_code": "USD",
+    "location": {
+      "address": null,
+      "city": "Natick",
+      "country": null,
+      "lat": null,
+      "lon": null,
+      "postal_code": null,
+      "region": "MA",
+      "store_number": "1027"
+    },
+    "logo_url": null,
+    "merchant_category_code": null,
+    "merchant_entity_id": null,
+    "merchant_name": "Buybuy Baby",
+    "name": "BUYBUY BABY #1027",
+    "original_description": "BUYBUY BABY #1027 NATICK MA",
+    "payment_channel": "in store",
+    "payment_meta": {
+      "by_order_of": null,
+      "payee": null,
+      "payer": null,
+      "payment_method": null,
+      "payment_processor": null,
+      "ppd_id": null,
+      "reason": null,
+      "reference_number": null
+    },
+    "pending": false,
+    "pending_transaction_id": null,
+    "personal_finance_category": {
+      "confidence_level": "LOW",
+      "detailed": "GENERAL_SERVICES_CHILDCARE",
+      "primary": "GENERAL_SERVICES",
+      "version": "v2"
+    },
+    "personal_finance_category_icon_url": "https://plaid-category-icons.plaid.com/PFC_GENERAL_SERVICES.png",
+    "running_balance": null,
+    "transaction_code": null,
+    "transaction_id": "7ZN67Rl5EyhbBgAAwgdmSrAvZzxgMBudlanJP",
+    "transaction_type": "place",
+    "unofficial_currency_code": null,
+    "website": null
+  },
+  {
+    "account_id": "WjAmvXzy5qHqEQ66NQvWCAEKq79Renc6N458l",
+    "account_owner": null,
+    "amount": 299.99,
+    "authorized_date": "2026-09-09",
+    "authorized_datetime": null,
+    "category": [
+      "Shops",
+      "Clothing and Accessories",
+      "Kids' Store"
+    ],
+    "category_id": "19012006",
+    "check_number": null,
+    "counterparties": [
+      {
+        "confidence_level": "HIGH",
+        "entity_id": null,
+        "logo_url": null,
+        "name": "Graco Childrens Products",
+        "phone_number": null,
+        "type": "merchant",
+        "website": null
+      }
+    ],
+    "date": "2026-09-09",
+    "datetime": null,
+    "iso_currency_code": "USD",
+    "location": {
+      "address": null,
+      "city": "Atlanta",
+      "country": null,
+      "lat": null,
+      "lon": null,
+      "postal_code": null,
+      "region": "GA",
+      "store_number": null
+    },
+    "logo_url": null,
+    "merchant_category_code": null,
+    "merchant_entity_id": null,
+    "merchant_name": "Graco Childrens Products",
+    "name": "GRACO CHILDRENS PRODUCTS",
+    "original_description": "GRACO CHILDRENS PRODUCTS ATLANTA GA",
+    "payment_channel": "in store",
+    "payment_meta": {
+      "by_order_of": null,
+      "payee": null,
+      "payer": null,
+      "payment_method": null,
+      "payment_processor": null,
+      "ppd_id": null,
+      "reason": null,
+      "reference_number": null
+    },
+    "pending": false,
+    "pending_transaction_id": null,
+    "personal_finance_category": {
+      "confidence_level": "LOW",
+      "detailed": "MEDICAL_PHARMACIES_AND_SUPPLEMENTS",
+      "primary": "MEDICAL",
+      "version": "v2"
+    },
+    "personal_finance_category_icon_url": "https://plaid-category-icons.plaid.com/PFC_MEDICAL.png",
+    "running_balance": null,
+    "transaction_code": null,
+    "transaction_id": "eADdlM1x5efQqJPP4Jaku3bjRvXyP5SrdX59G",
+    "transaction_type": "place",
+    "unofficial_currency_code": null,
+    "website": null
+  },
+  {
+    "account_id": "WjAmvXzy5qHqEQ66NQvWCAEKq79Renc6N458l",
+    "account_owner": null,
+    "amount": 42.99,
+    "authorized_date": "2026-09-10",
+    "authorized_datetime": null,
+    "category": [
+      "Food and Drink",
+      "Restaurants"
+    ],
+    "category_id": "13005000",
+    "check_number": null,
+    "counterparties": [
+      {
+        "confidence_level": "VERY_HIGH",
+        "entity_id": "kYyzLr7JDEvmN43YaaWagRKZKpnwrN2Mkpy2g",
+        "logo_url": "https://plaid-counterparty-logos.plaid.com/square_154.png",
+        "name": "Square",
+        "phone_number": null,
+        "type": "payment_terminal",
+        "website": "squareup.com"
+      }
+    ],
+    "date": "2026-09-10",
+    "datetime": null,
+    "iso_currency_code": "USD",
+    "location": {
+      "address": null,
+      "city": null,
+      "country": null,
+      "lat": null,
+      "lon": null,
+      "postal_code": null,
+      "region": null,
+      "store_number": null
+    },
+    "logo_url": null,
+    "merchant_category_code": null,
+    "merchant_entity_id": null,
+    "merchant_name": null,
+    "name": "SIMILAC STORE",
+    "original_description": "SQ *SIMILAC STORE",
+    "payment_channel": "in store",
+    "payment_meta": {
+      "by_order_of": null,
+      "payee": null,
+      "payer": null,
+      "payment_method": null,
+      "payment_processor": "Square",
+      "ppd_id": null,
+      "reason": null,
+      "reference_number": null
+    },
+    "pending": false,
+    "pending_transaction_id": null,
+    "personal_finance_category": {
+      "confidence_level": "LOW",
+      "detailed": "GENERAL_MERCHANDISE_CONVENIENCE_STORES",
+      "primary": "GENERAL_MERCHANDISE",
+      "version": "v2"
+    },
+    "personal_finance_category_icon_url": "https://plaid-category-icons.plaid.com/PFC_GENERAL_MERCHANDISE.png",
+    "running_balance": null,
+    "transaction_code": null,
+    "transaction_id": "QxAEwpmG5PUZDvxx3vl8colbpBjq1xtwMn7mn",
+    "transaction_type": "place",
+    "unofficial_currency_code": null,
+    "website": null
+  },
+  {
+    "account_id": "WjAmvXzy5qHqEQ66NQvWCAEKq79Renc6N458l",
+    "account_owner": null,
+    "amount": 129,
+    "authorized_date": "2026-09-12",
+    "authorized_datetime": null,
+    "category": [
+      "Shops",
+      "Digital Purchase"
+    ],
+    "category_id": "19019000",
+    "check_number": null,
+    "counterparties": [
+      {
+        "confidence_level": "VERY_HIGH",
+        "entity_id": "2gOwmq9qK56K60oDm3eLrREV2B2mVadkRn8MW",
+        "logo_url": "https://plaid-merchant-logos.plaid.com/amazon_44.png",
+        "name": "Amazon",
+        "phone_number": null,
+        "type": "merchant",
+        "website": "amazon.com"
+      }
+    ],
+    "date": "2026-09-12",
+    "datetime": null,
+    "iso_currency_code": "USD",
+    "location": {
+      "address": null,
+      "city": null,
+      "country": null,
+      "lat": null,
+      "lon": null,
+      "postal_code": null,
+      "region": null,
+      "store_number": null
+    },
+    "logo_url": "https://plaid-merchant-logos.plaid.com/amazon_44.png",
+    "merchant_category_code": null,
+    "merchant_entity_id": "2gOwmq9qK56K60oDm3eLrREV2B2mVadkRn8MW",
+    "merchant_name": "Amazon",
+    "name": "Amazon",
+    "original_description": "AMZN Mktp US*RT5YH22K0",
+    "payment_channel": "online",
+    "payment_meta": {
+      "by_order_of": null,
+      "payee": null,
+      "payer": null,
+      "payment_method": null,
+      "payment_processor": null,
+      "ppd_id": null,
+      "reason": null,
+      "reference_number": null
+    },
+    "pending": false,
+    "pending_transaction_id": null,
+    "personal_finance_category": {
+      "confidence_level": "VERY_HIGH",
+      "detailed": "GENERAL_MERCHANDISE_ONLINE_MARKETPLACES",
+      "primary": "GENERAL_MERCHANDISE",
+      "version": "v2"
+    },
+    "personal_finance_category_icon_url": "https://plaid-category-icons.plaid.com/PFC_GENERAL_MERCHANDISE.png",
+    "running_balance": null,
+    "transaction_code": null,
+    "transaction_id": "ZQAvXEey5zhWNvQQevPwCL5XeVg43zfeRvXqw",
+    "transaction_type": "digital",
+    "unofficial_currency_code": null,
+    "website": "amazon.com"
+  },
+  {
+    "account_id": "WjAmvXzy5qHqEQ66NQvWCAEKq79Renc6N458l",
+    "account_owner": null,
+    "amount": 1850,
+    "authorized_date": "2026-09-14",
+    "authorized_datetime": null,
+    "category": [
+      "Community",
+      "Education",
+      "Colleges and Universities"
+    ],
+    "category_id": "12008009",
+    "check_number": null,
+    "counterparties": [],
+    "date": "2026-09-14",
+    "datetime": null,
+    "iso_currency_code": "USD",
+    "location": {
+      "address": null,
+      "city": null,
+      "country": null,
+      "lat": null,
+      "lon": null,
+      "postal_code": null,
+      "region": null,
+      "store_number": null
+    },
+    "logo_url": null,
+    "merchant_category_code": null,
+    "merchant_entity_id": null,
+    "merchant_name": null,
+    "name": "BRIGHT HORIZONS TUITION ACH",
+    "original_description": "BRIGHT HORIZONS TUITION ACH",
+    "payment_channel": "in store",
+    "payment_meta": {
+      "by_order_of": null,
+      "payee": null,
+      "payer": null,
+      "payment_method": "ACH",
+      "payment_processor": null,
+      "ppd_id": null,
+      "reason": null,
+      "reference_number": null
+    },
+    "pending": false,
+    "pending_transaction_id": null,
+    "personal_finance_category": {
+      "confidence_level": "LOW",
+      "detailed": "GENERAL_SERVICES_EDUCATION",
+      "primary": "GENERAL_SERVICES",
+      "version": "v2"
+    },
+    "personal_finance_category_icon_url": "https://plaid-category-icons.plaid.com/PFC_GENERAL_SERVICES.png",
+    "running_balance": null,
+    "transaction_code": null,
+    "transaction_id": "MrVpvgoN5dToB3rrm3DncxADX9aPLpfLl5P6b",
+    "transaction_type": "place",
+    "unofficial_currency_code": null,
+    "website": null
+  },
+  {
+    "account_id": "WjAmvXzy5qHqEQ66NQvWCAEKq79Renc6N458l",
+    "account_owner": null,
+    "amount": 64.12,
+    "authorized_date": "2026-09-15",
+    "authorized_datetime": null,
+    "category": [
+      "Shops",
+      "Pharmacies"
+    ],
+    "category_id": "19043000",
+    "check_number": null,
+    "counterparties": [
+      {
+        "confidence_level": "VERY_HIGH",
+        "entity_id": "qkd60geNmo8qMV0wAXbL3yYbqdnoY4ezwbe1R",
+        "logo_url": "https://plaid-merchant-logos.plaid.com/cvs_264.png",
+        "name": "CVS",
+        "phone_number": null,
+        "type": "merchant",
+        "website": "cvs.com"
+      }
+    ],
+    "date": "2026-09-15",
+    "datetime": null,
+    "iso_currency_code": "USD",
+    "location": {
+      "address": "208 Elm St",
+      "city": "Westfield",
+      "country": null,
+      "lat": 42.124622,
+      "lon": -72.750076,
+      "postal_code": "01085",
+      "region": "MA",
+      "store_number": "01234"
+    },
+    "logo_url": "https://plaid-merchant-logos.plaid.com/cvs_264.png",
+    "merchant_category_code": null,
+    "merchant_entity_id": "qkd60geNmo8qMV0wAXbL3yYbqdnoY4ezwbe1R",
+    "merchant_name": "CVS",
+    "name": "CVS",
+    "original_description": "CVS/PHARMACY #01234 BOSTON MA",
+    "payment_channel": "in store",
+    "payment_meta": {
+      "by_order_of": null,
+      "payee": null,
+      "payer": null,
+      "payment_method": null,
+      "payment_processor": null,
+      "ppd_id": null,
+      "reason": null,
+      "reference_number": null
+    },
+    "pending": false,
+    "pending_transaction_id": null,
+    "personal_finance_category": {
+      "confidence_level": "VERY_HIGH",
+      "detailed": "MEDICAL_PHARMACIES_AND_SUPPLEMENTS",
+      "primary": "MEDICAL",
+      "version": "v2"
+    },
+    "personal_finance_category_icon_url": "https://plaid-category-icons.plaid.com/PFC_MEDICAL.png",
+    "running_balance": null,
+    "transaction_code": null,
+    "transaction_id": "1NBbd6mM17sm8Loo9Lkwij31V5rb8WcpKaejQ",
+    "transaction_type": "place",
+    "unofficial_currency_code": null,
+    "website": "cvs.com"
+  },
+  {
+    "account_id": "WjAmvXzy5qHqEQ66NQvWCAEKq79Renc6N458l",
+    "account_owner": null,
+    "amount": 23.48,
+    "authorized_date": "2026-09-18",
+    "authorized_datetime": null,
+    "category": [
+      "Shops",
+      "Supermarkets and Groceries"
+    ],
+    "category_id": "19047000",
+    "check_number": null,
+    "counterparties": [
+      {
+        "confidence_level": "VERY_HIGH",
+        "entity_id": "Eaq3KXm0jJ61KrmMrV0aw9VaY2grqv517d3ep",
+        "logo_url": "https://plaid-merchant-logos.plaid.com/target_997.png",
+        "name": "Target",
+        "phone_number": null,
+        "type": "merchant",
+        "website": "target.com"
+      }
+    ],
+    "date": "2026-09-18",
+    "datetime": null,
+    "iso_currency_code": "USD",
+    "location": {
+      "address": null,
+      "city": null,
+      "country": null,
+      "lat": null,
+      "lon": null,
+      "postal_code": null,
+      "region": "MN",
+      "store_number": null
+    },
+    "logo_url": "https://plaid-merchant-logos.plaid.com/target_997.png",
+    "merchant_category_code": null,
+    "merchant_entity_id": "Eaq3KXm0jJ61KrmMrV0aw9VaY2grqv517d3ep",
+    "merchant_name": "Target",
+    "name": "Target",
+    "original_description": "TARGET.COM * 800-591-3869 MN",
+    "payment_channel": "online",
+    "payment_meta": {
+      "by_order_of": null,
+      "payee": null,
+      "payer": null,
+      "payment_method": null,
+      "payment_processor": null,
+      "ppd_id": null,
+      "reason": null,
+      "reference_number": null
+    },
+    "pending": false,
+    "pending_transaction_id": null,
+    "personal_finance_category": {
+      "confidence_level": "VERY_HIGH",
+      "detailed": "GENERAL_MERCHANDISE_SUPERSTORES",
+      "primary": "GENERAL_MERCHANDISE",
+      "version": "v2"
+    },
+    "personal_finance_category_icon_url": "https://plaid-category-icons.plaid.com/PFC_GENERAL_MERCHANDISE.png",
+    "running_balance": null,
+    "transaction_code": null,
+    "transaction_id": "LKwLvpoN5xF4qBKKeB9Eu8r96bdwXKikQmpjP",
+    "transaction_type": "place",
+    "unofficial_currency_code": null,
+    "website": "target.com"
+  }
+]

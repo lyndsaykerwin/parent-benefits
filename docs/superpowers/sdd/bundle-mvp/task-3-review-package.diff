@@ -1,0 +1,369 @@
+e7ecb97 feat: zetaris client with timeout+cache; source registration script
+ ...5e4da79db1718f9a8af51220a11495a75a170ef1a0.json |   1 +
+ ...ba67c0d93b4f352df86a8b2b5a98397f39cf90ac09.json |   1 +
+ ...097dd9030dd600d1e901f3c61cf54e850b311f1f40.json |   1 +
+ ...fe1939980f8a8678f26e71247f08436d7406241c71.json |   1 +
+ scripts/zetaris/register.ts                        | 116 ++++++++++++++++
+ server/__tests__/zetaris.test.ts                   |  77 +++++++++++
+ server/adapters/zetaris.ts                         | 149 +++++++++++++++++++++
+ 11 files changed, 350 insertions(+)
+diff --git a/scripts/zetaris/register.ts b/scripts/zetaris/register.ts
+new file mode 100644
+index 0000000..4c94b9d
+--- /dev/null
++++ b/scripts/zetaris/register.ts
+@@ -0,0 +1,116 @@
++/**
++ * Registers Bundle's sources in Zetaris (the SQL "data door").
++ *
++ *   npx tsx scripts/zetaris/register.ts           -> dry run: prints the SQL, changes nothing
++ *   npx tsx scripts/zetaris/register.ts --apply   -> runs it, one statement per call
++ *
++ * Safe to re-run: it asks Zetaris what already exists (SHOW ...) and skips those
++ * objects, so the Spike 0 objects (bundle_pg, bundle_live.cpsc_recalls) are reused,
++ * never recreated. It never drops or alters anything.
++ */
++import os from 'os';
++import path from 'path';
++import { loadEnv } from '../../server/env';
++import { ZetarisClient } from '../../server/adapters/zetaris';
++import { BUNDLE_TABLE_NAMES } from '../../shared/schema';
++
++loadEnv();
++const apply = process.argv.includes('--apply');
++
++interface Step { label: string; sql: string; redacted: string; exists: boolean }
++
++const DS = 'bundle_pg';
++const LIVE = 'bundle_live';
++
++const VIEWS: Record<string, string> = {
++  // Judge: offers only, no family columns.
++  v_judge_offers:
++    'SELECT id, title, store, min_age_days, max_age_days, value_cents, fine_print, source_url FROM offers',
++  // Planner: family profile, including income (only this view carries it).
++  v_planner_family:
++    'SELECT id, name, birth_date, due_date, zip, state, employer, household_size, annual_income_cents, dcfsa_offered, data_connected FROM families',
++  // Clawback: card transactions keyed by family id, no income.
++  v_clawback_tx:
++    'SELECT id, family_id, date, merchant, amount_cents, category FROM transactions',
++  // Recall checker: everything a family bought, from Amazon orders and card transactions, no income.
++  v_recall_orders:
++    "SELECT family_id, order_date AS purchased_on, title AS item_text, 'amazon' AS source, price_cents FROM amazon_orders " +
++    "UNION ALL SELECT family_id, date AS purchased_on, merchant AS item_text, 'card' AS source, amount_cents AS price_cents FROM transactions",
++  // Scout: public rules and offers only, no family data.
++  v_scout_rules:
++    "SELECT code AS ref, title, scope AS kind, amount_cents, source_url, 'rule' AS record_type FROM benefit_rules " +
++    "UNION ALL SELECT CAST(id AS varchar) AS ref, title, store AS kind, value_cents AS amount_cents, source_url, 'offer' AS record_type FROM offers",
++};
++
++const OPENFDA =
++  'https://api.fda.gov/food/enforcement.json?search=product_description:%22infant%20formula%22&limit=100';
++
++function names(res: { rows: Record<string, unknown>[] }): Set<string> {
++  const s = new Set<string>();
++  for (const r of res.rows) for (const k of ['name', 'table_identifier']) if (r[k]) s.add(String(r[k]).toLowerCase());
++  return s;
++}
++
++async function main() {
++  const need = ['DATABASE_URL', 'ZETARIS_BASE_URL', 'ZETARIS_ORG_ID', 'ZETARIS_API_KEY'];
++  const missing = need.filter((k) => !process.env[k]);
++  if (missing.length) throw new Error(`Missing settings: ${missing.join(', ')}`);
++
++  const db = new URL(process.env.DATABASE_URL!);
++  const jdbcUrl = `jdbc:postgresql://${db.hostname}:${db.port || 5432}${db.pathname}?sslmode=require`;
++  const user = decodeURIComponent(db.username);
++  const pw = decodeURIComponent(db.password);
++
++  const z = new ZetarisClient({
++    baseUrl: process.env.ZETARIS_BASE_URL!, orgId: process.env.ZETARIS_ORG_ID!,
++    apiKey: process.env.ZETARIS_API_KEY!, timeoutMs: 60_000, sampleMode: false,
++    // DDL results are not worth caching; keep them out of the repo.
++    cacheDir: path.join(os.tmpdir(), 'bundle-zetaris-register'),
++  });
++
++  // What already exists? (read-only)
++  const dsExisting = names(await z.runQuery('SHOW DATASOURCES'));
++  const liveDbs = names(await z.runQuery('SHOW LIGHTNING DATABASES'));
++  const dsTables = dsExisting.has(DS) ? names(await z.runQuery(`SHOW DATASOURCE TABLES ${DS}`)) : new Set<string>();
++  const dsViews = names(await z.runQuery('SHOW DATASOURCE VIEWS'));
++  const liveTables = liveDbs.has(LIVE) ? names(await z.runQuery(`SHOW LIGHTNING TABLES ${LIVE}`)) : new Set<string>();
++
++  const steps: Step[] = [];
++  const dsSql = (pwText: string) =>
++    `CREATE DATASOURCE ${DS} DESCRIBE BY "Bundle Neon" OPTIONS (jdbcdriver "org.postgresql.Driver", jdbcurl "${jdbcUrl}", username "${user}", password "${pwText}")`;
++  steps.push({ label: 'datasource', sql: dsSql(pw), redacted: dsSql('***'), exists: dsExisting.has(DS) });
++
++  for (const t of BUNDLE_TABLE_NAMES) {
++    const sql = `REGISTER DATASOURCE TABLE '${t}' FROM ${DS}`;
++    steps.push({ label: `table ${t}`, sql, redacted: sql, exists: dsTables.has(t) });
++  }
++  for (const [v, select] of Object.entries(VIEWS)) {
++    const sql = `CREATE DATASOURCE VIEW ${v} FROM ${DS} AS ${select}`;
++    steps.push({ label: `view ${v}`, sql, redacted: sql, exists: dsViews.has(v) || dsViews.has(`${DS}.${v}`) || dsTables.has(v) });
++  }
++  const liveDb = `CREATE LIGHTNING DATABASE ${LIVE} DESCRIBE BY "Live recall feeds"`;
++  steps.push({ label: 'lightning database', sql: liveDb, redacted: liveDb, exists: liveDbs.has(LIVE) });
++  // cpsc_recalls already exists from Spike 0 (window starts 2025-06-01); reused as is.
++  const cpsc = `CREATE LIGHTNING REST TABLE cpsc_recalls FROM ${LIVE} REQUEST (endpoint "https://www.saferproducts.gov/RestWebServices/Recall?format=json&RecallDateStart=2025-06-01", method "get", response_type "json", http_encoding "URLENCODED") HEADER () BODY ()`;
++  steps.push({ label: 'rest cpsc_recalls', sql: cpsc, redacted: cpsc, exists: liveTables.has('cpsc_recalls') });
++  const fda = `CREATE LIGHTNING REST TABLE fda_food_recalls FROM ${LIVE} REQUEST (endpoint "${OPENFDA}", method "get", response_type "json", http_encoding "URLENCODED") HEADER () BODY ()`;
++  steps.push({ label: 'rest fda_food_recalls', sql: fda, redacted: fda, exists: liveTables.has('fda_food_recalls') });
++
++  console.log(apply ? '=== APPLY ===' : '=== DRY RUN (nothing will be changed; pass --apply to run) ===');
++  let failed = 0;
++  for (const s of steps) {
++    if (s.exists) { console.log(`SKIP (already exists) ${s.label}`); continue; }
++    console.log(`${apply ? 'RUN ' : 'WOULD RUN'} [${s.label}]\n  ${s.redacted}`);
++    if (!apply) continue;
++    try {
++      const r = await z.runQuery(s.sql);
++      console.log(`  ok (${r.ms} ms)`);
++    } catch (e: any) {
++      failed++;
++      console.log(`  FAILED: ${String(e.message).replace(pw, '***').slice(0, 500)}`);
++    }
++  }
++  if (failed) { console.log(`${failed} step(s) failed`); process.exit(1); }
++}
++
++main().catch((e) => { console.error(String(e.message ?? e)); process.exit(1); });
+diff --git a/server/__tests__/zetaris.test.ts b/server/__tests__/zetaris.test.ts
+new file mode 100644
+index 0000000..a2d1fa1
+--- /dev/null
++++ b/server/__tests__/zetaris.test.ts
+@@ -0,0 +1,77 @@
++import fs from 'fs';
++import os from 'os';
++import path from 'path';
++import crypto from 'crypto';
++import { ZetarisClient, ZetarisUnavailable } from '../adapters/zetaris';
++
++function jsonResponse(body: unknown, status = 200): Response {
++  return new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
++}
++
++describe('ZetarisClient', () => {
++  let dir: string;
++  beforeEach(() => {
++    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'zetaris-cache-'));
++  });
++  afterEach(() => fs.rmSync(dir, { recursive: true, force: true }));
++
++  const make = (fetchFn: any, extra: Record<string, unknown> = {}) =>
++    new ZetarisClient({
++      baseUrl: 'https://z.example', orgId: '7', apiKey: 'k', timeoutMs: 50,
++      sampleMode: false, cacheDir: dir, fetchFn, ...extra,
++    });
++
++  it('maps headers+data to rows and coerces numbers and nulls', async () => {
++    const fetchFn = jest.fn().mockResolvedValue(
++      jsonResponse({ headers: ['a', 'b', 'c', 'd'], data: [['1', 'x', '', 'null']] }));
++    const res = await make(fetchFn).runQuery('SELECT 1');
++    expect(res.rows[0].a).toBe(1);
++    expect(res.rows[0].b).toBe('x');
++    expect(res.rows[0].c).toBeNull();
++    expect(res.rows[0].d).toBeNull();
++    const [url, init] = fetchFn.mock.calls[0];
++    expect(url).toBe('https://z.example/api/proxy/sql-editor/sqls/run-query');
++    expect(init.headers.Authorization).toBe('Bearer k');
++    expect(init.headers['X-Org-ID']).toBe('7');
++    expect(JSON.parse(init.body)).toEqual({ sql: 'SELECT 1', limit: 1000 });
++  });
++
++  it('throws ZetarisUnavailable on timeout with no cache', async () => {
++    const fetchFn = jest.fn((_u: string, init: any) => new Promise((_res, rej) => {
++      init.signal.addEventListener('abort', () => rej(new Error('aborted')));
++    }));
++    await expect(make(fetchFn).runQuery('SELECT 2')).rejects.toBeInstanceOf(ZetarisUnavailable);
++  });
++
++  it('returns cached rows on timeout when a cache file exists', async () => {
++    const sql = 'SELECT 3';
++    const key = crypto.createHash('sha256').update(sql).digest('hex');
++    fs.writeFileSync(path.join(dir, `${key}.json`),
++      JSON.stringify({ headers: ['n'], rows: [{ n: 3 }], ms: 5 }));
++    const fetchFn = jest.fn((_u: string, init: any) => new Promise((_res, rej) => {
++      init.signal.addEventListener('abort', () => rej(new Error('aborted')));
++    }));
++    const res = await make(fetchFn).runQuery(sql);
++    expect(res.rows).toEqual([{ n: 3 }]);
++  });
++
++  it('rejects SQL ending in a semicolon', async () => {
++    const fetchFn = jest.fn();
++    await expect(make(fetchFn).runQuery('SELECT 1;')).rejects.toThrow('one statement, no trailing semicolon');
++    expect(fetchFn).not.toHaveBeenCalled();
++  });
++
++  it('writes the cache on live success and serves it in sampleMode without calling out', async () => {
++    const live = jest.fn().mockResolvedValue(jsonResponse({ headers: ['n'], data: [['4']] }));
++    await make(live).runQuery('SELECT 4');
++    const offline = jest.fn();
++    const res = await make(offline, { sampleMode: true }).runQuery('SELECT 4');
++    expect(res.rows).toEqual([{ n: 4 }]);
++    expect(offline).not.toHaveBeenCalled();
++  });
++
++  it('throws ZetarisUnavailable on 5xx with no cache', async () => {
++    const fetchFn = jest.fn().mockResolvedValue(jsonResponse({}, 503));
++    await expect(make(fetchFn).runQuery('SELECT 5')).rejects.toBeInstanceOf(ZetarisUnavailable);
++  });
++});
+diff --git a/server/adapters/zetaris.ts b/server/adapters/zetaris.ts
+new file mode 100644
+index 0000000..c11a535
+--- /dev/null
++++ b/server/adapters/zetaris.ts
+@@ -0,0 +1,149 @@
++import fs from 'fs';
++import path from 'path';
++import crypto from 'crypto';
++
++export interface QueryResult {
++  headers: string[];
++  rows: Record<string, string | number | null>[];
++  ms: number;
++}
++
++/** Minimal trace hook; the real TraceLogger (a later task) satisfies this shape. */
++export interface TraceLogger {
++  log(entry: Record<string, unknown>): void;
++}
++
++export class ZetarisUnavailable extends Error {
++  constructor(message: string) {
++    super(message);
++    this.name = 'ZetarisUnavailable';
++  }
++}
++
++export interface ZetarisOptions {
++  baseUrl: string;
++  orgId: string;
++  apiKey: string;
++  timeoutMs: number;
++  sampleMode: boolean;
++  cacheDir: string;
++  fetchFn?: typeof fetch;
++  trace?: TraceLogger;
++}
++
++const NUMERIC = /^-?\d+(\.\d+)?$/;
++
++function coerce(v: unknown): string | number | null {
++  if (v === null || v === undefined) return null;
++  const s = String(v);
++  if (s === '' || s === 'null') return null;
++  // Keep long digit strings (ids with leading zeros, huge numbers) as text.
++  if (NUMERIC.test(s) && !(s.length > 1 && s.startsWith('0') && !s.startsWith('0.')) && s.length < 16) {
++    return Number(s);
++  }
++  return s;
++}
++
++export class ZetarisClient {
++  private fetchFn: typeof fetch;
++
++  constructor(private opts: ZetarisOptions) {
++    this.fetchFn = opts.fetchFn ?? fetch;
++  }
++
++  private cachePath(sql: string): string {
++    const key = crypto.createHash('sha256').update(sql).digest('hex');
++    return path.join(this.opts.cacheDir, `${key}.json`);
++  }
++
++  private readCache(sql: string): QueryResult | null {
++    try {
++      return JSON.parse(fs.readFileSync(this.cachePath(sql), 'utf8')) as QueryResult;
++    } catch {
++      return null;
++    }
++  }
++
++  private writeCache(sql: string, res: QueryResult): void {
++    try {
++      fs.mkdirSync(this.opts.cacheDir, { recursive: true });
++      fs.writeFileSync(this.cachePath(sql), JSON.stringify(res));
++    } catch {
++      /* cache is best-effort */
++    }
++  }
++
++  private trace(action: string, sql: string, summary: string, status: string): void {
++    this.opts.trace?.log({
++      agent_name: 'zetaris', action, input_summary: sql.slice(0, 200),
++      output_summary: summary, status,
++    });
++  }
++
++  async runQuery(sql: string): Promise<QueryResult> {
++    const text = sql.trim();
++    if (text.endsWith(';')) {
++      throw new Error('one statement, no trailing semicolon');
++    }
++
++    if (this.opts.sampleMode) {
++      const cached = this.readCache(text);
++      if (cached) {
++        this.trace('query_cached', text, `${cached.rows.length} rows (sample cache)`, 'ok');
++        return cached;
++      }
++      // No cache in sample mode: fall through to a live attempt.
++    }
++
++    const started = Date.now();
++    const ctrl = new AbortController();
++    const timer = setTimeout(() => ctrl.abort(), this.opts.timeoutMs);
++    try {
++      const resp = await this.fetchFn(`${this.opts.baseUrl.replace(/\/$/, '')}/api/proxy/sql-editor/sqls/run-query`, {
++        method: 'POST',
++        headers: {
++          Authorization: `Bearer ${this.opts.apiKey}`,
++          'X-Org-ID': this.opts.orgId,
++          'X-Request-ID': crypto.randomUUID(),
++          'Content-Type': 'application/json',
++        },
++        body: JSON.stringify({ sql: text, limit: 1000 }),
++        signal: ctrl.signal,
++      });
++      if (resp.status >= 500) throw new ZetarisUnavailable(`Zetaris returned HTTP ${resp.status}`);
++      if (!resp.ok) {
++        const detail = (await resp.text()).slice(0, 300);
++        // A rejected query is our bug, not an outage: do not hide it behind the cache.
++        const err = new Error(`Zetaris rejected the query (HTTP ${resp.status}): ${detail}`);
++        (err as any).clientError = true;
++        throw err;
++      }
++      const body = (await resp.json()) as { headers?: string[]; data?: unknown[][] };
++      const headers = body.headers ?? [];
++      const rows = (body.data ?? []).map((r) => {
++        const o: Record<string, string | number | null> = {};
++        headers.forEach((h, i) => { o[h] = coerce(r[i]); });
++        return o;
++      });
++      const res: QueryResult = { headers, rows, ms: Date.now() - started };
++      this.writeCache(text, res);
++      this.trace('query', text, `${rows.length} rows in ${res.ms} ms`, 'ok');
++      return res;
++    } catch (e: any) {
++      if (e?.clientError) {
++        this.trace('query', text, String(e.message).slice(0, 200), 'error');
++        throw e;
++      }
++      const cached = this.readCache(text);
++      if (cached) {
++        this.trace('query_fallback_cache', text, `${cached.rows.length} rows (cache after failure)`, 'degraded');
++        return cached;
++      }
++      this.trace('query', text, 'unavailable', 'error');
++      if (e instanceof ZetarisUnavailable) throw e;
++      throw new ZetarisUnavailable(`Zetaris unreachable or timed out: ${e?.message ?? e}`);
++    } finally {
++      clearTimeout(timer);
++    }
++  }
++}

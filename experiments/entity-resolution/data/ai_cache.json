@@ -1,0 +1,95 @@
+{
+ "b8ff629433d8c3a63585b7d729fa4111988d42fb0636e3426ab462e542086310": {
+  "same": false
+ },
+ "675648d70d89c1104314336a1d23905175a81c94afd1e2a1003a3605c388b095": {
+  "same": false
+ },
+ "b1df6a927331e910160d05895629a20c6e249dfa28205302de2a8ba198f386e1": {
+  "same": false
+ },
+ "fefa8f34b758c98ba0aabff71cec67117691c60cc1163574e35d062dcb333269": {
+  "same": false
+ },
+ "955790480a8b0eab9f888a86751d7909ab58f47f421cf6583c77a519abc08200": {
+  "same": false
+ },
+ "4423190e3615f46846002cd7850dcedd2a9eaef324100392bde16aaf59e9c931": {
+  "same": false
+ },
+ "08d3962e86eacb318d2992d07ae25e2be6e19327349d06c251581bff0cbb01cc": {
+  "same": false
+ },
+ "699660f4d205878d0421c4ed7d5f4873dad23dc205416d0bca5404c8c164deb2": {
+  "same": false
+ },
+ "1bf592b301751a0f2c40dc3775f3789a66ac96fb3f59b57b1c650d50d35493fc": {
+  "same": false
+ },
+ "0f7dd73fe7b27f7c2e162740e231e39f74a929ecaa8d2044b4fab43525aba46f": {
+  "same": false
+ },
+ "d6c4c40d958b3a6ce48cc14b88013d06e7c018a79e81457a4d63d5b8a6b23cd6": {
+  "same": false
+ },
+ "65eab8a08dfb93c798e1c1ef8fc2161ed8ccf5c444b3e3cfe7ca4d9000a62ba2": {
+  "same": false
+ },
+ "31b6a1b6e5fde6d24fb702ce4f0d6a4fc6dde6b1a2912eedee518a72b988e376": {
+  "same": false
+ },
+ "3c6786d4088ef125dc00d05ae6a442fbb162cbfe4785749c7093c2c3c6864a4f": {
+  "same": false
+ },
+ "de77eae7a4c4a7998c5c6cff2a36ff98c65b53efba3250af6443a4f6717db4ee": {
+  "same": false
+ },
+ "53fcdb922e54c8c805ea699dcd527b01d15f5a1a23185fef40c6fbc715267550": {
+  "same": false
+ },
+ "068ae2d109ea079ea72fbd10d129eb4c634ab343dce7c17a7df34a4c6593b002": {
+  "same": true
+ },
+ "c02a61302422b2460478bb8a367abf3ce30c0d203e42cc92dc72e72584d0360d": {
+  "same": true
+ },
+ "bc6a75759d0bee2bad820b6400e6ce88b053993a4e4577c6956b7960668df869": {
+  "same": false
+ },
+ "e7eb2e60c1dbadf33cc835e4e8ab5a99b77c6a032e52bd4fe7d3af47603b26a7": {
+  "same": false
+ },
+ "fc8f74e0ba160c0426659b34473f9af63702ffce771af21a24258584f2459dcb": {
+  "same": false
+ },
+ "758af678f09f3ec8fa2978f37e9a178f905567beb71c65532ba0bb03540b63b9": {
+  "same": false
+ },
+ "7adab237f69e99ba26ce4f0f1c81787b3102ebfdac9b05c7a5cbfa5516ffc4a8": {
+  "same": false
+ },
+ "e0b63458554e127aae4cc34a355bbedd48b93dfae7ca4365caccfc83d717c20e": {
+  "same": false
+ },
+ "48e1bdf9cb6f0e7e923481ee23d7763ec12f663b418b5da7e87a47ae7014baa7": {
+  "same": false
+ },
+ "56093e3de6babea1dd0786465c2ef4bd907d72becf44b8e1f7d4be46bb580be1": {
+  "same": false,
+  "brand_purchase": "Babysense",
+  "brand_recall": "Babysense",
+  "product_purchase": "7 Under-The-Mattress Baby Movement Monitor",
+  "product_recall": "Max View Baby Monitors",
+  "conflict": "Purchase is an under-the-mattress movement monitor (Babysense 7), recall is for Max View video baby monitor (model VBM55). Different product lines.",
+  "how_to_confirm": "Check the display unit for model number VBM55RX on the back label, and verify '5.5\" HD 1080P' printed on upper left side of monitor screen with 'babysense' logo on lower portion."
+ },
+ "6a4936047ebf8c1e01a63e5d847f13906ab429ef7512a7352967ec29a5b562d6": {
+  "same": false,
+  "brand_purchase": "VEVOR",
+  "brand_recall": "Vevor",
+  "product_purchase": "Baby Gate Retractable 33\" Tall, Extends to 55\" Wide, Mesh Safety Gate, Black",
+  "product_recall": "Vevor Retractable Baby Gates",
+  "conflict": "Purchase height (33\") differs from recall height (34.2\"), purchase max width (55\") differs from recall model YJ-3355 max width (60\"), and purchase lacks model number to confirm match with recalled models YJ-3355, YJ-3371, YJ-33110.",
+  "how_to_confirm": "Check the model number on the product packaging or user manual; recalled models are YJ-3355, YJ-3371, YJ-33110."
+ }
+}

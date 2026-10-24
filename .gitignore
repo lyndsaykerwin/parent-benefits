@@ -1,0 +1,15 @@
+# Secrets — never upload
+.secrets/
+.env
+.env.*
+!.env.example
+*-admin-key.json
+
+# Third-party public repo (clone from GitHub instead)
+zetaris-getting-started/
+
+# Bulky/regenerable
+node_modules/
+dist/
+coverage/
+.DS_Store

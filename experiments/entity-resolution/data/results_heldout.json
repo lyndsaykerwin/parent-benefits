@@ -1,0 +1,332 @@
+{
+ "run_at": "2026-10-24T11:39:30",
+ "purchase_file": "heldout.json",
+ "ai_calls": {
+  "live": 0,
+  "cached": 0,
+  "failed": 0
+ },
+ "results": [
+  {
+   "strategy": "A0 net only (every candidate pair = alarm)",
+   "alerts": 40,
+   "right": 8,
+   "wrong_alarms": [
+    [
+     "H01",
+     "cpsc-10337"
+    ],
+    [
+     "H01",
+     "cpsc-10469"
+    ],
+    [
+     "H01",
+     "cpsc-10490"
+    ],
+    [
+     "H01",
+     "cpsc-10904"
+    ],
+    [
+     "H02",
+     "cpsc-11024"
+    ],
+    [
+     "H02",
+     "fda-F-0008-2024"
+    ],
+    [
+     "H02",
+     "fda-F-0009-2024"
+    ],
+    [
+     "H02",
+     "fda-F-0732-2023"
+    ],
+    [
+     "H02",
+     "fda-F-0944-2022"
+    ],
+    [
+     "H02",
+     "fda-F-0945-2022"
+    ],
+    [
+     "H02",
+     "fda-F-0946-2022"
+    ],
+    [
+     "H02",
+     "fda-F-1021-2020"
+    ],
+    [
+     "H02",
+     "fda-F-1558-2019"
+    ],
+    [
+     "H02",
+     "fda-F-1751-2024"
+    ],
+    [
+     "H02",
+     "fda-H-0891-2026"
+    ],
+    [
+     "H02",
+     "fda-H-1137-2026"
+    ],
+    [
+     "H05",
+     "cpsc-10341"
+    ],
+    [
+     "H06",
+     "cpsc-10829"
+    ],
+    [
+     "H07",
+     "cpsc-10580"
+    ],
+    [
+     "H08",
+     "cpsc-10526"
+    ],
+    [
+     "H08",
+     "cpsc-10647"
+    ],
+    [
+     "H08",
+     "cpsc-10992"
+    ],
+    [
+     "H09",
+     "cpsc-10296"
+    ],
+    [
+     "H09",
+     "cpsc-10484"
+    ],
+    [
+     "H09",
+     "cpsc-10752"
+    ],
+    [
+     "H09",
+     "cpsc-10784"
+    ],
+    [
+     "H09",
+     "cpsc-11001"
+    ],
+    [
+     "H09",
+     "cpsc-11010"
+    ],
+    [
+     "H10",
+     "cpsc-10323"
+    ],
+    [
+     "H10",
+     "cpsc-10654"
+    ],
+    [
+     "H10",
+     "cpsc-10662"
+    ],
+    [
+     "H14",
+     "cpsc-11014"
+    ]
+   ],
+   "misses": [],
+   "precision": 0.2,
+   "recall": 1.0
+  },
+  {
+   "strategy": "A1 current rule, offline (exact name only)",
+   "alerts": 0,
+   "right": 0,
+   "wrong_alarms": [],
+   "misses": [
+    [
+     "H01",
+     "cpsc-11024"
+    ],
+    [
+     "H03",
+     "cpsc-10846"
+    ],
+    [
+     "H05",
+     "cpsc-10543"
+    ],
+    [
+     "H06",
+     "cpsc-10412"
+    ],
+    [
+     "H07",
+     "cpsc-10526"
+    ],
+    [
+     "H09",
+     "cpsc-10295"
+    ],
+    [
+     "H11",
+     "cpsc-10959"
+    ],
+    [
+     "H12",
+     "cpsc-11014"
+    ]
+   ],
+   "precision": NaN,
+   "recall": 0.0
+  },
+  {
+   "strategy": "B structured fields + rules (no AI)",
+   "alerts": 8,
+   "right": 7,
+   "wrong_alarms": [
+    [
+     "H14",
+     "cpsc-11014"
+    ]
+   ],
+   "misses": [
+    [
+     "H06",
+     "cpsc-10412"
+    ]
+   ],
+   "precision": 0.875,
+   "recall": 0.875
+  }
+ ],
+ "net_pairs": [
+  "H01 'Papablic 3-in-1 Bedside Sleeper Bassinet & Play Yard, S' -> cpsc-11024 'Papablic Bedside Sleepers with Play Yard Extensions'",
+  "H02 'Papablic Baby Bottle Warmer, 5-in-1 Fast Formula Milk W' -> cpsc-11024 'Papablic Bedside Sleepers with Play Yard Extensions'",
+  "H12 'ONTHEWEI Baby Bath Seat with Suction Cups, Mist Green' -> cpsc-11014 'ONTHEWEI Baby Bath Seats'",
+  "H14 'ONTHEWEI Baby Bath Seat, Pink' -> cpsc-11014 'ONTHEWEI Baby Bath Seats'",
+  "H09 'ZHORANGE Portable Bassinet Foldable Travel Crib, Gray P' -> cpsc-11010 'Portable Camping Showers with bucket and immersion heat'",
+  "H08 'Schwinn Kids Classic Bike Helmet, Toddler' -> cpsc-10992 '5Color Children\u2019s Bike Helmet and Pads Sets'",
+  "H09 'ZHORANGE Portable Bassinet Foldable Travel Crib, Gray P' -> cpsc-11001 'Portable Sleep Machines with Night Light model number L'",
+  "H11 'Kmaier Baby Walker with Wheels, 9 Height Adjustable, Pi' -> cpsc-10959 'Kmaier Infant Walkers'",
+  "H01 'Papablic 3-in-1 Bedside Sleeper Bassinet & Play Yard, S' -> cpsc-10904 'Voomf Play Yard and Crib Mattresses'",
+  "H03 'AMASKY Nursing Pillow for Breastfeeding, C-Shaped, Croc' -> cpsc-10846 'AMASKY Nursing Pillows'",
+  "H06 'Hoovy Cooling Gel Car Seat Liner Pad for Strollers, Bla' -> cpsc-10829 'Joolz Aer2 Car Seat Adapters for Joolz Aer 2 Stroller'",
+  "H02 'Papablic Baby Bottle Warmer, 5-in-1 Fast Formula Milk W' -> fda-H-1137-2026 'a.) nara organics brand; Whole Milk Organic Infant Form'",
+  "H09 'ZHORANGE Portable Bassinet Foldable Travel Crib, Gray P' -> cpsc-10784 'Portable Hook-On Chairs'",
+  "H02 'Papablic Baby Bottle Warmer, 5-in-1 Fast Formula Milk W' -> fda-H-0891-2026 'a2 Platinum Premium infant formula Milk-based Powder wi'",
+  "H09 'ZHORANGE Portable Bassinet Foldable Travel Crib, Gray P' -> cpsc-10752 'Travel Size Afrin\u00ae Original Nasal Spray 6 mL Bottles'",
+  "H10 'Halo BassiNest Swivel Sleeper Essentia Series' -> cpsc-10662 'Swivel Office Chairs'",
+  "H10 'Halo BassiNest Swivel Sleeper Essentia Series' -> cpsc-10654 'HALO Magic Sleepsuits'",
+  "H08 'Schwinn Kids Classic Bike Helmet, Toddler' -> cpsc-10647 'Concord 360 Degree Rechargeable Light-Up Bike Helmet'",
+  "H07 'Schwinn Ovation Rear Bike Child Carrier Seat with Rack' -> cpsc-10580 'Rear wheel bolts installed on model year 2026 Trek FX+ '",
+  "H05 'Saro Baby Braided Crib Bumper Pad, Mint (Ref. 1374)' -> cpsc-10543 'SARO Braided Crib Bumpers'",
+  "H07 'Schwinn Ovation Rear Bike Child Carrier Seat with Rack' -> cpsc-10526 'Schwinn Ovation Bicycle Child Carriers'",
+  "H08 'Schwinn Kids Classic Bike Helmet, Toddler' -> cpsc-10526 'Schwinn Ovation Bicycle Child Carriers'",
+  "H01 'Papablic 3-in-1 Bedside Sleeper Bassinet & Play Yard, S' -> cpsc-10490 'Play Yards'",
+  "H09 'ZHORANGE Portable Bassinet Foldable Travel Crib, Gray P' -> cpsc-10484 'Portable Power Banks and Wireless Charging Stands'",
+  "H01 'Papablic 3-in-1 Bedside Sleeper Bassinet & Play Yard, S' -> cpsc-10469 'Criblike aftermarket play yard and non-full sized crib '",
+  "H06 'Hoovy Cooling Gel Car Seat Liner Pad for Strollers, Bla' -> cpsc-10412 'Hoovy Cooling Gel Insert Pads for Car Seats and Strolle'",
+  "H01 'Papablic 3-in-1 Bedside Sleeper Bassinet & Play Yard, S' -> cpsc-10337 'Creekliybear \"Pack and Play\" Aftermarket Play Yard Matt'",
+  "H05 'Saro Baby Braided Crib Bumper Pad, Mint (Ref. 1374)' -> cpsc-10341 'Braided crib bumpers'",
+  "H10 'Halo BassiNest Swivel Sleeper Essentia Series' -> cpsc-10323 'Swivel Port equine bits from Bob Avila collection'",
+  "H09 'ZHORANGE Portable Bassinet Foldable Travel Crib, Gray P' -> cpsc-10296 'Portable Hook-On Chairs'",
+  "H09 'ZHORANGE Portable Bassinet Foldable Travel Crib, Gray P' -> cpsc-10295 'ZHORANGE Portable Bassinets'",
+  "H02 'Papablic Baby Bottle Warmer, 5-in-1 Fast Formula Milk W' -> fda-F-1751-2024 'CVS Health brand and HEB Baby brand Premium Infant Form'",
+  "H02 'Papablic Baby Bottle Warmer, 5-in-1 Fast Formula Milk W' -> fda-F-0009-2024 'LittleOak Natural Goat Milk Follow On Infant Formula (S'",
+  "H02 'Papablic Baby Bottle Warmer, 5-in-1 Fast Formula Milk W' -> fda-F-0008-2024 'LittleOak Natural Goat Milk Infant Formula (Stage 1); p'",
+  "H02 'Papablic Baby Bottle Warmer, 5-in-1 Fast Formula Milk W' -> fda-F-0732-2023 'Gerber GoodStart  SoothePro Infant Formula with Iron.  '",
+  "H02 'Papablic Baby Bottle Warmer, 5-in-1 Fast Formula Milk W' -> fda-F-0945-2022 'Abbott Similac Organic 7oz. can. 6 cans per case.  Abbo'",
+  "H02 'Papablic Baby Bottle Warmer, 5-in-1 Fast Formula Milk W' -> fda-F-0944-2022 'Abbott Similac Organic with A2 Milk Toddler Drink 23.2o'",
+  "H02 'Papablic Baby Bottle Warmer, 5-in-1 Fast Formula Milk W' -> fda-F-0946-2022 'Abbott Similac Organic with A2 Milk Infant Formula with'",
+  "H02 'Papablic Baby Bottle Warmer, 5-in-1 Fast Formula Milk W' -> fda-F-1021-2020 'Similac Pro-Advance Infant Formula with Iron, Milk-Base'",
+  "H02 'Papablic Baby Bottle Warmer, 5-in-1 Fast Formula Milk W' -> fda-F-1558-2019 'Parent's Choice Advantage Infant Formula Milk-Based Pow'"
+ ],
+ "b_decisions": [
+  [
+   "H01 'Papablic 3-in-1 Bedside Sleeper Bassinet & Play Yard, S' -> cpsc-11024 'Papablic Bedside Sleepers with Play Yard Extensions'",
+   true,
+   [
+    "brand=papablic",
+    "type=bassinet",
+    "bought inside sale window Apr 2025-Jul 2026",
+    "seller amazon named in notice",
+    "model=PAPA03001AI"
+   ]
+  ],
+  [
+   "H03 'AMASKY Nursing Pillow for Breastfeeding, C-Shaped, Croc' -> cpsc-10846 'AMASKY Nursing Pillows'",
+   true,
+   [
+    "brand=amasky",
+    "type=nursing_pillow",
+    "bought inside sale window Jan 2026-Mar 2026",
+    "seller amazon named in notice"
+   ]
+  ],
+  [
+   "H05 'Saro Baby Braided Crib Bumper Pad, Mint (Ref. 1374)' -> cpsc-10543 'SARO Braided Crib Bumpers'",
+   true,
+   [
+    "brand=saro",
+    "type=bumper",
+    "bought inside sale window May 2024-Oct 2025",
+    "seller target named in notice"
+   ]
+  ],
+  [
+   "H07 'Schwinn Ovation Rear Bike Child Carrier Seat with Rack' -> cpsc-10526 'Schwinn Ovation Bicycle Child Carriers'",
+   true,
+   [
+    "brand=schwinn",
+    "type=carrier",
+    "bought inside sale window May 2025-Sep 2025",
+    "seller amazon named in notice"
+   ]
+  ],
+  [
+   "H09 'ZHORANGE Portable Bassinet Foldable Travel Crib, Gray P' -> cpsc-10295 'ZHORANGE Portable Bassinets'",
+   true,
+   [
+    "brand=zhorange",
+    "type=bassinet",
+    "bought inside sale window Nov 2024-Apr 2025",
+    "seller amazon named in notice"
+   ]
+  ],
+  [
+   "H11 'Kmaier Baby Walker with Wheels, 9 Height Adjustable, Pi' -> cpsc-10959 'Kmaier Infant Walkers'",
+   true,
+   [
+    "brand=kmaier",
+    "type=walker",
+    "seller target named in notice"
+   ]
+  ],
+  [
+   "H12 'ONTHEWEI Baby Bath Seat with Suction Cups, Mist Green' -> cpsc-11014 'ONTHEWEI Baby Bath Seats'",
+   true,
+   [
+    "brand=onthewei",
+    "type=bath_seat",
+    "seller amazon named in notice"
+   ]
+  ],
+  [
+   "H14 'ONTHEWEI Baby Bath Seat, Pink' -> cpsc-11014 'ONTHEWEI Baby Bath Seats'",
+   true,
+   [
+    "brand=onthewei",
+    "type=bath_seat",
+    "seller amazon named in notice"
+   ]
+  ]
+ ]
+}

@@ -1,0 +1,1867 @@
+320ceeb feat: mobile-first onboarding, feed, card detail, smarter screens
+ package-lock.json                                  | 1149 +++++++++++++++++++-
+ package.json                                       |    3 +
+ server/__tests__/bundleRoutes.test.ts              |   20 +
+ server/routes/bundleRoutes.ts                      |   22 +-
+ tailwind.config.ts                                 |   10 +
+ 31 files changed, 2544 insertions(+), 143 deletions(-)
+diff --git a/client/index.html b/client/index.html
+index 225f44f..d4a1ba6 100644
+--- a/client/index.html
++++ b/client/index.html
+@@ -1,12 +1,16 @@
+ <!DOCTYPE html>
+ <html lang="en">
+   <head>
+     <meta charset="UTF-8" />
+     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
++    <meta name="theme-color" content="#FBF6EF" />
+     <title>Bundle</title>
++    <link rel="preconnect" href="https://fonts.googleapis.com" />
++    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
++    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet" />
+   </head>
+   <body>
+     <div id="root"></div>
+     <script type="module" src="/src/main.tsx"></script>
+   </body>
+ </html>
+diff --git a/client/src/App.tsx b/client/src/App.tsx
+index 1bbe02f..2852530 100644
+--- a/client/src/App.tsx
++++ b/client/src/App.tsx
+@@ -1,15 +1,18 @@
+ import { Switch, Route } from "wouter";
+ import { QueryClientProvider } from "@tanstack/react-query";
+ import { Component, ErrorInfo, ReactNode } from "react";
+ import { queryClient } from "./lib/queryClient";
+ import { Toaster } from "@/components/ui/toaster";
+ import { TooltipProvider } from "@/components/ui/tooltip";
+-import Home from "@/pages/home";
++import Onboarding from "@/pages/Onboarding";
++import Feed from "@/pages/Feed";
++import CardDetail from "@/pages/CardDetail";
++import Smarter from "@/pages/Smarter";
+ import NotFound from "@/pages/not-found";
+ 
+ class ErrorBoundary extends Component<
+   { children: ReactNode },
+   { hasError: boolean }
+ > {
+   constructor(props: { children: ReactNode }) {
+     super(props);
+@@ -22,38 +25,41 @@ class ErrorBoundary extends Component<
+ 
+   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+     console.error("Error caught by boundary:", error, errorInfo);
+   }
+ 
+   render() {
+     if (this.state.hasError) {
+       return (
+-        <div className="min-h-screen flex items-center justify-center">
++        <div className="min-h-screen flex items-center justify-center bg-cream px-4">
+           <div className="text-center">
+-            <h1 className="text-2xl font-bold mb-4">Something went wrong</h1>
++            <h1 className="text-2xl font-extrabold mb-4 text-ink">Something went wrong</h1>
+             <button
+-              className="bg-blue-500 text-white px-4 py-2 rounded"
++              className="min-h-[48px] bg-ink text-cream px-5 rounded-2xl font-bold"
+               onClick={() => this.setState({ hasError: false })}
+             >
+               Try again
+             </button>
+           </div>
+         </div>
+       );
+     }
+ 
+     return this.props.children;
+   }
+ }
+ 
+ function Router() {
+   return (
+     <Switch>
+-      <Route path="/" component={Home} />
++      <Route path="/" component={Onboarding} />
++      <Route path="/feed/:runId" component={Feed} />
++      <Route path="/card/:id" component={CardDetail} />
++      <Route path="/smarter" component={Smarter} />
+       <Route component={NotFound} />
+     </Switch>
+   );
+ }
+ 
+ function App() {
+   return (
+     <ErrorBoundary>
+diff --git a/client/src/components/AppShell.tsx b/client/src/components/AppShell.tsx
+new file mode 100644
+index 0000000..f767270
+--- /dev/null
++++ b/client/src/components/AppShell.tsx
+@@ -0,0 +1,26 @@
++import type { ReactNode } from 'react';
++import { Link } from 'wouter';
++
++/** Phone-width page frame: "bundle." wordmark, optional family chip, 16px side padding. */
++export default function AppShell({ chip, children, back }: { chip?: string | null; children: ReactNode; back?: { href: string; label: string } }) {
++  return (
++    <div className="min-h-[100dvh] bg-cream text-ink">
++      <div className="mx-auto w-full max-w-[480px] px-4 pb-16 pt-5">
++        <header className="flex min-h-[44px] items-center justify-between gap-3">
++          <Link href="/" className="text-[24px] font-extrabold tracking-[-0.03em] text-ink" aria-label="Bundle home">
++            bundle<span className="text-coral">.</span>
++          </Link>
++          {chip && (
++            <span className="truncate rounded-full border border-line bg-paper px-3 py-1 text-[13px] font-semibold text-ink-2">{chip}</span>
++          )}
++        </header>
++        {back && (
++          <Link href={back.href} className="-ml-1 mt-2 inline-flex min-h-[44px] items-center gap-1 px-1 text-[15px] font-bold text-ink-2 hover:text-ink">
++            <span aria-hidden="true">‹</span> {back.label}
++          </Link>
++        )}
++        <main>{children}</main>
++      </div>
++    </div>
++  );
++}
+diff --git a/client/src/components/FeedCardView.tsx b/client/src/components/FeedCardView.tsx
+new file mode 100644
+index 0000000..b18a226
+--- /dev/null
++++ b/client/src/components/FeedCardView.tsx
+@@ -0,0 +1,108 @@
++import { Link } from 'wouter';
++import type { FeedCard } from '@shared/bundle';
++import { KIND_META, VERDICT_LABEL, amountCaption, cardDeadline, fmtUsd } from '@/lib/bundle';
++import { cn } from '@/lib/utils';
++
++interface Props {
++  card: FeedCard;
++  /** ISO date the run used as "today" (so day counts match the server). */
++  today?: string;
++  /** Pinned cards get the coral outline and a "Pinned" eyebrow. */
++  pinned?: boolean;
++  /** Where "How we checked" goes. Omit to hide the link (e.g. on the detail page itself). */
++  detailHref?: string;
++}
++
++function ExternalIcon() {
++  return (
++    <svg aria-hidden="true" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
++      <path d="M14 4h6v6" /><path d="M20 4 10 14" /><path d="M19 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h5" />
++    </svg>
++  );
++}
++
++const verdictStyle: Record<FeedCard['verdict'], string> = {
++  verified: 'bg-[#E3F3EA] text-[#17643F]',
++  likely: 'bg-[#E3F3EA] text-[#17643F]',
++  all_clear: 'bg-[#E3F3EA] text-[#17643F]',
++  info: 'bg-[#F1ECE4] text-ink-2',
++  blocked: 'bg-[#FBE3E0] text-[#9E2A21]',
++};
++
++export default function FeedCardView({ card, today, pinned = false, detailHref }: Props) {
++  const meta = KIND_META[card.kind];
++  const caption = amountCaption(card);
++  const soon = card.kind === 'coming_soon';
++  const due = card.deadline ? cardDeadline(card.kind, card.deadline, today) : null;
++  // Coming-soon tiles already say "Coming soon" in the eyebrow, so drop the repeat from the body.
++  const body = soon ? card.body.replace(/^coming soon:\s*/i, '') : card.body;
++  const eyebrow = pinned ? 'Pinned · Deadline' : card.deadline && card.kind === 'benefit' ? 'Benefit · Deadline' : meta.label;
++
++  return (
++    <article
++      className={cn('bundle-card p-4', pinned && 'border-coral border-[1.5px]', soon && 'bg-[#FDFBF8] shadow-none')}
++      aria-label={card.title}
++      data-kind={card.kind}
++    >
++      <div className="flex items-center justify-between gap-2">
++        <p className={cn('eyebrow flex items-center gap-1.5', pinned ? 'text-coral-deep' : meta.text)}>
++          <span aria-hidden="true" className={cn('inline-block h-2 w-2 rounded-full', pinned ? 'bg-coral' : meta.dot)} />
++          {eyebrow}
++        </p>
++        {!soon && (
++          <span className={cn('shrink-0 rounded-full px-2 py-0.5 text-[12px] font-bold', verdictStyle[card.verdict])}>
++            {VERDICT_LABEL[card.verdict]}
++          </span>
++        )}
++      </div>
++
++      <h3 className="mt-2 text-[17px] font-extrabold leading-snug tracking-[-0.01em] text-ink">{card.title}</h3>
++      <p className="mt-1 text-[15px] leading-relaxed text-ink-2">{body.charAt(0).toUpperCase() + body.slice(1)}</p>
++
++      {(card.amountCents !== null || card.deadline) && (
++        <div className="mt-3 flex flex-wrap items-baseline gap-x-4 gap-y-1">
++          {card.amountCents !== null && (
++            <p className="flex items-baseline gap-1.5">
++              <span data-testid="card-amount" className={cn('tabular text-[20px] font-extrabold', card.kind === 'clawback' ? 'text-kind-clawback' : 'text-ink')}>
++                {fmtUsd(card.amountCents)}
++              </span>
++              {caption && <span className="text-[13px] font-semibold text-ink-2">{caption}</span>}
++            </p>
++          )}
++          {due && (
++            <p className={cn('text-[14px] font-bold', due.urgent ? 'text-coral-deep' : 'text-ink-2')}>{due.text}</p>
++          )}
++        </div>
++      )}
++
++      {card.sources.length > 0 && (
++        <ul className="mt-3 flex flex-wrap gap-2" aria-label="Sources">
++          {card.sources.map((s) => (
++            <li key={s.url + s.label}>
++              <a
++                href={s.url}
++                target="_blank"
++                rel="noopener noreferrer"
++                className="inline-flex min-h-[32px] items-center gap-1 rounded-full border border-line bg-cream px-3 text-[13px] font-semibold text-ink-2 underline-offset-2 hover:underline"
++              >
++                {s.label}
++                <ExternalIcon />
++              </a>
++            </li>
++          ))}
++        </ul>
++      )}
++
++      {detailHref && !soon && (
++        <div className="mt-2 flex justify-end border-t border-dashed border-line pt-1">
++          <Link
++            href={detailHref}
++            className="inline-flex min-h-[44px] items-center gap-1 px-1 text-[14px] font-bold text-ink-2 hover:text-ink"
++          >
++            How we checked <span aria-hidden="true">›</span>
++          </Link>
++        </div>
++      )}
++    </article>
++  );
++}
+diff --git a/client/src/components/ReceiptCard.tsx b/client/src/components/ReceiptCard.tsx
+new file mode 100644
+index 0000000..530bb82
+--- /dev/null
++++ b/client/src/components/ReceiptCard.tsx
+@@ -0,0 +1,50 @@
++import type { BundleReceipt } from '@shared/bundle';
++import { daysUntil, fmtUsdShort } from '@/lib/bundle';
++
++interface Props {
++  receipt: BundleReceipt;
++  /** Verified recall cards in this feed (0 = all clear). */
++  recallCount: number;
++  today?: string;
++}
++
++/** The Bundle Receipt: money back, benefits you likely qualify for, deadlines and items safety-checked. */
++export default function ReceiptCard({ receipt, recallCount, today }: Props) {
++  const next = receipt.nextDeadline ? daysUntil(receipt.nextDeadline, today) : null;
++  const nextText = next === null ? null : next <= 0 ? 'next is today' : next === 1 ? 'next in 1 day' : `next in ${next} days`;
++  return (
++    <section aria-labelledby="receipt-title">
++      <h2 id="receipt-title" className="eyebrow mt-5 text-ink-2">Your Bundle Receipt</h2>
++      <div className="bundle-card mt-2 p-5">
++        <p data-testid="receipt-money-back" className="tabular text-[48px] font-extrabold leading-none tracking-[-0.04em] text-coral">
++          {fmtUsdShort(receipt.moneyBackCents)}
++        </p>
++        <p className="mt-2 text-[16px] font-bold text-ink">money back</p>
++        <p className="text-[14px] text-ink-2">Refunds and price adjustments to claim</p>
++
++        <div className="my-4 border-t border-dashed border-line" />
++
++        <p data-testid="receipt-benefits" className="tabular text-[34px] font-extrabold leading-none tracking-[-0.03em] text-ink">
++          {fmtUsdShort(receipt.likelyBenefitsCents)}
++        </p>
++        <p className="mt-2 text-[16px] font-bold text-ink">in benefits you likely qualify for</p>
++        <p className="text-[14px] text-ink-2">Credits and payments from official programs</p>
++
++        <div className="my-4 border-t border-dashed border-line" />
++
++        <dl className="space-y-2 text-[15px]">
++          <div className="flex items-center justify-between gap-3">
++            <dt className="font-semibold text-ink">{receipt.deadlineCount} {receipt.deadlineCount === 1 ? 'deadline' : 'deadlines'}</dt>
++            <dd className="font-bold text-coral-deep">{nextText ?? 'none coming up'}</dd>
++          </div>
++          <div className="flex items-center justify-between gap-3">
++            <dt className="font-semibold text-ink">{receipt.itemsChecked} {receipt.itemsChecked === 1 ? 'item' : 'items'} safety-checked</dt>
++            <dd className={recallCount > 0 ? 'font-bold text-kind-recall' : 'font-bold text-kind-clawback'}>
++              {recallCount > 0 ? `${recallCount} ${recallCount === 1 ? 'recall' : 'recalls'}` : 'all clear'}
++            </dd>
++          </div>
++        </dl>
++      </div>
++    </section>
++  );
++}
+diff --git a/client/src/components/__tests__/FeedCardView.test.tsx b/client/src/components/__tests__/FeedCardView.test.tsx
+new file mode 100644
+index 0000000..8b2211b
+--- /dev/null
++++ b/client/src/components/__tests__/FeedCardView.test.tsx
+@@ -0,0 +1,55 @@
++import React from 'react';
++import { render, screen, cleanup } from '@testing-library/react';
++import type { FeedCard } from '@shared/bundle';
++import FeedCardView from '../FeedCardView';
++
++const card = (over: Partial<FeedCard> = {}): FeedCard => ({
++  id: 'clawback-fsa-test-tx-01',
++  kind: 'clawback',
++  title: 'Claim $28.99 from your FSA',
++  body: 'The thermometer you bought is likely FSA-eligible.',
++  amountCents: 2899,
++  deadline: null,
++  verdict: 'likely',
++  sources: [
++    { label: 'IRS Publication 502', url: 'https://www.irs.gov/publications/p502' },
++    { label: 'Store receipt', url: 'https://example.com/receipt' },
++  ],
++  traceId: 't-1',
++  ...over,
++});
++
++afterEach(cleanup);
++
++describe('FeedCardView', () => {
++  it('shows the amount as US dollars', () => {
++    render(<FeedCardView card={card()} />);
++    expect(screen.getByTestId('card-amount').textContent).toBe('$28.99');
++  });
++
++  it("shows 'Likely eligible' for a likely verdict", () => {
++    render(<FeedCardView card={card({ verdict: 'likely' })} />);
++    expect(screen.getByText('Likely eligible')).toBeTruthy();
++  });
++
++  it('renders every source as a link that opens the source page', () => {
++    render(<FeedCardView card={card()} />);
++    const irs = screen.getByRole('link', { name: /IRS Publication 502/ });
++    expect(irs.getAttribute('href')).toBe('https://www.irs.gov/publications/p502');
++    expect(irs.getAttribute('target')).toBe('_blank');
++    expect(irs.getAttribute('rel')).toContain('noopener');
++    expect(screen.getByRole('link', { name: /Store receipt/ }).getAttribute('href')).toBe('https://example.com/receipt');
++  });
++
++  it("labels unverified 'info' fillers as 'Not yet verified'", () => {
++    render(<FeedCardView card={card({ verdict: 'info', kind: 'benefit', amountCents: null })} />);
++    expect(screen.getByText('Not yet verified')).toBeTruthy();
++  });
++
++  it('calls the Dependent Care FSA amount eligible spend, not money back', () => {
++    render(<FeedCardView card={card({ id: 'clawback-dcfsa-test-2026', amountCents: 555000 })} />);
++    expect(screen.getByTestId('card-amount').textContent).toBe('$5,550.00');
++    expect(screen.getByText('eligible spend')).toBeTruthy();
++    expect(screen.queryByText('money back')).toBeNull();
++  });
++});
+diff --git a/client/src/index.css b/client/src/index.css
+index ec504de..d3d4b75 100644
+--- a/client/src/index.css
++++ b/client/src/index.css
+@@ -1,126 +1,81 @@
+ @tailwind base;
+ @tailwind components;
+ @tailwind utilities;
+ 
++/*
++  Bundle design tokens (from deck/design-system.md).
++  Warm cream background, white cards, one coral accent.
++  shadcn/ui variables are mapped onto the same palette (HSL triplets).
++*/
+ @layer base {
+-  * {
+-    @apply border-border;
+-  }
+-
+-  body {
+-    @apply font-sans antialiased bg-background text-foreground;
+-  }
+   :root {
+-
+-    --background: 0 0% 100%;
+-
+-    --foreground: 0 0% 3.9%;
+-
++    --cream: #FBF6EF;
++    --paper: #FFFFFF;
++    --ink: #1B1714;
++    --ink-2: #5C534B;
++    --ink-3: #8A8076;
++    --line: #E9E0D4;
++    --coral: #E4572E;
++    --coral-deep: #B93E1A;
++    --coral-tint: #FCE6DC;
++
++    --background: 35 65% 96%;        /* cream */
++    --foreground: 26 13% 9%;         /* ink */
+     --card: 0 0% 100%;
+-
+-    --card-foreground: 0 0% 3.9%;
+-
++    --card-foreground: 26 13% 9%;
+     --popover: 0 0% 100%;
+-
+-    --popover-foreground: 0 0% 3.9%;
+-
+-    --primary: 0 0% 9%;
+-
+-    --primary-foreground: 0 0% 98%;
+-
+-    --secondary: 0 0% 96.1%;
+-
+-    --secondary-foreground: 0 0% 9%;
+-
+-    --muted: 0 0% 96.1%;
+-
+-    --muted-foreground: 0 0% 45.1%;
+-
+-    --accent: 0 0% 96.1%;
+-
+-    --accent-foreground: 0 0% 9%;
+-
+-    --destructive: 0 84.2% 60.2%;
+-
+-    --destructive-foreground: 0 0% 98%;
+-
+-    --border: 0 0% 89.8%;
+-
+-    --input: 0 0% 89.8%;
+-
+-    --ring: 0 0% 3.9%;
+-
+-    --chart-1: 12 76% 61%;
+-
+-    --chart-2: 173 58% 39%;
+-
+-    --chart-3: 197 37% 24%;
+-
+-    --chart-4: 43 74% 66%;
+-
+-    --chart-5: 27 87% 67%;
+-
+-    --radius: 0.5rem
++    --popover-foreground: 26 13% 9%;
++    --primary: 26 13% 9%;            /* ink buttons */
++    --primary-foreground: 35 65% 96%;
++    --secondary: 18 81% 93%;         /* coral tint */
++    --secondary-foreground: 13 75% 41%;
++    --muted: 34 33% 92%;
++    --muted-foreground: 28 10% 33%;  /* ink-2 */
++    --accent: 18 81% 93%;
++    --accent-foreground: 13 75% 41%;
++    --destructive: 4 64% 48%;
++    --destructive-foreground: 0 0% 100%;
++    --border: 34 33% 87%;            /* line */
++    --input: 34 33% 87%;
++    --ring: 13 77% 54%;              /* coral */
++    --radius: 0.75rem;
+   }
+-  .dark {
+-
+-    --background: 0 0% 3.9%;
+-
+-    --foreground: 0 0% 98%;
+ 
+-    --card: 0 0% 3.9%;
+-
+-    --card-foreground: 0 0% 98%;
+-
+-    --popover: 0 0% 3.9%;
+-
+-    --popover-foreground: 0 0% 98%;
+-
+-    --primary: 0 0% 98%;
+-
+-    --primary-foreground: 0 0% 9%;
+-
+-    --secondary: 0 0% 14.9%;
+-
+-    --secondary-foreground: 0 0% 98%;
+-
+-    --muted: 0 0% 14.9%;
+-
+-    --muted-foreground: 0 0% 63.9%;
+-
+-    --accent: 0 0% 14.9%;
+-
+-    --accent-foreground: 0 0% 98%;
+-
+-    --destructive: 0 62.8% 30.6%;
+-
+-    --destructive-foreground: 0 0% 98%;
+-
+-    --border: 0 0% 14.9%;
+-
+-    --input: 0 0% 14.9%;
+-
+-    --ring: 0 0% 83.1%;
+-
+-    --chart-1: 220 70% 50%;
+-
+-    --chart-2: 160 60% 45%;
++  * {
++    @apply border-border;
++  }
+ 
+-    --chart-3: 30 80% 55%;
++  html {
++    -webkit-text-size-adjust: 100%;
++  }
+ 
+-    --chart-4: 280 65% 60%;
++  body {
++    @apply bg-background text-foreground antialiased;
++    font-family: 'Manrope', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
++    font-feature-settings: 'tnum' 0;
++  }
+ 
+-    --chart-5: 340 75% 55%
++  :focus-visible {
++    outline: 3px solid var(--coral);
++    outline-offset: 2px;
+   }
+ }
+ 
+-
+-
+-@layer base {
+-  * {
+-    @apply border-border;
++@layer components {
++  .bundle-card {
++    background: var(--paper);
++    border: 1px solid var(--line);
++    border-radius: 24px;
++    box-shadow: 0 1px 2px rgba(27, 23, 20, .04), 0 12px 32px rgba(27, 23, 20, .06);
+   }
+-  body {
+-    @apply bg-background text-foreground;
++  .eyebrow {
++    font-size: 12px;
++    line-height: 16px;
++    font-weight: 700;
++    letter-spacing: .12em;
++    text-transform: uppercase;
+   }
+-}
+\ No newline at end of file
++  .tabular {
++    font-variant-numeric: tabular-nums;
++  }
++}
+diff --git a/client/src/lib/__tests__/bundle.test.tsx b/client/src/lib/__tests__/bundle.test.tsx
+new file mode 100644
+index 0000000..0744a87
+--- /dev/null
++++ b/client/src/lib/__tests__/bundle.test.tsx
+@@ -0,0 +1,44 @@
++import type { FeedCard } from '@shared/bundle';
++import { groupCards, traceForCard, familyChip, fmtUsdShort, type TraceLine } from '../bundle';
++
++const c = (id: string, kind: FeedCard['kind'], traceId = ''): FeedCard => ({
++  id, kind, title: id, body: '', amountCents: null, deadline: null, verdict: 'verified', sources: [], traceId,
++});
++const line = (trace_id: string, agent_name: string, action: string, input_summary: string): TraceLine => ({
++  timestamp: '2026-10-23T00:00:00Z', trace_id, agent_name, action, input_summary, output_summary: '', target_agent: null, confidence: null, retry_count: 0, status: 'ok',
++});
++
++describe('groupCards', () => {
++  it('pins the insurance card, then orders clawback, recall, benefit, discount, coming_soon, and adds the Plaid tile', () => {
++    const cards = [c('discount-1', 'discount'), c('benefit-trump_account', 'benefit'), c('coming-soon-prefilled', 'coming_soon'),
++      c('benefit-insurance_add_baby', 'benefit'), c('recall-cpsc-1', 'recall'), c('clawback-fsa-x', 'clawback')];
++    const { pinned, groups } = groupCards(cards);
++    expect(pinned?.id).toBe('benefit-insurance_add_baby');
++    expect(groups.map((g) => g.kind)).toEqual(['clawback', 'recall', 'benefit', 'discount', 'coming_soon']);
++    expect(groups[2].cards.map((x) => x.id)).toEqual(['benefit-trump_account']);
++    expect(groups[4].cards.map((x) => x.title)).toEqual(['coming-soon-prefilled', 'Connect your bank (Plaid)']);
++  });
++});
++
++describe('traceForCard', () => {
++  it('keeps the card line, its explanation, court arguments and fact-checks only', () => {
++    const lines = [
++      line('a', 'judge', 'rule', 'offer 673'),
++      line('b', 'fine_print_lawyer', 'argue', 'offer 674'),
++      line('c', 'benefits', 'explain', 'Benefit: x'),
++      line('d', 'benefits', 'benefit_match', 'rule X'),
++      line('e', 'fact_checker', 'verify', 'discount card discount-673 from fine_print_court: claim'),
++      line('f', 'fact_checker', 'verify', 'discount card discount-6730 from fine_print_court: claim'),
++    ];
++    expect(traceForCard(c('discount-673', 'discount', 'a'), lines).map((l) => l.trace_id)).toEqual(['a', 'e']);
++    expect(traceForCard(c('benefit-x', 'benefit', 'd'), lines).map((l) => l.trace_id)).toEqual(['c', 'd']);
++  });
++});
++
++describe('formatting', () => {
++  it('family chip and short receipt numbers', () => {
++    expect(familyChip({ name: 'Maya (sample family)', birthDate: '2026-10-03', dueDate: null }, '2026-10-23')).toBe('Baby Maya · day 20');
++    expect(fmtUsdShort(364000)).toBe('$3,640');
++    expect(fmtUsdShort(4899)).toBe('$48.99');
++  });
++});
+diff --git a/client/src/lib/bundle.ts b/client/src/lib/bundle.ts
+new file mode 100644
+index 0000000..bfa1603
+--- /dev/null
++++ b/client/src/lib/bundle.ts
+@@ -0,0 +1,261 @@
++import type { BundleResult, FeedCard, CardKind, Verdict } from '@shared/bundle';
++
++/** One line of the agents' audit trail, as served by GET /api/runs/:runId/trace. */
++export interface TraceLine {
++  timestamp: string;
++  trace_id: string;
++  agent_name: string;
++  action: string;
++  input_summary: string;
++  output_summary: string;
++  target_agent: string | null;
++  confidence: number | null;
++  retry_count: number;
++  status: 'ok' | 'retry' | 'blocked' | 'fallback' | 'error';
++}
++
++export interface FamilyView { name: string; birthDate: string | null; dueDate: string | null }
++
++export interface RunStatus {
++  runId: string;
++  familyId: string;
++  status: 'running' | 'done' | 'failed';
++  startedAt: string;
++  family?: FamilyView;
++  today?: string;
++  result: BundleResult | null;
++  error: string | null;
++}
++
++// ---------- money and dates ----------
++
++/** 2899 -> "$28.99". Cards always show cents so amounts are exact. */
++export function fmtUsd(cents: number): string {
++  return (cents / 100).toLocaleString('en-US', { style: 'currency', currency: 'USD' });
++}
++
++/** Receipt headline numbers: drop ".00" so big totals read cleanly ("$3,640", "$48.99"). */
++export function fmtUsdShort(cents: number): string {
++  const whole = cents % 100 === 0;
++  return (cents / 100).toLocaleString('en-US', {
++    style: 'currency', currency: 'USD',
++    minimumFractionDigits: whole ? 0 : 2, maximumFractionDigits: whole ? 0 : 2,
++  });
++}
++
++export function localToday(): string {
++  const d = new Date();
++  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
++}
++
++const dayMs = 86_400_000;
++const utc = (iso: string) => Date.parse(`${iso}T00:00:00Z`);
++
++/** Whole days from today to an ISO date (negative when it has passed). */
++export function daysUntil(iso: string, today: string = localToday()): number {
++  return Math.round((utc(iso) - utc(today)) / dayMs);
++}
++
++/** "2026-11-02" -> "Nov 2" (adds the year when it is not this year's). */
++export function fmtDate(iso: string, today: string = localToday()): string {
++  const sameYear = iso.slice(0, 4) === today.slice(0, 4);
++  return new Date(`${iso}T00:00:00Z`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', ...(sameYear ? {} : { year: 'numeric' }), timeZone: 'UTC' });
++}
++
++/** Deadlines within this many days are shown as a countdown in coral; later ones as a calm date. */
++export const URGENT_DAYS = 30;
++
++export function deadlineText(iso: string, today?: string): string {
++  const d = daysUntil(iso, today);
++  if (d < 0) return `Closed ${fmtDate(iso, today)}`;
++  if (d === 0) return 'Due today';
++  if (d === 1) return '1 day left';
++  return `${d} days left`;
++}
++
++/** Header chip, e.g. "Baby Maya · day 20" or "Baby due in 45 days". */
++export function familyChip(f: FamilyView | undefined, today?: string): string | null {
++  if (!f) return null;
++  const first = f.name.replace(/\s*\(.*\)\s*$/, '').trim() || 'Baby';
++  if (f.birthDate) return `Baby ${first} · day ${Math.max(0, -daysUntil(f.birthDate, today))}`;
++  if (f.dueDate) {
++    const d = daysUntil(f.dueDate, today);
++    return d > 0 ? `${first} · due in ${d} days` : `${first} · due now`;
++  }
++  return first;
++}
++
++// ---------- cards ----------
++
++export const KIND_META: Record<CardKind, { label: string; section: string; dot: string; text: string }> = {
++  clawback: { label: 'Money back', section: 'Money back', dot: 'bg-kind-clawback', text: 'text-kind-clawback' },
++  recall: { label: 'Recall', section: 'Safety check', dot: 'bg-kind-recall', text: 'text-kind-recall' },
++  benefit: { label: 'Benefit', section: 'Benefits', dot: 'bg-coral', text: 'text-coral-deep' },
++  discount: { label: 'Discount', section: 'Deals that passed Fine Print Court', dot: 'bg-kind-discount', text: 'text-kind-discount' },
++  coming_soon: { label: 'Coming soon', section: 'Coming soon', dot: 'bg-ink-3', text: 'text-ink-2' },
++};
++
++export const VERDICT_LABEL: Record<Verdict, string> = {
++  verified: 'Verified',
++  likely: 'Likely eligible',
++  all_clear: 'All clear',
++  info: 'Not yet verified',
++  blocked: 'Blocked',
++};
++
++export const isDcfsa = (c: FeedCard) => c.id.startsWith('clawback-dcfsa');
++export const isInsurance = (c: FeedCard) => c.kind === 'benefit' && /insurance/i.test(c.id);
++
++/** The small word under a card amount. DCFSA is the family's own pre-tax money, so it is "eligible spend", never "money back". */
++export function amountCaption(c: FeedCard): string | null {
++  if (c.amountCents === null) return null;
++  if (isDcfsa(c)) return 'eligible spend';
++  if (c.kind === 'clawback') return 'money back';
++  if (c.kind === 'benefit') return 'likely benefit';
++  if (c.kind === 'discount') return 'savings';
++  return null;
++}
++
++const ORDER: CardKind[] = ['clawback', 'recall', 'benefit', 'discount', 'coming_soon'];
++
++/** The client-only "coming soon" tile (Plaid is not live yet; see Task 11 ruling). */
++export const PLAID_TILE: FeedCard = {
++  id: 'coming-soon-plaid', kind: 'coming_soon', title: 'Connect your bank (Plaid)',
++  body: 'Coming soon: link a card once and Bundle checks every new purchase for you.',
++  amountCents: null, deadline: null, verdict: 'info', sources: [], traceId: '',
++};
++
++/** Pinned insurance card first, then groups in the fixed order clawback, recall, benefit, discount, coming_soon. */
++export function groupCards(cards: FeedCard[]): { pinned: FeedCard | null; groups: { kind: CardKind; cards: FeedCard[] }[] } {
++  const pinned = cards.find(isInsurance) ?? null;
++  const rest = cards.filter((c) => c !== pinned);
++  if (!rest.some((c) => c.id === PLAID_TILE.id)) rest.push(PLAID_TILE);
++  const groups = ORDER.map((kind) => ({ kind, cards: rest.filter((c) => c.kind === kind) })).filter((g) => g.cards.length > 0);
++  return { pinned, groups };
++}
++
++// ---------- trace ----------
++
++const AGENT_LABEL: Record<string, string> = {
++  orchestrator: 'Orchestrator',
++  clawback: 'Clawback Finder',
++  recall: 'Recall Checker',
++  benefits: 'Benefits Planner',
++  fine_print_court: 'Fine Print Court',
++  deal_hunter: 'Deal Hunter',
++  fine_print_lawyer: 'Fine Print Lawyer',
++  judge: 'Judge',
++  fact_checker: 'Fact-Checker',
++  memory: 'Memory',
++  zetaris: 'Zetaris',
++  fallback: 'Saved copy',
++};
++
++/** Deadline line for a card: a countdown when it is close, otherwise "By Oct 3, 2027" / "Ends Oct 3, 2027". */
++export function cardDeadline(kind: CardKind, iso: string, today: string = localToday()): { text: string; urgent: boolean } {
++  const d = daysUntil(iso, today);
++  if (d <= URGENT_DAYS) return { text: deadlineText(iso, today), urgent: true };
++  return { text: `${kind === 'discount' ? 'Ends' : 'By'} ${fmtDate(iso, today)}`, urgent: false };
++}
++
++export function agentLabel(name: string): string {
++  return AGENT_LABEL[name] ?? name.replace(/_/g, ' ').replace(/\b\w/g, (m) => m.toUpperCase());
++}
++
++const clip = (s: string, n = 90) => (s.length > n ? `${s.slice(0, n - 1)}…` : s);
++
++/** A short plain-English sentence for one trace line (used in the live progress list). */
++export function describeLine(l: TraceLine): string {
++  const who = agentLabel(l.agent_name);
++  if (l.status === 'fallback' && /model unavailable|no model answer/i.test(l.output_summary)) return `${who} used its backup check (AI offline)`;
++  if (l.action === 'start') return 'Started your Bundle';
++  if (l.action === 'retry_transient') return `A data source was slow, so we asked again (${l.input_summary})`;
++  if (l.agent_name === 'fact_checker') {
++    const kind = l.input_summary.split(' ')[0] || 'a';
++    if (l.status === 'ok') return `Fact-Checker confirmed a ${kind} card`;
++    if (l.status === 'retry') return `Fact-Checker sent 1 back: ${clip(l.output_summary, 70)}`;
++    return `Fact-Checker dropped a ${kind} card: ${clip(l.output_summary, 60)}`;
++  }
++  if (l.agent_name === 'judge') return `Judge ruled on ${l.input_summary}: ${clip(l.output_summary.split(':')[0], 40)}`;
++  if (l.action === 'explain') return `${who} wrote a plain-English explanation`;
++  if (l.action === 'assemble') return `Built your feed: ${l.output_summary}`;
++  return `${who}: ${clip(l.output_summary)}`;
++}
++
++/** The trace lines that belong to one card: its own line, the explanation just before it, court arguments, and the Fact-Checker's verdicts. */
++export function traceForCard(card: FeedCard, lines: TraceLine[]): TraceLine[] {
++  const keep = new Set<string>();
++  const own = lines.findIndex((l) => l.trace_id === card.traceId);
++  if (own >= 0) {
++    keep.add(lines[own].trace_id);
++    const prev = lines[own - 1];
++    if (prev && prev.agent_name === lines[own].agent_name && prev.action === 'explain') keep.add(prev.trace_id);
++  }
++  const offerId = card.kind === 'discount' ? card.id.replace(/^discount-/, '') : null;
++  for (const l of lines) {
++    if (l.agent_name === 'fact_checker' && l.input_summary.includes(`card ${card.id} `)) keep.add(l.trace_id);
++    if (offerId && l.input_summary === `offer ${offerId}`) keep.add(l.trace_id);
++  }
++  return lines.filter((l) => keep.has(l.trace_id));
++}
++
++// ---------- API ----------
++
++async function json<T>(res: Response): Promise<T> {
++  const body = await res.json().catch(() => ({}));
++  if (!res.ok) throw new Error((body as { error?: string }).error || `Something went wrong (${res.status}).`);
++  return body as T;
++}
++
++export type RunRequest = { familyId: string } | { zip: string; birthDate?: string; dueDate?: string; employer?: string };
++
++export const api = {
++  startRun: (body: RunRequest) =>
++    fetch('/api/run', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then((r) => json<{ runId: string }>(r)),
++  run: (runId: string) => fetch(`/api/runs/${encodeURIComponent(runId)}`).then((r) => json<RunStatus>(r)),
++  trace: (runId: string) => fetch(`/api/runs/${encodeURIComponent(runId)}/trace`).then((r) => json<TraceLine[]>(r)),
++  feedback: (body: { familyId: string; cardId: string; kind: 'got_it' | 'issue'; note?: string }) =>
++    fetch('/api/feedback', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then((r) => json<{ ok: true; proposals: unknown[] }>(r)),
++  caseLaw: () => fetch('/api/case-law').then((r) => json<{ proposals: Proposal[]; approved: Proposal[] }>(r)),
++  approve: (id: number, token: string) =>
++    fetch(`/api/case-law/${id}/approve`, { method: 'POST', headers: { 'x-reviewer-token': token } }).then((r) => json<{ ok: true }>(r)),
++  scoreboard: () => fetch('/api/scoreboard').then((r) => json<{ scoreboard: Scoreboard | null }>(r)),
++};
++
++export interface Proposal {
++  id: number; text: string; confidence: number; sourceFeedbackIds: string[];
++  status: 'proposed' | 'approved' | 'rejected'; memoryId: string | null;
++}
++
++export interface Scoreboard {
++  trapsCaught: number; trapsTotal: number; falseAlarms: number; sourcedPct: number; runs: number; stable: boolean;
++  learning?: { run1Approved: boolean; run2Blocked: boolean; citedRuleId: string | null };
++  llm?: string;
++}
++
++// ---------- remembered runs (this tab only) ----------
++
++const safe = <T,>(fn: () => T, fallback: T): T => { try { return fn(); } catch { return fallback; } };
++
++export interface SavedRun { runId: string; familyId: string; family?: FamilyView; today?: string; result: BundleResult }
++
++export function saveRun(r: SavedRun): void {
++  safe(() => {
++    sessionStorage.setItem(`bundle:run:${r.runId}`, JSON.stringify(r));
++    sessionStorage.setItem('bundle:last', r.runId);
++  }, undefined);
++}
++
++export function loadRun(runId?: string | null): SavedRun | null {
++  return safe(() => {
++    const id = runId || sessionStorage.getItem('bundle:last');
++    if (!id) return null;
++    const raw = sessionStorage.getItem(`bundle:run:${id}`);
++    return raw ? (JSON.parse(raw) as SavedRun) : null;
++  }, null);
++}
++
++export const reviewerToken = {
++  get: () => safe(() => sessionStorage.getItem('bundle:reviewerToken') ?? '', ''),
++  set: (t: string) => safe(() => (t ? sessionStorage.setItem('bundle:reviewerToken', t) : sessionStorage.removeItem('bundle:reviewerToken')), undefined),
++};
+diff --git a/client/src/pages/CardDetail.tsx b/client/src/pages/CardDetail.tsx
+new file mode 100644
+index 0000000..aaccdfe
+--- /dev/null
++++ b/client/src/pages/CardDetail.tsx
+@@ -0,0 +1,211 @@
++import { useEffect, useState } from 'react';
++import { Link, useParams, useSearch } from 'wouter';
++import AppShell from '@/components/AppShell';
++import FeedCardView from '@/components/FeedCardView';
++import { PLAID_TILE, agentLabel, api, familyChip, loadRun, saveRun, traceForCard, type SavedRun, type TraceLine } from '@/lib/bundle';
++import { cn } from '@/lib/utils';
++
++const STATUS_TEXT: Record<TraceLine['status'], { label: string; cls: string }> = {
++  ok: { label: 'Passed', cls: 'bg-[#E3F3EA] text-[#17643F]' },
++  retry: { label: 'Sent back', cls: 'bg-coral-tint text-coral-deep' },
++  blocked: { label: 'Blocked', cls: 'bg-[#FBE3E0] text-[#9E2A21]' },
++  fallback: { label: 'Backup used', cls: 'bg-[#F1ECE4] text-ink-2' },
++  error: { label: 'Error', cls: 'bg-[#FBE3E0] text-[#9E2A21]' },
++};
++
++/** Plain-English headline for one step of the audit trail. */
++function stepTitle(l: TraceLine): string {
++  const who = agentLabel(l.agent_name);
++  if (l.agent_name === 'fact_checker') return l.status === 'ok' ? 'Fact-Checker re-checked the source' : 'Fact-Checker sent it back';
++  if (l.action === 'explain') return `${who} wrote the explanation`;
++  if (l.action === 'argue') return `${who} made its case`;
++  if (l.agent_name === 'judge') return 'The Judge ruled';
++  return `${who} found it`;
++}
++
++const sentence = (s: string) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
++
++function stepDetail(l: TraceLine): string {
++  if (l.status === 'fallback' && /model unavailable|no model answer/i.test(l.output_summary)) {
++    return 'The AI was offline, so this step used the rule-based backup check instead.';
++  }
++  if (l.agent_name === 'fact_checker') return l.status === 'ok' ? 'Amount, dates and source all match the official data.' : l.output_summary;
++  if (l.action === 'explain') return l.status === 'fallback' ? 'Written from a fixed template (the AI writer was not used).' : 'Written by the AI, from the checked facts only.';
++  return sentence(l.output_summary.replace(/^(approve|reject):\s*/i, (_m, v: string) => `${v === 'approve' ? 'Approved' : 'Rejected'}. `));
++}
++
++export default function CardDetail() {
++  const { id = '' } = useParams<{ id: string }>();
++  const search = new URLSearchParams(useSearch());
++  const runParam = search.get('run');
++  const [run, setRun] = useState<SavedRun | null>(() => loadRun(runParam));
++  const [looking, setLooking] = useState(() => !loadRun(runParam) && !!runParam);
++  // Opened from a link in a new tab: fetch the finished run from the server instead of this tab's memory.
++  useEffect(() => {
++    if (!looking || !runParam) return;
++    api.run(runParam)
++      .then((st) => {
++        if (st.status === 'done' && st.result) {
++          const saved: SavedRun = { runId: st.runId, familyId: st.familyId, family: st.family, today: st.today, result: st.result };
++          saveRun(saved);
++          setRun(saved);
++        }
++      })
++      .catch(() => {})
++      .finally(() => setLooking(false));
++  }, [looking, runParam]);
++  const card = id === PLAID_TILE.id ? PLAID_TILE : run?.result.cards.find((c) => c.id === id) ?? null;
++  const [lines, setLines] = useState<TraceLine[] | null>(null);
++  const [traceError, setTraceError] = useState(false);
++  const [sent, setSent] = useState<'got_it' | 'issue' | null>(null);
++  const [reporting, setReporting] = useState(false);
++  const [note, setNote] = useState('');
++  const [busy, setBusy] = useState(false);
++  const [error, setError] = useState<string | null>(null);
++
++  useEffect(() => {
++    if (!run) return;
++    api.trace(run.runId).then(setLines).catch(() => setTraceError(true));
++  }, [run?.runId]);
++
++  const feedHref = run ? `/feed/${encodeURIComponent(run.runId)}` : '/';
++  const chip = familyChip(run?.family, run?.today);
++
++  if (looking) {
++    return <AppShell back={{ href: feedHref, label: 'Back' }}><p className="mt-6 text-[16px] text-ink-2">Loading this card…</p></AppShell>;
++  }
++
++  if (!run || !card) {
++    return (
++      <AppShell back={{ href: feedHref, label: 'Back' }}>
++        <h1 className="mt-4 text-[26px] font-extrabold">We couldn’t find that card.</h1>
++        <p className="mt-2 text-[16px] text-ink-2">It may be from an older run. Start a new one to see fresh results.</p>
++        <Link href="/" className="mt-6 flex min-h-[56px] items-center justify-center rounded-2xl bg-ink text-[17px] font-bold text-cream">Start again</Link>
++      </AppShell>
++    );
++  }
++
++  const steps = lines ? traceForCard(card, lines) : [];
++
++  async function send(kind: 'got_it' | 'issue') {
++    setBusy(true);
++    setError(null);
++    try {
++      await api.feedback({ familyId: run!.familyId, cardId: card!.id, kind, note: kind === 'issue' ? note.trim() : undefined });
++      setSent(kind);
++      setReporting(false);
++    } catch (e) {
++      setError((e as Error).message);
++    } finally {
++      setBusy(false);
++    }
++  }
++
++  return (
++    <AppShell chip={chip} back={{ href: feedHref, label: 'Your feed' }}>
++      <div className="mt-1">
++        <FeedCardView card={card} today={run.today} />
++      </div>
++
++      <section className="mt-7" aria-labelledby="how-title">
++        <h2 id="how-title" className="text-[22px] font-extrabold tracking-[-0.02em]">How we checked</h2>
++        <p className="mt-1 text-[15px] text-ink-2">Every step our agents took for this card, straight from the run’s audit log.</p>
++
++        {lines === null && !traceError && <p className="mt-4 text-[15px] text-ink-2">Loading the audit log…</p>}
++        {traceError && <p className="mt-4 text-[15px] text-ink-2">The audit log for this run is no longer available on the server.</p>}
++        {lines !== null && steps.length === 0 && (
++          <p className="mt-4 rounded-2xl bg-paper px-4 py-3 text-[15px] text-ink-2">
++            {card.traceId === 'fallback'
++              ? 'A live source did not answer, so this card comes from our saved copy of the official page. It is not yet verified and is not counted in your totals.'
++              : card.kind === 'coming_soon'
++                ? 'This is a preview of a feature we are still building.'
++                : 'No agent steps were recorded for this card.'}
++          </p>
++        )}
++
++        {steps.length > 0 && (
++          <ol className="relative mt-4 space-y-3 border-l-2 border-line pl-5" data-testid="trace-steps">
++            {steps.map((l) => {
++              const st = STATUS_TEXT[l.status];
++              return (
++                <li key={l.trace_id} className="relative">
++                  <span aria-hidden="true" className={cn('absolute -left-[27px] top-4 h-3 w-3 rounded-full border-2 border-cream', l.status === 'ok' ? 'bg-kind-clawback' : l.status === 'fallback' ? 'bg-ink-3' : 'bg-coral')} />
++                  <div className="rounded-2xl border border-line bg-paper p-4">
++                    <div className="flex items-start justify-between gap-2">
++                      <p className="text-[15px] font-bold leading-snug text-ink">{stepTitle(l)}</p>
++                      <span className={cn('shrink-0 rounded-full px-2 py-0.5 text-[12px] font-bold', st.cls)}>{st.label}</span>
++                    </div>
++                    <p className="mt-1 text-[14px] leading-relaxed text-ink-2">{stepDetail(l)}</p>
++                    <p className="mt-2 break-words font-mono text-[11.5px] leading-relaxed text-ink-2">
++                      {l.agent_name}.{l.action} · {new Date(l.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit' })}
++                      {l.retry_count > 0 ? ` · retry ${l.retry_count}` : ''}
++                    </p>
++                  </div>
++                </li>
++              );
++            })}
++          </ol>
++        )}
++
++        {card.sources.length > 0 && (
++          <>
++            <h3 className="eyebrow mt-6 text-ink-2">Sources</h3>
++            <ul className="mt-2 space-y-2">
++              {card.sources.map((s) => (
++                <li key={s.url + s.label}>
++                  <a href={s.url} target="_blank" rel="noopener noreferrer" className="flex min-h-[52px] items-center justify-between gap-3 rounded-2xl border border-line bg-paper px-4 py-3 text-[15px] font-semibold text-ink hover:border-ink-3">
++                    <span className="min-w-0">
++                      <span className="block">{s.label}</span>
++                      <span className="block truncate text-[13px] font-medium text-ink-2">{s.url.replace(/^https?:\/\//, '')}</span>
++                    </span>
++                    <span aria-hidden="true" className="text-ink-2">↗</span>
++                  </a>
++                </li>
++              ))}
++            </ul>
++          </>
++        )}
++      </section>
++
++      {card.kind !== 'coming_soon' && (
++        <section className="mt-8" aria-label="Your feedback">
++          {sent ? (
++            <p role="status" className="rounded-2xl bg-[#E3F3EA] px-4 py-4 text-[15px] font-semibold text-[#17643F]">
++              {sent === 'got_it'
++                ? 'Nice. We’ve marked this one as done for you.'
++                : 'Thanks. Reports like yours teach Bundle: when parents report the same problem, it proposes a new rule for a reviewer to approve.'}
++            </p>
++          ) : (
++            <>
++              <div className="grid grid-cols-2 gap-3">
++                <button type="button" disabled={busy} onClick={() => send('got_it')} className="min-h-[56px] rounded-2xl bg-ink text-[17px] font-bold text-cream disabled:opacity-60">
++                  I got this
++                </button>
++                <button
++                  type="button" disabled={busy} aria-expanded={reporting} onClick={() => setReporting((r) => !r)}
++                  className={cn('min-h-[56px] rounded-2xl border-2 text-[17px] font-bold disabled:opacity-60', reporting ? 'border-coral bg-coral-tint text-coral-deep' : 'border-ink bg-transparent text-ink')}
++                >
++                  Report issue
++                </button>
++              </div>
++              {reporting && (
++                <form className="mt-3 rounded-2xl border border-line bg-paper p-4" onSubmit={(e) => { e.preventDefault(); void send('issue'); }}>
++                  <label htmlFor="issue-note" className="text-[15px] font-bold text-ink">What went wrong?</label>
++                  <textarea
++                    id="issue-note" value={note} onChange={(e) => setNote(e.target.value)} maxLength={500} rows={3}
++                    placeholder="For example: it said free, but charged me after 30 days."
++                    className="mt-2 block w-full rounded-xl border border-line bg-cream p-3 text-[16px] text-ink outline-none placeholder:text-ink-3 focus:border-coral"
++                  />
++                  <button type="submit" disabled={busy || !note.trim()} className="mt-3 min-h-[52px] w-full rounded-2xl bg-coral-deep text-[17px] font-bold text-white disabled:opacity-50">
++                    {busy ? 'Sending…' : 'Send report'}
++                  </button>
++                </form>
++              )}
++              {error && <p role="alert" className="mt-3 text-[15px] font-semibold text-[#9E2A21]">{error}</p>}
++            </>
++          )}
++        </section>
++      )}
++    </AppShell>
++  );
++}
+diff --git a/client/src/pages/Feed.tsx b/client/src/pages/Feed.tsx
+new file mode 100644
+index 0000000..04da214
+--- /dev/null
++++ b/client/src/pages/Feed.tsx
+@@ -0,0 +1,197 @@
++import { useEffect, useMemo, useRef, useState } from 'react';
++import { Link, useParams } from 'wouter';
++import AppShell from '@/components/AppShell';
++import ReceiptCard from '@/components/ReceiptCard';
++import FeedCardView from '@/components/FeedCardView';
++import { KIND_META, api, describeLine, familyChip, groupCards, loadRun, saveRun, type SavedRun, type TraceLine } from '@/lib/bundle';
++import { cn } from '@/lib/utils';
++
++const POLL_MS = 1000;
++
++/** The five steps a run goes through, and the trace line that marks each one finished. */
++const STEPS: { agent: string; label: string; doneWhen: (lines: TraceLine[]) => boolean; startedWhen: (lines: TraceLine[]) => boolean }[] = [
++  { agent: 'clawback', label: 'Clawback Finder: money you can get back', startedWhen: (l) => l.some((x) => x.agent_name === 'clawback'), doneWhen: (l) => l.some((x) => x.action === 'find_clawbacks') },
++  { agent: 'recall', label: 'Recall Checker: your items vs. official recalls', startedWhen: (l) => l.some((x) => x.agent_name === 'recall'), doneWhen: (l) => l.some((x) => x.action === 'check_recalls') },
++  { agent: 'benefits', label: 'Benefits Planner: programs and deadlines', startedWhen: (l) => l.some((x) => x.agent_name === 'benefits'), doneWhen: (l) => l.some((x) => x.action === 'plan_benefits') },
++  { agent: 'court', label: 'Fine Print Court: deals with hidden catches', startedWhen: (l) => l.some((x) => x.agent_name === 'fine_print_court'), doneWhen: (l) => l.some((x) => x.agent_name === 'fact_checker') },
++  { agent: 'fact_checker', label: 'Fact-Checker: every card checked against its source', startedWhen: (l) => l.some((x) => x.agent_name === 'fact_checker'), doneWhen: (l) => l.some((x) => x.action === 'assemble') },
++];
++
++function Spinner({ className }: { className?: string }) {
++  return <span aria-hidden="true" className={cn('inline-block h-4 w-4 animate-spin rounded-full border-2 border-coral border-t-transparent', className)} />;
++}
++
++function StepIcon({ state }: { state: 'waiting' | 'working' | 'done' }) {
++  if (state === 'done') {
++    return (
++      <span aria-hidden="true" className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-kind-clawback text-white">
++        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m5 12 5 5L20 7" /></svg>
++      </span>
++    );
++  }
++  if (state === 'working') return <span className="flex h-6 w-6 shrink-0 items-center justify-center"><Spinner /></span>;
++  return <span aria-hidden="true" className="h-6 w-6 shrink-0 rounded-full border-2 border-line" />;
++}
++
++/** Collapse repeats ("Fact-Checker confirmed a benefit card" ×4) so the live list stays short. */
++function collapse(lines: TraceLine[]): { text: string; count: number; status: TraceLine['status']; key: string }[] {
++  const out: { text: string; count: number; status: TraceLine['status']; key: string }[] = [];
++  for (const l of lines) {
++    const text = describeLine(l);
++    const last = out[out.length - 1];
++    if (last && last.text === text) last.count++;
++    else out.push({ text, count: 1, status: l.status, key: l.trace_id });
++  }
++  return out;
++}
++
++function Progress({ lines, elapsed }: { lines: TraceLine[]; elapsed: number }) {
++  const recent = collapse(lines).slice(-6).reverse(); // newest first, so it shows above the fold
++  return (
++    <section aria-live="polite" aria-busy="true">
++      <h1 className="mt-6 text-[30px] font-extrabold leading-[1.1] tracking-[-0.03em]">
++        Your agents are <span className="text-coral">on it.</span>
++      </h1>
++      <p className="mt-2 text-[16px] text-ink-2">
++        They are checking live government, recall and store data for your family. This can take a minute or two.
++      </p>
++
++      <ol className="bundle-card mt-5 space-y-3 p-5">
++        {STEPS.map((s) => {
++          const state = s.doneWhen(lines) ? 'done' : s.startedWhen(lines) ? 'working' : 'waiting';
++          return (
++            <li key={s.agent} className="flex items-center gap-3">
++              <StepIcon state={state} />
++              <span className={cn('text-[15px] leading-snug', state === 'waiting' ? 'text-ink-2' : 'font-semibold text-ink')}>{s.label}</span>
++            </li>
++          );
++        })}
++      </ol>
++
++      <div className="mt-5 flex items-center justify-between">
++        <h2 className="eyebrow text-ink-2">Live activity</h2>
++        <span className="tabular text-[13px] font-semibold text-ink-2">{elapsed}s</span>
++      </div>
++      <ul className="mt-2 space-y-2" data-testid="progress-lines">
++        {recent.length === 0 && (
++          <li className="flex items-center gap-2 rounded-2xl bg-paper px-4 py-3 text-[14px] text-ink-2"><Spinner /> Waking up the agents…</li>
++        )}
++        {recent.map((r) => (
++          <li key={r.key} className="flex items-start gap-2 rounded-2xl border border-line bg-paper px-4 py-3 text-[14px] leading-snug text-ink">
++            <span aria-hidden="true" className={cn('mt-1.5 h-2 w-2 shrink-0 rounded-full', r.status === 'ok' ? 'bg-kind-clawback' : r.status === 'blocked' || r.status === 'error' ? 'bg-kind-recall' : 'bg-coral')} />
++            <span>{r.text}{r.count > 1 && <span className="font-bold text-ink-2"> ×{r.count}</span>}</span>
++          </li>
++        ))}
++      </ul>
++    </section>
++  );
++}
++
++export default function Feed() {
++  const { runId = '' } = useParams<{ runId: string }>();
++  const [run, setRun] = useState<SavedRun | null>(() => loadRun(runId)?.runId === runId ? loadRun(runId) : null);
++  const [lines, setLines] = useState<TraceLine[]>([]);
++  const [chipInfo, setChipInfo] = useState<{ family?: SavedRun['family']; today?: string }>({});
++  const [error, setError] = useState<string | null>(null);
++  const [elapsed, setElapsed] = useState(0);
++  const started = useRef(Date.now());
++
++  useEffect(() => {
++    if (run) return; // already finished (or restored from this tab)
++    let stopped = false;
++    let timer: ReturnType<typeof setTimeout>;
++    const tick = async () => {
++      try {
++        const [status, trace] = await Promise.all([api.run(runId), api.trace(runId).catch(() => null)]);
++        if (stopped) return;
++        if (trace) setLines(trace);
++        setChipInfo({ family: status.family, today: status.today });
++        setElapsed(Math.round((Date.now() - Date.parse(status.startedAt || new Date(started.current).toISOString())) / 1000));
++        if (status.status === 'done' && status.result) {
++          const saved: SavedRun = { runId, familyId: status.familyId, family: status.family, today: status.today, result: status.result };
++          saveRun(saved);
++          setRun(saved);
++          return;
++        }
++        if (status.status === 'failed') { setError(status.error || 'The run did not finish. Please try again.'); return; }
++      } catch (e) {
++        if (stopped) return;
++        setError((e as Error).message === 'Run not found'
++          ? 'This run has expired. Start a new one; it only takes a minute.'
++          : 'We lost touch with Bundle for a moment. Check your connection and try again.');
++        return;
++      }
++      timer = setTimeout(tick, POLL_MS);
++    };
++    void tick();
++    return () => { stopped = true; clearTimeout(timer); };
++  }, [runId, run]);
++
++  const family = run?.family ?? chipInfo.family;
++  const today = run?.today ?? chipInfo.today;
++  const chip = familyChip(family, today);
++
++  const grouped = useMemo(() => (run ? groupCards(run.result.cards) : null), [run]);
++
++  if (error) {
++    return (
++      <AppShell chip={chip}>
++        <h1 className="mt-6 text-[28px] font-extrabold leading-tight tracking-[-0.02em]">That didn’t work.</h1>
++        <p role="alert" className="mt-2 text-[16px] text-ink-2">{error}</p>
++        <Link href="/" className="mt-6 flex min-h-[56px] items-center justify-center rounded-2xl bg-ink text-[17px] font-bold text-cream">Start again</Link>
++      </AppShell>
++    );
++  }
++
++  if (!run || !grouped) {
++    return <AppShell chip={chip}><Progress lines={lines} elapsed={elapsed} /></AppShell>;
++  }
++
++  const { result } = run;
++  const recallCount = result.cards.filter((c) => c.kind === 'recall' && c.verdict === 'verified').length;
++  const href = (id: string) => `/card/${encodeURIComponent(id)}?run=${encodeURIComponent(runId)}`;
++
++  return (
++    <AppShell chip={chip}>
++      <ReceiptCard receipt={result.receipt} recallCount={recallCount} today={today} />
++
++      {result.banner && (
++        <p role="status" className="mt-4 rounded-2xl border border-[#F5C4B0] bg-coral-tint px-4 py-3 text-[15px] font-semibold text-coral-deep">
++          {result.banner}
++        </p>
++      )}
++
++      {grouped.pinned && (
++        <section className="mt-6" aria-label="Pinned">
++          <FeedCardView card={grouped.pinned} pinned today={today} detailHref={href(grouped.pinned.id)} />
++        </section>
++      )}
++
++      {grouped.groups.map((g) => (
++        <section key={g.kind} className="mt-7" aria-labelledby={`sec-${g.kind}`}>
++          <h2 id={`sec-${g.kind}`} className="eyebrow text-ink-2">{KIND_META[g.kind].section}</h2>
++          <div className={cn('mt-2', g.kind === 'coming_soon' ? 'grid gap-2' : 'space-y-3')}>
++            {g.cards.map((c) => (
++              <FeedCardView key={c.id} card={c} today={today} detailHref={href(c.id)} />
++            ))}
++          </div>
++        </section>
++      ))}
++
++      <Link
++        href="/smarter"
++        className="mt-8 flex min-h-[64px] items-center justify-between gap-3 rounded-3xl bg-ink px-5 py-4 text-cream"
++      >
++        <span>
++          <span className="block text-[17px] font-bold">Bundle got smarter</span>
++          <span className="block text-[14px] text-[#D9CFC4]">See what parents taught it, and how it scores</span>
++        </span>
++        <span aria-hidden="true" className="text-[22px]">›</span>
++      </Link>
++
++      <Link href="/" className="mt-3 flex min-h-[48px] items-center justify-center text-[15px] font-bold text-ink-2 underline decoration-line decoration-2 underline-offset-4">
++        Start over with your own details
++      </Link>
++    </AppShell>
++  );
++}
+diff --git a/client/src/pages/Onboarding.tsx b/client/src/pages/Onboarding.tsx
+new file mode 100644
+index 0000000..49d9d48
+--- /dev/null
++++ b/client/src/pages/Onboarding.tsx
+@@ -0,0 +1,106 @@
++import { useState, type FormEvent } from 'react';
++import { useLocation } from 'wouter';
++import AppShell from '@/components/AppShell';
++import { api, localToday, type RunRequest } from '@/lib/bundle';
++
++const field = 'block rounded-2xl border border-line bg-paper px-4 pb-3 pt-2.5 focus-within:border-coral focus-within:ring-2 focus-within:ring-coral/25';
++const label = 'eyebrow block text-ink-2';
++const input = 'mt-1 block w-full bg-transparent text-[18px] font-semibold text-ink outline-none placeholder:font-medium placeholder:text-ink-3';
++
++export default function Onboarding() {
++  const [, navigate] = useLocation();
++  const [date, setDate] = useState('');
++  const [zip, setZip] = useState('');
++  const [employer, setEmployer] = useState('');
++  const [busy, setBusy] = useState<'form' | 'guest' | null>(null);
++  const [error, setError] = useState<string | null>(null);
++  const [soon, setSoon] = useState<string | null>(null);
++
++  async function start(body: RunRequest, who: 'form' | 'guest') {
++    setBusy(who);
++    setError(null);
++    try {
++      const { runId } = await api.startRun(body);
++      navigate(`/feed/${encodeURIComponent(runId)}`);
++    } catch (e) {
++      setError((e as Error).message);
++      setBusy(null);
++    }
++  }
++
++  function onSubmit(e: FormEvent) {
++    e.preventDefault();
++    if (!date) return setError('Enter your due date or your baby’s birth date.');
++    if (!/^\d{5}$/.test(zip)) return setError('Enter a valid US ZIP code');
++    // A date on or before today is a birth date; a future date is a due date.
++    const dates = date <= localToday() ? { birthDate: date } : { dueDate: date };
++    void start({ zip, employer: employer.trim(), ...dates }, 'form');
++  }
++
++  const comingSoon = (what: string) =>
++    setSoon(`${what} is coming soon. Tap “Try as guest” to see a sample family whose card and Amazon orders are already connected.`);
++
++  return (
++    <AppShell>
++      <h1 className="mt-6 text-[32px] font-extrabold leading-[1.08] tracking-[-0.03em]">
++        Let’s find what your family is <span className="text-coral">owed.</span>
++      </h1>
++      <p className="mt-2 text-[16px] text-ink-2">Three answers. About 30 seconds. No sign‑up.</p>
++
++      <form className="mt-6 space-y-3" onSubmit={onSubmit} noValidate>
++        <label className={field}>
++          <span className={label}>Due date or birth date</span>
++          <input className={input} type="date" value={date} onChange={(e) => setDate(e.target.value)} aria-describedby="date-help" />
++        </label>
++        <p id="date-help" className="sr-only">A past date counts as a birth date, a future date as a due date.</p>
++        <label className={field}>
++          <span className={label}>ZIP code</span>
++          <input
++            className={input} inputMode="numeric" autoComplete="postal-code" maxLength={5} placeholder="02139"
++            value={zip} onChange={(e) => setZip(e.target.value.replace(/\D/g, '').slice(0, 5))}
++          />
++        </label>
++        <label className={field}>
++          <span className={label}>Employer <span className="normal-case tracking-normal text-ink-3">(optional)</span></span>
++          <input className={input} autoComplete="organization" placeholder="Where you or your partner work" value={employer} onChange={(e) => setEmployer(e.target.value)} maxLength={100} />
++        </label>
++
++        {error && (
++          <p role="alert" className="rounded-2xl bg-[#FBE3E0] px-4 py-3 text-[15px] font-semibold text-[#9E2A21]">{error}</p>
++        )}
++
++        <button
++          type="submit" disabled={busy !== null}
++          className="mt-1 flex min-h-[56px] w-full items-center justify-center rounded-2xl bg-ink px-4 text-[17px] font-bold text-cream transition active:scale-[.99] disabled:opacity-60"
++        >
++          {busy === 'form' ? 'Starting…' : 'Find what we’re owed'}
++        </button>
++      </form>
++
++      <button
++        type="button" disabled={busy !== null} onClick={() => start({ familyId: 'maya' }, 'guest')}
++        className="mt-3 flex min-h-[64px] w-full flex-col items-center justify-center rounded-2xl border border-[#F5C4B0] bg-coral-tint px-4 py-2 transition active:scale-[.99] disabled:opacity-60"
++      >
++        <span className="text-[17px] font-bold text-coral-deep">{busy === 'guest' ? 'Starting…' : 'Try as guest'}</span>
++        <span className="text-[14px] font-medium text-coral-deep">Explore a sample family. No sign‑up.</span>
++      </button>
++
++      <div className="mt-4 text-center">
++        <p className="text-[14px] text-ink-2">Optional: add your data for more matches</p>
++        <div className="mt-1 flex justify-center gap-2">
++          <button type="button" onClick={() => comingSoon('Connecting a card')} className="min-h-[44px] rounded-full px-3 text-[15px] font-bold text-ink underline decoration-line decoration-2 underline-offset-4">
++            Connect a card
++          </button>
++          <button type="button" onClick={() => comingSoon('Uploading Amazon orders')} className="min-h-[44px] rounded-full px-3 text-[15px] font-bold text-ink underline decoration-line decoration-2 underline-offset-4">
++            Upload Amazon orders
++          </button>
++        </div>
++        {soon && <p role="status" className="mx-auto mt-2 max-w-[340px] rounded-2xl bg-paper px-4 py-3 text-[14px] text-ink-2">{soon}</p>}
++      </div>
++
++      <p className="mt-8 text-center text-[13px] text-ink-2">
++        Bundle finds and prepares. You decide. Sample families use made-up data.
++      </p>
++    </AppShell>
++  );
++}
+diff --git a/client/src/pages/Smarter.tsx b/client/src/pages/Smarter.tsx
+new file mode 100644
+index 0000000..636c672
+--- /dev/null
++++ b/client/src/pages/Smarter.tsx
+@@ -0,0 +1,170 @@
++import { useCallback, useEffect, useState } from 'react';
++import AppShell from '@/components/AppShell';
++import { api, loadRun, reviewerToken, type Proposal, type Scoreboard } from '@/lib/bundle';
++import { cn } from '@/lib/utils';
++
++function Confidence({ value, dark = false }: { value: number; dark?: boolean }) {
++  const pct = Math.round(Math.max(0, Math.min(1, value)) * 100);
++  return (
++    <div className="mt-3 flex items-center gap-3">
++      <div className={cn('h-2 flex-1 overflow-hidden rounded-full', dark ? 'bg-[#3A322C]' : 'bg-[#F1ECE4]')} role="meter" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct} aria-label="Confidence">
++        <div className="h-full rounded-full bg-coral" style={{ width: `${pct}%` }} />
++      </div>
++      <span className={cn('tabular shrink-0 whitespace-nowrap text-right text-[13px] font-bold', dark ? 'text-[#D9CFC4]' : 'text-ink-2')}>{pct}% confident</span>
++    </div>
++  );
++}
++
++const ruleId = (p: Proposal) => `CL-${String(p.id).padStart(2, '0')}`;
++const reports = (p: Proposal) => `${p.sourceFeedbackIds.length} parent ${p.sourceFeedbackIds.length === 1 ? 'report' : 'reports'}`;
++
++function Stat({ value, label, accent }: { value: string; label: string; accent?: boolean }) {
++  return (
++    <div className="rounded-2xl border border-line bg-paper p-4">
++      <p className={cn('tabular text-[28px] font-extrabold leading-none tracking-[-0.03em]', accent ? 'text-coral-deep' : 'text-ink')}>{value}</p>
++      <p className="mt-1.5 text-[13px] font-semibold leading-snug text-ink-2">{label}</p>
++    </div>
++  );
++}
++
++export default function Smarter() {
++  const [data, setData] = useState<{ proposals: Proposal[]; approved: Proposal[] } | null>(null);
++  const [board, setBoard] = useState<Scoreboard | null | undefined>(undefined);
++  const [loadError, setLoadError] = useState<string | null>(null);
++  const [token, setToken] = useState(reviewerToken.get());
++  const [draft, setDraft] = useState('');
++  const [msg, setMsg] = useState<{ id: number; text: string; ok: boolean } | null>(null);
++  const [busyId, setBusyId] = useState<number | null>(null);
++  const last = loadRun();
++
++  const refresh = useCallback(() => {
++    api.caseLaw().then(setData).catch((e) => setLoadError((e as Error).message));
++    api.scoreboard().then((r) => setBoard(r.scoreboard)).catch(() => setBoard(null));
++  }, []);
++  useEffect(refresh, [refresh]);
++
++  async function approve(p: Proposal) {
++    setBusyId(p.id);
++    setMsg(null);
++    try {
++      await api.approve(p.id, token);
++      setMsg({ id: p.id, text: `Approved. The Judge will cite ${ruleId(p)} from now on.`, ok: true });
++      refresh();
++    } catch (e) {
++      setMsg({ id: p.id, text: (e as Error).message, ok: false });
++    } finally {
++      setBusyId(null);
++    }
++  }
++
++  return (
++    <AppShell back={{ href: last ? `/feed/${encodeURIComponent(last.runId)}` : '/', label: last ? 'Your feed' : 'Home' }}>
++      <h1 className="mt-2 text-[32px] font-extrabold leading-[1.08] tracking-[-0.03em]">
++        Bundle got <span className="text-coral">smarter.</span>
++      </h1>
++      <p className="mt-2 text-[16px] text-ink-2">
++        When parents report the same problem, Bundle’s Coach writes a rule. A reviewer approves it, and every future run follows it.
++      </p>
++
++      <ol className="mt-5 grid grid-cols-3 gap-2 text-center" aria-label="How Bundle learns">
++        {['Parents tap “Report issue”', 'Coach proposes a rule', 'Judge cites it next run'].map((t, i) => (
++          <li key={t} className="rounded-2xl border border-line bg-paper px-2 py-3">
++            <span className="mx-auto flex h-7 w-7 items-center justify-center rounded-full bg-coral-tint text-[13px] font-extrabold text-coral-deep">{i + 1}</span>
++            <span className="mt-1.5 block text-[13px] font-semibold leading-snug text-ink">{t}</span>
++          </li>
++        ))}
++      </ol>
++
++      {loadError && <p role="alert" className="mt-5 rounded-2xl bg-[#FBE3E0] px-4 py-3 text-[15px] font-semibold text-[#9E2A21]">{loadError}</p>}
++
++      <section className="mt-8" aria-labelledby="approved-title">
++        <h2 id="approved-title" className="eyebrow text-ink-2">Rules Bundle follows now</h2>
++        {data && data.approved.length === 0 && (
++          <p className="mt-2 rounded-2xl bg-paper px-4 py-3 text-[15px] text-ink-2">No approved rules yet. They appear here after a reviewer approves one.</p>
++        )}
++        <div className="mt-2 space-y-3">
++          {data?.approved.map((p) => (
++            <article key={p.id} className="rounded-3xl bg-ink p-5 text-cream">
++              <p className="inline-block rounded-full bg-[#3A322C] px-3 py-1 text-[13px] font-bold text-[#F4A083]">Case law {ruleId(p)}</p>
++              <p className="mt-3 font-mono text-[14px] leading-relaxed">{p.text}</p>
++              <p className="mt-2 text-[13px] text-[#D9CFC4]">From {reports(p)} · approved by a reviewer</p>
++              <Confidence value={p.confidence} dark />
++            </article>
++          ))}
++        </div>
++      </section>
++
++      <section className="mt-8" aria-labelledby="proposed-title">
++        <h2 id="proposed-title" className="eyebrow text-ink-2">Waiting for review</h2>
++        {data && data.proposals.length === 0 && (
++          <p className="mt-2 rounded-2xl bg-paper px-4 py-3 text-[15px] text-ink-2">Nothing to review. New rules appear when two or more parents report a similar problem.</p>
++        )}
++        <div className="mt-2 space-y-3">
++          {data?.proposals.map((p) => (
++            <article key={p.id} className="bundle-card p-5">
++              <p className="inline-block rounded-full bg-[#F1ECE4] px-3 py-1 text-[13px] font-bold text-ink-2">Proposed {ruleId(p)}</p>
++              <p className="mt-3 text-[16px] font-semibold leading-snug text-ink">{p.text}</p>
++              <p className="mt-1 text-[13px] text-ink-2">From {reports(p)}</p>
++              <Confidence value={p.confidence} />
++              <button
++                type="button" disabled={!token || busyId === p.id} onClick={() => approve(p)}
++                className="mt-4 min-h-[52px] w-full rounded-2xl bg-ink text-[16px] font-bold text-cream disabled:opacity-40"
++              >
++                {busyId === p.id ? 'Approving…' : token ? 'Approve rule' : 'Approve (Reviewer mode only)'}
++              </button>
++              {!token && <p className="mt-2 text-center text-[13px] text-ink-2">Turn on Reviewer mode at the bottom of this page to approve.</p>}
++              {msg?.id === p.id && (
++                <p role="status" className={cn('mt-2 text-[14px] font-semibold', msg.ok ? 'text-[#17643F]' : 'text-[#9E2A21]')}>{msg.text}</p>
++              )}
++            </article>
++          ))}
++        </div>
++      </section>
++
++      <section className="mt-8" aria-labelledby="score-title">
++        <h2 id="score-title" className="eyebrow text-ink-2">Scoreboard</h2>
++        {board === undefined && <p className="mt-2 text-[15px] text-ink-2">Loading…</p>}
++        {board === null && (
++          <p className="mt-2 rounded-2xl bg-paper px-4 py-3 text-[15px] text-ink-2">The scoreboard appears after the first evaluation run.</p>
++        )}
++        {board && (
++          <>
++            <div className="mt-2 grid grid-cols-2 gap-2">
++              <Stat value={`${board.trapsCaught}/${board.trapsTotal}`} label="traps caught" accent />
++              <Stat value={String(board.falseAlarms)} label="false alarms" />
++              <Stat value={`${Math.round(board.sourcedPct)}%`} label="cards with a source" />
++              <Stat value={String(board.runs)} label={board.stable ? 'runs, same answers each time' : 'runs (answers varied)'} />
++            </div>
++            {board.learning && (
++              <div className="mt-3 rounded-2xl border border-line bg-paper p-4 text-[15px] leading-relaxed text-ink">
++                <p><span className="font-bold">Run 1:</span> {board.learning.run1Approved ? 'the court approved the “free” trap offer.' : 'the court already rejected the trap offer.'}</p>
++                <p><span className="font-bold">Run 2:</span> {board.learning.run2Blocked ? `blocked it${board.learning.citedRuleId ? `, citing ${board.learning.citedRuleId}` : ''}.` : 'not blocked yet.'}</p>
++                {board.llm && <p className="mt-1 text-[13px] text-ink-2">Model: {board.llm}</p>}
++              </div>
++            )}
++          </>
++        )}
++      </section>
++
++      <details className="mt-10 rounded-2xl border border-line bg-paper p-4" open={!!token}>
++        <summary className="min-h-[28px] cursor-pointer text-[15px] font-bold text-ink">Reviewer mode</summary>
++        <p className="mt-2 text-[14px] text-ink-2">For the demo reviewer only. The code stays in this browser tab and is cleared when you close it.</p>
++        {token ? (
++          <div className="mt-3 flex items-center justify-between gap-3">
++            <p className="text-[15px] font-semibold text-[#17643F]">Reviewer mode is on</p>
++            <button type="button" onClick={() => { reviewerToken.set(''); setToken(''); }} className="min-h-[44px] rounded-xl border border-line px-4 text-[15px] font-bold text-ink">Turn off</button>
++          </div>
++        ) : (
++          <form className="mt-3 flex gap-2" onSubmit={(e) => { e.preventDefault(); reviewerToken.set(draft.trim()); setToken(draft.trim()); setDraft(''); }}>
++            <label htmlFor="reviewer-token" className="sr-only">Reviewer code</label>
++            <input
++              id="reviewer-token" type="password" autoComplete="off" value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="Reviewer code"
++              className="min-h-[48px] min-w-0 flex-1 rounded-xl border border-line bg-cream px-3 text-[16px] outline-none focus:border-coral"
++            />
++            <button type="submit" disabled={!draft.trim()} className="min-h-[48px] rounded-xl bg-ink px-4 text-[15px] font-bold text-cream disabled:opacity-40">Turn on</button>
++          </form>
++        )}
++      </details>
++    </AppShell>
++  );
++}
+diff --git a/client/src/pages/home.tsx b/client/src/pages/home.tsx
+deleted file mode 100644
+index 73174ba..0000000
+--- a/client/src/pages/home.tsx
++++ /dev/null
+@@ -1,7 +0,0 @@
+-export default function Home() {
+-  return (
+-    <main className="min-h-screen flex items-center justify-center">
+-      <h1 className="text-3xl font-bold">Bundle</h1>
+-    </main>
+-  );
+-}
+diff --git a/client/src/pages/not-found.tsx b/client/src/pages/not-found.tsx
+index b9104cc..fd5902b 100644
+--- a/client/src/pages/not-found.tsx
++++ b/client/src/pages/not-found.tsx
+@@ -1,7 +1,11 @@
++import { Link } from 'wouter';
++import AppShell from '@/components/AppShell';
++
+ export default function NotFound() {
+   return (
+-    <main className="min-h-screen flex items-center justify-center">
+-      <h1 className="text-2xl font-bold">Page not found</h1>
+-    </main>
++    <AppShell>
++      <h1 className="mt-6 text-[28px] font-extrabold tracking-[-0.02em]">Page not found</h1>
++      <Link href="/" className="mt-6 flex min-h-[56px] items-center justify-center rounded-2xl bg-ink text-[17px] font-bold text-cream">Go to Bundle</Link>
++    </AppShell>
+   );
+ }
+diff --git a/jest.config.cjs b/jest.config.cjs
+index 61f5da6..f93c58d 100644
+--- a/jest.config.cjs
++++ b/jest.config.cjs
+@@ -1,15 +1,40 @@
++const shared = {
++  clearMocks: true,
++  restoreMocks: true,
++  testTimeout: 10000,
++};
++
+ module.exports = {
+-  preset: 'ts-jest',
+   maxWorkers: 1,
+-  testEnvironment: 'node',
+-  testMatch: ['<rootDir>/server/__tests__/**/*.test.ts'],
+-  moduleNameMapper: {
+-    '^@shared/(.*)$': '<rootDir>/shared/$1'
+-  },
+-  transform: {
+-    '^.+\\.ts$': ['ts-jest', { tsconfig: 'tsconfig.json' }]
+-  },
+   testTimeout: 10000,
+-  clearMocks: true,
+-  restoreMocks: true
++  projects: [
++    {
++      ...shared,
++      displayName: 'server',
++      preset: 'ts-jest',
++      testEnvironment: 'node',
++      testMatch: ['<rootDir>/server/__tests__/**/*.test.ts'],
++      moduleNameMapper: {
++        '^@shared/(.*)$': '<rootDir>/shared/$1'
++      },
++      transform: {
++        '^.+\\.ts$': ['ts-jest', { tsconfig: 'tsconfig.json' }]
++      },
++    },
++    {
++      ...shared,
++      displayName: 'client',
++      testEnvironment: 'jsdom',
++      testMatch: ['<rootDir>/client/src/**/__tests__/**/*.test.tsx'],
++      moduleNameMapper: {
++        '^@shared/(.*)$': '<rootDir>/shared/$1',
++        '^@/(.*)$': '<rootDir>/client/src/$1'
++      },
++      // wouter (the router) ships only ES modules, so it is transformed too.
++      transformIgnorePatterns: ['/node_modules/(?!(wouter|regexparam|mitt)/)'],
++      transform: {
++        '^.+\\.[jt]sx?$': ['ts-jest', { tsconfig: { allowJs: true, jsx: 'react-jsx', esModuleInterop: true, module: 'commonjs', target: 'ES2022', strict: true, skipLibCheck: true, isolatedModules: true } }]
++      },
++    },
++  ],
+ };
+diff --git a/package.json b/package.json
+index ab81df8..4452f82 100644
+--- a/package.json
++++ b/package.json
+@@ -78,29 +78,32 @@
+     "wouter": "^3.3.5",
+     "ws": "^8.18.0",
+     "xss": "^1.0.15",
+     "zod": "^3.23.8",
+     "zod-validation-error": "^3.4.0"
+   },
+   "devDependencies": {
+     "@tailwindcss/typography": "^0.5.15",
++    "@testing-library/dom": "^10.4.2",
++    "@testing-library/react": "^16.3.3",
+     "@types/cookie-parser": "^1.4.9",
+     "@types/express": "4.17.21",
+     "@types/jest": "^30.0.0",
+     "@types/node": "^20.16.11",
+     "@types/react": "^18.3.11",
+     "@types/react-dom": "^18.3.1",
+     "@types/supertest": "^7.2.1",
+     "@types/ws": "^8.5.13",
+     "@vitejs/plugin-react": "^4.3.2",
+     "autoprefixer": "^10.4.20",
+     "drizzle-kit": "^0.31.5",
+     "esbuild": "^0.25.10",
+     "jest": "^30.0.5",
++    "jest-environment-jsdom": "^30.5.2",
+     "postcss": "^8.4.47",
+     "supertest": "^7.3.1",
+     "tailwindcss": "^3.4.14",
+     "ts-jest": "^29.4.1",
+     "tsx": "^4.19.1",
+     "typescript": "^5.9.3",
+     "vite": "^7.0.6"
+   },
+diff --git a/server/__tests__/bundleRoutes.test.ts b/server/__tests__/bundleRoutes.test.ts
+index 1347981..353bd40 100644
+--- a/server/__tests__/bundleRoutes.test.ts
++++ b/server/__tests__/bundleRoutes.test.ts
+@@ -197,8 +197,28 @@ describe('feedback and case law', () => {
+     const res = await request(app).post('/api/case-law/1/approve').set('x-reviewer-token', 'sekret');
+     expect(res.status).toBe(200);
+     expect(memory.addRule).toHaveBeenCalledWith('Reject shipping fees', 'case_law:1', 0.7, ['1', '2']);
+     expect((await store.getProposal(1))!.status).toBe('approved');
+     expect((await request(app).get('/api/case-law')).body.approved).toHaveLength(1);
+     expect((await request(app).post('/api/case-law/99/approve').set('x-reviewer-token', 'sekret')).status).toBe(404);
+   });
+ });
++
++describe('UI helpers (Task 12)', () => {
++  it('run status carries the family display fields and today, never income', async () => {
++    const { app } = build();
++    const { runId } = (await request(app).post('/api/run').send({ familyId: 'leo' })).body;
++    const body = (await request(app).get(`/api/runs/${runId}`)).body;
++    expect(body.today).toBe('2026-10-23');
++    expect(body.family).toEqual({ name: 'leo', birthDate: null, dueDate: '2026-12-07' });
++    expect(JSON.stringify(body)).not.toContain('14500000');
++  });
++
++  it('GET /api/scoreboard returns null before any eval, then the saved JSON', async () => {
++    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sb-'));
++    const file = path.join(dir, 'scoreboard.json');
++    const { app } = build({ scoreboardFile: () => file });
++    expect((await request(app).get('/api/scoreboard')).body).toEqual({ scoreboard: null });
++    fs.writeFileSync(file, JSON.stringify({ trapsCaught: 6, trapsTotal: 6 }));
++    expect((await request(app).get('/api/scoreboard')).body).toEqual({ scoreboard: { trapsCaught: 6, trapsTotal: 6 } });
++  });
++});
+diff --git a/server/routes/bundleRoutes.ts b/server/routes/bundleRoutes.ts
+index 01d5aea..2582020 100644
+--- a/server/routes/bundleRoutes.ts
++++ b/server/routes/bundleRoutes.ts
+@@ -23,19 +23,23 @@ export interface ApiDeps {
+   store: BundleStore;
+   memory: Pick<BundleMemory, 'addRule'>;
+   llm: Generator;
+   /** Reviewer-mode token (env REVIEWER_MODE_TOKEN). Empty means Reviewer mode is off. */
+   reviewerToken: () => string;
+   runLimit?: { limit: number; windowMs: number };
+   /** Runs allowed at the same time across all visitors (default 5). */
+   maxInFlight?: number;
++  /** Where Task 13's eval writes its scoreboard (default logs/scoreboard.json). */
++  scoreboardFile?: () => string;
+ }
+ 
+-type RunEntry = { runId: string; familyId: string; status: 'running' | 'done' | 'failed'; startedAt: string; result?: BundleResult; error?: string; logsDir: string };
++/** Display-only family fields the UI needs (header chip, day count). Never income. */
++type FamilyView = { name: string; birthDate: string | null; dueDate: string | null };
++type RunEntry = { runId: string; familyId: string; status: 'running' | 'done' | 'failed'; startedAt: string; result?: BundleResult; error?: string; logsDir: string; family: FamilyView; today: string };
+ 
+ const isIsoDate = (v: unknown): v is string =>
+   typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) && !Number.isNaN(Date.parse(`${v}T00:00:00Z`)) && new Date(`${v}T00:00:00Z`).toISOString().slice(0, 10) === v;
+ 
+ function tokenOk(supplied: unknown, expected: string): boolean {
+   if (!expected || typeof supplied !== 'string' || !supplied) return false;
+   const a = crypto.createHash('sha256').update(supplied).digest();
+   const b = crypto.createHash('sha256').update(expected).digest();
+@@ -83,17 +87,20 @@ export function createBundleRouter(deps: ApiDeps): Router {
+       },
+     };
+   }
+ 
+   function startRun(family: Family): { entry: RunEntry; done: Promise<void> } {
+     const base = deps.makeRunDeps();
+     const runId = newRunId(family.id);
+     knownFamilies.add(family.id);
+-    const entry: RunEntry = { runId, familyId: family.id, status: 'running', startedAt: new Date().toISOString(), logsDir: base.logsDir };
++    const entry: RunEntry = {
++      runId, familyId: family.id, status: 'running', startedAt: new Date().toISOString(), logsDir: base.logsDir,
++      family: { name: family.name, birthDate: family.birthDate, dueDate: family.dueDate }, today: base.today,
++    };
+     runs.set(runId, entry);
+     while (runs.size > MAX_REGISTRY) runs.delete(runs.keys().next().value as string);
+     inFlight++;
+     const done = runBundle(family.id, { ...base, runId, loadFamily: async () => family })
+       .then((result) => { entry.result = result; entry.status = 'done'; })
+       .catch((e) => {
+         entry.status = 'failed';
+         entry.error = 'The run did not finish. Please try again.';
+@@ -119,17 +126,17 @@ export function createBundleRouter(deps: ApiDeps): Router {
+       console.error('POST /api/run failed:', (e as Error)?.message);
+       return res.status(500).json({ error: 'Could not start the run.' });
+     }
+   });
+ 
+   router.get('/api/runs/:runId', (req, res) => {
+     const e = runs.get(req.params.runId);
+     if (!e) return res.status(404).json({ error: 'Run not found' });
+-    return res.json({ runId: e.runId, familyId: e.familyId, status: e.status, startedAt: e.startedAt, result: e.result ?? null, error: e.error ?? null });
++    return res.json({ runId: e.runId, familyId: e.familyId, status: e.status, startedAt: e.startedAt, family: e.family, today: e.today, result: e.result ?? null, error: e.error ?? null });
+   });
+ 
+   router.get('/api/runs/:runId/trace', (req, res) => {
+     const e = runs.get(req.params.runId);
+     if (!e) return res.status(404).json({ error: 'Run not found' });
+     const file = path.join(e.logsDir, `run-${e.runId.replace(/[^A-Za-z0-9_-]/g, '_')}.jsonl`);
+     let lines: TraceLine[] = [];
+     try {
+@@ -157,16 +164,25 @@ export function createBundleRouter(deps: ApiDeps): Router {
+       }
+       return res.json({ ok: true, feedbackId: saved.id, proposals });
+     } catch (e) {
+       console.error('POST /api/feedback failed:', (e as Error)?.message);
+       return res.status(500).json({ error: 'Could not save feedback.' });
+     }
+   });
+ 
++  router.get('/api/scoreboard', (_req, res) => {
++    const file = deps.scoreboardFile?.() ?? path.resolve('logs', 'scoreboard.json');
++    try {
++      return res.json({ scoreboard: JSON.parse(fs.readFileSync(file, 'utf8')) });
++    } catch {
++      return res.json({ scoreboard: null }); // no eval has run yet (or the file is unreadable)
++    }
++  });
++
+   router.get('/api/case-law', async (_req, res) => {
+     try {
+       const all = await deps.store.listProposals();
+       return res.json({ proposals: all.filter((p) => p.status === 'proposed'), approved: all.filter((p) => p.status === 'approved') });
+     } catch (e) {
+       console.error('GET /api/case-law failed:', (e as Error)?.message);
+       return res.status(500).json({ error: 'Could not load case law.' });
+     }
+diff --git a/tailwind.config.ts b/tailwind.config.ts
+index c7f77d5..42ea54a 100644
+--- a/tailwind.config.ts
++++ b/tailwind.config.ts
+@@ -5,17 +5,27 @@ export default {
+   content: ["./client/index.html", "./client/src/**/*.{js,jsx,ts,tsx}"],
+   theme: {
+     extend: {
+       borderRadius: {
+         lg: 'var(--radius)',
+         md: 'calc(var(--radius) - 2px)',
+         sm: 'calc(var(--radius) - 4px)'
+       },
++      fontFamily: {
++        sans: ['Manrope', 'ui-sans-serif', 'system-ui', 'sans-serif'],
++        mono: ['"JetBrains Mono"', 'ui-monospace', 'monospace'],
++      },
+       colors: {
++        cream: 'var(--cream)',
++        paper: 'var(--paper)',
++        ink: { DEFAULT: 'var(--ink)', 2: 'var(--ink-2)', 3: 'var(--ink-3)' },
++        line: 'var(--line)',
++        coral: { DEFAULT: 'var(--coral)', deep: 'var(--coral-deep)', tint: 'var(--coral-tint)' },
++        kind: { clawback: '#1E8A5A', recall: '#C9352B', deadline: '#E4572E', discount: '#6B4EE6', soon: '#8A8076' },
+         background: 'hsl(var(--background))',
+         foreground: 'hsl(var(--foreground))',
+         card: {
+           DEFAULT: 'hsl(var(--card))',
+           foreground: 'hsl(var(--card-foreground))'
+         },
+         popover: {
+           DEFAULT: 'hsl(var(--popover))',

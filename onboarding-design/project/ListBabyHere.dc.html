@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Bundle: your list (baby's here)</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#1B1714}a:hover{color:#5C534B}
+input[type=checkbox]{accent-color:#1E8A5A}
+</style>
+</helmet>
+<div style="width: 390px; min-height: 1320px; box-sizing: border-box; padding: 20px 16px 120px; background: #FBF6EF; color: #1B1714; font-family: Manrope, system-ui, sans-serif; display: flex; flex-direction: column; gap: 16px; position: relative;">
+  <div style="display: flex; align-items: center; justify-content: space-between; height: 44px; padding: 0 4px;">
+    <span style="font-size: 26px; font-weight: 800; letter-spacing: -0.03em;">bundle<span style="color: #E4572E;">.</span></span>
+    <span style="font-size: 13px; font-weight: 700; color: #5C534B;">Sample family · Massachusetts</span>
+  </div>
+
+  <section style="padding: 22px 20px; background: #FFFFFF; border: 1px solid #E9E0D4; border-radius: 24px; box-shadow: 0 1px 2px rgba(27,23,20,.04), 0 12px 32px rgba(27,23,20,.06);">
+    <span style="font-size: 12px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: #5C534B;">Your family could get</span>
+    <p style="margin: 6px 0 0; font-size: 56px; font-weight: 800; line-height: 1; letter-spacing: -0.04em; color: #E4572E;">$3,640</p>
+    <p style="margin: 6px 0 0; font-size: 16px; font-weight: 600; color: #1B1714;">in cash and tax credits, plus $85 in free gifts</p>
+    <div style="margin-top: 16px; display: flex; gap: 8px; flex-wrap: wrap;">
+      <span style="padding: 6px 10px; border-radius: 99px; background: #FCE6DC; color: #B93E1A; font-size: 13px; font-weight: 700;">2 deadlines in 10 days</span>
+      <span style="padding: 6px 10px; border-radius: 99px; background: #F2EDE6; color: #5C534B; font-size: 13px; font-weight: 700;">Every amount fact-checked</span>
+    </div>
+
+    <div style="margin-top: 18px; padding-top: 16px; border-top: 1px solid #E9E0D4;">
+      <div style="display: flex; justify-content: space-between; font-size: 14px; font-weight: 700;">
+        <span>{{doneCount}} of {{total}} done</span>
+        <span style="color: #1E6B47;">{{claimed}} claimed</span>
+      </div>
+      <div style="margin-top: 8px; height: 10px; background: #E9E0D4; border-radius: 99px; overflow: hidden;" role="progressbar" aria-label="Checklist progress" aria-valuenow="{{pct}}" aria-valuemin="0" aria-valuemax="100">
+        <div style="width: {{pct}}%; height: 100%; background: #1E8A5A; border-radius: 99px; transition: width .3s ease;"></div>
+      </div>
+      <p style="margin: 10px 0 0; display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; color: #5C534B;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1E8A5A" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg>
+        <span style="text-decoration: line-through;">See what you qualify for</span> Done!
+      </p>
+    </div>
+  </section>
+
+  <h2 style="margin: 8px 4px 0; font-size: 12px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: #B93E1A;">Do these first · deadlines</h2>
+  <sc-for list="{{deadlines}}" as="item" hint-placeholder-count="2">
+    <label style="display: flex; gap: 14px; align-items: flex-start; padding: 16px; background: #FFFFFF; border: 1px solid #E9E0D4; border-radius: 20px; cursor: pointer; {{item.rowStyle}}">
+      <input type="checkbox" checked="{{item.checked}}" onChange="{{item.toggle}}" style="width: 24px; height: 24px; margin: 2px 0 0; flex-shrink: 0;">
+      <span style="flex-grow: 1; display: flex; flex-direction: column; gap: 4px;">
+        <span style="font-size: 16px; font-weight: 800; line-height: 1.25;">{{item.title}}</span>
+        <span style="font-size: 14px; line-height: 1.35; color: #5C534B;">{{item.sub}}</span>
+      </span>
+      <span style="flex-shrink: 0; padding: 4px 8px; border-radius: 99px; background: #FCE6DC; color: #B93E1A; font-size: 12px; font-weight: 800; white-space: nowrap;">{{item.tag}}</span>
+    </label>
+  </sc-for>
+
+  <h2 style="margin: 8px 4px 0; font-size: 12px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: #5C534B;">Money · federal</h2>
+  <sc-for list="{{federal}}" as="item" hint-placeholder-count="2">
+    <label style="display: flex; gap: 14px; align-items: flex-start; padding: 16px; background: #FFFFFF; border: 1px solid #E9E0D4; border-radius: 20px; cursor: pointer; {{item.rowStyle}}">
+      <input type="checkbox" checked="{{item.checked}}" onChange="{{item.toggle}}" style="width: 24px; height: 24px; margin: 2px 0 0; flex-shrink: 0;">
+      <span style="flex-grow: 1; display: flex; flex-direction: column; gap: 4px;">
+        <span style="font-size: 16px; font-weight: 800; line-height: 1.25;">{{item.title}}</span>
+        <span style="font-size: 14px; line-height: 1.35; color: #5C534B;">{{item.sub}}</span>
+      </span>
+      <span style="flex-shrink: 0; font-size: 17px; font-weight: 800; color: #1E6B47;">{{item.tag}}</span>
+    </label>
+  </sc-for>
+
+  <h2 style="margin: 8px 4px 0; font-size: 12px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: #5C534B;">Money · Massachusetts <span style="text-transform: none; letter-spacing: 0; font-weight: 600;">(from your ZIP)</span></h2>
+  <sc-for list="{{stateItems}}" as="item" hint-placeholder-count="2">
+    <label style="display: flex; gap: 14px; align-items: flex-start; padding: 16px; background: #FFFFFF; border: 1px solid #E9E0D4; border-radius: 20px; cursor: pointer; {{item.rowStyle}}">
+      <input type="checkbox" checked="{{item.checked}}" onChange="{{item.toggle}}" style="width: 24px; height: 24px; margin: 2px 0 0; flex-shrink: 0;">
+      <span style="flex-grow: 1; display: flex; flex-direction: column; gap: 4px;">
+        <span style="font-size: 16px; font-weight: 800; line-height: 1.25;">{{item.title}}</span>
+        <span style="font-size: 14px; line-height: 1.35; color: #5C534B;">{{item.sub}}</span>
+      </span>
+      <span style="flex-shrink: 0; font-size: 17px; font-weight: 800; color: #1E6B47;">{{item.tag}}</span>
+    </label>
+  </sc-for>
+
+  <a href="MoneyHook.dc.html" style="display: flex; gap: 14px; align-items: center; padding: 18px; background: #1B1714; border-radius: 20px; color: #FBF6EF; text-decoration: none;">
+    <span style="flex-grow: 1; display: flex; flex-direction: column; gap: 4px;">
+      <span style="font-size: 16px; font-weight: 800;">Find money in what you’ve already bought</span>
+      <span style="font-size: 14px; line-height: 1.35; color: #E9E0D4;">Refunds, price drops and recalls on baby gear you own</span>
+    </span>
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg>
+  </a>
+
+  <a href="Save.dc.html" style="align-self: center; min-height: 44px; display: flex; align-items: center; font-size: 15px; font-weight: 700; color: #1B1714; text-decoration: underline; text-decoration-color: #E9E0D4; text-decoration-thickness: 2px; text-underline-offset: 4px;">Save my list</a>
+
+  <sc-if value="{{showShare}}" hint-placeholder-val="{{false}}">
+    <div style="position: absolute; left: 12px; right: 12px; bottom: 16px; padding: 16px; background: #FFFFFF; border: 1px solid #E9E0D4; border-radius: 24px; box-shadow: 0 12px 40px rgba(27,23,20,.18); display: flex; align-items: center; gap: 12px;">
+      <span style="flex-grow: 1; font-size: 15px; font-weight: 700; line-height: 1.3;">Nice, {{claimed}} claimed! Know someone who’d want this?</span>
+      <a href="Share.dc.html" style="flex-shrink: 0; min-height: 44px; padding: 0 16px; display: flex; align-items: center; border-radius: 14px; background: #1B1714; color: #FBF6EF; font-size: 15px; font-weight: 700; text-decoration: none;">Share</a>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":1320}}'>
+class Component extends DCLogic {
+constructor(props) {
+super(props);
+this.state = { done: { qualify: true } };
+}
+renderVals() {
+var self = this;
+var done = this.state.done;
+var all = [
+{ id: 'qualify', group: 'none', amount: 0 },
+{ id: 'insurance', group: 'deadline', amount: 0, title: 'Add your baby to your health insurance', sub: 'You have 30 days from the birth. Miss it and you may wait until next year.', tag: '10 days left' },
+{ id: 'dcfsa', group: 'deadline', amount: 0, title: 'Start a Dependent Care FSA at work', sub: 'Pay for daycare with money before taxes. Same 30-day window.', tag: '10 days left' },
+{ id: 'trump', group: 'federal', amount: 1000, title: 'Open your baby’s $1,000 starter account', sub: 'A free government deposit for babies born 2025 to 2028.', tag: '$1,000' },
+{ id: 'ctc', group: 'federal', amount: 2200, title: 'Claim the Child Tax Credit', sub: 'Lowers your tax bill. Claimed on your yearly return.', tag: '$2,200' },
+{ id: 'mactc', group: 'state', amount: 440, title: 'Child and Family Tax Credit', sub: 'Massachusetts adds its own credit when you file state taxes.', tag: '$440' },
+{ id: 'pfml', group: 'state', amount: 0, title: 'Paid Family and Medical Leave', sub: 'Paid time off to bond with your baby in the first year.', tag: 'Paid leave' }
+];
+var claimedNum = 0, doneCount = 0, moneyDone = false;
+all.forEach(function (x) { if (done[x.id]) { doneCount += 1; claimedNum += x.amount; if (x.amount > 0) moneyDone = true; } });
+var shape = function (x) {
+return Object.assign({}, x, {
+checked: !!done[x.id],
+rowStyle: done[x.id] ? 'opacity: .55;' : '',
+toggle: function () { var d = Object.assign({}, self.state.done); d[x.id] = !d[x.id]; self.setState({ done: d }); }
+});
+};
+var pick = function (g) { return all.filter(function (x) { return x.group === g; }).map(shape); };
+return {
+deadlines: pick('deadline'),
+federal: pick('federal'),
+stateItems: pick('state'),
+doneCount: doneCount,
+total: all.length,
+claimed: '$' + claimedNum.toLocaleString('en-US'),
+pct: Math.round(doneCount / all.length * 100),
+showShare: moneyDone
+};
+}
+}
+</script>
+</body>
+</html>

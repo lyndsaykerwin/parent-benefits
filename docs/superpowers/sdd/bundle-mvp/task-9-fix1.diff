@@ -1,0 +1,628 @@
+e0d3a05 chore: refresh replay cache
+d3ceea8 fix: fact-check outage handling, bundled never-empty fallbacks, parallel checks, input hygiene
+diff --git a/data/sample/fallback-offers.json b/data/sample/fallback-offers.json
+new file mode 100644
+index 0000000..32bd614
+--- /dev/null
++++ b/data/sample/fallback-offers.json
+@@ -0,0 +1,47 @@
++[
++  {
++    "title": "Free baby registry welcome box",
++    "store": "Amazon",
++    "valueCents": 3500,
++    "minAgeDays": -280,
++    "maxAgeDays": 365,
++    "finePrint": "Requires Prime and a registry with at least one item; limited to one per household.",
++    "sourceUrl": "https://www.amazon.com/baby-reg/homepage"
++  },
++  {
++    "title": "15% registry completion discount",
++    "store": "Target",
++    "valueCents": null,
++    "minAgeDays": -280,
++    "maxAgeDays": 365,
++    "finePrint": "One-time coupon valid for 60 days after registry creation; excludes some brands.",
++    "sourceUrl": "https://www.target.com/c/baby-registry/-/N-5xtbg"
++  },
++  {
++    "title": "Free welcome gift bag",
++    "store": "Walmart",
++    "valueCents": 2500,
++    "minAgeDays": -280,
++    "maxAgeDays": 365,
++    "finePrint": "Registry must be created online; in-store pickup only while supplies last.",
++    "sourceUrl": "https://www.walmart.com/cp/baby-registry/1094765"
++  },
++  {
++    "title": "Pampers Club rewards sign-up bonus",
++    "store": "Pampers",
++    "valueCents": 500,
++    "minAgeDays": -280,
++    "maxAgeDays": 365,
++    "finePrint": "Points added after scanning your first diaper pack code.",
++    "sourceUrl": "https://www.pampers.com/en-us/club"
++  },
++  {
++    "title": "Babylist registry welcome box",
++    "store": "Babylist",
++    "valueCents": 2000,
++    "minAgeDays": -280,
++    "maxAgeDays": 365,
++    "finePrint": "Box ships after you add 10 items; shipping fee may apply.",
++    "sourceUrl": "https://www.babylist.com/registry-benefits"
++  }
++]
+diff --git a/data/sample/fallback-rules.json b/data/sample/fallback-rules.json
+new file mode 100644
+index 0000000..c8b3ddb
+--- /dev/null
++++ b/data/sample/fallback-rules.json
+@@ -0,0 +1,65 @@
++[
++  {
++    "code": "TRUMP_ACCOUNT",
++    "title": "Trump Account: $1,000 federal starter deposit",
++    "scope": "federal",
++    "amountCents": 100000,
++    "windowEndDaysFromBirth": null,
++    "condition": "born 2025-01-01..2028-12-31",
++    "sourceUrl": "https://trumpaccounts.gov"
++  },
++  {
++    "code": "FEDERAL_CHILD_TAX_CREDIT",
++    "title": "Federal Child Tax Credit",
++    "scope": "federal",
++    "amountCents": 220000,
++    "windowEndDaysFromBirth": null,
++    "condition": "claimed on the yearly tax return",
++    "sourceUrl": "https://www.irs.gov/credits-deductions/individuals/child-tax-credit"
++  },
++  {
++    "code": "INSURANCE_ADD_BABY",
++    "title": "Add your baby to health insurance",
++    "scope": "federal",
++    "amountCents": null,
++    "windowEndDaysFromBirth": 30,
++    "condition": "birth is a qualifying life event",
++    "sourceUrl": "https://www.healthcare.gov/coverage-outside-open-enrollment/special-enrollment-period/"
++  },
++  {
++    "code": "DCFSA_LIFE_EVENT",
++    "title": "Start or change your Dependent Care FSA",
++    "scope": "federal",
++    "amountCents": null,
++    "windowEndDaysFromBirth": 30,
++    "condition": "employer offers a Dependent Care FSA",
++    "sourceUrl": "https://www.irs.gov/publications/p503"
++  },
++  {
++    "code": "MA_CHILD_TAX_CREDIT",
++    "title": "Massachusetts Child and Family Tax Credit",
++    "scope": "MA",
++    "amountCents": 44000,
++    "windowEndDaysFromBirth": null,
++    "condition": "Massachusetts resident filing state taxes",
++    "sourceUrl": "https://www.mass.gov/info-details/massachusetts-child-and-family-tax-credit"
++  },
++  {
++    "code": "MA_PFML",
++    "title": "Massachusetts Paid Family and Medical Leave",
++    "scope": "MA",
++    "amountCents": null,
++    "windowEndDaysFromBirth": 365,
++    "condition": "worked in Massachusetts and paid into PFML",
++    "sourceUrl": "https://www.mass.gov/paid-family-and-medical-leave-pfml"
++  },
++  {
++    "code": "WIC_SCREEN",
++    "title": "WIC food benefits screening",
++    "scope": "federal",
++    "amountCents": null,
++    "windowEndDaysFromBirth": null,
++    "condition": "income <= 185% FPL",
++    "sourceUrl": "https://www.fns.usda.gov/wic/wic-eligibility-requirements"
++  }
++]
+diff --git a/scripts/gen-fallback.ts b/scripts/gen-fallback.ts
+new file mode 100644
+index 0000000..24a5b66
+--- /dev/null
++++ b/scripts/gen-fallback.ts
+@@ -0,0 +1,22 @@
++/**
++ * Regenerates the bundled offline fallback data from the seed (run after editing scripts/seed.ts):
++ *   npx tsx scripts/gen-fallback.ts
++ * Writes data/sample/fallback-rules.json and data/sample/fallback-offers.json.
++ * Only no-trigger ("general") offers are kept; rules keep their source URLs.
++ */
++import fs from 'fs';
++import path from 'path';
++import { BENEFIT_RULES, OFFERS } from './seed';
++
++const dir = path.resolve('data/sample');
++const rules = BENEFIT_RULES.map((r) => ({
++  code: r.code, title: r.title, scope: r.scope, amountCents: r.amountCents ?? null,
++  windowEndDaysFromBirth: r.windowEndDaysFromBirth ?? null, condition: r.condition ?? '', sourceUrl: r.sourceUrl,
++}));
++const offers = OFFERS.filter((o) => !o.triggerKeyword).map((o) => ({
++  title: o.title, store: o.store, valueCents: o.valueCents ?? null, minAgeDays: o.minAgeDays, maxAgeDays: o.maxAgeDays,
++  finePrint: o.finePrint ?? '', sourceUrl: o.sourceUrl,
++}));
++fs.writeFileSync(path.join(dir, 'fallback-rules.json'), JSON.stringify(rules, null, 2) + '\n');
++fs.writeFileSync(path.join(dir, 'fallback-offers.json'), JSON.stringify(offers, null, 2) + '\n');
++console.log(`wrote ${rules.length} rules and ${offers.length} offers`);
+diff --git a/server/__tests__/factChecker.test.ts b/server/__tests__/factChecker.test.ts
+index 6a68955..2bae640 100644
+--- a/server/__tests__/factChecker.test.ts
++++ b/server/__tests__/factChecker.test.ts
+@@ -158,10 +158,11 @@ describe('fact-checker', () => {
+     expect(o1.reason).toContain('cannot verify');
+     const down = ctxWith(() => { throw new ZetarisUnavailable('down'); });
+     const o2 = await verify(cand(), down.ctx);
+     expect(o2.ok).toBe(false);
+     expect(o2.reason).toContain('could not verify');
++    expect(o2.unavailable).toBe(true);
+   });
+ 
+   it('rejects unsafe or empty ids without querying', async () => {
+     for (const ref of ["A'B", 'x\\', 'a b', '']) {
+       const { ctx, runQuery } = ctxWith(() => res([]));
+diff --git a/server/__tests__/orchestrator.test.ts b/server/__tests__/orchestrator.test.ts
+index f5d5909..b6e9bbb 100644
+--- a/server/__tests__/orchestrator.test.ts
++++ b/server/__tests__/orchestrator.test.ts
+@@ -3,11 +3,11 @@ import fs from 'fs';
+ import path from 'path';
+ 
+ jest.mock('../agents/clawback');
+ jest.mock('../agents/recall');
+ jest.mock('../agents/finePrintCourt');
+-jest.mock('../agents/benefits');
++jest.mock('../agents/benefits', () => ({ ...jest.requireActual('../agents/benefits'), planBenefits: jest.fn(), revise: jest.fn() }));
+ jest.mock('../agents/factChecker');
+ 
+ import * as clawback from '../agents/clawback';
+ import * as recall from '../agents/recall';
+ import * as court from '../agents/finePrintCourt';
+@@ -176,10 +176,66 @@ describe('runBundle', () => {
+     const blocked = lines.find((l) => l.status === 'blocked' && l.retry_count === 2);
+     expect(blocked).toBeTruthy();
+     expect(blocked.input_summary).toContain('benefit-bad');
+   });
+ 
++  it('fact-check outage: banner, no send-back, card dropped, one verify call each', async () => {
++    const { deps } = setup({ verify: () => ({ ok: false, reason: 'could not verify: Zetaris unreachable or timed out', corrected: null, unavailable: true }) });
++    const r = await runBundle('maya', deps);
++    expect(r.banner).toBe(BANNER);
++    expect(benefits.revise).not.toHaveBeenCalled();
++    expect(court.revise).not.toHaveBeenCalled();
++    expect(fc.verify).toHaveBeenCalledTimes(5); // 2 benefits + 3 offers, once each
++    expect(r.cards.filter((c) => c.kind === 'benefit').length).toBeGreaterThanOrEqual(2);
++    expect(r.cards.filter((c) => c.kind === 'discount').length).toBeGreaterThanOrEqual(3);
++    expect(r.cards.filter((c) => c.verdict === 'likely' || c.verdict === 'verified')).toHaveLength(0);
++  });
++
++  it('benefits AND court both fail: minimums hold from bundled fallbacks, marked info, outside the Receipt', async () => {
++    const { deps } = setup();
++    (benefits.planBenefits as jest.Mock).mockRejectedValue(new ZetarisUnavailable('down'));
++    (court.judgeOffers as jest.Mock).mockRejectedValue(new ZetarisUnavailable('down'));
++    const r = await runBundle('maya', deps);
++    expect(r.banner).toBe(BANNER);
++    const ben = r.cards.filter((c) => c.kind === 'benefit');
++    const dis = r.cards.filter((c) => c.kind === 'discount');
++    expect(ben.length).toBeGreaterThanOrEqual(2);
++    expect(dis.length).toBeGreaterThanOrEqual(3);
++    for (const c of [...ben, ...dis]) {
++      expect(c.verdict).toBe('info');
++      expect(c.body).toContain("Not yet verified: some sources didn't respond.");
++      expect(c.sources[0].url).toMatch(/^https:/);
++    }
++    expect(dis.some((c) => /Cuddle/i.test(c.title))).toBe(false);
++    expect(r.receipt.likelyBenefitsCents).toBe(0);
++    expect(r.receipt.moneyBackCents).toBe(0);
++  });
++
++  it('a transient Thrift error during fact-check is retried once', async () => {
++    let n = 0;
++    const { deps } = setup({ verify: (c) => (c.id === 'benefit-a' && n++ === 0 ? { ok: false, reason: 'could not verify: Thrift TTransportException', corrected: null, unavailable: true } : { ok: true, reason: null, corrected: null }) });
++    const r = await runBundle('maya', deps);
++    expect(r.banner).toBeNull();
++    expect(r.cards.find((c) => c.id === 'benefit-a')).toBeDefined();
++  });
++
++  it('invalid MAX_RETRIES falls back to 2; a weird family id is made file-safe', async () => {
++    process.env.MAX_RETRIES = '-1';
++    const { deps, dir } = setup();
++    (benefits.planBenefits as jest.Mock).mockResolvedValue([ben('bad'), ben('a'), ben('b')]);
++    (fc.verify as jest.Mock).mockImplementation(async (c: Candidate) => (c.id === 'benefit-bad' ? { ok: false, reason: 'x', corrected: null } : { ok: true, reason: null, corrected: null }));
++    (benefits.revise as jest.Mock).mockImplementation(async (c: Candidate) => c);
++    try {
++      const r = await runBundle('maya/../x', { ...deps, loadFamily: async () => maya });
++      expect(r.runId).toMatch(/^[A-Za-z0-9_-]+$/);
++      expect(benefits.revise).toHaveBeenCalledTimes(2);
++      expect(fs.readdirSync(dir).every((f) => /^[A-Za-z0-9_.-]+$/.test(f))).toBe(true);
++    } finally {
++      delete process.env.MAX_RETRIES;
++    }
++  });
++
+   it('a candidate fixed by revise is kept', async () => {
+     let n = 0;
+     const { deps } = setup({ verify: (c) => (c.id === 'benefit-fix' && n++ === 0 ? { ok: false, reason: 'wrong', corrected: null } : { ok: true, reason: null, corrected: null }) });
+     (benefits.planBenefits as jest.Mock).mockResolvedValue([ben('fix'), ben('a'), ben('b')]);
+     (benefits.revise as jest.Mock).mockImplementation(async (c: Candidate) => ({ ...c, retryCount: 1 }));
+diff --git a/server/agents/benefits.ts b/server/agents/benefits.ts
+index 788bcaf..5567196 100644
+--- a/server/agents/benefits.ts
++++ b/server/agents/benefits.ts
+@@ -68,10 +68,36 @@ function fallbackText(code: string, title: string, cents: number | null, deadlin
+     default:
+       return `${title}: you are likely eligible.${cents !== null ? ` Worth ${fmtUsd(cents)}.` : ''}${by}`;
+   }
+ }
+ 
++/**
++ * Pure date and scope screen for one rule (no Zetaris, no income test). Shared by the planner and the offline fallback.
++ * Returns why it is skipped, or the deadline (null = no window). WIC needs the poverty line, so callers handle it.
++ */
++export function screenRule(
++  rule: { code: string; scope: string; windowEndDays: number | null },
++  family: { state: string; birthDate: string | null; dueDate: string | null },
++  dcfsaOffered: boolean,
++  today: string,
++): { skip: string } | { deadline: string | null } {
++  const anchor = family.birthDate ?? family.dueDate ?? null;
++  if (rule.scope === 'MA' && family.state !== 'MA') return { skip: 'Massachusetts only' };
++  if (rule.code === 'DCFSA_LIFE_EVENT' && !dcfsaOffered) return { skip: 'employer has no Dependent Care FSA' };
++  if (rule.code === 'TRUMP_ACCOUNT' && !(anchor && anchor >= TRUMP_FIRST && anchor <= TRUMP_LAST)) return { skip: 'birth outside the Trump Account years' };
++  if (rule.windowEndDays === null) return { deadline: null };
++  if (!anchor) return { skip: 'no birth or due date' };
++  const deadline = addDays(anchor, rule.windowEndDays);
++  if (deadline < today) return { skip: `window closed ${deadline}` };
++  return { deadline };
++}
++
++/** Plain-English card text for a rule when no model or source is available (used by the offline fallback). */
++export function ruleFallbackText(code: string, title: string, cents: number | null, deadline: string | null, unborn: boolean): string {
++  return fallbackText(code, title, cents, deadline, unborn);
++}
++
+ /** Work out which benefits a family likely qualifies for. Amounts and deadlines come from the rules table. */
+ export async function planBenefits(ctx: AgentContext, today: string): Promise<Candidate[]> {
+   let famSql: string;
+   try {
+     famSql = familySql(ctx.family.id);
+@@ -108,22 +134,14 @@ export async function planBenefits(ctx: AgentContext, today: string): Promise<Ca
+   for (const r of rules.rows) {
+     const code = s(r, 'code');
+     const scope = s(r, 'scope');
+     const skip = (why: string) => { skipped.push(`${code}: ${why}`); };
+ 
+-    if (scope === 'MA' && ctx.family.state !== 'MA') { skip('Massachusetts only'); continue; }
+-    if (code === 'DCFSA_LIFE_EVENT' && !dcfsaOffered) { skip('employer has no Dependent Care FSA'); continue; }
+-    if (code === 'TRUMP_ACCOUNT' && !(anchor && anchor >= TRUMP_FIRST && anchor <= TRUMP_LAST)) { skip('birth outside the Trump Account years'); continue; }
+     if (code === 'WIC_SCREEN' && !wicOk) { skip('income above the WIC line or unknown'); continue; }
+-
+-    const windowEnd = num(r, 'window_end_days_from_birth');
+-    let deadline: string | null = null;
+-    if (windowEnd !== null) {
+-      if (!anchor) { skip('no birth or due date'); continue; }
+-      deadline = addDays(anchor, windowEnd);
+-      if (deadline < today) { skip(`window closed ${deadline}`); continue; }
+-    }
++    const screened = screenRule({ code, scope, windowEndDays: num(r, 'window_end_days_from_birth') }, ctx.family, dcfsaOffered, today);
++    if ('skip' in screened) { skip(screened.skip); continue; }
++    const deadline = screened.deadline;
+ 
+     const cents = num(r, 'amount_cents');
+     const title = `${s(r, 'title')}${unborn ? ' (after birth)' : ''}`;
+     const fallback = fallbackText(code, s(r, 'title'), cents, deadline, unborn);
+     const facts =
+@@ -142,13 +160,13 @@ export async function planBenefits(ctx: AgentContext, today: string): Promise<Ca
+     `${out.length} benefit(s): ${out.map((c) => c.claim.ref).join(', ') || 'none'}; skipped ${skipped.length}`);
+   return out;
+ }
+ 
+ /** Re-derive one card from the rules table after the Fact-Checker sent it back. null = give up. */
+-export async function revise(c: Candidate, reason: string, ctx: AgentContext): Promise<Candidate | null> {
++export async function revise(c: Candidate, reason: string, ctx: AgentContext, today: string = todayIso()): Promise<Candidate | null> {
+   log(ctx, 'revise', `rule ${c.claim.ref}: ${reason}`.slice(0, 200), 're-deriving from source', 'retry', c.retryCount + 1);
+-  const fresh = await planBenefits(ctx, todayIso());
++  const fresh = await planBenefits(ctx, today);
+   const match = fresh.find((f) => f.claim.ref === c.claim.ref);
+   if (!match) {
+     log(ctx, 'revise', `rule ${c.claim.ref}`, 'gave up: not in source data', 'blocked', c.retryCount + 1);
+     return null;
+   }
+diff --git a/server/agents/factChecker.ts b/server/agents/factChecker.ts
+index c13259c..a904c50 100644
+--- a/server/agents/factChecker.ts
++++ b/server/agents/factChecker.ts
+@@ -3,10 +3,12 @@ import { InvalidId, quoteId as q, quoteDate, addDays, col } from './sql';
+ 
+ export interface VerifyResult {
+   ok: boolean;
+   reason: string | null;
+   corrected: Partial<Candidate> | null;
++  /** true when the check could not run (source down or errored): the card is unchecked, not wrong. */
++  unavailable?: boolean;
+ }
+ 
+ /**
+  * Claim shapes a producing agent must attach to `Candidate.claim` (keyed by `type`):
+  *   rule     { type:'rule', ref: <benefit_rules.code> }            -> amount + deadline
+@@ -191,8 +193,8 @@ export async function verify(c: Candidate, ctx: AgentContext): Promise<VerifyRes
+     const res = await check(c, ctx);
+     return finish(c, ctx, res, res.ok ? 'ok' : 'blocked');
+   } catch (e) {
+     if (e instanceof InvalidId) return finish(c, ctx, fail('invalid id'), 'blocked');
+     // Fail closed: an unchecked fact is never shown.
+-    return finish(c, ctx, fail(`could not verify: ${(e as Error).message}`), 'error');
++    return finish(c, ctx, { ...fail(`could not verify: ${(e as Error).message}`), unavailable: true }, 'error');
+   }
+ }
+diff --git a/server/agents/fallback.ts b/server/agents/fallback.ts
+new file mode 100644
+index 0000000..dc8410a
+--- /dev/null
++++ b/server/agents/fallback.ts
+@@ -0,0 +1,53 @@
++import fs from 'fs';
++import path from 'path';
++import type { Family } from '../../shared/bundle';
++import type { Candidate } from './types';
++import { screenRule, ruleFallbackText } from './benefits';
++import { addDays, fmtUsd } from './sql';
++
++export const NOT_VERIFIED = "Not yet verified: some sources didn't respond.";
++
++interface FallbackRule { code: string; title: string; scope: string; amountCents: number | null; windowEndDaysFromBirth: number | null; condition: string; sourceUrl: string }
++interface FallbackOffer { title: string; store: string; valueCents: number | null; minAgeDays: number; maxAgeDays: number; finePrint: string; sourceUrl: string }
++
++function readJson<T>(file: string): T[] {
++  try {
++    return JSON.parse(fs.readFileSync(path.resolve(process.cwd(), 'data/sample', file), 'utf8')) as T[];
++  } catch {
++    return [];
++  }
++}
++
++/**
++ * Bundled stand-ins used ONLY when agents returned too few checked cards. They are never verified:
++ * verdict 'info', a visible "not yet verified" line, and (being 'info') excluded from Receipt totals.
++ * Benefits use the Benefits Planner's own date logic (screenRule); offers are general ones only (no purchase trigger).
++ */
++export function buildFallbackFillers(family: Family, today: string): { approvedGeneralOffers: Candidate[]; federalBenefits: Candidate[] } {
++  const anchor = family.birthDate ?? family.dueDate ?? null;
++  const unborn = !family.birthDate && !!family.dueDate;
++  const federalBenefits: Candidate[] = [];
++  for (const r of readJson<FallbackRule>('fallback-rules.json')) {
++    if (r.scope !== 'federal' || r.code === 'WIC_SCREEN') continue; // WIC needs the poverty line, which needs Zetaris
++    const screened = screenRule({ code: r.code, scope: r.scope, windowEndDays: r.windowEndDaysFromBirth }, family, family.dcfsaOffered, today);
++    if ('skip' in screened) continue;
++    const text = ruleFallbackText(r.code, r.title, r.amountCents, screened.deadline, unborn);
++    federalBenefits.push({
++      id: `fallback-benefit-${r.code.toLowerCase()}`, kind: 'benefit', title: `${r.title}${unborn ? ' (after birth)' : ''}`,
++      body: `${text} ${NOT_VERIFIED}`, amountCents: r.amountCents, deadline: screened.deadline, verdict: 'info',
++      sources: [{ label: r.title, url: r.sourceUrl }], traceId: 'fallback', agent: 'fallback',
++      claim: { type: 'rule', ref: r.code }, evidenceSql: '', retryCount: 0,
++    });
++  }
++  const age = anchor ? Math.round((Date.parse(`${today}T00:00:00Z`) - Date.parse(`${anchor}T00:00:00Z`)) / 86_400_000) : 0;
++  const approvedGeneralOffers: Candidate[] = readJson<FallbackOffer>('fallback-offers.json')
++    .filter((o) => o.minAgeDays <= age && o.maxAgeDays >= age)
++    .map((o, i) => ({
++      id: `fallback-offer-${i + 1}`, kind: 'discount' as const, title: o.title,
++      body: `${o.store} has an offer${o.valueCents !== null ? ` worth about ${fmtUsd(o.valueCents)}` : ''}. ${NOT_VERIFIED}`,
++      amountCents: o.valueCents, deadline: anchor ? addDays(anchor, o.maxAgeDays) : null, verdict: 'info' as const,
++      sources: [{ label: `${o.store} offer page`, url: o.sourceUrl }], traceId: 'fallback', agent: 'fallback',
++      claim: { type: 'offer', title: o.title }, evidenceSql: '', retryCount: 0,
++    }));
++  return { approvedGeneralOffers, federalBenefits };
++}
+diff --git a/server/agents/orchestrator.ts b/server/agents/orchestrator.ts
+index ed028e1..676cd66 100644
+--- a/server/agents/orchestrator.ts
++++ b/server/agents/orchestrator.ts
+@@ -13,10 +13,11 @@ import * as clawback from './clawback';
+ import * as recall from './recall';
+ import * as court from './finePrintCourt';
+ import * as benefits from './benefits';
+ import { itemsSql } from './recall';
+ import { col } from './sql';
++import { buildFallbackFillers } from './fallback';
+ 
+ export const BANNER = "Some sources didn't respond: showing what we could check.";
+ export const COPY = {
+   clawbackNoData: 'No money to claw back yet. Connect a card or upload Amazon orders.',
+   clawbackNone: "Nothing to claw back: you're doing great.",
+@@ -77,12 +78,22 @@ export function assembleFeed(
+   const seen = new Set<string>();
+   const add = (c: Candidate) => { if (!seen.has(c.id)) { seen.add(c.id); cards.push(toCard(c)); } };
+   const count = (k: string) => cards.filter((c) => c.kind === k).length;
+ 
+   for (const c of verified) if (c.kind !== 'coming_soon') add(c);
+-  for (const c of fillers.federalBenefits) if (count('benefit') < 2 && c.kind === 'benefit') add(c);
+-  for (const c of fillers.approvedGeneralOffers) if (count('discount') < 3 && c.kind === 'discount') add(c);
++  // Fillers only top up a short feed, and never repeat a rule or offer already shown.
++  const have = (k: string, f: (c: Candidate) => string) => new Set(verified.filter((c) => c.kind === k).map(f));
++  const refs = have('benefit', (c) => String(c.claim.ref));
++  const titles = have('discount', (c) => c.title);
++  for (const c of fillers.federalBenefits) {
++    if (count('benefit') >= 2) break;
++    if (c.kind === 'benefit' && !refs.has(String(c.claim.ref))) add(c);
++  }
++  for (const c of fillers.approvedGeneralOffers) {
++    if (count('discount') >= 3) break;
++    if (c.kind === 'discount' && !titles.has(c.title)) add(c);
++  }
+ 
+   if (count('recall') === 0) {
+     cards.push(itemsChecked > 0
+       ? infoCard('recall-all-clear', 'recall', 'Recall check', COPY.recallAllClear(itemsChecked), 'all_clear', 'assemble')
+       : infoCard('recall-no-purchases', 'recall', 'Recall check', COPY.recallNoPurchases, 'info', 'assemble'));
+@@ -132,14 +143,27 @@ function ageDays(family: Family, today: string): number {
+   const anchor = family.birthDate ?? family.dueDate;
+   if (!anchor) return 0;
+   return Math.round((Date.parse(`${today}T00:00:00Z`) - Date.parse(`${anchor}T00:00:00Z`)) / 86_400_000);
+ }
+ 
++const TRANSIENT = /thrift|resultset/i;
++/** Zetaris sometimes answers HTTP 400 with a server-side Thrift/ResultSet hiccup (seen live Oct 23); one pause-and-retry clears it. */
++async function retryTransient<T>(fn: () => Promise<T>, onRetry: (msg: string) => void): Promise<T> {
++  try {
++    return await fn();
++  } catch (e) {
++    if (!TRANSIENT.test(String((e as Error)?.message))) throw e;
++    onRetry(String((e as Error).message));
++    await new Promise((r) => setTimeout(r, 1500));
++    return fn();
++  }
++}
++
+ /** Words and phrases from what the family bought; used by the court to pick trigger offers (e.g. a diaper deal). */
+-async function purchaseKeywords(ctx: AgentContext): Promise<string[]> {
++async function purchaseKeywords(ctx: AgentContext, onRetry: (msg: string) => void): Promise<string[]> {
+   try {
+-    const { rows } = await ctx.z.runQuery(itemsSql(ctx.family.id));
++    const { rows } = await retryTransient(() => ctx.z.runQuery(itemsSql(ctx.family.id)), onRetry);
+     const items = rows.map((r) => String(col(r, 'item_text') ?? '').toLowerCase().trim()).filter(Boolean);
+     const words = items.flatMap((t) => t.match(/[a-z]{3,}/g) ?? []);
+     return [...new Set([...items.map((t) => t.slice(0, 80)), ...words])].slice(0, 200);
+   } catch (e) {
+     if (e instanceof ZetarisUnavailable) throw e;
+@@ -147,42 +171,32 @@ async function purchaseKeywords(ctx: AgentContext): Promise<string[]> {
+   }
+ }
+ 
+ export async function runBundle(familyId: string, deps: RunDeps): Promise<BundleResult> {
+   const family = await deps.loadFamily(familyId);
+-  const runId = `${familyId}-${new Date().toISOString().replace(/[^0-9]/g, '').slice(0, 14)}-${crypto.randomBytes(2).toString('hex')}`;
++  const runId = `${familyId.replace(/[^A-Za-z0-9_-]/g, '_')}-${new Date().toISOString().replace(/[^0-9]/g, '').slice(0, 14)}-${crypto.randomBytes(2).toString('hex')}`;
+   const trace = new TraceLogger(runId, deps.logsDir);
+   const ctx: AgentContext = { runId, family, z: deps.z, llm: deps.llm, memory: deps.memory, trace };
+-  const maxRetries = Number.isInteger(Number(process.env.MAX_RETRIES)) && process.env.MAX_RETRIES !== '' && process.env.MAX_RETRIES !== undefined
+-    ? Number(process.env.MAX_RETRIES) : 2;
++  const maxRetries = /^\d+$/.test(process.env.MAX_RETRIES ?? '') ? Number(process.env.MAX_RETRIES) : 2;
+   let banner: string | null = null;
+   const log = (action: string, input: string, output: string, status: 'ok' | 'retry' | 'blocked' | 'error' | 'fallback', retry = 0) =>
+     trace.log({ agent_name: 'orchestrator', action, input_summary: input.slice(0, 250), output_summary: output.slice(0, 250), target_agent: null, confidence: null, retry_count: retry, status });
+   const noteFailure = (who: string, e: unknown) => {
+     banner = BANNER;
+     log('agent_failed', who, `${(e as Error)?.name ?? 'Error'}: ${(e as Error)?.message ?? e}`, 'error');
+   };
+   log('start', `family ${familyId}`, `today ${deps.today}`, 'ok');
+ 
+-  // Zetaris sometimes answers HTTP 400 with a server-side Thrift/ResultSet hiccup (seen live Oct 23); one pause-and-retry clears it.
+-  const withRetry = async <T>(who: string, fn: () => Promise<T>): Promise<T> => {
+-    try {
+-      return await fn();
+-    } catch (e) {
+-      if (!/thrift|resultset/i.test(String((e as Error)?.message))) throw e;
+-      log('retry_transient', who, String((e as Error).message), 'retry', 1);
+-      await new Promise((r) => setTimeout(r, 1500));
+-      return fn();
+-    }
+-  };
++  const withRetry = <T>(who: string, fn: () => Promise<T>): Promise<T> =>
++    retryTransient(fn, (m) => log('retry_transient', who, m, 'retry', 1));
+ 
+   // 2. Run the four agents at the same time; one failing never stops the rest.
+   const [claws, rec, ben, offers] = await Promise.allSettled([
+     withRetry('clawback', () => clawback.findClawbacks(ctx)),
+     withRetry('recall', () => recall.checkRecalls(ctx)),
+     withRetry('benefits', () => benefits.planBenefits(ctx, deps.today)),
+-    withRetry('fine_print_court', async () => court.judgeOffers(ctx, { ageDays: ageDays(family, deps.today), purchaseKeywords: await purchaseKeywords(ctx), includeGeneral: true })),
++    withRetry('fine_print_court', async () => court.judgeOffers(ctx, { ageDays: ageDays(family, deps.today), purchaseKeywords: await purchaseKeywords(ctx, (m) => log('retry_transient', 'purchase_keywords', m, 'retry', 1)), includeGeneral: true })),
+   ]);
+   const take = <T>(r: PromiseSettledResult<T>, who: string, empty: T): T => {
+     if (r.status === 'fulfilled') return r.value;
+     noteFailure(who, r.reason);
+     return empty;
+@@ -190,53 +204,64 @@ export async function runBundle(familyId: string, deps: RunDeps): Promise<Bundle
+   const clawCands = take(claws, 'clawback', [] as Candidate[]);
+   const recRes = take(rec, 'recall', { candidates: [] as Candidate[], itemsChecked: 0 });
+   const benCands = take(ben, 'benefits', [] as Candidate[]);
+   const offerCands = take(offers, 'fine_print_court', [] as Candidate[]);
+ 
+-  // 3. Fact-check everything; a failing card goes back to its owner, up to maxRetries times, then is dropped.
+-  const verified: Candidate[] = [];
+-  const checkOne = async (start: Candidate): Promise<void> => {
++  // 3. Fact-check everything (4 at a time). A card that is WRONG goes back to its owner, up to maxRetries times, then is dropped.
++  // A card that could not be CHECKED (source down) is never sent back: transient errors get one retry, otherwise it is dropped with the banner.
++  const checkOne = async (start: Candidate): Promise<Candidate | null> => {
+     let c = start;
+     for (let attempt = 0; ; attempt++) {
+-      let res;
+-      try {
++      let res = await verify(c, ctx);
++      if (res.unavailable && TRANSIENT.test(res.reason ?? '')) {
++        log('retry_transient', `fact_check ${c.id}`, res.reason ?? '', 'retry', attempt);
++        await new Promise((r) => setTimeout(r, 1500));
+         res = await verify(c, ctx);
+-      } catch (e) {
+-        noteFailure(`fact_checker ${c.id}`, e);
+-        log('drop', `${c.kind} ${c.id} from ${c.agent}`, 'dropped: could not be checked', 'blocked', attempt);
+-        return;
+       }
+-      if (res.ok) { verified.push(c); return; }
++      if (res.ok) return c;
++      if (res.unavailable) {
++        banner = BANNER;
++        log('drop', `${c.kind} ${c.id} from ${c.agent}`, `dropped, not checked: ${res.reason}`, 'error', attempt);
++        return null;
++      }
+       if (attempt >= maxRetries) {
+         log('drop', `${c.kind} ${c.id} from ${c.agent}`, `dropped after ${attempt} retries: ${res.reason}`, 'blocked', attempt);
+-        return;
++        return null;
+       }
+-      const reviser = REVISERS[c.agent];
+       const reason = `${res.reason ?? 'failed fact-check'}${res.corrected ? ` (corrected values: ${JSON.stringify(res.corrected)})` : ''}`;
+       log('send_back', `${c.id} to ${c.agent}`, reason, 'retry', attempt + 1);
+       let next: Candidate | null = null;
+       try {
+-        next = reviser ? await reviser(c, reason, ctx) : null;
++        next = c.agent === 'benefits' ? await benefits.revise(c, reason, ctx, deps.today)
++          : REVISERS[c.agent] ? await REVISERS[c.agent](c, reason, ctx) : null;
+       } catch (e) {
+         noteFailure(`revise ${c.agent}`, e);
+       }
+       if (!next) {
+         log('drop', `${c.kind} ${c.id} from ${c.agent}`, `dropped: ${c.agent} could not fix it (${res.reason})`, 'blocked', attempt + 1);
+-        return;
++        return null;
+       }
+       c = { ...next, retryCount: attempt + 1 };
+     }
+   };
+-  // Sequential keeps the trace readable and avoids hammering Zetaris with parallel re-derivations.
+   const all = [...clawCands, ...recRes.candidates, ...benCands, ...offerCands];
+-  for (const c of all) await checkOne(c);
++  const results: (Candidate | null)[] = new Array(all.length).fill(null);
++  let nextIdx = 0;
++  await Promise.all(Array.from({ length: Math.min(4, all.length) }, async () => {
++    while (nextIdx < all.length) {
++      const i = nextIdx++;
++      try {
++        results[i] = await checkOne(all[i]);
++      } catch (e) {
++        noteFailure(`fact_check ${all[i].id}`, e);
++      }
++    }
++  }));
++  const verified = results.filter((c): c is Candidate => c !== null);
+ 
+-  // 4. Assemble. Fillers are the verified benefit and offer cards (court-approved only; never unvetted).
+-  const { cards, receipt } = assembleFeed(verified, family, recRes.itemsChecked, {
+-    approvedGeneralOffers: verified.filter((c) => c.kind === 'discount'),
+-    federalBenefits: verified.filter((c) => c.kind === 'benefit'),
+-  }, deps.today);
++  // 4. Assemble. If agents came up short, bundled stand-ins (verdict info, "not yet verified", outside the Receipt) top the feed up.
++  const { cards, receipt } = assembleFeed(verified, family, recRes.itemsChecked, buildFallbackFillers(family, deps.today), deps.today);
+   log('assemble', `family ${familyId}`, `${cards.length} cards, ${verified.length}/${all.length} passed fact-check`, 'ok');
+ 
+   // 5. Trust ledger out to logs/.
+   try {
+     deps.memory.exportLedger(path.join(deps.logsDir, `ledger-${runId}.jsonl`));

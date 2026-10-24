@@ -1,0 +1,306 @@
+purchases=30  recalls checked=781 product rows  true matches=12  candidate pairs from today's net=192
+AI calls: {'live': 0, 'cached': 27, 'failed': 0}
+
+== A0 net only (every candidate pair = alarm): alerts 192, right 12, precision 0.062, recall 1.0
+   WRONG ALARM A01 'KEAWIS Mini Crib Mattress 38 x 24, Dual-Sided Infant & ' -> cpsc-10453 'Organic Cotton Pack N Play Mattress Dual-Sided Portable'
+   WRONG ALARM A01 'KEAWIS Mini Crib Mattress 38 x 24, Dual-Sided Infant & ' -> cpsc-10934 'JINHEZO Mini Waterproof LED Tea Lights'
+   WRONG ALARM A02 'Boon NURSH Reusable Silicone Pouch Baby Bottle, Pink Ti' -> cpsc-10863 'Boon PIVOT Collapsible Toddler Tower Kitchen Step Stool'
+   WRONG ALARM A03 'Boon NURSH Reusable Silicone Pouch Baby Bottle, 4 oz, G' -> cpsc-10803 'Boon NURSH 8 oz Reusable Baby Bottles'
+   WRONG ALARM A03 'Boon NURSH Reusable Silicone Pouch Baby Bottle, 4 oz, G' -> cpsc-10863 'Boon PIVOT Collapsible Toddler Tower Kitchen Step Stool'
+   WRONG ALARM A06 'Bugaboo Giraffe Complete Wooden High Chair, Warm Wood/G' -> cpsc-10584 'Giraffe Plush Toy with clip, Llama Plush Toy with clip'
+   WRONG ALARM A06 'Bugaboo Giraffe Complete Wooden High Chair, Warm Wood/G' -> cpsc-10625 'High Bay Linear LED light fixtures'
+   WRONG ALARM A06 'Bugaboo Giraffe Complete Wooden High Chair, Warm Wood/G' -> cpsc-10633 'High Chairs'
+   WRONG ALARM A07 'Melissa & Doug Giant Giraffe Lifelike Stuffed Animal Pl' -> cpsc-10309 'Giraffe highchairs'
+   WRONG ALARM A07 'Melissa & Doug Giant Giraffe Lifelike Stuffed Animal Pl' -> cpsc-10584 'Giraffe Plush Toy with clip, Llama Plush Toy with clip'
+   WRONG ALARM A08 'Peg Perego Tatamia - 3 in 1 Recliner, Swing & High Chai' -> cpsc-10625 'High Bay Linear LED light fixtures'
+   WRONG ALARM A08 'Peg Perego Tatamia - 3 in 1 Recliner, Swing & High Chai' -> cpsc-10633 'High Chairs'
+   WRONG ALARM A10 'Babysense 7 Under-The-Mattress Baby Movement Monitor' -> cpsc-10650 'Babysense Max View Baby Monitors'
+   WRONG ALARM A11 'VEVOR Baby Gate Retractable 33" Tall, Extends to 55" Wi' -> cpsc-10327 'Vevor Single Post Handrails'
+   WRONG ALARM A11 'VEVOR Baby Gate Retractable 33" Tall, Extends to 55" Wi' -> cpsc-10343 'Dearlomum Retractable Safety Gates'
+   WRONG ALARM A11 'VEVOR Baby Gate Retractable 33" Tall, Extends to 55" Wi' -> cpsc-10358 'LIVACTI Retractable Safety Gates'
+   WRONG ALARM A11 'VEVOR Baby Gate Retractable 33" Tall, Extends to 55" Wi' -> cpsc-10428 'Mom Genius Retractable Safety Gates'
+   WRONG ALARM A11 'VEVOR Baby Gate Retractable 33" Tall, Extends to 55" Wi' -> cpsc-10474 'Vevor Baby Swings'
+   WRONG ALARM A11 'VEVOR Baby Gate Retractable 33" Tall, Extends to 55" Wi' -> cpsc-10521 'VEVOR Garment Steamers'
+   WRONG ALARM A11 'VEVOR Baby Gate Retractable 33" Tall, Extends to 55" Wi' -> cpsc-10523 'Vevor Ice Crushers'
+   WRONG ALARM A11 'VEVOR Baby Gate Retractable 33" Tall, Extends to 55" Wi' -> cpsc-10542 'BabyBond Retractable Safety Gates'
+   WRONG ALARM A11 'VEVOR Baby Gate Retractable 33" Tall, Extends to 55" Wi' -> cpsc-10575 'Cumbor Retractable Safety Gates'
+   WRONG ALARM A11 'VEVOR Baby Gate Retractable 33" Tall, Extends to 55" Wi' -> cpsc-10841 'VEVOR baby loungers'
+   WRONG ALARM A12 'VEVOR Electric Baby Swing for Infants, Bluetooth, 5 Spe' -> cpsc-10327 'Vevor Single Post Handrails'
+   WRONG ALARM A12 'VEVOR Electric Baby Swing for Infants, Bluetooth, 5 Spe' -> cpsc-10394 'Electric motors for gable- and roof-mounted attic fans'
+   WRONG ALARM A12 'VEVOR Electric Baby Swing for Infants, Bluetooth, 5 Spe' -> cpsc-10474 'Vevor Baby Swings'
+   WRONG ALARM A12 'VEVOR Electric Baby Swing for Infants, Bluetooth, 5 Spe' -> cpsc-10521 'VEVOR Garment Steamers'
+   WRONG ALARM A12 'VEVOR Electric Baby Swing for Infants, Bluetooth, 5 Spe' -> cpsc-10523 'Vevor Ice Crushers'
+   WRONG ALARM A12 'VEVOR Electric Baby Swing for Infants, Bluetooth, 5 Spe' -> cpsc-10624 'Vevor Retractable Baby Gates'
+   WRONG ALARM A12 'VEVOR Electric Baby Swing for Infants, Bluetooth, 5 Spe' -> cpsc-10776 'Electric Kettles (ENFINIGY 1.5 l and ENFINIGY Pro 1.5 l'
+   WRONG ALARM A12 'VEVOR Electric Baby Swing for Infants, Bluetooth, 5 Spe' -> cpsc-10779 'Electric Start Pressure Washers'
+   WRONG ALARM A12 'VEVOR Electric Baby Swing for Infants, Bluetooth, 5 Spe' -> cpsc-10841 'VEVOR baby loungers'
+   WRONG ALARM A12 'VEVOR Electric Baby Swing for Infants, Bluetooth, 5 Spe' -> cpsc-10861 'Electric Toaster Ovens'
+   WRONG ALARM A12 'VEVOR Electric Baby Swing for Infants, Bluetooth, 5 Spe' -> cpsc-11012 'Electric Balloon Pumps'
+   WRONG ALARM A13 'Amazon Basics Waterproof Baby Bibs with Hook and Loop, ' -> cpsc-10369 'Amazon Basics Premium Foam Eurotop Mattresses'
+   WRONG ALARM A13 'Amazon Basics Waterproof Baby Bibs with Hook and Loop, ' -> cpsc-10667 'Amazon Basics Camping Folding Pocket Knives'
+   WRONG ALARM A13 'Amazon Basics Waterproof Baby Bibs with Hook and Loop, ' -> cpsc-10773 'Amazon Basics 55 Lbs. Adjustable Dumbbells'
+   WRONG ALARM A14 'Graco Pack 'n Play Playard with Bassinet and Changer, R' -> cpsc-10490 'Play Yards'
+   WRONG ALARM A15 'Newton Baby Original Crib Mattress, Breathable, Dual-Si' -> cpsc-10453 'Organic Cotton Pack N Play Mattress Dual-Sided Portable'
+   WRONG ALARM A16 'Costway 3-in-1 Convertible Baby High Chair to Table and' -> cpsc-10298 '2-in-1 Funlio Convertible Baby High Chairs'
+   WRONG ALARM A16 'Costway 3-in-1 Convertible Baby High Chair to Table and' -> cpsc-10461 'Harppa 5-in-1 Convertible High Chairs for Babies and To'
+   WRONG ALARM A16 'Costway 3-in-1 Convertible Baby High Chair to Table and' -> cpsc-10504 'Baby High Chairs (convertible)'
+   WRONG ALARM A16 'Costway 3-in-1 Convertible Baby High Chair to Table and' -> cpsc-10538 'Blue Wave brand 48-inch and taller above-ground pools'
+   WRONG ALARM A16 'Costway 3-in-1 Convertible Baby High Chair to Table and' -> cpsc-10625 'High Bay Linear LED light fixtures'
+   WRONG ALARM A16 'Costway 3-in-1 Convertible Baby High Chair to Table and' -> cpsc-10633 'High Chairs'
+   WRONG ALARM A17 'Joolz Aer2 Stroller Car Seat Adapter Set for Maxi-Cosi ' -> cpsc-10412 'Hoovy Cooling Gel Insert Pads for Car Seats and Strolle'
+   WRONG ALARM A18 'Joolz Aer+ Compact Lightweight Stroller, Midnight Black' -> cpsc-10829 'Joolz Aer2 Car Seat Adapters for Joolz Aer 2 Stroller'
+   WRONG ALARM A19 'babyletto Kiwi Electric Power Recliner and Swivel Glide' -> cpsc-10323 'Swivel Port equine bits from Bob Avila collection'
+   WRONG ALARM A19 'babyletto Kiwi Electric Power Recliner and Swivel Glide' -> cpsc-10394 'Electric motors for gable- and roof-mounted attic fans'
+   WRONG ALARM A19 'babyletto Kiwi Electric Power Recliner and Swivel Glide' -> cpsc-10662 'Swivel Office Chairs'
+   WRONG ALARM A19 'babyletto Kiwi Electric Power Recliner and Swivel Glide' -> cpsc-10776 'Electric Kettles (ENFINIGY 1.5 l and ENFINIGY Pro 1.5 l'
+   WRONG ALARM A19 'babyletto Kiwi Electric Power Recliner and Swivel Glide' -> cpsc-10779 'Electric Start Pressure Washers'
+   WRONG ALARM A19 'babyletto Kiwi Electric Power Recliner and Swivel Glide' -> cpsc-10861 'Electric Toaster Ovens'
+   WRONG ALARM A19 'babyletto Kiwi Electric Power Recliner and Swivel Glide' -> cpsc-11012 'Electric Balloon Pumps'
+   WRONG ALARM F01 'ByHeart Whole Nutrition Infant Formula, Grass-Fed Whole' -> fda-F-0008-2024 'LittleOak Natural Goat Milk Infant Formula (Stage 1); p'
+   WRONG ALARM F01 'ByHeart Whole Nutrition Infant Formula, Grass-Fed Whole' -> fda-F-0009-2024 'LittleOak Natural Goat Milk Follow On Infant Formula (S'
+   WRONG ALARM F01 'ByHeart Whole Nutrition Infant Formula, Grass-Fed Whole' -> fda-F-0022-2020 'Abbott Calcilo XD, Low-calcium Vitamin D-Free Infant fo'
+   WRONG ALARM F01 'ByHeart Whole Nutrition Infant Formula, Grass-Fed Whole' -> fda-F-0291-2023 'By Heart Whole Nutrition Infant Formula, Net Wt. 24 oz.'
+   WRONG ALARM F01 'ByHeart Whole Nutrition Infant Formula, Grass-Fed Whole' -> fda-F-0732-2023 'Gerber GoodStart  SoothePro Infant Formula with Iron.  '
+   WRONG ALARM F01 'ByHeart Whole Nutrition Infant Formula, Grass-Fed Whole' -> fda-F-0918-2022 'Abbott EleCare Infant Formula Unflavoured 400g can.  6 '
+   WRONG ALARM F01 'ByHeart Whole Nutrition Infant Formula, Grass-Fed Whole' -> fda-F-0927-2022 'Abbott Similac Alimentum Infant Formula with Iron 12oz.'
+   WRONG ALARM F01 'ByHeart Whole Nutrition Infant Formula, Grass-Fed Whole' -> fda-F-0930-2022 'Abbott Similac Pro-Sensitive Infant Formula with Iron 2'
+   WRONG ALARM F01 'ByHeart Whole Nutrition Infant Formula, Grass-Fed Whole' -> fda-F-0931-2022 'Abbott Similac Pro-Advance Infant Formula with Iron 20.'
+   WRONG ALARM F01 'ByHeart Whole Nutrition Infant Formula, Grass-Fed Whole' -> fda-F-0934-2022 'Abbott Similac Pro-Total Comfort Infant Formula with Ir'
+   WRONG ALARM F01 'ByHeart Whole Nutrition Infant Formula, Grass-Fed Whole' -> fda-F-0935-2022 'Abbott Similac Advance Infant Formula with Iron 12.4oz.'
+   WRONG ALARM F01 'ByHeart Whole Nutrition Infant Formula, Grass-Fed Whole' -> fda-F-0938-2022 'Abbott Similac Sensitive 34oz. plastic jar.  6 jars per'
+   WRONG ALARM F01 'ByHeart Whole Nutrition Infant Formula, Grass-Fed Whole' -> fda-F-0939-2022 'Abbott Similac Total Comfort Infant Formula with Iron 1'
+   WRONG ALARM F01 'ByHeart Whole Nutrition Infant Formula, Grass-Fed Whole' -> fda-F-0940-2022 'Abbott Similac For Spit Up Infant Formula with Iron 12.'
+   WRONG ALARM F01 'ByHeart Whole Nutrition Infant Formula, Grass-Fed Whole' -> fda-F-0941-2022 'Abbott Similac For Spit Up Infant Formula with Iron 7oz'
+   WRONG ALARM F01 'ByHeart Whole Nutrition Infant Formula, Grass-Fed Whole' -> fda-F-0942-2022 'Abbott Similac Alimentum with 2'-FL HMO, Abbott Similac'
+   WRONG ALARM F01 'ByHeart Whole Nutrition Infant Formula, Grass-Fed Whole' -> fda-F-0943-2022 'Abbott Similac 360 Total Care Infant Formula with Iron '
+   WRONG ALARM F01 'ByHeart Whole Nutrition Infant Formula, Grass-Fed Whole' -> fda-F-0944-2022 'Abbott Similac Organic with A2 Milk Toddler Drink 23.2o'
+   WRONG ALARM F01 'ByHeart Whole Nutrition Infant Formula, Grass-Fed Whole' -> fda-F-0945-2022 'Abbott Similac Organic 7oz. can. 6 cans per case.  Abbo'
+   WRONG ALARM F01 'ByHeart Whole Nutrition Infant Formula, Grass-Fed Whole' -> fda-F-0946-2022 'Abbott Similac Organic with A2 Milk Infant Formula with'
+   WRONG ALARM F01 'ByHeart Whole Nutrition Infant Formula, Grass-Fed Whole' -> fda-F-0947-2022 'Abbott Similac 360 Total Care Sensitive Infant Formula '
+   WRONG ALARM F01 'ByHeart Whole Nutrition Infant Formula, Grass-Fed Whole' -> fda-F-0949-2022 'Abbott EleCare Amino Acid-Based Powder Infant Formula w'
+   WRONG ALARM F01 'ByHeart Whole Nutrition Infant Formula, Grass-Fed Whole' -> fda-F-0955-2022 'Abbott Similac Alimentum Allergies & Colic Hypoallergen'
+   WRONG ALARM F01 'ByHeart Whole Nutrition Infant Formula, Grass-Fed Whole' -> fda-F-0957-2022 'Abbott Infant Formula Powder 12.6oz. can. 6 cans per ca'
+   WRONG ALARM F01 'ByHeart Whole Nutrition Infant Formula, Grass-Fed Whole' -> fda-F-0958-2022 'Abbott Similac PM 60/40 Low Iron Infant Formula, 14.1oz'
+   WRONG ALARM F01 'ByHeart Whole Nutrition Infant Formula, Grass-Fed Whole' -> fda-F-1021-2020 'Similac Pro-Advance Infant Formula with Iron, Milk-Base'
+   WRONG ALARM F01 'ByHeart Whole Nutrition Infant Formula, Grass-Fed Whole' -> fda-F-1409-2015 'Similac¿ Advance Complete Nutrition Infant Formula with'
+   WRONG ALARM F01 'ByHeart Whole Nutrition Infant Formula, Grass-Fed Whole' -> fda-F-1558-2019 'Parent's Choice Advantage Infant Formula Milk-Based Pow'
+   WRONG ALARM F01 'ByHeart Whole Nutrition Infant Formula, Grass-Fed Whole' -> fda-F-1751-2024 'CVS Health brand and HEB Baby brand Premium Infant Form'
+   WRONG ALARM F01 'ByHeart Whole Nutrition Infant Formula, Grass-Fed Whole' -> fda-H-0891-2026 'a2 Platinum Premium infant formula Milk-based Powder wi'
+   WRONG ALARM F01 'ByHeart Whole Nutrition Infant Formula, Grass-Fed Whole' -> fda-H-1137-2026 'a.) nara organics brand; Whole Milk Organic Infant Form'
+   WRONG ALARM F02 'a2 Platinum Premium Infant Formula Milk-Based Powder wi' -> cpsc-10573 'Based Online Fidget Magnet Ball Toys'
+   WRONG ALARM F02 'a2 Platinum Premium Infant Formula Milk-Based Powder wi' -> fda-F-0008-2024 'LittleOak Natural Goat Milk Infant Formula (Stage 1); p'
+   WRONG ALARM F02 'a2 Platinum Premium Infant Formula Milk-Based Powder wi' -> fda-F-0009-2024 'LittleOak Natural Goat Milk Follow On Infant Formula (S'
+   WRONG ALARM F02 'a2 Platinum Premium Infant Formula Milk-Based Powder wi' -> fda-F-0022-2020 'Abbott Calcilo XD, Low-calcium Vitamin D-Free Infant fo'
+   WRONG ALARM F02 'a2 Platinum Premium Infant Formula Milk-Based Powder wi' -> fda-F-0732-2023 'Gerber GoodStart  SoothePro Infant Formula with Iron.  '
+   WRONG ALARM F02 'a2 Platinum Premium Infant Formula Milk-Based Powder wi' -> fda-F-0809-2024 'Enfamil Nutramigen Hypoallergenic Infant Formula Powder'
+   WRONG ALARM F02 'a2 Platinum Premium Infant Formula Milk-Based Powder wi' -> fda-F-0923-2022 'Abbott Similac For Spit Up Infant Formula with Iron 22.'
+   WRONG ALARM F02 'a2 Platinum Premium Infant Formula Milk-Based Powder wi' -> fda-F-0927-2022 'Abbott Similac Alimentum Infant Formula with Iron 12oz.'
+   WRONG ALARM F02 'a2 Platinum Premium Infant Formula Milk-Based Powder wi' -> fda-F-0930-2022 'Abbott Similac Pro-Sensitive Infant Formula with Iron 2'
+   WRONG ALARM F02 'a2 Platinum Premium Infant Formula Milk-Based Powder wi' -> fda-F-0931-2022 'Abbott Similac Pro-Advance Infant Formula with Iron 20.'
+   WRONG ALARM F02 'a2 Platinum Premium Infant Formula Milk-Based Powder wi' -> fda-F-0934-2022 'Abbott Similac Pro-Total Comfort Infant Formula with Ir'
+   WRONG ALARM F02 'a2 Platinum Premium Infant Formula Milk-Based Powder wi' -> fda-F-0935-2022 'Abbott Similac Advance Infant Formula with Iron 12.4oz.'
+   WRONG ALARM F02 'a2 Platinum Premium Infant Formula Milk-Based Powder wi' -> fda-F-0937-2022 'Abbott Similac Sensitive Infant Formula with Iron 22.5o'
+   WRONG ALARM F02 'a2 Platinum Premium Infant Formula Milk-Based Powder wi' -> fda-F-0938-2022 'Abbott Similac Sensitive 34oz. plastic jar.  6 jars per'
+   WRONG ALARM F02 'a2 Platinum Premium Infant Formula Milk-Based Powder wi' -> fda-F-0939-2022 'Abbott Similac Total Comfort Infant Formula with Iron 1'
+   WRONG ALARM F02 'a2 Platinum Premium Infant Formula Milk-Based Powder wi' -> fda-F-0940-2022 'Abbott Similac For Spit Up Infant Formula with Iron 12.'
+   WRONG ALARM F02 'a2 Platinum Premium Infant Formula Milk-Based Powder wi' -> fda-F-0941-2022 'Abbott Similac For Spit Up Infant Formula with Iron 7oz'
+   WRONG ALARM F02 'a2 Platinum Premium Infant Formula Milk-Based Powder wi' -> fda-F-0943-2022 'Abbott Similac 360 Total Care Infant Formula with Iron '
+   WRONG ALARM F02 'a2 Platinum Premium Infant Formula Milk-Based Powder wi' -> fda-F-0944-2022 'Abbott Similac Organic with A2 Milk Toddler Drink 23.2o'
+   WRONG ALARM F02 'a2 Platinum Premium Infant Formula Milk-Based Powder wi' -> fda-F-0945-2022 'Abbott Similac Organic 7oz. can. 6 cans per case.  Abbo'
+   WRONG ALARM F02 'a2 Platinum Premium Infant Formula Milk-Based Powder wi' -> fda-F-0946-2022 'Abbott Similac Organic with A2 Milk Infant Formula with'
+   WRONG ALARM F02 'a2 Platinum Premium Infant Formula Milk-Based Powder wi' -> fda-F-0947-2022 'Abbott Similac 360 Total Care Sensitive Infant Formula '
+   WRONG ALARM F02 'a2 Platinum Premium Infant Formula Milk-Based Powder wi' -> fda-F-0949-2022 'Abbott EleCare Amino Acid-Based Powder Infant Formula w'
+   WRONG ALARM F02 'a2 Platinum Premium Infant Formula Milk-Based Powder wi' -> fda-F-0957-2022 'Abbott Infant Formula Powder 12.6oz. can. 6 cans per ca'
+   WRONG ALARM F02 'a2 Platinum Premium Infant Formula Milk-Based Powder wi' -> fda-F-0958-2022 'Abbott Similac PM 60/40 Low Iron Infant Formula, 14.1oz'
+   WRONG ALARM F02 'a2 Platinum Premium Infant Formula Milk-Based Powder wi' -> fda-F-0989-2023 'TYR Anamix Early Years infant formula Net Wt. 14.1 oz ('
+   WRONG ALARM F02 'a2 Platinum Premium Infant Formula Milk-Based Powder wi' -> fda-F-1021-2020 'Similac Pro-Advance Infant Formula with Iron, Milk-Base'
+   WRONG ALARM F02 'a2 Platinum Premium Infant Formula Milk-Based Powder wi' -> fda-F-1409-2015 'Similac¿ Advance Complete Nutrition Infant Formula with'
+   WRONG ALARM F02 'a2 Platinum Premium Infant Formula Milk-Based Powder wi' -> fda-F-1463-2024 'Farmalac powdered infant formula with iron 12.4 oz cans'
+   WRONG ALARM F02 'a2 Platinum Premium Infant Formula Milk-Based Powder wi' -> fda-F-1464-2024 'Crecelac Infant 0-12 powdered infant formula with iron '
+   WRONG ALARM F02 'a2 Platinum Premium Infant Formula Milk-Based Powder wi' -> fda-F-1465-2024 'Farmalac 0-12 Low lactose powdered infant formula with '
+   WRONG ALARM F02 'a2 Platinum Premium Infant Formula Milk-Based Powder wi' -> fda-F-1493-2023 'Parent's Choice brand Sensitivity Premium Infant Formul'
+   WRONG ALARM F02 'a2 Platinum Premium Infant Formula Milk-Based Powder wi' -> fda-F-1558-2019 'Parent's Choice Advantage Infant Formula Milk-Based Pow'
+   WRONG ALARM F02 'a2 Platinum Premium Infant Formula Milk-Based Powder wi' -> fda-F-1751-2024 'CVS Health brand and HEB Baby brand Premium Infant Form'
+   WRONG ALARM F02 'a2 Platinum Premium Infant Formula Milk-Based Powder wi' -> fda-H-0891-2026 'a2 Platinum Premium infant formula Milk-based Powder wi'
+   WRONG ALARM F02 'a2 Platinum Premium Infant Formula Milk-Based Powder wi' -> fda-H-1137-2026 'a.) nara organics brand; Whole Milk Organic Infant Form'
+   WRONG ALARM F03 'Similac 360 Total Care Infant Formula Powder, 30.8 oz T' -> fda-F-0022-2020 'Abbott Calcilo XD, Low-calcium Vitamin D-Free Infant fo'
+   WRONG ALARM F03 'Similac 360 Total Care Infant Formula Powder, 30.8 oz T' -> fda-F-0732-2023 'Gerber GoodStart  SoothePro Infant Formula with Iron.  '
+   WRONG ALARM F03 'Similac 360 Total Care Infant Formula Powder, 30.8 oz T' -> fda-F-0809-2024 'Enfamil Nutramigen Hypoallergenic Infant Formula Powder'
+   WRONG ALARM F03 'Similac 360 Total Care Infant Formula Powder, 30.8 oz T' -> fda-F-0923-2022 'Abbott Similac For Spit Up Infant Formula with Iron 22.'
+   WRONG ALARM F03 'Similac 360 Total Care Infant Formula Powder, 30.8 oz T' -> fda-F-0927-2022 'Abbott Similac Alimentum Infant Formula with Iron 12oz.'
+   WRONG ALARM F03 'Similac 360 Total Care Infant Formula Powder, 30.8 oz T' -> fda-F-0930-2022 'Abbott Similac Pro-Sensitive Infant Formula with Iron 2'
+   WRONG ALARM F03 'Similac 360 Total Care Infant Formula Powder, 30.8 oz T' -> fda-F-0931-2022 'Abbott Similac Pro-Advance Infant Formula with Iron 20.'
+   WRONG ALARM F03 'Similac 360 Total Care Infant Formula Powder, 30.8 oz T' -> fda-F-0934-2022 'Abbott Similac Pro-Total Comfort Infant Formula with Ir'
+   WRONG ALARM F03 'Similac 360 Total Care Infant Formula Powder, 30.8 oz T' -> fda-F-0935-2022 'Abbott Similac Advance Infant Formula with Iron 12.4oz.'
+   WRONG ALARM F03 'Similac 360 Total Care Infant Formula Powder, 30.8 oz T' -> fda-F-0937-2022 'Abbott Similac Sensitive Infant Formula with Iron 22.5o'
+   WRONG ALARM F03 'Similac 360 Total Care Infant Formula Powder, 30.8 oz T' -> fda-F-0938-2022 'Abbott Similac Sensitive 34oz. plastic jar.  6 jars per'
+   WRONG ALARM F03 'Similac 360 Total Care Infant Formula Powder, 30.8 oz T' -> fda-F-0939-2022 'Abbott Similac Total Comfort Infant Formula with Iron 1'
+   WRONG ALARM F03 'Similac 360 Total Care Infant Formula Powder, 30.8 oz T' -> fda-F-0940-2022 'Abbott Similac For Spit Up Infant Formula with Iron 12.'
+   WRONG ALARM F03 'Similac 360 Total Care Infant Formula Powder, 30.8 oz T' -> fda-F-0941-2022 'Abbott Similac For Spit Up Infant Formula with Iron 7oz'
+   WRONG ALARM F03 'Similac 360 Total Care Infant Formula Powder, 30.8 oz T' -> fda-F-0942-2022 'Abbott Similac Alimentum with 2'-FL HMO, Abbott Similac'
+   WRONG ALARM F03 'Similac 360 Total Care Infant Formula Powder, 30.8 oz T' -> fda-F-0943-2022 'Abbott Similac 360 Total Care Infant Formula with Iron '
+   WRONG ALARM F03 'Similac 360 Total Care Infant Formula Powder, 30.8 oz T' -> fda-F-0944-2022 'Abbott Similac Organic with A2 Milk Toddler Drink 23.2o'
+   WRONG ALARM F03 'Similac 360 Total Care Infant Formula Powder, 30.8 oz T' -> fda-F-0945-2022 'Abbott Similac Organic 7oz. can. 6 cans per case.  Abbo'
+   WRONG ALARM F03 'Similac 360 Total Care Infant Formula Powder, 30.8 oz T' -> fda-F-0946-2022 'Abbott Similac Organic with A2 Milk Infant Formula with'
+   WRONG ALARM F03 'Similac 360 Total Care Infant Formula Powder, 30.8 oz T' -> fda-F-0947-2022 'Abbott Similac 360 Total Care Sensitive Infant Formula '
+   WRONG ALARM F03 'Similac 360 Total Care Infant Formula Powder, 30.8 oz T' -> fda-F-0949-2022 'Abbott EleCare Amino Acid-Based Powder Infant Formula w'
+   WRONG ALARM F03 'Similac 360 Total Care Infant Formula Powder, 30.8 oz T' -> fda-F-0955-2022 'Abbott Similac Alimentum Allergies & Colic Hypoallergen'
+   WRONG ALARM F03 'Similac 360 Total Care Infant Formula Powder, 30.8 oz T' -> fda-F-0957-2022 'Abbott Infant Formula Powder 12.6oz. can. 6 cans per ca'
+   WRONG ALARM F03 'Similac 360 Total Care Infant Formula Powder, 30.8 oz T' -> fda-F-0958-2022 'Abbott Similac PM 60/40 Low Iron Infant Formula, 14.1oz'
+   WRONG ALARM F03 'Similac 360 Total Care Infant Formula Powder, 30.8 oz T' -> fda-F-0989-2023 'TYR Anamix Early Years infant formula Net Wt. 14.1 oz ('
+   WRONG ALARM F03 'Similac 360 Total Care Infant Formula Powder, 30.8 oz T' -> fda-F-1021-2020 'Similac Pro-Advance Infant Formula with Iron, Milk-Base'
+   WRONG ALARM F03 'Similac 360 Total Care Infant Formula Powder, 30.8 oz T' -> fda-F-1409-2015 'Similac¿ Advance Complete Nutrition Infant Formula with'
+   WRONG ALARM F03 'Similac 360 Total Care Infant Formula Powder, 30.8 oz T' -> fda-F-1558-2019 'Parent's Choice Advantage Infant Formula Milk-Based Pow'
+   WRONG ALARM F03 'Similac 360 Total Care Infant Formula Powder, 30.8 oz T' -> fda-F-1751-2024 'CVS Health brand and HEB Baby brand Premium Infant Form'
+   WRONG ALARM F03 'Similac 360 Total Care Infant Formula Powder, 30.8 oz T' -> fda-H-0891-2026 'a2 Platinum Premium infant formula Milk-based Powder wi'
+   WRONG ALARM F03 'Similac 360 Total Care Infant Formula Powder, 30.8 oz T' -> fda-H-1137-2026 'a.) nara organics brand; Whole Milk Organic Infant Form'
+   WRONG ALARM F04 'Nara Organics Whole Milk Organic Infant Formula Powder,' -> cpsc-10453 'Organic Cotton Pack N Play Mattress Dual-Sided Portable'
+   WRONG ALARM F04 'Nara Organics Whole Milk Organic Infant Formula Powder,' -> cpsc-10595 'Organic Zing Birch Oil Bottles'
+   WRONG ALARM F04 'Nara Organics Whole Milk Organic Infant Formula Powder,' -> fda-F-0008-2024 'LittleOak Natural Goat Milk Infant Formula (Stage 1); p'
+   WRONG ALARM F04 'Nara Organics Whole Milk Organic Infant Formula Powder,' -> fda-F-0009-2024 'LittleOak Natural Goat Milk Follow On Infant Formula (S'
+   WRONG ALARM F04 'Nara Organics Whole Milk Organic Infant Formula Powder,' -> fda-F-0022-2020 'Abbott Calcilo XD, Low-calcium Vitamin D-Free Infant fo'
+   WRONG ALARM F04 'Nara Organics Whole Milk Organic Infant Formula Powder,' -> fda-F-0291-2023 'By Heart Whole Nutrition Infant Formula, Net Wt. 24 oz.'
+   WRONG ALARM F04 'Nara Organics Whole Milk Organic Infant Formula Powder,' -> fda-F-0631-2022 'Kirkland Signature Organic Soy Non-Dairy Beverage Vanil'
+   WRONG ALARM F04 'Nara Organics Whole Milk Organic Infant Formula Powder,' -> fda-F-0732-2023 'Gerber GoodStart  SoothePro Infant Formula with Iron.  '
+   WRONG ALARM F04 'Nara Organics Whole Milk Organic Infant Formula Powder,' -> fda-F-0809-2024 'Enfamil Nutramigen Hypoallergenic Infant Formula Powder'
+   WRONG ALARM F04 'Nara Organics Whole Milk Organic Infant Formula Powder,' -> fda-F-0944-2022 'Abbott Similac Organic with A2 Milk Toddler Drink 23.2o'
+   WRONG ALARM F04 'Nara Organics Whole Milk Organic Infant Formula Powder,' -> fda-F-0945-2022 'Abbott Similac Organic 7oz. can. 6 cans per case.  Abbo'
+   WRONG ALARM F04 'Nara Organics Whole Milk Organic Infant Formula Powder,' -> fda-F-0946-2022 'Abbott Similac Organic with A2 Milk Infant Formula with'
+   WRONG ALARM F04 'Nara Organics Whole Milk Organic Infant Formula Powder,' -> fda-F-0949-2022 'Abbott EleCare Amino Acid-Based Powder Infant Formula w'
+   WRONG ALARM F04 'Nara Organics Whole Milk Organic Infant Formula Powder,' -> fda-F-0957-2022 'Abbott Infant Formula Powder 12.6oz. can. 6 cans per ca'
+   WRONG ALARM F04 'Nara Organics Whole Milk Organic Infant Formula Powder,' -> fda-F-0989-2023 'TYR Anamix Early Years infant formula Net Wt. 14.1 oz ('
+   WRONG ALARM F04 'Nara Organics Whole Milk Organic Infant Formula Powder,' -> fda-F-1021-2020 'Similac Pro-Advance Infant Formula with Iron, Milk-Base'
+   WRONG ALARM F04 'Nara Organics Whole Milk Organic Infant Formula Powder,' -> fda-F-1558-2019 'Parent's Choice Advantage Infant Formula Milk-Based Pow'
+   WRONG ALARM F04 'Nara Organics Whole Milk Organic Infant Formula Powder,' -> fda-F-1751-2024 'CVS Health brand and HEB Baby brand Premium Infant Form'
+   WRONG ALARM F04 'Nara Organics Whole Milk Organic Infant Formula Powder,' -> fda-H-0249-2026 '1. ByHeart Whole Nutrition Infant Formula cans 24 OZ 68'
+   WRONG ALARM F04 'Nara Organics Whole Milk Organic Infant Formula Powder,' -> fda-H-0891-2026 'a2 Platinum Premium infant formula Milk-based Powder wi'
+   WRONG ALARM P01 'AMAZON MKTPL*2K4RT81Q3 Amzn.com/bill' -> cpsc-10369 'Amazon Basics Premium Foam Eurotop Mattresses'
+   WRONG ALARM P01 'AMAZON MKTPL*2K4RT81Q3 Amzn.com/bill' -> cpsc-10667 'Amazon Basics Camping Folding Pocket Knives'
+   WRONG ALARM P01 'AMAZON MKTPL*2K4RT81Q3 Amzn.com/bill' -> cpsc-10773 'Amazon Basics 55 Lbs. Adjustable Dumbbells'
+   WRONG ALARM P06 'SIMILAC STORE' -> fda-F-1021-2020 'Similac Pro-Advance Infant Formula with Iron, Milk-Base'
+   WRONG ALARM P06 'SIMILAC STORE' -> fda-F-1409-2015 'Similac¿ Advance Complete Nutrition Infant Formula with'
+   WRONG ALARM P07 'Amazon' -> cpsc-10369 'Amazon Basics Premium Foam Eurotop Mattresses'
+   WRONG ALARM P07 'Amazon' -> cpsc-10667 'Amazon Basics Camping Folding Pocket Knives'
+   WRONG ALARM P07 'Amazon' -> cpsc-10773 'Amazon Basics 55 Lbs. Adjustable Dumbbells'
+
+== A1 current rule, offline (exact name only): alerts 0, right 0, precision nan, recall 0.0
+   MISS        A01 'KEAWIS Mini Crib Mattress 38 x 24, Dual-Sided Infant & ' -> cpsc-10560 'KEAWIS Crib Mattress'
+   MISS        A02 'Boon NURSH Reusable Silicone Pouch Baby Bottle, Pink Ti' -> cpsc-10803 'Boon NURSH 8 oz Reusable Baby Bottles'
+   MISS        A04 'Skip Hop x Sesame Street Elmo Teether Toy w/ Crayon Box' -> cpsc-10943 'Baby Sesame Street Elmo Silicone Teethers'
+   MISS        A06 'Bugaboo Giraffe Complete Wooden High Chair, Warm Wood/G' -> cpsc-10309 'Giraffe highchairs'
+   MISS        A08 'Peg Perego Tatamia - 3 in 1 Recliner, Swing & High Chai' -> cpsc-10328 'Peg Perego Tatamia 3-in-1 Recliner, Swings and High Cha'
+   MISS        A09 'Babysense MaxView 5.5" HD Split-Screen Video Baby Monit' -> cpsc-10650 'Babysense Max View Baby Monitors'
+   MISS        A11 'VEVOR Baby Gate Retractable 33" Tall, Extends to 55" Wi' -> cpsc-10624 'Vevor Retractable Baby Gates'
+   MISS        A16 'Costway 3-in-1 Convertible Baby High Chair to Table and' -> cpsc-11030 'Costway Convertible High Chairs'
+   MISS        A17 'Joolz Aer2 Stroller Car Seat Adapter Set for Maxi-Cosi ' -> cpsc-10829 'Joolz Aer2 Car Seat Adapters for Joolz Aer 2 Stroller'
+   MISS        A19 'babyletto Kiwi Electric Power Recliner and Swivel Glide' -> cpsc-10349 'Babyletto Kiwi Electronic Recliner and Swivel Gliders w'
+   MISS        F01 'ByHeart Whole Nutrition Infant Formula, Grass-Fed Whole' -> fda-H-0249-2026 '1. ByHeart Whole Nutrition Infant Formula cans 24 OZ 68'
+   MISS        F04 'Nara Organics Whole Milk Organic Infant Formula Powder,' -> fda-H-1137-2026 'a.) nara organics brand; Whole Milk Organic Infant Form'
+
+== A2 current rule + its AI yes/no check (25-pair cap; 167 loose pairs never judged): alerts 2, right 2, precision 1.0, recall 0.167
+   MISS        A01 'KEAWIS Mini Crib Mattress 38 x 24, Dual-Sided Infant & ' -> cpsc-10560 'KEAWIS Crib Mattress'
+   MISS        A04 'Skip Hop x Sesame Street Elmo Teether Toy w/ Crayon Box' -> cpsc-10943 'Baby Sesame Street Elmo Silicone Teethers'
+   MISS        A06 'Bugaboo Giraffe Complete Wooden High Chair, Warm Wood/G' -> cpsc-10309 'Giraffe highchairs'
+   MISS        A08 'Peg Perego Tatamia - 3 in 1 Recliner, Swing & High Chai' -> cpsc-10328 'Peg Perego Tatamia 3-in-1 Recliner, Swings and High Cha'
+   MISS        A09 'Babysense MaxView 5.5" HD Split-Screen Video Baby Monit' -> cpsc-10650 'Babysense Max View Baby Monitors'
+   MISS        A11 'VEVOR Baby Gate Retractable 33" Tall, Extends to 55" Wi' -> cpsc-10624 'Vevor Retractable Baby Gates'
+   MISS        A16 'Costway 3-in-1 Convertible Baby High Chair to Table and' -> cpsc-11030 'Costway Convertible High Chairs'
+   MISS        A17 'Joolz Aer2 Stroller Car Seat Adapter Set for Maxi-Cosi ' -> cpsc-10829 'Joolz Aer2 Car Seat Adapters for Joolz Aer 2 Stroller'
+   MISS        A19 'babyletto Kiwi Electric Power Recliner and Swivel Glide' -> cpsc-10349 'Babyletto Kiwi Electronic Recliner and Swivel Gliders w'
+   MISS        F01 'ByHeart Whole Nutrition Infant Formula, Grass-Fed Whole' -> fda-H-0249-2026 '1. ByHeart Whole Nutrition Infant Formula cans 24 OZ 68'
+
+== B structured fields + rules (no AI): alerts 12, right 12, precision 1.0, recall 1.0
+
+== C structured join + AI evidence verifier: alerts 0, right 0, precision nan, recall 0.0
+   MISS        A01 'KEAWIS Mini Crib Mattress 38 x 24, Dual-Sided Infant & ' -> cpsc-10560 'KEAWIS Crib Mattress'
+   MISS        A02 'Boon NURSH Reusable Silicone Pouch Baby Bottle, Pink Ti' -> cpsc-10803 'Boon NURSH 8 oz Reusable Baby Bottles'
+   MISS        A04 'Skip Hop x Sesame Street Elmo Teether Toy w/ Crayon Box' -> cpsc-10943 'Baby Sesame Street Elmo Silicone Teethers'
+   MISS        A06 'Bugaboo Giraffe Complete Wooden High Chair, Warm Wood/G' -> cpsc-10309 'Giraffe highchairs'
+   MISS        A08 'Peg Perego Tatamia - 3 in 1 Recliner, Swing & High Chai' -> cpsc-10328 'Peg Perego Tatamia 3-in-1 Recliner, Swings and High Cha'
+   MISS        A09 'Babysense MaxView 5.5" HD Split-Screen Video Baby Monit' -> cpsc-10650 'Babysense Max View Baby Monitors'
+   MISS        A11 'VEVOR Baby Gate Retractable 33" Tall, Extends to 55" Wi' -> cpsc-10624 'Vevor Retractable Baby Gates'
+   MISS        A16 'Costway 3-in-1 Convertible Baby High Chair to Table and' -> cpsc-11030 'Costway Convertible High Chairs'
+   MISS        A17 'Joolz Aer2 Stroller Car Seat Adapter Set for Maxi-Cosi ' -> cpsc-10829 'Joolz Aer2 Car Seat Adapters for Joolz Aer 2 Stroller'
+   MISS        A19 'babyletto Kiwi Electric Power Recliner and Swivel Glide' -> cpsc-10349 'Babyletto Kiwi Electronic Recliner and Swivel Gliders w'
+   MISS        F01 'ByHeart Whole Nutrition Infant Formula, Grass-Fed Whole' -> fda-H-0249-2026 '1. ByHeart Whole Nutrition Infant Formula cans 24 OZ 68'
+   MISS        F04 'Nara Organics Whole Milk Organic Infant Formula Powder,' -> fda-H-1137-2026 'a.) nara organics brand; Whole Milk Organic Infant Form'
+
+-- B decisions (every pair that passed the brand+type join):
+   ALERT  A01 'KEAWIS Mini Crib Mattress 38 x 24, Dual-Sided Infant & ' -> cpsc-10560 'KEAWIS Crib Mattress' | brand=keawis; type=crib_mattress; bought inside sale window Aug 2024-Jul 2025; seller amazon named in notice
+   ALERT  A02 'Boon NURSH Reusable Silicone Pouch Baby Bottle, Pink Ti' -> cpsc-10803 'Boon NURSH 8 oz Reusable Baby Bottles' | brand=boon; type=bottle; bought inside sale window Nov 2025-May 2026; seller walmart named in notice
+   reject A03 'Boon NURSH Reusable Silicone Pouch Baby Bottle, 4 oz, G' -> cpsc-10803 'Boon NURSH 8 oz Reusable Baby Bottles' | bought 2024-06-01, outside CPSC sale window Nov 2025-May 2026
+   ALERT  A04 'Skip Hop x Sesame Street Elmo Teether Toy w/ Crayon Box' -> cpsc-10943 'Baby Sesame Street Elmo Silicone Teethers' | brand=skip; type=teether; bought inside sale window Jan 2025-Mar 2026; seller carters named in notice
+   ALERT  A06 'Bugaboo Giraffe Complete Wooden High Chair, Warm Wood/G' -> cpsc-10309 'Giraffe highchairs' | brand=bugaboo; type=high_chair; bought inside sale window May 2023-Apr 2025
+   reject A07 'Melissa & Doug Giant Giraffe Lifelike Stuffed Animal Pl' -> cpsc-10584 'Giraffe Plush Toy with clip, Llama Plush Toy with clip' | notice says sold only at: Hobby Lobby Stores nationwide and online at hobbylobby.com from May 2025 through... ; bought at amazon
+   reject A08 'Peg Perego Tatamia - 3 in 1 Recliner, Swing & High Chai' -> cpsc-10717 'Multi-Point Swing Frames' | notice says sold only at: Online at Funandfunction.com from May 2022 through February 2026 for between $20... ; bought at amazon
+   ALERT  A08 'Peg Perego Tatamia - 3 in 1 Recliner, Swing & High Chai' -> cpsc-10328 'Peg Perego Tatamia 3-in-1 Recliner, Swings and High Cha' | brand=peg; type=glider; bought inside sale window Nov 2022-Jan 2025
+   ALERT  A09 'Babysense MaxView 5.5" HD Split-Screen Video Baby Monit' -> cpsc-10650 'Babysense Max View Baby Monitors' | brand=babysense; type=monitor; bought inside sale window Jan 2023-Dec 2025; seller amazon named in notice
+   reject A10 'Babysense 7 Under-The-Mattress Baby Movement Monitor' -> cpsc-10650 'Babysense Max View Baby Monitors' | product-line word missing (max, view)
+   ALERT  A11 'VEVOR Baby Gate Retractable 33" Tall, Extends to 55" Wi' -> cpsc-10624 'Vevor Retractable Baby Gates' | brand=vevor; type=baby_gate; bought inside sale window Dec 2023-Dec 2025; seller amazon named in notice
+   reject A12 'VEVOR Electric Baby Swing for Infants, Bluetooth, 5 Spe' -> cpsc-10717 'Multi-Point Swing Frames' | notice says sold only at: Online at Funandfunction.com from May 2022 through February 2026 for between $20... ; bought at amazon
+   reject A12 'VEVOR Electric Baby Swing for Infants, Bluetooth, 5 Spe' -> cpsc-10474 'Vevor Baby Swings' | bought 2024-05-15, outside CPSC sale window Jan 2025-Aug 2025
+   ALERT  A16 'Costway 3-in-1 Convertible Baby High Chair to Table and' -> cpsc-11030 'Costway Convertible High Chairs' | brand=costway; type=high_chair; bought inside sale window May 2023-Jul 2026; seller walmart named in notice
+   ALERT  A17 'Joolz Aer2 Stroller Car Seat Adapter Set for Maxi-Cosi ' -> cpsc-10829 'Joolz Aer2 Car Seat Adapters for Joolz Aer 2 Stroller' | brand=joolz; type=car_seat_adapter; bought inside sale window Jun 2025-May 2026; seller amazon named in notice; model=AER2
+   ALERT  A19 'babyletto Kiwi Electric Power Recliner and Swivel Glide' -> cpsc-10349 'Babyletto Kiwi Electronic Recliner and Swivel Gliders w' | brand=babyletto; type=glider; bought inside sale window Dec 2020-Nov 2023; seller amazon named in notice
+   reject F01 'ByHeart Whole Nutrition Infant Formula, Grass-Fed Whole' -> fda-F-0291-2023 'By Heart Whole Nutrition Infant Formula, Net Wt. 24 oz.' | FDA status is Terminated (recall closed)
+   ALERT  F01 'ByHeart Whole Nutrition Infant Formula, Grass-Fed Whole' -> fda-H-0249-2026 '1. ByHeart Whole Nutrition Infant Formula cans 24 OZ 68' | brand=byheart; type=formula; FDA recall Ongoing, bought within shelf-life window
+   reject F02 'a2 Platinum Premium Infant Formula Milk-Based Powder wi' -> fda-H-0891-2026 'a2 Platinum Premium infant formula Milk-based Powder wi' | FDA status is Terminated (recall closed)
+   reject F03 'Similac 360 Total Care Infant Formula Powder, 30.8 oz T' -> fda-F-1021-2020 'Similac Pro-Advance Infant Formula with Iron, Milk-Base' | FDA status is Terminated (recall closed)
+   reject F03 'Similac 360 Total Care Infant Formula Powder, 30.8 oz T' -> fda-F-0935-2022 'Abbott Similac Advance Infant Formula with Iron 12.4oz.' | bought 2026-07-02, outside recalled-stock shelf life around 2022-02-17
+   reject F03 'Similac 360 Total Care Infant Formula Powder, 30.8 oz T' -> fda-F-0945-2022 'Abbott Similac Organic 7oz. can. 6 cans per case.  Abbo' | bought 2026-07-02, outside recalled-stock shelf life around 2022-02-17
+   reject F03 'Similac 360 Total Care Infant Formula Powder, 30.8 oz T' -> fda-F-0937-2022 'Abbott Similac Sensitive Infant Formula with Iron 22.5o' | bought 2026-07-02, outside recalled-stock shelf life around 2022-02-17
+   reject F03 'Similac 360 Total Care Infant Formula Powder, 30.8 oz T' -> fda-F-0938-2022 'Abbott Similac Sensitive 34oz. plastic jar.  6 jars per' | bought 2026-07-02, outside recalled-stock shelf life around 2022-02-17
+   reject F03 'Similac 360 Total Care Infant Formula Powder, 30.8 oz T' -> fda-F-0947-2022 'Abbott Similac 360 Total Care Sensitive Infant Formula ' | bought 2026-07-02, outside recalled-stock shelf life around 2022-02-17
+   reject F03 'Similac 360 Total Care Infant Formula Powder, 30.8 oz T' -> fda-F-0955-2022 'Abbott Similac Alimentum Allergies & Colic Hypoallergen' | bought 2026-07-02, outside recalled-stock shelf life around 2022-02-17
+   reject F03 'Similac 360 Total Care Infant Formula Powder, 30.8 oz T' -> fda-F-0944-2022 'Abbott Similac Organic with A2 Milk Toddler Drink 23.2o' | bought 2026-07-02, outside recalled-stock shelf life around 2022-02-17
+   reject F03 'Similac 360 Total Care Infant Formula Powder, 30.8 oz T' -> fda-F-0939-2022 'Abbott Similac Total Comfort Infant Formula with Iron 1' | bought 2026-07-02, outside recalled-stock shelf life around 2022-02-17
+   reject F03 'Similac 360 Total Care Infant Formula Powder, 30.8 oz T' -> fda-F-0943-2022 'Abbott Similac 360 Total Care Infant Formula with Iron ' | bought 2026-07-02, outside recalled-stock shelf life around 2022-02-17
+   reject F03 'Similac 360 Total Care Infant Formula Powder, 30.8 oz T' -> fda-F-0934-2022 'Abbott Similac Pro-Total Comfort Infant Formula with Ir' | bought 2026-07-02, outside recalled-stock shelf life around 2022-02-17
+   reject F03 'Similac 360 Total Care Infant Formula Powder, 30.8 oz T' -> fda-F-0942-2022 'Abbott Similac Alimentum with 2'-FL HMO, Abbott Similac' | bought 2026-07-02, outside recalled-stock shelf life around 2022-02-17
+   reject F03 'Similac 360 Total Care Infant Formula Powder, 30.8 oz T' -> fda-F-1409-2015 'Similac¿ Advance Complete Nutrition Infant Formula with' | FDA status is Terminated (recall closed)
+   reject F03 'Similac 360 Total Care Infant Formula Powder, 30.8 oz T' -> fda-F-0946-2022 'Abbott Similac Organic with A2 Milk Infant Formula with' | bought 2026-07-02, outside recalled-stock shelf life around 2022-02-17
+   reject F03 'Similac 360 Total Care Infant Formula Powder, 30.8 oz T' -> fda-F-0930-2022 'Abbott Similac Pro-Sensitive Infant Formula with Iron 2' | bought 2026-07-02, outside recalled-stock shelf life around 2022-02-17
+   reject F03 'Similac 360 Total Care Infant Formula Powder, 30.8 oz T' -> fda-F-0931-2022 'Abbott Similac Pro-Advance Infant Formula with Iron 20.' | bought 2026-07-02, outside recalled-stock shelf life around 2022-02-17
+   reject F03 'Similac 360 Total Care Infant Formula Powder, 30.8 oz T' -> fda-F-0958-2022 'Abbott Similac PM 60/40 Low Iron Infant Formula, 14.1oz' | bought 2026-07-02, outside recalled-stock shelf life around 2022-02-17
+   reject F03 'Similac 360 Total Care Infant Formula Powder, 30.8 oz T' -> fda-F-0927-2022 'Abbott Similac Alimentum Infant Formula with Iron 12oz.' | bought 2026-07-02, outside recalled-stock shelf life around 2022-02-17
+   ALERT  F04 'Nara Organics Whole Milk Organic Infant Formula Powder,' -> fda-H-1137-2026 'a.) nara organics brand; Whole Milk Organic Infant Form' | brand=nara; type=formula; FDA recall Ongoing, bought within shelf-life window
+
+-- C decisions:
+   reject A01 'KEAWIS Mini Crib Mattress 38 x 24, Dual-Sided Infant & ' -> cpsc-10560 'KEAWIS Crib Mattress' | no AI answer: rejected (fail safe)
+   reject A02 'Boon NURSH Reusable Silicone Pouch Baby Bottle, Pink Ti' -> cpsc-10803 'Boon NURSH 8 oz Reusable Baby Bottles' | no AI answer: rejected (fail safe)
+   reject A03 'Boon NURSH Reusable Silicone Pouch Baby Bottle, 4 oz, G' -> cpsc-10803 'Boon NURSH 8 oz Reusable Baby Bottles' | bought 2024-06-01, outside CPSC sale window Nov 2025-May 2026
+   reject A04 'Skip Hop x Sesame Street Elmo Teether Toy w/ Crayon Box' -> cpsc-10943 'Baby Sesame Street Elmo Silicone Teethers' | no AI answer: rejected (fail safe)
+   reject A06 'Bugaboo Giraffe Complete Wooden High Chair, Warm Wood/G' -> cpsc-10309 'Giraffe highchairs' | no AI answer: rejected (fail safe)
+   reject A07 'Melissa & Doug Giant Giraffe Lifelike Stuffed Animal Pl' -> cpsc-10584 'Giraffe Plush Toy with clip, Llama Plush Toy with clip' | notice says sold only at: Hobby Lobby Stores nationwide and online at hobbylobby.com from May 2025 through... ; bought at amazon
+   reject A08 'Peg Perego Tatamia - 3 in 1 Recliner, Swing & High Chai' -> cpsc-10717 'Multi-Point Swing Frames' | notice says sold only at: Online at Funandfunction.com from May 2022 through February 2026 for between $20... ; bought at amazon
+   reject A08 'Peg Perego Tatamia - 3 in 1 Recliner, Swing & High Chai' -> cpsc-10328 'Peg Perego Tatamia 3-in-1 Recliner, Swings and High Cha' | no AI answer: rejected (fail safe)
+   reject A09 'Babysense MaxView 5.5" HD Split-Screen Video Baby Monit' -> cpsc-10650 'Babysense Max View Baby Monitors' | no AI answer: rejected (fail safe)
+   reject A10 'Babysense 7 Under-The-Mattress Baby Movement Monitor' -> cpsc-10650 'Babysense Max View Baby Monitors' | AI said different (Purchase is an under-the-mattress movement monitor (Babysense 7), recall is for Max View video baby monitor (model VBM55). Different product lines.)
+   reject A11 'VEVOR Baby Gate Retractable 33" Tall, Extends to 55" Wi' -> cpsc-10624 'Vevor Retractable Baby Gates' | AI said different (Purchase height (33") differs from recall height (34.2"), purchase max width (55") differs from recall model YJ-3355 max width (60"), and purchase lacks model number to confirm match with recalled models YJ-3355, YJ-3371, YJ-33110.)
+   reject A12 'VEVOR Electric Baby Swing for Infants, Bluetooth, 5 Spe' -> cpsc-10717 'Multi-Point Swing Frames' | notice says sold only at: Online at Funandfunction.com from May 2022 through February 2026 for between $20... ; bought at amazon
+   reject A12 'VEVOR Electric Baby Swing for Infants, Bluetooth, 5 Spe' -> cpsc-10474 'Vevor Baby Swings' | bought 2024-05-15, outside CPSC sale window Jan 2025-Aug 2025
+   reject A16 'Costway 3-in-1 Convertible Baby High Chair to Table and' -> cpsc-11030 'Costway Convertible High Chairs' | no AI answer: rejected (fail safe)
+   reject A17 'Joolz Aer2 Stroller Car Seat Adapter Set for Maxi-Cosi ' -> cpsc-10829 'Joolz Aer2 Car Seat Adapters for Joolz Aer 2 Stroller' | no AI answer: rejected (fail safe)
+   reject A19 'babyletto Kiwi Electric Power Recliner and Swivel Glide' -> cpsc-10349 'Babyletto Kiwi Electronic Recliner and Swivel Gliders w' | no AI answer: rejected (fail safe)
+   reject F01 'ByHeart Whole Nutrition Infant Formula, Grass-Fed Whole' -> fda-F-0291-2023 'By Heart Whole Nutrition Infant Formula, Net Wt. 24 oz.' | FDA status is Terminated (recall closed)
+   reject F01 'ByHeart Whole Nutrition Infant Formula, Grass-Fed Whole' -> fda-H-0249-2026 '1. ByHeart Whole Nutrition Infant Formula cans 24 OZ 68' | no AI answer: rejected (fail safe)
+   reject F02 'a2 Platinum Premium Infant Formula Milk-Based Powder wi' -> fda-H-0891-2026 'a2 Platinum Premium infant formula Milk-based Powder wi' | FDA status is Terminated (recall closed)
+   reject F03 'Similac 360 Total Care Infant Formula Powder, 30.8 oz T' -> fda-F-1021-2020 'Similac Pro-Advance Infant Formula with Iron, Milk-Base' | FDA status is Terminated (recall closed)
+   reject F03 'Similac 360 Total Care Infant Formula Powder, 30.8 oz T' -> fda-F-0935-2022 'Abbott Similac Advance Infant Formula with Iron 12.4oz.' | bought 2026-07-02, outside recalled-stock shelf life around 2022-02-17
+   reject F03 'Similac 360 Total Care Infant Formula Powder, 30.8 oz T' -> fda-F-0945-2022 'Abbott Similac Organic 7oz. can. 6 cans per case.  Abbo' | bought 2026-07-02, outside recalled-stock shelf life around 2022-02-17
+   reject F03 'Similac 360 Total Care Infant Formula Powder, 30.8 oz T' -> fda-F-0937-2022 'Abbott Similac Sensitive Infant Formula with Iron 22.5o' | bought 2026-07-02, outside recalled-stock shelf life around 2022-02-17
+   reject F03 'Similac 360 Total Care Infant Formula Powder, 30.8 oz T' -> fda-F-0938-2022 'Abbott Similac Sensitive 34oz. plastic jar.  6 jars per' | bought 2026-07-02, outside recalled-stock shelf life around 2022-02-17
+   reject F03 'Similac 360 Total Care Infant Formula Powder, 30.8 oz T' -> fda-F-0947-2022 'Abbott Similac 360 Total Care Sensitive Infant Formula ' | bought 2026-07-02, outside recalled-stock shelf life around 2022-02-17
+   reject F03 'Similac 360 Total Care Infant Formula Powder, 30.8 oz T' -> fda-F-0955-2022 'Abbott Similac Alimentum Allergies & Colic Hypoallergen' | bought 2026-07-02, outside recalled-stock shelf life around 2022-02-17
+   reject F03 'Similac 360 Total Care Infant Formula Powder, 30.8 oz T' -> fda-F-0944-2022 'Abbott Similac Organic with A2 Milk Toddler Drink 23.2o' | bought 2026-07-02, outside recalled-stock shelf life around 2022-02-17
+   reject F03 'Similac 360 Total Care Infant Formula Powder, 30.8 oz T' -> fda-F-0939-2022 'Abbott Similac Total Comfort Infant Formula with Iron 1' | bought 2026-07-02, outside recalled-stock shelf life around 2022-02-17
+   reject F03 'Similac 360 Total Care Infant Formula Powder, 30.8 oz T' -> fda-F-0943-2022 'Abbott Similac 360 Total Care Infant Formula with Iron ' | bought 2026-07-02, outside recalled-stock shelf life around 2022-02-17
+   reject F03 'Similac 360 Total Care Infant Formula Powder, 30.8 oz T' -> fda-F-0934-2022 'Abbott Similac Pro-Total Comfort Infant Formula with Ir' | bought 2026-07-02, outside recalled-stock shelf life around 2022-02-17
+   reject F03 'Similac 360 Total Care Infant Formula Powder, 30.8 oz T' -> fda-F-0942-2022 'Abbott Similac Alimentum with 2'-FL HMO, Abbott Similac' | bought 2026-07-02, outside recalled-stock shelf life around 2022-02-17
+   reject F03 'Similac 360 Total Care Infant Formula Powder, 30.8 oz T' -> fda-F-1409-2015 'Similac¿ Advance Complete Nutrition Infant Formula with' | FDA status is Terminated (recall closed)
+   reject F03 'Similac 360 Total Care Infant Formula Powder, 30.8 oz T' -> fda-F-0946-2022 'Abbott Similac Organic with A2 Milk Infant Formula with' | bought 2026-07-02, outside recalled-stock shelf life around 2022-02-17
+   reject F03 'Similac 360 Total Care Infant Formula Powder, 30.8 oz T' -> fda-F-0930-2022 'Abbott Similac Pro-Sensitive Infant Formula with Iron 2' | bought 2026-07-02, outside recalled-stock shelf life around 2022-02-17
+   reject F03 'Similac 360 Total Care Infant Formula Powder, 30.8 oz T' -> fda-F-0931-2022 'Abbott Similac Pro-Advance Infant Formula with Iron 20.' | bought 2026-07-02, outside recalled-stock shelf life around 2022-02-17
+   reject F03 'Similac 360 Total Care Infant Formula Powder, 30.8 oz T' -> fda-F-0958-2022 'Abbott Similac PM 60/40 Low Iron Infant Formula, 14.1oz' | bought 2026-07-02, outside recalled-stock shelf life around 2022-02-17
+   reject F03 'Similac 360 Total Care Infant Formula Powder, 30.8 oz T' -> fda-F-0927-2022 'Abbott Similac Alimentum Infant Formula with Iron 12oz.' | bought 2026-07-02, outside recalled-stock shelf life around 2022-02-17
+   reject F04 'Nara Organics Whole Milk Organic Infant Formula Powder,' -> fda-H-1137-2026 'a.) nara organics brand; Whole Milk Organic Infant Form' | no AI answer: rejected (fail safe)

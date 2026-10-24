@@ -1,0 +1,681 @@
+f48d9cf feat: llm adapter with json fallback, trace logger with redaction, H-MEM memory adapter
+ vendor/hmem/src/index.ts             |   60 ++
+ vendor/hmem/src/memoryMining.ts      |   91 ++
+ vendor/hmem/src/memoryRetrieval.ts   |  137 +++
+ vendor/hmem/src/memoryStore.ts       |  216 ++++
+ vendor/hmem/src/sleepCycle.ts        |  129 +++
+ vendor/hmem/src/trustLedger.ts       |   51 +
+ vendor/hmem/src/types.ts             |  141 +++
+ vendor/hmem/test/smoke.test.ts       |  144 +++
+ vendor/hmem/tsconfig.json            |   12 +
+ 28 files changed, 3836 insertions(+), 8 deletions(-)
+diff --git a/.env.example b/.env.example
+index 508bb0f..007fa11 100644
+--- a/.env.example
++++ b/.env.example
+@@ -16,10 +16,13 @@ SAMPLE_MODE=false
+ SOURCE_TIMEOUT_SECONDS=20
+ MAX_RETRIES=2
+ REVIEWER_MODE_TOKEN=""
+ TODAY=""
+ 
+ PORT=5000
+ 
+ # Optional (payments, not used right now)
+ # STRIPE_SECRET_KEY=""
+ # STRIPE_WEBHOOK_SECRET=""
++
++# Model ids: to confirm on build.nvidia.com (leave empty until chosen; the app still runs, AI calls fall back).
++# MODEL_REASONING / MODEL_FAST above are placeholders on purpose.
+diff --git a/package.json b/package.json
+index 9229797..7c1a015 100644
+--- a/package.json
++++ b/package.json
+@@ -57,20 +57,21 @@
+     "dotenv": "^16.5.0",
+     "drizzle-orm": "^0.44.6",
+     "drizzle-zod": "^0.8.3",
+     "embla-carousel-react": "^8.3.0",
+     "express": "^4.21.2",
+     "express-rate-limit": "^8.0.1",
+     "framer-motion": "^11.13.1",
+     "helmet": "^8.1.0",
+     "input-otp": "^1.2.4",
+     "lucide-react": "^0.453.0",
++    "openai": "^7.43.0",
+     "react": "^18.3.1",
+     "react-day-picker": "^8.10.1",
+     "react-dom": "^18.3.1",
+     "react-hook-form": "^7.53.1",
+     "react-icons": "^5.4.0",
+     "react-resizable-panels": "^2.1.4",
+     "recharts": "^2.13.0",
+     "tailwind-merge": "^2.6.0",
+     "tailwindcss-animate": "^1.0.7",
+     "vaul": "^1.1.0",
+diff --git a/server/__tests__/llm.test.ts b/server/__tests__/llm.test.ts
+new file mode 100644
+index 0000000..3d7176b
+--- /dev/null
++++ b/server/__tests__/llm.test.ts
+@@ -0,0 +1,80 @@
++import { FakeGenerator, NvidiaGenerator, askJson, createGenerator, ModelUnavailable } from '../adapters/llm';
++
++type Ok = { ok: boolean };
++const isOk = (x: unknown): x is Ok => typeof x === 'object' && x !== null && typeof (x as Ok).ok === 'boolean';
++
++describe('askJson', () => {
++  it('retries once after bad JSON and returns the parsed value', async () => {
++    const g = new FakeGenerator(['not json', '{"ok":true}']);
++    const r = await askJson(g, 'p', isOk, { ok: false });
++    expect(r).toEqual({ value: { ok: true }, usedFallback: false });
++    expect(g.calls).toBe(2);
++  });
++
++  it('returns the fallback after exactly 2 failed calls', async () => {
++    const g = new FakeGenerator(['x', 'y']);
++    const r = await askJson(g, 'p', isOk, { ok: false });
++    expect(r).toEqual({ value: { ok: false }, usedFallback: true });
++    expect(g.calls).toBe(2);
++  });
++
++  it('rejects JSON that fails validation', async () => {
++    const g = new FakeGenerator(['{"nope":1}', '{"also":2}']);
++    const r = await askJson(g, 'p', isOk, { ok: false });
++    expect(r.usedFallback).toBe(true);
++  });
++
++  it('accepts JSON wrapped in a code fence', async () => {
++    const g = new FakeGenerator(['```json\n{"ok":true}\n```']);
++    const r = await askJson(g, 'p', isOk, { ok: false });
++    expect(r).toEqual({ value: { ok: true }, usedFallback: false });
++  });
++
++  it('falls back at once when the model is unavailable', async () => {
++    const g = createGenerator({ apiKey: '', baseUrl: 'http://x', reasoning: '', fast: '' });
++    await expect(g.generate('hi')).rejects.toBeInstanceOf(ModelUnavailable);
++    const r = await askJson(g, 'p', isOk, { ok: false });
++    expect(r).toEqual({ value: { ok: false }, usedFallback: true });
++  });
++
++  it('falls back when the generator throws any error', async () => {
++    const g = { generate: async () => { throw new Error('boom'); } };
++    const r = await askJson(g, 'p', isOk, { ok: false });
++    expect(r.usedFallback).toBe(true);
++  });
++});
++
++describe('NvidiaGenerator', () => {
++  it('sends the right model, system and user messages to an injected client', async () => {
++    const create = jest.fn().mockResolvedValue({ choices: [{ message: { content: 'hello' } }] });
++    const client = { chat: { completions: { create } } };
++    const g = new NvidiaGenerator('k', 'http://base', { reasoning: 'R-model', fast: 'F-model' }, client);
++    expect(await g.generate('hi', 'be brief', 'fast')).toBe('hello');
++    expect(create).toHaveBeenCalledWith(expect.objectContaining({
++      model: 'F-model',
++      messages: [{ role: 'system', content: 'be brief' }, { role: 'user', content: 'hi' }],
++    }));
++    await g.generate('hi');
++    expect(create.mock.calls[1][0].model).toBe('R-model');
++    expect(create.mock.calls[1][0].messages).toEqual([{ role: 'user', content: 'hi' }]);
++  });
++
++  it('throws ModelUnavailable when the client call fails or returns nothing', async () => {
++    const bad = { chat: { completions: { create: jest.fn().mockRejectedValue(new Error('net')) } } };
++    const g = new NvidiaGenerator('k', 'u', { reasoning: 'r', fast: 'f' }, bad);
++    await expect(g.generate('x')).rejects.toBeInstanceOf(ModelUnavailable);
++    const empty = { chat: { completions: { create: jest.fn().mockResolvedValue({ choices: [] }) } } };
++    const g2 = new NvidiaGenerator('k', 'u', { reasoning: 'r', fast: 'f' }, empty);
++    await expect(g2.generate('x')).rejects.toBeInstanceOf(ModelUnavailable);
++  });
++
++  it('createGenerator with a key and model ids gives a working NvidiaGenerator', () => {
++    const g = createGenerator({ apiKey: 'k', baseUrl: 'http://x', reasoning: 'r', fast: 'f' });
++    expect(g).toBeInstanceOf(NvidiaGenerator);
++  });
++
++  it('createGenerator with a key but missing model ids is unavailable', async () => {
++    const g = createGenerator({ apiKey: 'k', baseUrl: 'http://x', reasoning: '', fast: '' });
++    await expect(g.generate('x')).rejects.toBeInstanceOf(ModelUnavailable);
++  });
++});
+diff --git a/server/__tests__/memory.test.ts b/server/__tests__/memory.test.ts
+new file mode 100644
+index 0000000..9d81f0a
+--- /dev/null
++++ b/server/__tests__/memory.test.ts
+@@ -0,0 +1,63 @@
++import fs from 'fs';
++import os from 'os';
++import path from 'path';
++import { BundleMemory } from '../adapters/memory';
++import { TraceLogger } from '../agents/trace';
++import { FEEDBACK_DELTAS } from '../../vendor/hmem/src/types';
++
++let dir: string;
++beforeEach(() => { dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mem-')); });
++afterEach(() => { fs.rmSync(dir, { recursive: true, force: true }); });
++
++const TEXT = 'free + >$5 shipping is not free';
++
++describe('BundleMemory', () => {
++  it('recalls a learned rule by a related query', () => {
++    const m = new BundleMemory(path.join(dir, 'h'));
++    const id = m.addRule(TEXT, 'feedback:3', 0.7, ['fb1']);
++    const hits = m.recallRules('free shipping offer');
++    expect(hits[0].id).toBe(id);
++    expect(hits[0].text).toBe(TEXT);
++    expect(hits[0].confidence).toBeCloseTo(0.7);
++    expect(typeof hits[0].score).toBe('number');
++  });
++
++  it('returns nothing for an unrelated query', () => {
++    const m = new BundleMemory(path.join(dir, 'h'));
++    m.addRule(TEXT, 'feedback:3', 0.7, ['fb1']);
++    expect(m.recallRules('quantum chromodynamics lattice')).toEqual([]);
++  });
++
++  it('feedback helpful raises confidence by the vendored delta; wrong lowers it', () => {
++    const m = new BundleMemory(path.join(dir, 'h'));
++    const id = m.addRule(TEXT, 'feedback:3', 0.7, ['fb1']);
++    m.feedback(id, 'helpful');
++    expect(m.recallRules('free shipping offer')[0].confidence).toBeCloseTo(0.7 + FEEDBACK_DELTAS.helpful);
++    m.feedback(id, 'wrong');
++    expect(m.recallRules('free shipping offer')[0].confidence)
++      .toBeCloseTo(0.7 + FEEDBACK_DELTAS.helpful + FEEDBACK_DELTAS.wrong);
++  });
++
++  it('persists across instances and exports the ledger as JSON lines', () => {
++    const h = path.join(dir, 'h');
++    const id = new BundleMemory(h).addRule(TEXT, 'feedback:3', 0.7, ['fb1']);
++    const m2 = new BundleMemory(h);
++    expect(m2.recallRules('free shipping offer')[0].id).toBe(id);
++    m2.feedback(id, 'helpful');
++    const out = path.join(dir, 'out', 'ledger.jsonl');
++    m2.exportLedger(out);
++    const rows = fs.readFileSync(out, 'utf8').trim().split('\n').map((l) => JSON.parse(l));
++    expect(rows.map((r) => r.action)).toEqual(expect.arrayContaining(['create', 'feedback']));
++    expect(rows.every((r) => r.memoryId === id)).toBe(true);
++  });
++
++  it('traces adds, recalls and feedback', () => {
++    const t = new TraceLogger('m1', path.join(dir, 'logs'));
++    const m = new BundleMemory(path.join(dir, 'h'), t);
++    const id = m.addRule(TEXT, 'feedback:3', 0.7, ['fb1']);
++    m.recallRules('free shipping offer');
++    m.feedback(id, 'helpful');
++    expect(t.lines().map((l) => l.action)).toEqual(['add_rule', 'recall_rules', 'feedback']);
++    expect(t.lines().every((l) => l.agent_name === 'memory')).toBe(true);
++  });
++});
+diff --git a/server/__tests__/trace.test.ts b/server/__tests__/trace.test.ts
+new file mode 100644
+index 0000000..7bc8c0a
+--- /dev/null
++++ b/server/__tests__/trace.test.ts
+@@ -0,0 +1,75 @@
++import fs from 'fs';
++import os from 'os';
++import path from 'path';
++import { TraceLogger } from '../agents/trace';
++
++let dir: string;
++beforeEach(() => { dir = fs.mkdtempSync(path.join(os.tmpdir(), 'trace-')); });
++afterEach(() => { fs.rmSync(dir, { recursive: true, force: true }); });
++
++const base = {
++  agent_name: 'a', action: 'x', input_summary: 'in', output_summary: 'out',
++  target_agent: null, confidence: null, retry_count: 0, status: 'ok' as const,
++};
++
++describe('TraceLogger', () => {
++  it('writes one JSON line per log with every required field', () => {
++    const t = new TraceLogger('r1', dir);
++    const id = t.log({ ...base, target_agent: 'b', confidence: 0.9, retry_count: 1, status: 'retry' });
++    const raw = fs.readFileSync(path.join(dir, 'run-r1.jsonl'), 'utf8').trim().split('\n');
++    expect(raw).toHaveLength(1);
++    const line = JSON.parse(raw[0]);
++    expect(Object.keys(line).sort()).toEqual([
++      'action', 'agent_name', 'confidence', 'input_summary', 'output_summary',
++      'retry_count', 'status', 'target_agent', 'timestamp', 'trace_id',
++    ]);
++    expect(line.trace_id).toBe(id);
++    expect(new Date(line.timestamp).toString()).not.toBe('Invalid Date');
++    expect(line).toMatchObject({ target_agent: 'b', confidence: 0.9, retry_count: 1, status: 'retry' });
++  });
++
++  it('gives unique trace ids and lines() returns them in order', () => {
++    const t = new TraceLogger('r2', dir);
++    const a = t.log(base); const b = t.log({ ...base, action: 'y' });
++    expect(a).not.toBe(b);
++    expect(t.lines().map((l) => l.action)).toEqual(['x', 'y']);
++  });
++
++  it('creates the directory if missing', () => {
++    const nested = path.join(dir, 'a', 'b');
++    new TraceLogger('r3', nested).log(base);
++    expect(fs.existsSync(path.join(nested, 'run-r3.jsonl'))).toBe(true);
++  });
++
++  it.each([
++    ['annualIncome: 85000', 'annualIncome: [redacted]'],
++    ['{"annualIncome":85000}', '{"annualIncome":[redacted]}'],
++    ['annual_income=85000', 'annual_income=[redacted]'],
++    ['household income $85,000 a year', 'household income [redacted] a year'],
++    ['annualIncomeCents: 8500000', 'annualIncomeCents: [redacted]'],
++  ])('redacts income in %s', (input, expected) => {
++    const t = new TraceLogger('r4', dir);
++    t.log({ ...base, input_summary: input, output_summary: input });
++    const l = t.lines()[0];
++    expect(l.input_summary).toBe(expected);
++    expect(l.output_summary).toBe(expected);
++    expect(fs.readFileSync(path.join(dir, 'run-r4.jsonl'), 'utf8')).not.toContain('85000');
++  });
++
++  it('redacts passwords in both forms', () => {
++    const t = new TraceLogger('r5', dir);
++    t.log({ ...base, input_summary: 'login password "hunter2 x" ok', output_summary: 'password=s3cret&u=1' });
++    const l = t.lines()[0];
++    expect(l.input_summary).toBe('login password "[redacted]" ok');
++    expect(l.output_summary).toBe('password=[redacted]&u=1');
++    const raw = fs.readFileSync(path.join(dir, 'run-r5.jsonl'), 'utf8');
++    expect(raw).not.toContain('hunter2');
++    expect(raw).not.toContain('s3cret');
++  });
++
++  it('leaves unrelated text alone', () => {
++    const t = new TraceLogger('r6', dir);
++    t.log({ ...base, input_summary: 'income tax credit lookup, 3 rows' });
++    expect(t.lines()[0].input_summary).toBe('income tax credit lookup, 3 rows');
++  });
++});
+diff --git a/server/adapters/llm.ts b/server/adapters/llm.ts
+new file mode 100644
+index 0000000..10f3ff9
+--- /dev/null
++++ b/server/adapters/llm.ts
+@@ -0,0 +1,129 @@
++import OpenAI from 'openai';
++
++export interface Generator {
++  generate(prompt: string, system?: string, model?: 'reasoning' | 'fast'): Promise<string>;
++}
++
++export class ModelUnavailable extends Error {
++  constructor(message: string) {
++    super(message);
++    this.name = 'ModelUnavailable';
++  }
++}
++
++/** The small slice of the OpenAI SDK we use, so tests can inject a fake. */
++export interface ChatClient {
++  chat: {
++    completions: {
++      create(args: {
++        model: string;
++        messages: { role: 'system' | 'user'; content: string }[];
++        temperature?: number;
++      }): Promise<{ choices: { message?: { content?: string | null } }[] }>;
++    };
++  };
++}
++
++export class NvidiaGenerator implements Generator {
++  private client: ChatClient;
++
++  constructor(
++    apiKey: string,
++    baseUrl: string,
++    private models: { reasoning: string; fast: string },
++    client?: ChatClient,
++  ) {
++    this.client = client ?? (new OpenAI({ apiKey, baseURL: baseUrl }) as unknown as ChatClient);
++  }
++
++  async generate(prompt: string, system?: string, model: 'reasoning' | 'fast' = 'reasoning'): Promise<string> {
++    const messages: { role: 'system' | 'user'; content: string }[] = [];
++    if (system) messages.push({ role: 'system', content: system });
++    messages.push({ role: 'user', content: prompt });
++    try {
++      const res = await this.client.chat.completions.create({
++        model: this.models[model],
++        messages,
++        temperature: 0.2,
++      });
++      const text = res.choices[0]?.message?.content;
++      if (!text) throw new Error('empty response');
++      return text;
++    } catch (e) {
++      throw new ModelUnavailable(`model call failed: ${(e as Error).message}`);
++    }
++  }
++}
++
++/** Used when there is no API key (or no model ids): every call throws ModelUnavailable. */
++export class UnavailableGenerator implements Generator {
++  constructor(private reason: string) {}
++  async generate(): Promise<string> {
++    throw new ModelUnavailable(this.reason);
++  }
++}
++
++/** Test double: returns the canned responses in order (the last one repeats). */
++export class FakeGenerator implements Generator {
++  calls = 0;
++  prompts: string[] = [];
++  constructor(private responses: string[]) {}
++  async generate(prompt: string): Promise<string> {
++    this.prompts.push(prompt);
++    const i = Math.min(this.calls, this.responses.length - 1);
++    this.calls += 1;
++    if (i < 0) throw new ModelUnavailable('FakeGenerator has no responses');
++    return this.responses[i];
++  }
++}
++
++export interface GeneratorConfig {
++  apiKey: string;
++  baseUrl: string;
++  reasoning: string;
++  fast: string;
++}
++
++export function generatorConfigFromEnv(env: NodeJS.ProcessEnv = process.env): GeneratorConfig {
++  return {
++    apiKey: env.MODEL_API_KEY ?? '',
++    baseUrl: env.MODEL_BASE_URL || 'https://integrate.api.nvidia.com/v1',
++    reasoning: env.MODEL_REASONING ?? '',
++    fast: env.MODEL_FAST ?? '',
++  };
++}
++
++export function createGenerator(cfg: GeneratorConfig = generatorConfigFromEnv()): Generator {
++  if (!cfg.apiKey) return new UnavailableGenerator('MODEL_API_KEY is not set');
++  if (!cfg.reasoning || !cfg.fast) return new UnavailableGenerator('MODEL_REASONING / MODEL_FAST are not set');
++  return new NvidiaGenerator(cfg.apiKey, cfg.baseUrl, { reasoning: cfg.reasoning, fast: cfg.fast });
++}
++
++function parseLoose(text: string): unknown {
++  const t = text.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
++  return JSON.parse(t);
++}
++
++/**
++ * Ask for JSON. Up to 2 tries; if both fail (bad JSON, failed validation, or the
++ * model is unavailable) return the fallback so the app never breaks.
++ */
++export async function askJson<T>(
++  g: Generator,
++  prompt: string,
++  validate: (x: unknown) => x is T,
++  fallback: T,
++): Promise<{ value: T; usedFallback: boolean }> {
++  let p = prompt;
++  for (let attempt = 0; attempt < 2; attempt++) {
++    try {
++      const raw = await g.generate(p, 'Reply with valid JSON only. No prose, no code fences.', 'reasoning');
++      const parsed = parseLoose(raw);
++      if (validate(parsed)) return { value: parsed, usedFallback: false };
++    } catch (e) {
++      if (e instanceof ModelUnavailable) break; // no point retrying
++    }
++    p = `${prompt}\n\nYour last reply was not valid JSON in the requested shape. Reply with JSON only.`;
++  }
++  return { value: fallback, usedFallback: true };
++}
+diff --git a/server/adapters/memory.ts b/server/adapters/memory.ts
+new file mode 100644
+index 0000000..3aead92
+--- /dev/null
++++ b/server/adapters/memory.ts
+@@ -0,0 +1,62 @@
++import fs from 'fs';
++import path from 'path';
++// H-MEM (Meterless, Apache-2.0) is vendored in vendor/hmem; see vendor/hmem/NOTICE.
++import { HMEM, tokenize } from '../../vendor/hmem/src/index';
++import type { TraceLogger } from '../agents/trace';
++
++const STOP = new Set(['the', 'and', 'for', 'not', 'are', 'was', 'with', 'this', 'that']);
++
++export class BundleMemory {
++  private hmem: HMEM;
++
++  constructor(private persistDir: string, private trace?: TraceLogger) {
++    this.hmem = new HMEM({ persistDir, actor: 'bundle' });
++  }
++
++  private log(action: string, input: string, output: string, confidence: number | null = null): void {
++    this.trace?.log({
++      agent_name: 'memory', action, input_summary: input.slice(0, 200), output_summary: output.slice(0, 200),
++      target_agent: null, confidence, retry_count: 0, status: 'ok',
++    });
++  }
++
++  addRule(text: string, source: string, confidence: number, refs: string[]): string {
++    const rec = this.hmem.add({
++      content: text,
++      source,
++      confidence,
++      type: 'preference',
++      layer: 'long_term',
++      provenance: { origin: 'user_correction', learnedAt: Date.now(), label: source, refs },
++    });
++    this.log('add_rule', text, `stored ${rec.id} from ${source}`, rec.confidence);
++    return rec.id;
++  }
++
++  recallRules(query: string, topN = 5): { id: string; text: string; confidence: number; score: number }[] {
++    // H-MEM's default cut-off (0.35) is tuned for a real embedder; its built-in
++    // hash embedder scores short rules lower, so use 0.15 and then require at least
++    // one shared word so unrelated queries return nothing.
++    const res = this.hmem.query(query, { topN, threshold: 0.15 });
++    const words = new Set(tokenize(query).filter((w) => w.length > 2 && !STOP.has(w)));
++    const out = res.memories
++      .filter((m) => tokenize(m.memory.content).some((w) => words.has(w)))
++      .map((m) => ({
++      id: m.memory.id, text: m.memory.content, confidence: m.memory.confidence, score: m.relevance,
++    }));
++    this.log('recall_rules', query, `${out.length} rule(s)`, out[0]?.confidence ?? null);
++    return out;
++  }
++
++  feedback(memoryId: string, kind: 'helpful' | 'not_helpful' | 'wrong'): void {
++    this.hmem.feedback(memoryId, kind);
++    this.log('feedback', `${memoryId} ${kind}`, 'confidence updated');
++  }
++
++  /** Write the append-only trust ledger (one JSON object per line) to a file. */
++  exportLedger(toFile: string): void {
++    fs.mkdirSync(path.dirname(toFile), { recursive: true });
++    const rows = this.hmem.ledger.all().map((e) => JSON.stringify(e));
++    fs.writeFileSync(toFile, rows.length ? rows.join('\n') + '\n' : '', 'utf8');
++  }
++}
+diff --git a/server/adapters/zetaris.ts b/server/adapters/zetaris.ts
+index c11a535..053971c 100644
+--- a/server/adapters/zetaris.ts
++++ b/server/adapters/zetaris.ts
+@@ -1,25 +1,21 @@
+ import fs from 'fs';
+ import path from 'path';
+ import crypto from 'crypto';
++import type { TraceLogger, TraceLine } from '../agents/trace';
+ 
+ export interface QueryResult {
+   headers: string[];
+   rows: Record<string, string | number | null>[];
+   ms: number;
+ }
+ 
+-/** Minimal trace hook; the real TraceLogger (a later task) satisfies this shape. */
+-export interface TraceLogger {
+-  log(entry: Record<string, unknown>): void;
+-}
+-
+ export class ZetarisUnavailable extends Error {
+   constructor(message: string) {
+     super(message);
+     this.name = 'ZetarisUnavailable';
+   }
+ }
+ 
+ export interface ZetarisOptions {
+   baseUrl: string;
+   orgId: string;
+@@ -66,24 +62,25 @@ export class ZetarisClient {
+ 
+   private writeCache(sql: string, res: QueryResult): void {
+     try {
+       fs.mkdirSync(this.opts.cacheDir, { recursive: true });
+       fs.writeFileSync(this.cachePath(sql), JSON.stringify(res));
+     } catch {
+       /* cache is best-effort */
+     }
+   }
+ 
+-  private trace(action: string, sql: string, summary: string, status: string): void {
++  private trace(action: string, sql: string, summary: string, status: TraceLine['status'] | 'degraded'): void {
+     this.opts.trace?.log({
+       agent_name: 'zetaris', action, input_summary: sql.slice(0, 200),
+-      output_summary: summary, status,
++      output_summary: summary, target_agent: null, confidence: null, retry_count: 0,
++      status: status === 'degraded' ? 'fallback' : status,
+     });
+   }
+ 
+   async runQuery(sql: string): Promise<QueryResult> {
+     const text = sql.trim();
+     if (text.endsWith(';')) {
+       throw new Error('one statement, no trailing semicolon');
+     }
+ 
+     if (this.opts.sampleMode) {
+diff --git a/server/agents/trace.ts b/server/agents/trace.ts
+new file mode 100644
+index 0000000..fb7347e
+--- /dev/null
++++ b/server/agents/trace.ts
+@@ -0,0 +1,66 @@
++import fs from 'fs';
++import path from 'path';
++import crypto from 'crypto';
++
++export interface TraceLine {
++  timestamp: string;
++  trace_id: string;
++  agent_name: string;
++  action: string;
++  input_summary: string;
++  output_summary: string;
++  target_agent: string | null;
++  confidence: number | null;
++  retry_count: number;
++  status: 'ok' | 'retry' | 'blocked' | 'fallback' | 'error';
++}
++
++const REDACTED = '[redacted]';
++
++/** Mask incomes and passwords so they never reach the log file. */
++export function redact(text: string): string {
++  return String(text)
++    // income / annualIncome / annual_income / annualIncomeCents followed by a number
++    .replace(/\b((?:annual[_ ]?income\w*|income)\W{0,4}?)\$?\d[\d,]*(?:\.\d+)?/gi, `$1${REDACTED}`)
++    // password "..."  /  password: '...'
++    .replace(/(password\s*[=:]?\s*)(["'])[^"']*\2/gi, `$1$2${REDACTED}$2`)
++    // password=abc  /  password: abc
++    .replace(/(password\s*[=:]\s*)[^\s&,;"']+/gi, `$1${REDACTED}`);
++}
++
++export class TraceLogger {
++  private file: string;
++  private all: TraceLine[] = [];
++
++  constructor(runId: string, dir: string = path.resolve(process.cwd(), 'logs')) {
++    fs.mkdirSync(dir, { recursive: true });
++    this.file = path.join(dir, `run-${runId}.jsonl`);
++  }
++
++  log(line: Omit<TraceLine, 'timestamp' | 'trace_id'>): string {
++    const trace_id = crypto.randomUUID();
++    const full: TraceLine = {
++      timestamp: new Date().toISOString(),
++      trace_id,
++      agent_name: line.agent_name,
++      action: line.action,
++      input_summary: redact(line.input_summary),
++      output_summary: redact(line.output_summary),
++      target_agent: line.target_agent,
++      confidence: line.confidence,
++      retry_count: line.retry_count,
++      status: line.status,
++    };
++    this.all.push(full);
++    try {
++      fs.appendFileSync(this.file, JSON.stringify(full) + '\n', 'utf8');
++    } catch {
++      /* tracing must never crash a run; the in-memory copy still holds the line */
++    }
++    return trace_id;
++  }
++
++  lines(): TraceLine[] {
++    return [...this.all];
++  }
++}
+diff --git a/server/agents/types.ts b/server/agents/types.ts
+new file mode 100644
+index 0000000..7c91403
+--- /dev/null
++++ b/server/agents/types.ts
+@@ -0,0 +1,27 @@
++import type { Family, FeedCard } from '../../shared/bundle';
++import type { ZetarisClient } from '../adapters/zetaris';
++import type { Generator } from '../adapters/llm';
++import type { BundleMemory } from '../adapters/memory';
++import type { TraceLogger } from './trace';
++
++export interface CourtRuling {
++  verdict: 'approve' | 'reject';
++  citedRuleIds: string[];
++  reason: string;
++}
++
++export interface AgentContext {
++  runId: string;
++  family: Family;
++  z: ZetarisClient;
++  llm: Generator;
++  memory: BundleMemory;
++  trace: TraceLogger;
++}
++
++export interface Candidate extends FeedCard {
++  agent: string;
++  claim: Record<string, string | number>;
++  evidenceSql: string;
++  retryCount: number;
++}
+diff --git a/tsconfig.json b/tsconfig.json
+index 9f0f358..d5a8b85 100644
+--- a/tsconfig.json
++++ b/tsconfig.json
+@@ -1,17 +1,18 @@
+ {
+   "include": ["client/src/**/*", "shared/**/*", "server/**/*", "scripts/**/*"],
+   "exclude": ["node_modules", "build", "dist", "**/*.test.ts"],
+   "compilerOptions": {
+     "incremental": true,
+     "tsBuildInfoFile": "./node_modules/typescript/tsbuildinfo",
+     "noEmit": true,
++    "target": "ES2022",
+     "module": "ESNext",
+     "strict": true,
+     "lib": ["esnext", "dom", "dom.iterable"],
+     "jsx": "preserve",
+     "esModuleInterop": true,
+     "skipLibCheck": true,
+     "allowImportingTsExtensions": true,
+     "moduleResolution": "bundler",
+     "baseUrl": ".",
+     "types": ["node", "vite/client", "jest"],

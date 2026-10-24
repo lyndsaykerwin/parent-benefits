@@ -1,0 +1,158 @@
+7602fc6 fix: mask JSON-style passwords, add model timeout, sanitise trace filename
+diff --git a/server/__tests__/llm.test.ts b/server/__tests__/llm.test.ts
+index 3d7176b..2ea3569 100644
+--- a/server/__tests__/llm.test.ts
++++ b/server/__tests__/llm.test.ts
+@@ -1,6 +1,6 @@
+-import { FakeGenerator, NvidiaGenerator, askJson, createGenerator, ModelUnavailable } from '../adapters/llm';
++import { FakeGenerator, NvidiaGenerator, askJson, createGenerator, generatorConfigFromEnv, ModelUnavailable } from '../adapters/llm';
+ 
+ type Ok = { ok: boolean };
+ const isOk = (x: unknown): x is Ok => typeof x === 'object' && x !== null && typeof (x as Ok).ok === 'boolean';
+ 
+ describe('askJson', () => {
+@@ -71,10 +71,15 @@ describe('NvidiaGenerator', () => {
+   it('createGenerator with a key and model ids gives a working NvidiaGenerator', () => {
+     const g = createGenerator({ apiKey: 'k', baseUrl: 'http://x', reasoning: 'r', fast: 'f' });
+     expect(g).toBeInstanceOf(NvidiaGenerator);
+   });
+ 
++  it('generatorConfigFromEnv uses SOURCE_TIMEOUT_SECONDS (default 20)', () => {
++    expect(generatorConfigFromEnv({}).timeoutMs).toBe(20000);
++    expect(generatorConfigFromEnv({ SOURCE_TIMEOUT_SECONDS: '5' }).timeoutMs).toBe(5000);
++  });
++
+   it('createGenerator with a key but missing model ids is unavailable', async () => {
+     const g = createGenerator({ apiKey: 'k', baseUrl: 'http://x', reasoning: '', fast: '' });
+     await expect(g.generate('x')).rejects.toBeInstanceOf(ModelUnavailable);
+   });
+ });
+diff --git a/server/__tests__/trace.test.ts b/server/__tests__/trace.test.ts
+index 7bc8c0a..c48085c 100644
+--- a/server/__tests__/trace.test.ts
++++ b/server/__tests__/trace.test.ts
+@@ -65,10 +65,26 @@ describe('TraceLogger', () => {
+     const raw = fs.readFileSync(path.join(dir, 'run-r5.jsonl'), 'utf8');
+     expect(raw).not.toContain('hunter2');
+     expect(raw).not.toContain('s3cret');
+   });
+ 
++  it.each([
++    ['{"password":"abc123"}', '{"password":"[redacted]"}'],
++    ["{'password': 'abc123'}", "{'password': '[redacted]'}"],
++    ['Password is abc123', 'Password is [redacted]'],
++    ['{"password":abc123}', '{"password":[redacted]}'],
++  ])('redacts password in %s', (input, expected) => {
++    const t = new TraceLogger('r7', dir);
++    t.log({ ...base, input_summary: input });
++    expect(t.lines()[0].input_summary).toBe(expected);
++  });
++
++  it('sanitises the run id in the file name', () => {
++    new TraceLogger('../evil/id', dir).log(base);
++    expect(fs.readdirSync(dir)).toEqual(['run-___evil_id.jsonl']);
++  });
++
+   it('leaves unrelated text alone', () => {
+     const t = new TraceLogger('r6', dir);
+     t.log({ ...base, input_summary: 'income tax credit lookup, 3 rows' });
+     expect(t.lines()[0].input_summary).toBe('income tax credit lookup, 3 rows');
+   });
+diff --git a/server/adapters/llm.ts b/server/adapters/llm.ts
+index 10f3ff9..b1e1435 100644
+--- a/server/adapters/llm.ts
++++ b/server/adapters/llm.ts
+@@ -30,12 +30,13 @@ export class NvidiaGenerator implements Generator {
+   constructor(
+     apiKey: string,
+     baseUrl: string,
+     private models: { reasoning: string; fast: string },
+     client?: ChatClient,
++    timeoutMs: number = 20000,
+   ) {
+-    this.client = client ?? (new OpenAI({ apiKey, baseURL: baseUrl }) as unknown as ChatClient);
++    this.client = client ?? (new OpenAI({ apiKey, baseURL: baseUrl, timeout: timeoutMs, maxRetries: 0 }) as unknown as ChatClient);
+   }
+ 
+   async generate(prompt: string, system?: string, model: 'reasoning' | 'fast' = 'reasoning'): Promise<string> {
+     const messages: { role: 'system' | 'user'; content: string }[] = [];
+     if (system) messages.push({ role: 'system', content: system });
+@@ -80,25 +81,27 @@ export class FakeGenerator implements Generator {
+ export interface GeneratorConfig {
+   apiKey: string;
+   baseUrl: string;
+   reasoning: string;
+   fast: string;
++  timeoutMs?: number;
+ }
+ 
+ export function generatorConfigFromEnv(env: NodeJS.ProcessEnv = process.env): GeneratorConfig {
+   return {
+     apiKey: env.MODEL_API_KEY ?? '',
+     baseUrl: env.MODEL_BASE_URL || 'https://integrate.api.nvidia.com/v1',
+     reasoning: env.MODEL_REASONING ?? '',
+     fast: env.MODEL_FAST ?? '',
++    timeoutMs: (Number(env.SOURCE_TIMEOUT_SECONDS) || 20) * 1000,
+   };
+ }
+ 
+ export function createGenerator(cfg: GeneratorConfig = generatorConfigFromEnv()): Generator {
+   if (!cfg.apiKey) return new UnavailableGenerator('MODEL_API_KEY is not set');
+   if (!cfg.reasoning || !cfg.fast) return new UnavailableGenerator('MODEL_REASONING / MODEL_FAST are not set');
+-  return new NvidiaGenerator(cfg.apiKey, cfg.baseUrl, { reasoning: cfg.reasoning, fast: cfg.fast });
++  return new NvidiaGenerator(cfg.apiKey, cfg.baseUrl, { reasoning: cfg.reasoning, fast: cfg.fast }, undefined, cfg.timeoutMs ?? 20000);
+ }
+ 
+ function parseLoose(text: string): unknown {
+   const t = text.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
+   return JSON.parse(t);
+diff --git a/server/agents/trace.ts b/server/agents/trace.ts
+index fb7347e..c09bcf5 100644
+--- a/server/agents/trace.ts
++++ b/server/agents/trace.ts
+@@ -20,23 +20,28 @@ const REDACTED = '[redacted]';
+ /** Mask incomes and passwords so they never reach the log file. */
+ export function redact(text: string): string {
+   return String(text)
+     // income / annualIncome / annual_income / annualIncomeCents followed by a number
+     .replace(/\b((?:annual[_ ]?income\w*|income)\W{0,4}?)\$?\d[\d,]*(?:\.\d+)?/gi, `$1${REDACTED}`)
+-    // password "..."  /  password: '...'
+-    .replace(/(password\s*[=:]?\s*)(["'])[^"']*\2/gi, `$1$2${REDACTED}$2`)
++    // "password":"x"  /  password: 'x'  /  password="x"
++    .replace(/(["']?password["']?\s*[:=]\s*)(["'])[^"']*\2/gi, `$1$2${REDACTED}$2`)
++    // password "x"
++    .replace(/(password\s+)(["'])[^"']*\2/gi, `$1$2${REDACTED}$2`)
++    // password is abc123
++    .replace(/(password\s+is\s+)[^\s&,;"']+/gi, `$1${REDACTED}`)
+     // password=abc  /  password: abc
+-    .replace(/(password\s*[=:]\s*)[^\s&,;"']+/gi, `$1${REDACTED}`);
++    .replace(/(["']?password["']?\s*[:=]\s*)[^\s&,;"'}]+/gi, `$1${REDACTED}`);
+ }
+ 
+ export class TraceLogger {
+   private file: string;
++  private dir: string;
+   private all: TraceLine[] = [];
+ 
+   constructor(runId: string, dir: string = path.resolve(process.cwd(), 'logs')) {
+-    fs.mkdirSync(dir, { recursive: true });
+-    this.file = path.join(dir, `run-${runId}.jsonl`);
++    this.file = path.join(dir, `run-${runId.replace(/[^A-Za-z0-9_-]/g, '_')}.jsonl`);
++    this.dir = dir;
+   }
+ 
+   log(line: Omit<TraceLine, 'timestamp' | 'trace_id'>): string {
+     const trace_id = crypto.randomUUID();
+     const full: TraceLine = {
+@@ -51,10 +56,11 @@ export class TraceLogger {
+       retry_count: line.retry_count,
+       status: line.status,
+     };
+     this.all.push(full);
+     try {
++      fs.mkdirSync(this.dir, { recursive: true });
+       fs.appendFileSync(this.file, JSON.stringify(full) + '\n', 'utf8');
+     } catch {
+       /* tracing must never crash a run; the in-memory copy still holds the line */
+     }
+     return trace_id;

@@ -1,0 +1,236 @@
+3907cd2 feat: plaid-format mapper and amazon csv parser
+diff --git a/scripts/seed.ts b/scripts/seed.ts
+index 7893a4b..eb1241e 100644
+--- a/scripts/seed.ts
++++ b/scripts/seed.ts
+@@ -2,16 +2,17 @@
+ // public rules/offers. Safe to run repeatedly. It only ever touches Bundle's
+ // tables (never other tables in the shared Neon database).
+ import fs from 'fs';
+ import path from 'path';
+ import { inArray } from 'drizzle-orm';
+ import { loadEnv } from '../server/env';
+ import * as s from '../shared/schema';
+ import type { Family } from '../shared/bundle';
++import { loadPlaidFixture } from '../server/ingest/plaid';
+ 
+ const SAMPLE_DIR = path.resolve(process.cwd(), 'data/sample'); // run from the repo root (npm scripts and jest do)
+ const SEED_FAMILY_IDS = ['maya', 'leo', 'ava'];
+ 
+ export const BENEFIT_RULES: (typeof s.benefitRules.$inferInsert)[] = [
+   { code: 'TRUMP_ACCOUNT', title: 'Trump Account: $1,000 federal starter deposit', scope: 'federal', amountCents: 100000,
+     windowStartDaysFromBirth: null, windowEndDaysFromBirth: null, condition: 'born 2025-01-01..2028-12-31',
+     sourceUrl: 'https://trumpaccounts.gov' },
+@@ -139,40 +140,33 @@ function parseCsv(text: string): Record<string, string>[] {
+   return lines.slice(1).map((l) => Object.fromEntries(split(l).map((v, i) => [header[i], v])));
+ }
+ 
+ const readJson = (f: string) => JSON.parse(fs.readFileSync(path.join(SAMPLE_DIR, f), 'utf8'));
+ 
+ export async function seed(): Promise<void> {
+   const { db } = await import('../server/db');
+   const families: Family[] = readJson('families.json');
+-  const plaid: any[] = readJson('plaid-transactions.json');
+   const orders = parseCsv(fs.readFileSync(path.join(SAMPLE_DIR, 'amazon-orders.csv'), 'utf8'));
+ 
+   await db.transaction(async (tx) => {
+     // Clear only what seed() refills.
+     await tx.delete(s.transactions).where(inArray(s.transactions.familyId, SEED_FAMILY_IDS));
+     await tx.delete(s.amazonOrders).where(inArray(s.amazonOrders.familyId, SEED_FAMILY_IDS));
+     await tx.delete(s.families).where(inArray(s.families.id, SEED_FAMILY_IDS));
+     await tx.delete(s.benefitRules);
+     await tx.delete(s.offers);
+     await tx.delete(s.fsaEligibleCategories);
+     await tx.delete(s.storePolicies);
+     await tx.delete(s.priceObservations);
+     await tx.delete(s.zipStates);
+     await tx.delete(s.povertyGuidelines);
+ 
+     await tx.insert(s.families).values(families);
+-    await tx.insert(s.transactions).values(
+-      plaid.map((p) => ({
+-        id: p.transaction_id, familyId: p.family_id, date: p.date, merchant: p.name,
+-        amountCents: Math.round(p.amount * 100), category: p.personal_finance_category?.detailed ?? '',
+-        source: 'fixture' as const,
+-      })),
+-    );
++    await tx.insert(s.transactions).values(loadPlaidFixture(SAMPLE_DIR));
+     await tx.insert(s.amazonOrders).values(
+       orders.map((o) => ({
+         id: o.order_id, familyId: o.family_id, orderDate: o.order_date, title: o.title,
+         asin: o.asin || null, upc: o.upc || null, priceCents: Math.round(parseFloat(o.price) * 100),
+       })),
+     );
+     await tx.insert(s.benefitRules).values(BENEFIT_RULES);
+     await tx.insert(s.offers).values(OFFERS);
+diff --git a/server/__tests__/ingest.test.ts b/server/__tests__/ingest.test.ts
+new file mode 100644
+index 0000000..94558f7
+--- /dev/null
++++ b/server/__tests__/ingest.test.ts
+@@ -0,0 +1,48 @@
++import fs from 'fs';
++import path from 'path';
++import { parseAmazonCsv, parseAmazonCsvWithStats } from '../ingest/amazonCsv';
++import { mapPlaidTxn, loadPlaidFixture } from '../ingest/plaid';
++
++const CSV = fs.readFileSync(path.resolve(process.cwd(), 'data/sample/amazon-orders.csv'), 'utf8');
++const dataLines = CSV.trim().split(/\r?\n/).length - 1;
++
++describe('parseAmazonCsv', () => {
++  it('parses the fixture into rows with integer priceCents', () => {
++    const rows = parseAmazonCsv(CSV, 'maya');
++    expect(rows.length).toBe(dataLines);
++    for (const r of rows) {
++      expect(Number.isInteger(r.priceCents)).toBe(true);
++      expect(r.familyId).toBe('maya');
++    }
++    expect(rows[0]).toMatchObject({ orderDate: '2026-09-10', priceCents: 8999, asin: 'B0KEAWIS01' });
++  });
++
++  it('skips and counts a malformed line', () => {
++    const bad = CSV.trim() + '\nmaya-ord-99,maya,not-a-date,"Broken row",B0BAD,,abc\n';
++    const { rows, skipped } = parseAmazonCsvWithStats(bad, 'maya');
++    expect(rows.length).toBe(dataLines);
++    expect(skipped).toBe(1);
++  });
++
++  it('accepts the Amazon export column names', () => {
++    const csv = 'Order Date,Product Name,ASIN,Unit Price\n2026-10-01,"Diapers, size 1",B0DIAPER01,$24.50\n';
++    const [r] = parseAmazonCsv(csv, 'x');
++    expect(r).toMatchObject({ title: 'Diapers, size 1', asin: 'B0DIAPER01', priceCents: 2450, orderDate: '2026-10-01' });
++  });
++});
++
++describe('mapPlaidTxn', () => {
++  it('maps dollars to integer cents and prefers merchant_name', () => {
++    const t = mapPlaidTxn({ amount: 28.99, merchant_name: 'Target', date: '2026-10-10' }, 'maya');
++    expect(t.amountCents).toBe(2899);
++    expect(t.merchant).toBe('Target');
++    expect(t.familyId).toBe('maya');
++  });
++
++  it('loads the fixture with refunds as negative cents', () => {
++    const rows = loadPlaidFixture();
++    expect(rows.length).toBeGreaterThan(0);
++    expect(rows.some((r) => r.amountCents < 0)).toBe(true);
++    expect(rows.every((r) => Number.isInteger(r.amountCents))).toBe(true);
++  });
++});
+diff --git a/server/ingest/amazonCsv.ts b/server/ingest/amazonCsv.ts
+new file mode 100644
+index 0000000..aeab015
+--- /dev/null
++++ b/server/ingest/amazonCsv.ts
+@@ -0,0 +1,68 @@
++// Parses an Amazon order-history CSV. Understands both Bundle's sample columns
++// (order_id, order_date, title, asin, upc, price) and Amazon's export names
++// (Order Date, Product Name, ASIN, Unit Price). Bad lines are skipped and counted.
++import type * as s from '../../shared/schema';
++
++export type AmazonOrderRow = typeof s.amazonOrders.$inferInsert;
++
++const ALIASES: Record<string, string[]> = {
++  id: ['order_id', 'order id'],
++  orderDate: ['order_date', 'order date'],
++  title: ['title', 'product name'],
++  asin: ['asin', 'asin/isbn'],
++  upc: ['upc'],
++  price: ['price', 'unit price'],
++};
++
++function splitLine(line: string): string[] {
++  const out: string[] = [];
++  let cur = '';
++  let q = false;
++  for (let i = 0; i < line.length; i++) {
++    const ch = line[i];
++    if (ch === '"') {
++      if (q && line[i + 1] === '"') { cur += '"'; i++; } else q = !q;
++    } else if (ch === ',' && !q) { out.push(cur); cur = ''; } else cur += ch;
++  }
++  out.push(cur);
++  return out;
++}
++
++const ISO = /^\d{4}-\d{2}-\d{2}/;
++
++export function parseAmazonCsvWithStats(csv: string, familyId: string): { rows: AmazonOrderRow[]; skipped: number } {
++  const lines = csv.trim().split(/\r?\n/).filter((l) => l.trim() !== '');
++  if (lines.length === 0) return { rows: [], skipped: 0 };
++  const header = splitLine(lines[0]).map((h) => h.trim().toLowerCase());
++  const idx = (k: string) => header.findIndex((h) => ALIASES[k].includes(h));
++  const [iId, iDate, iTitle, iAsin, iUpc, iPrice] = ['id', 'orderDate', 'title', 'asin', 'upc', 'price'].map(idx);
++  if (iDate < 0 || iTitle < 0 || iPrice < 0) return { rows: [], skipped: lines.length - 1 };
++
++  const rows: AmazonOrderRow[] = [];
++  let skipped = 0;
++  lines.slice(1).forEach((line, n) => {
++    const c = splitLine(line);
++    const date = (c[iDate] ?? '').trim();
++    const title = (c[iTitle] ?? '').trim();
++    const priceText = (c[iPrice] ?? '').replace(/[$,\s]/g, '');
++    const price = /^-?\d+(\.\d+)?$/.test(priceText) ? parseFloat(priceText) : NaN;
++    if (!ISO.test(date) || Number.isNaN(Date.parse(`${date.slice(0, 10)}T00:00:00Z`)) || !title || Number.isNaN(price)) {
++      skipped++;
++      return;
++    }
++    rows.push({
++      id: (iId >= 0 && c[iId]?.trim()) || `${familyId}-amz-${n + 1}`,
++      familyId,
++      orderDate: date.slice(0, 10),
++      title,
++      asin: (iAsin >= 0 && c[iAsin]?.trim()) || null,
++      upc: (iUpc >= 0 && c[iUpc]?.trim()) || null,
++      priceCents: Math.round(price * 100),
++    });
++  });
++  return { rows, skipped };
++}
++
++export function parseAmazonCsv(csv: string, familyId: string): AmazonOrderRow[] {
++  return parseAmazonCsvWithStats(csv, familyId).rows;
++}
+diff --git a/server/ingest/plaid.ts b/server/ingest/plaid.ts
+new file mode 100644
+index 0000000..16d71d6
+--- /dev/null
++++ b/server/ingest/plaid.ts
+@@ -0,0 +1,37 @@
++// Maps Plaid-shaped transactions into Bundle's transactions table shape.
++// Live Plaid is "coming soon"; today the sample fixture uses the same mapper.
++import fs from 'fs';
++import path from 'path';
++import type * as s from '../../shared/schema';
++
++export type TransactionRow = typeof s.transactions.$inferInsert;
++
++export interface PlaidTxn {
++  transaction_id?: string;
++  family_id?: string;
++  date: string;
++  name?: string;
++  merchant_name?: string | null;
++  /** Dollars. Plaid's positive amount means money going out. */
++  amount: number;
++  personal_finance_category?: { primary?: string; detailed?: string } | null;
++}
++
++export function mapPlaidTxn(t: PlaidTxn, familyId: string): TransactionRow {
++  const amountCents = Math.round(t.amount * 100);
++  return {
++    id: t.transaction_id ?? `${familyId}-${t.date}-${amountCents}`,
++    familyId,
++    date: t.date,
++    merchant: t.merchant_name || t.name || 'Unknown',
++    amountCents,
++    category: t.personal_finance_category?.detailed ?? '',
++    source: 'fixture',
++  };
++}
++
++/** Reads the sample Plaid-format file (run from the repo root, as npm scripts and jest do). */
++export function loadPlaidFixture(dir = path.resolve(process.cwd(), 'data/sample')): TransactionRow[] {
++  const raw: PlaidTxn[] = JSON.parse(fs.readFileSync(path.join(dir, 'plaid-transactions.json'), 'utf8'));
++  return raw.map((p) => mapPlaidTxn(p, p.family_id ?? ''));
++}

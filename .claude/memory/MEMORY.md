@@ -1,0 +1,1 @@
+- [Subagents for everything](subagents-for-everything.md) — delegate all edits/research/checks; keep main context light

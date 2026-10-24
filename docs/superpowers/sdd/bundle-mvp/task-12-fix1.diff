@@ -1,0 +1,405 @@
+diff --git a/client/src/components/FeedCardView.tsx b/client/src/components/FeedCardView.tsx
+index b18a226..a078823 100644
+--- a/client/src/components/FeedCardView.tsx
++++ b/client/src/components/FeedCardView.tsx
+@@ -1,8 +1,8 @@
+ import { Link } from 'wouter';
+ import type { FeedCard } from '@shared/bundle';
+-import { KIND_META, VERDICT_LABEL, amountCaption, cardDeadline, fmtUsd } from '@/lib/bundle';
++import { KIND_META, VERDICT_LABEL, amountCaption, cardDeadline, fmtUsd, safeSources } from '@/lib/bundle';
+ import { cn } from '@/lib/utils';
+ 
+ interface Props {
+   card: FeedCard;
+   /** ISO date the run used as "today" (so day counts match the server). */
+@@ -31,10 +31,11 @@ const verdictStyle: Record<FeedCard['verdict'], string> = {
+ 
+ export default function FeedCardView({ card, today, pinned = false, detailHref }: Props) {
+   const meta = KIND_META[card.kind];
+   const caption = amountCaption(card);
+   const soon = card.kind === 'coming_soon';
++  const sources = safeSources(card.sources);
+   const due = card.deadline ? cardDeadline(card.kind, card.deadline, today) : null;
+   // Coming-soon tiles already say "Coming soon" in the eyebrow, so drop the repeat from the body.
+   const body = soon ? card.body.replace(/^coming soon:\s*/i, '') : card.body;
+   const eyebrow = pinned ? 'Pinned · Deadline' : card.deadline && card.kind === 'benefit' ? 'Benefit · Deadline' : meta.label;
+ 
+@@ -73,13 +74,13 @@ export default function FeedCardView({ card, today, pinned = false, detailHref }
+             <p className={cn('text-[14px] font-bold', due.urgent ? 'text-coral-deep' : 'text-ink-2')}>{due.text}</p>
+           )}
+         </div>
+       )}
+ 
+-      {card.sources.length > 0 && (
++      {sources.length > 0 && (
+         <ul className="mt-3 flex flex-wrap gap-2" aria-label="Sources">
+-          {card.sources.map((s) => (
++          {sources.map((s) => (
+             <li key={s.url + s.label}>
+               <a
+                 href={s.url}
+                 target="_blank"
+                 rel="noopener noreferrer"
+diff --git a/client/src/components/__tests__/FeedCardView.test.tsx b/client/src/components/__tests__/FeedCardView.test.tsx
+index 8b2211b..5410d0e 100644
+--- a/client/src/components/__tests__/FeedCardView.test.tsx
++++ b/client/src/components/__tests__/FeedCardView.test.tsx
+@@ -51,5 +51,13 @@ describe('FeedCardView', () => {
+     expect(screen.getByTestId('card-amount').textContent).toBe('$5,550.00');
+     expect(screen.getByText('eligible spend')).toBeTruthy();
+     expect(screen.queryByText('money back')).toBeNull();
+   });
+ });
++
++describe('FeedCardView source safety', () => {
++  it('does not render non-http(s) source URLs as links', () => {
++    render(<FeedCardView card={card({ sources: [{ label: 'Bad', url: 'javascript:alert(1)' }, { label: 'Good', url: 'https://www.irs.gov/' }] })} />);
++    expect(screen.queryByRole('link', { name: /Bad/ })).toBeNull();
++    expect(screen.getByRole('link', { name: /Good/ })).toBeTruthy();
++  });
++});
+diff --git a/client/src/lib/__tests__/poll.test.tsx b/client/src/lib/__tests__/poll.test.tsx
+new file mode 100644
+index 0000000..021d533
+--- /dev/null
++++ b/client/src/lib/__tests__/poll.test.tsx
+@@ -0,0 +1,66 @@
++import { pollRun, MAX_POLL_FAILURES, type PollApi } from '../poll';
++import type { RunStatus } from '../bundle';
++
++const running: RunStatus = { runId: 'r1', familyId: 'maya', status: 'running', startedAt: '2026-10-23T00:00:00Z', result: null, error: null };
++const done: RunStatus = { ...running, status: 'done', result: { familyId: 'maya', runId: 'r1', receipt: { moneyBackCents: 0, likelyBenefitsCents: 0, deadlineCount: 0, nextDeadline: null, itemsChecked: 0 }, cards: [], banner: null } };
++const httpError = (status: number) => Object.assign(new Error(`HTTP ${status}`), { status });
++
++/** Let the pending promise chain settle, then advance the 1s timer. */
++async function step(ms = 1000) {
++  for (let i = 0; i < 5; i++) await Promise.resolve();
++  jest.advanceTimersByTime(ms);
++  for (let i = 0; i < 5; i++) await Promise.resolve();
++}
++
++function setup(responses: (RunStatus | Error)[]) {
++  let i = 0;
++  const api: PollApi = {
++    run: jest.fn(async () => { const r = responses[Math.min(i++, responses.length - 1)]; if (r instanceof Error) throw r; return r; }),
++    trace: jest.fn(async () => []),
++  };
++  const h = { onStatus: jest.fn(), onDone: jest.fn(), onFailed: jest.fn(), onGiveUp: jest.fn() };
++  return { api, h };
++}
++
++beforeEach(() => jest.useFakeTimers());
++afterEach(() => jest.useRealTimers());
++
++describe('pollRun', () => {
++  it('4 failed polls in a row then success keeps polling and finishes', async () => {
++    const fail = httpError(502);
++    const { api, h } = setup([fail, fail, fail, fail, running, done]);
++    const stop = pollRun('r1', api, h);
++    for (let n = 0; n < 7; n++) await step();
++    expect(h.onGiveUp).not.toHaveBeenCalled();
++    expect(h.onStatus).toHaveBeenCalled();
++    expect(h.onDone).toHaveBeenCalledTimes(1);
++    expect(api.run).toHaveBeenCalledTimes(6);
++    stop();
++  });
++
++  it(`${MAX_POLL_FAILURES} failed polls in a row gives up with 'lost'`, async () => {
++    const { api, h } = setup([new TypeError('Failed to fetch')]);
++    pollRun('r1', api, h);
++    for (let n = 0; n < 8; n++) await step();
++    expect(h.onGiveUp).toHaveBeenCalledTimes(1);
++    expect(h.onGiveUp).toHaveBeenCalledWith('lost');
++    expect(api.run).toHaveBeenCalledTimes(MAX_POLL_FAILURES);
++  });
++
++  it('a success resets the failure count', async () => {
++    const f = httpError(500);
++    const { api, h } = setup([f, f, f, f, running, f, f, f, f, done]);
++    pollRun('r1', api, h);
++    for (let n = 0; n < 12; n++) await step();
++    expect(h.onGiveUp).not.toHaveBeenCalled();
++    expect(h.onDone).toHaveBeenCalledTimes(1);
++  });
++
++  it('a 404 stops immediately with expired', async () => {
++    const { api, h } = setup([httpError(404), running]);
++    pollRun('r1', api, h);
++    for (let n = 0; n < 4; n++) await step();
++    expect(h.onGiveUp).toHaveBeenCalledWith('expired');
++    expect(api.run).toHaveBeenCalledTimes(1);
++  });
++});
+diff --git a/client/src/lib/bundle.ts b/client/src/lib/bundle.ts
+index bfa1603..3c6840e 100644
+--- a/client/src/lib/bundle.ts
++++ b/client/src/lib/bundle.ts
+@@ -1,6 +1,6 @@
+-import type { BundleResult, FeedCard, CardKind, Verdict } from '@shared/bundle';
++import type { BundleResult, FeedCard, CardKind, Source, Verdict } from '@shared/bundle';
+ 
+ /** One line of the agents' audit trail, as served by GET /api/runs/:runId/trace. */
+ export interface TraceLine {
+   timestamp: string;
+   trace_id: string;
+@@ -101,10 +101,13 @@ export const VERDICT_LABEL: Record<Verdict, string> = {
+   all_clear: 'All clear',
+   info: 'Not yet verified',
+   blocked: 'Blocked',
+ };
+ 
++/** Only http(s) links are rendered, so a bad source URL (e.g. "javascript:") can never become a clickable link. */
++export const safeSources = (sources: Source[]): Source[] => sources.filter((s) => /^https?:\/\//i.test(s.url));
++
+ export const isDcfsa = (c: FeedCard) => c.id.startsWith('clawback-dcfsa');
+ export const isInsurance = (c: FeedCard) => c.kind === 'benefit' && /insurance/i.test(c.id);
+ 
+ /** The small word under a card amount. DCFSA is the family's own pre-tax money, so it is "eligible spend", never "money back". */
+ export function amountCaption(c: FeedCard): string | null {
+@@ -201,11 +204,15 @@ export function traceForCard(card: FeedCard, lines: TraceLine[]): TraceLine[] {
+ 
+ // ---------- API ----------
+ 
+ async function json<T>(res: Response): Promise<T> {
+   const body = await res.json().catch(() => ({}));
+-  if (!res.ok) throw new Error((body as { error?: string }).error || `Something went wrong (${res.status}).`);
++  if (!res.ok) {
++    const err = new Error((body as { error?: string }).error || `Something went wrong (${res.status}).`) as Error & { status: number };
++    err.status = res.status;
++    throw err;
++  }
+   return body as T;
+ }
+ 
+ export type RunRequest = { familyId: string } | { zip: string; birthDate?: string; dueDate?: string; employer?: string };
+ 
+diff --git a/client/src/lib/poll.ts b/client/src/lib/poll.ts
+new file mode 100644
+index 0000000..fc269f2
+--- /dev/null
++++ b/client/src/lib/poll.ts
+@@ -0,0 +1,49 @@
++import type { RunStatus, TraceLine } from './bundle';
++
++/** Consecutive failed polls allowed before the page says it lost touch (about 5 seconds at 1 poll per second). */
++export const MAX_POLL_FAILURES = 5;
++
++export interface PollApi {
++  run: (runId: string) => Promise<RunStatus>;
++  trace: (runId: string) => Promise<TraceLine[]>;
++}
++
++export interface PollHandlers {
++  onStatus: (status: RunStatus, trace: TraceLine[] | null) => void;
++  onDone: (status: RunStatus) => void;
++  onFailed: (message: string) => void;
++  /** kind 'expired' = the server no longer knows the run (404); 'lost' = MAX_POLL_FAILURES failures in a row. */
++  onGiveUp: (kind: 'expired' | 'lost') => void;
++}
++
++/**
++ * Poll a run every `intervalMs` until it is done or failed.
++ * A 404 stops at once (the run is gone); other errors (network blips, 5xx, rate limits)
++ * are retried, and only MAX_POLL_FAILURES failures in a row end the polling.
++ * Returns a stop function.
++ */
++export function pollRun(runId: string, api: PollApi, h: PollHandlers, intervalMs = 1000): () => void {
++  let stopped = false;
++  let failures = 0;
++  let timer: ReturnType<typeof setTimeout> | undefined;
++
++  const tick = async () => {
++    try {
++      const [status, trace] = await Promise.all([api.run(runId), api.trace(runId).catch(() => null)]);
++      if (stopped) return;
++      failures = 0;
++      h.onStatus(status, trace);
++      if (status.status === 'done' && status.result) return h.onDone(status);
++      if (status.status === 'failed') return h.onFailed(status.error || 'The run did not finish. Please try again.');
++    } catch (e) {
++      if (stopped) return;
++      if ((e as { status?: number }).status === 404) return h.onGiveUp('expired');
++      failures++;
++      if (failures >= MAX_POLL_FAILURES) return h.onGiveUp('lost');
++    }
++    if (!stopped) timer = setTimeout(tick, intervalMs);
++  };
++
++  void tick();
++  return () => { stopped = true; if (timer) clearTimeout(timer); };
++}
+diff --git a/client/src/pages/CardDetail.tsx b/client/src/pages/CardDetail.tsx
+index aaccdfe..9908414 100644
+--- a/client/src/pages/CardDetail.tsx
++++ b/client/src/pages/CardDetail.tsx
+@@ -1,10 +1,10 @@
+ import { useEffect, useState } from 'react';
+ import { Link, useParams, useSearch } from 'wouter';
+ import AppShell from '@/components/AppShell';
+ import FeedCardView from '@/components/FeedCardView';
+-import { PLAID_TILE, agentLabel, api, familyChip, loadRun, saveRun, traceForCard, type SavedRun, type TraceLine } from '@/lib/bundle';
++import { PLAID_TILE, safeSources, agentLabel, api, familyChip, loadRun, saveRun, traceForCard, type SavedRun, type TraceLine } from '@/lib/bundle';
+ import { cn } from '@/lib/utils';
+ 
+ const STATUS_TEXT: Record<TraceLine['status'], { label: string; cls: string }> = {
+   ok: { label: 'Passed', cls: 'bg-[#E3F3EA] text-[#17643F]' },
+   retry: { label: 'Sent back', cls: 'bg-coral-tint text-coral-deep' },
+@@ -145,15 +145,15 @@ export default function CardDetail() {
+               );
+             })}
+           </ol>
+         )}
+ 
+-        {card.sources.length > 0 && (
++        {safeSources(card.sources).length > 0 && (
+           <>
+             <h3 className="eyebrow mt-6 text-ink-2">Sources</h3>
+             <ul className="mt-2 space-y-2">
+-              {card.sources.map((s) => (
++              {safeSources(card.sources).map((s) => (
+                 <li key={s.url + s.label}>
+                   <a href={s.url} target="_blank" rel="noopener noreferrer" className="flex min-h-[52px] items-center justify-between gap-3 rounded-2xl border border-line bg-paper px-4 py-3 text-[15px] font-semibold text-ink hover:border-ink-3">
+                     <span className="min-w-0">
+                       <span className="block">{s.label}</span>
+                       <span className="block truncate text-[13px] font-medium text-ink-2">{s.url.replace(/^https?:\/\//, '')}</span>
+@@ -192,11 +192,11 @@ export default function CardDetail() {
+                 <form className="mt-3 rounded-2xl border border-line bg-paper p-4" onSubmit={(e) => { e.preventDefault(); void send('issue'); }}>
+                   <label htmlFor="issue-note" className="text-[15px] font-bold text-ink">What went wrong?</label>
+                   <textarea
+                     id="issue-note" value={note} onChange={(e) => setNote(e.target.value)} maxLength={500} rows={3}
+                     placeholder="For example: it said free, but charged me after 30 days."
+-                    className="mt-2 block w-full rounded-xl border border-line bg-cream p-3 text-[16px] text-ink outline-none placeholder:text-ink-3 focus:border-coral"
++                    className="mt-2 block w-full rounded-xl border border-line bg-cream p-3 text-[16px] text-ink outline-none placeholder:text-ink-2 focus:border-coral"
+                   />
+                   <button type="submit" disabled={busy || !note.trim()} className="mt-3 min-h-[52px] w-full rounded-2xl bg-coral-deep text-[17px] font-bold text-white disabled:opacity-50">
+                     {busy ? 'Sending…' : 'Send report'}
+                   </button>
+                 </form>
+diff --git a/client/src/pages/Feed.tsx b/client/src/pages/Feed.tsx
+index 04da214..567b439 100644
+--- a/client/src/pages/Feed.tsx
++++ b/client/src/pages/Feed.tsx
+@@ -2,10 +2,11 @@ import { useEffect, useMemo, useRef, useState } from 'react';
+ import { Link, useParams } from 'wouter';
+ import AppShell from '@/components/AppShell';
+ import ReceiptCard from '@/components/ReceiptCard';
+ import FeedCardView from '@/components/FeedCardView';
+ import { KIND_META, api, describeLine, familyChip, groupCards, loadRun, saveRun, type SavedRun, type TraceLine } from '@/lib/bundle';
++import { pollRun } from '@/lib/poll';
+ import { cn } from '@/lib/utils';
+ 
+ const POLL_MS = 1000;
+ 
+ /** The five steps a run goes through, and the trace line that marks each one finished. */
+@@ -19,11 +20,17 @@ const STEPS: { agent: string; label: string; doneWhen: (lines: TraceLine[]) => b
+ 
+ function Spinner({ className }: { className?: string }) {
+   return <span aria-hidden="true" className={cn('inline-block h-4 w-4 animate-spin rounded-full border-2 border-coral border-t-transparent', className)} />;
+ }
+ 
++const STATE_TEXT = { waiting: 'Waiting', working: 'Working', done: 'Done' } as const;
++
+ function StepIcon({ state }: { state: 'waiting' | 'working' | 'done' }) {
++  return <><span className="sr-only">{STATE_TEXT[state]}: </span><StepGlyph state={state} /></>;
++}
++
++function StepGlyph({ state }: { state: 'waiting' | 'working' | 'done' }) {
+   if (state === 'done') {
+     return (
+       <span aria-hidden="true" className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-kind-clawback text-white">
+         <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m5 12 5 5L20 7" /></svg>
+       </span>
+@@ -46,11 +53,11 @@ function collapse(lines: TraceLine[]): { text: string; count: number; status: Tr
+ }
+ 
+ function Progress({ lines, elapsed }: { lines: TraceLine[]; elapsed: number }) {
+   const recent = collapse(lines).slice(-6).reverse(); // newest first, so it shows above the fold
+   return (
+-    <section aria-live="polite" aria-busy="true">
++    <section aria-live="polite">
+       <h1 className="mt-6 text-[30px] font-extrabold leading-[1.1] tracking-[-0.03em]">
+         Your agents are <span className="text-coral">on it.</span>
+       </h1>
+       <p className="mt-2 text-[16px] text-ink-2">
+         They are checking live government, recall and store data for your family. This can take a minute or two.
+@@ -96,37 +103,26 @@ export default function Feed() {
+   const [elapsed, setElapsed] = useState(0);
+   const started = useRef(Date.now());
+ 
+   useEffect(() => {
+     if (run) return; // already finished (or restored from this tab)
+-    let stopped = false;
+-    let timer: ReturnType<typeof setTimeout>;
+-    const tick = async () => {
+-      try {
+-        const [status, trace] = await Promise.all([api.run(runId), api.trace(runId).catch(() => null)]);
+-        if (stopped) return;
++    return pollRun(runId, api, {
++      onStatus: (status, trace) => {
+         if (trace) setLines(trace);
+         setChipInfo({ family: status.family, today: status.today });
+         setElapsed(Math.round((Date.now() - Date.parse(status.startedAt || new Date(started.current).toISOString())) / 1000));
+-        if (status.status === 'done' && status.result) {
+-          const saved: SavedRun = { runId, familyId: status.familyId, family: status.family, today: status.today, result: status.result };
+-          saveRun(saved);
+-          setRun(saved);
+-          return;
+-        }
+-        if (status.status === 'failed') { setError(status.error || 'The run did not finish. Please try again.'); return; }
+-      } catch (e) {
+-        if (stopped) return;
+-        setError((e as Error).message === 'Run not found'
+-          ? 'This run has expired. Start a new one; it only takes a minute.'
+-          : 'We lost touch with Bundle for a moment. Check your connection and try again.');
+-        return;
+-      }
+-      timer = setTimeout(tick, POLL_MS);
+-    };
+-    void tick();
+-    return () => { stopped = true; clearTimeout(timer); };
++      },
++      onDone: (status) => {
++        const saved: SavedRun = { runId, familyId: status.familyId, family: status.family, today: status.today, result: status.result! };
++        saveRun(saved);
++        setRun(saved);
++      },
++      onFailed: setError,
++      onGiveUp: (kind) => setError(kind === 'expired'
++        ? 'This run has expired. Start a new one; it only takes a minute.'
++        : 'We lost touch with Bundle. Check your connection and try again.'),
++    }, POLL_MS);
+   }, [runId, run]);
+ 
+   const family = run?.family ?? chipInfo.family;
+   const today = run?.today ?? chipInfo.today;
+   const chip = familyChip(family, today);
+diff --git a/client/src/pages/Onboarding.tsx b/client/src/pages/Onboarding.tsx
+index 49d9d48..99e8296 100644
+--- a/client/src/pages/Onboarding.tsx
++++ b/client/src/pages/Onboarding.tsx
+@@ -3,11 +3,11 @@ import { useLocation } from 'wouter';
+ import AppShell from '@/components/AppShell';
+ import { api, localToday, type RunRequest } from '@/lib/bundle';
+ 
+ const field = 'block rounded-2xl border border-line bg-paper px-4 pb-3 pt-2.5 focus-within:border-coral focus-within:ring-2 focus-within:ring-coral/25';
+ const label = 'eyebrow block text-ink-2';
+-const input = 'mt-1 block w-full bg-transparent text-[18px] font-semibold text-ink outline-none placeholder:font-medium placeholder:text-ink-3';
++const input = 'mt-1 block w-full bg-transparent text-[18px] font-semibold text-ink outline-none placeholder:font-medium placeholder:text-ink-2';
+ 
+ export default function Onboarding() {
+   const [, navigate] = useLocation();
+   const [date, setDate] = useState('');
+   const [zip, setZip] = useState('');
+@@ -59,11 +59,11 @@ export default function Onboarding() {
+             className={input} inputMode="numeric" autoComplete="postal-code" maxLength={5} placeholder="02139"
+             value={zip} onChange={(e) => setZip(e.target.value.replace(/\D/g, '').slice(0, 5))}
+           />
+         </label>
+         <label className={field}>
+-          <span className={label}>Employer <span className="normal-case tracking-normal text-ink-3">(optional)</span></span>
++          <span className={label}>Employer <span className="normal-case tracking-normal text-ink-2">(optional)</span></span>
+           <input className={input} autoComplete="organization" placeholder="Where you or your partner work" value={employer} onChange={(e) => setEmployer(e.target.value)} maxLength={100} />
+         </label>
+ 
+         {error && (
+           <p role="alert" className="rounded-2xl bg-[#FBE3E0] px-4 py-3 text-[15px] font-semibold text-[#9E2A21]">{error}</p>

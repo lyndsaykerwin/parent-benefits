@@ -1,0 +1,81 @@
+35b1b9e fix: fact-checker whitelists ids, fails closed on unsafe or empty ids
+diff --git a/server/__tests__/factChecker.test.ts b/server/__tests__/factChecker.test.ts
+index 151c376..6cb6f07 100644
+--- a/server/__tests__/factChecker.test.ts
++++ b/server/__tests__/factChecker.test.ts
+@@ -108,15 +108,31 @@ describe('fact-checker', () => {
+     const o2 = await verify(cand(), down.ctx);
+     expect(o2.ok).toBe(false);
+     expect(o2.reason).toContain('could not verify');
+   });
+ 
+-  it('escapes quotes in ids and traces every verify as fact_checker', async () => {
+-    const c = cand({ claim: { type: 'rule', ref: "A'B" }, kind: 'benefit', amountCents: 5 });
++  it('rejects unsafe or empty ids without querying', async () => {
++    for (const ref of ["A'B", 'x\\', 'a b', '']) {
++      const { ctx, runQuery } = ctxWith(() => res([]));
++      const out = await verify(cand({ kind: 'benefit', claim: { type: 'rule', ref } }), ctx);
++      expect(out).toEqual({ ok: false, reason: 'invalid id', corrected: null });
++      expect(runQuery).not.toHaveBeenCalled();
++    }
++    const e1 = ctxWith(() => res([]));
++    expect((await verify(cand({ claim: { type: 'offer', offerId: '' } }), e1.ctx)).ok).toBe(false);
++    expect(e1.runQuery).not.toHaveBeenCalled();
++    const e2 = ctxWith(() => res([]));
++    e2.ctx.family = { ...family, id: "m\\" };
++    const o = await verify(cand({ kind: 'clawback', claim: { type: 'clawback', txId: 'tx1', txAmountCents: 1 } }), e2.ctx);
++    expect(o.reason).toBe('invalid id');
++  });
++
++  it('traces every verify as fact_checker and sends no trailing semicolon', async () => {
++    const c = cand({ claim: { type: 'rule', ref: 'PFML_MA' }, kind: 'benefit', amountCents: 5 });
+     const { ctx, runQuery, trace } = ctxWith(() => res([{ amount_cents: 5, window_end_days_from_birth: null }]));
+     await verify(c, ctx);
+-    expect(runQuery.mock.calls[0][0]).toContain("'A''B'");
++    expect(runQuery.mock.calls[0][0]).toContain("'PFML_MA'");
+     expect(runQuery.mock.calls[0][0]).not.toMatch(/;\s*$/);
+     const l = trace.lines().filter((x) => x.agent_name === 'fact_checker');
+     expect(l.length).toBe(1);
+     expect(l[0].status).toBe('ok');
+     await verify(cand({ sources: [] }), ctx);
+diff --git a/server/agents/factChecker.ts b/server/agents/factChecker.ts
+index a982c8f..52843d5 100644
+--- a/server/agents/factChecker.ts
++++ b/server/agents/factChecker.ts
+@@ -16,16 +16,22 @@ export interface VerifyResult {
+  */
+ 
+ const CENT_TOLERANCE = 1;
+ const DAY_MS = 86_400_000;
+ 
+-/** Quote a text value for SQL (doubles single quotes). */
+-function q(v: string | number): string {
+-  return `'${String(v).replace(/'/g, "''")}'`;
++class InvalidId extends Error {}
++const SAFE_ID = /^[A-Za-z0-9_.:-]+$/;
++
++/** Quote an id for SQL. Only plain id characters are allowed (no quotes, backslashes, spaces); anything else fails closed. */
++function q(v: string | number | undefined): string {
++  const s = v === undefined || v === null ? '' : String(v);
++  if (!SAFE_ID.test(s)) throw new InvalidId('invalid id');
++  return `'${s}'`;
+ }
+ 
+ function intId(v: string | number | undefined): number | null {
++  if (v === undefined || v === null || String(v).trim() === '') return null;
+   const n = Number(v);
+   return Number.isInteger(n) ? n : null;
+ }
+ 
+ function addDays(iso: string, days: number): string {
+@@ -139,9 +145,10 @@ export async function verify(c: Candidate, ctx: AgentContext): Promise<VerifyRes
+   }
+   try {
+     const res = await check(c, ctx);
+     return finish(c, ctx, res, res.ok ? 'ok' : 'blocked');
+   } catch (e) {
++    if (e instanceof InvalidId) return finish(c, ctx, fail('invalid id'), 'blocked');
+     // Fail closed: an unchecked fact is never shown.
+     return finish(c, ctx, fail(`could not verify: ${(e as Error).message}`), 'error');
+   }
+ }

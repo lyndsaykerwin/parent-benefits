@@ -1,0 +1,67 @@
+4121fc9 test: guard all planted traps, fixed dates and source URLs in seed test
+diff --git a/scripts/seed.ts b/scripts/seed.ts
+index 896c626..3398a17 100644
+--- a/scripts/seed.ts
++++ b/scripts/seed.ts
+@@ -6,11 +6,11 @@ import path from 'path';
+ import { inArray } from 'drizzle-orm';
+ import { loadEnv } from '../server/env';
+ import * as s from '../shared/schema';
+ import type { Family } from '../shared/bundle';
+ 
+-const SAMPLE_DIR = path.resolve(process.cwd(), 'data/sample') // run from the repo root (npm scripts and jest do);
++const SAMPLE_DIR = path.resolve(process.cwd(), 'data/sample'); // run from the repo root (npm scripts and jest do)
+ const SEED_FAMILY_IDS = ['maya', 'leo', 'ava'];
+ 
+ export const BENEFIT_RULES: (typeof s.benefitRules.$inferInsert)[] = [
+   { code: 'TRUMP_ACCOUNT', title: 'Trump Account: $1,000 federal starter deposit', scope: 'federal', amountCents: 100000,
+     windowStartDaysFromBirth: null, windowEndDaysFromBirth: null, condition: 'born 2025-01-01..2028-12-31',
+diff --git a/server/__tests__/seed.test.ts b/server/__tests__/seed.test.ts
+index a3d41a2..d3f08f5 100644
+--- a/server/__tests__/seed.test.ts
++++ b/server/__tests__/seed.test.ts
+@@ -74,6 +74,44 @@ describe('seed()', () => {
+     expect(pg.find((p: any) => p.householdSize === 4).annualCents).toBe(3300000);
+     const { seed } = await import('../../scripts/seed');
+     await seed();
+     expect((await db.select().from(s.families)).length).toBe(3);
+   }, 60000);
++  it('keeps every planted trap in the fixtures', async () => {
++    const tx = await db.select().from(s.transactions);
++    const maya = tx.filter((t: any) => t.familyId === 'maya');
++    const dups = maya.filter((t: any) => t.merchant === 'Walgreens' && t.date === '2026-10-15' && t.amountCents === 3149);
++    expect(dups.length).toBe(2);
++    expect(new Set(dups.map((d: any) => d.id)).size).toBe(2);
++    const daycare = maya.filter((t: any) => t.merchant === 'Bright Horizons');
++    expect(daycare.length).toBe(3);
++    expect(daycare.every((t: any) => t.amountCents === 185000)).toBe(true);
++    expect(maya.some((t: any) => /Pack 'n Play/.test(t.category) && t.amountCents === 8999 && t.merchant === 'Target')).toBe(true);
++
++    const orders = await db.select().from(s.amazonOrders);
++    const keawis = orders.find((o: any) => /KEAWIS Crib Mattress/.test(o.title));
++    expect(keawis).toBeDefined();
++    expect(keawis.familyId).toBe('maya');
++    expect(keawis.priceCents).toBe(8999);
++
++    const obs = await db.select().from(s.priceObservations);
++    const pnp = obs.find((o: any) => o.store === 'Target' && /Pack 'n Play/.test(o.keyword));
++    expect(pnp.priceCents).toBe(6999);
++    expect(pnp.priceCents).toBeLessThan(8999);
++    for (const o of obs) expect((o.sourceUrl ?? '').trim()).not.toBe('');
++  });
++
++  it('pins the fixed ISO dates and cites the poverty guidelines', async () => {
++    const fams = await db.select().from(s.families);
++    const f = (id: string) => fams.find((x: any) => x.id === id);
++    expect(f('maya').birthDate).toBe('2026-10-03');
++    expect(f('leo').dueDate).toBe('2026-12-07');
++    expect(f('leo').birthDate).toBeNull();
++    expect(f('ava').birthDate).toBe('2026-08-24');
++    const pg = await db.select().from(s.povertyGuidelines);
++    expect(pg.length).toBeGreaterThanOrEqual(8);
++    for (const p of pg) {
++      expect(p.year).toBe(2026);
++      expect(p.sourceUrl).toMatch(/aspe\.hhs\.gov/);
++    }
++  });
+ });

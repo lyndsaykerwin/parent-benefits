@@ -1,0 +1,36 @@
+d17c2a3 docs: fix retry wording, NVIDIA claim, cache timestamp note
+e3bd70a docs: readme, data notes, metadata, examples; SAMPLE_MODE runs with no secrets
+01c031d fix: --learning merges into the scoreboard instead of overwriting; demo date from resolveToday
+475b5fc feat: scout, eval scoreboard, learning demo, demo-date ruling
+eea2c8d chore: add remaining Zetaris replay cache files
+3c44d3a fix: feed polling retries 5 failures before giving up; safe source links; a11y
+320ceeb feat: mobile-first onboarding, feed, card detail, smarter screens
+c8cfb40 fix: unique ingest row ids, require familyId
+3907cd2 feat: plaid-format mapper and amazon csv parser
+1e5f369 fix: cap Coach input, 100kb body limit, in-flight run cap, uuid run ids
+45d564f chore: refresh replay cache (live leo run via API)
+9e9d2de feat: bundle api, guest mode, reviewer mode, coach
+e0d3a05 chore: refresh replay cache
+d3ceea8 fix: fact-check outage handling, bundled never-empty fallbacks, parallel checks, input hygiene
+5f4bab2 chore: refresh replay cache
+9aaac65 fix: Receipt excludes Dependent Care FSA eligible spend from both totals
+b13cdd7 chore: refresh Zetaris replay cache with orchestrator queries (live run Oct 23)
+6667d36 feat: orchestrator with fact-check loop and never-empty feed
+7f57580 feat: benefits planner
+3948a67 fix: court fee screen ignores thresholds, whole-word trigger match
+77222af feat: court reads v_judge_offers with trigger_keyword; trap offer ranks in for diaper buyers
+a08dab5 feat: fine print court
+102fa1b fix: recall checker accepts exact matches without the model, keeps all exact pairs, counts only product items
+6d9d224 feat: clawback hunter and recall checker
+35b1b9e fix: fact-checker whitelists ids, fails closed on unsafe or empty ids
+7a14c56 feat: fact-checker agent
+7602fc6 fix: mask JSON-style passwords, add model timeout, sanitise trace filename
+f48d9cf feat: llm adapter with json fallback, trace logger with redaction, H-MEM memory adapter
+e7ecb97 feat: zetaris client with timeout+cache; source registration script
+4121fc9 test: guard all planted traps, fixed dates and source URLs in seed test
+f246083 feat: bundle schema, shared types, seed families and fixtures
+1b40ad5 feat: guest-only skeleton with env loader and /api/health
+a953f61 chore: strip replit auth, chat, items, payments, template docs and tests
+ vendor/hmem/tsconfig.json                          |   12 +
+ vite.config.ts                                     |   15 +-
+ 336 files changed, 15628 insertions(+), 20169 deletions(-)

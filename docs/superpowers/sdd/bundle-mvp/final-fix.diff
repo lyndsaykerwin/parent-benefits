@@ -1,0 +1,1958 @@
+b0171e6 test: skip the live-database seed test when DATABASE_URL is not set (clean clones run npm test green)
+915f804 evidence: regenerate examples, sample traces, scoreboard and learning traces at the final code
+2618201 eval: save the reviewer's memory write (approve.jsonl) between the two learning runs; docs: cache notes
+82dc7f4 docs: remove false Cursor claim; disclose offline Coach and saved runs; learning-loop steps; hosting checklist
+d01d306 fix: Receipt honesty, unchecked deals, offline court wording, typed-in families, rate limits, date ranges
+ shared/dateRange.ts                                |  39 ++++
+ vendor/hmem/LICENSE                                | 201 +++++++++++++++++++++
+ vendor/hmem/NOTICE                                 |   1 +
+ 64 files changed, 1274 insertions(+), 445 deletions(-)
+diff --git a/.env.example b/.env.example
+index 0ae3a1f..9685f4f 100644
+--- a/.env.example
++++ b/.env.example
+@@ -30,11 +30,12 @@ MAX_RETRIES=2
+ REVIEWER_MODE_TOKEN=""
+ 
+ # Demo date for the sample families (defaults to 2026-10-23)
+ TODAY=""
+ 
+-# Set to 1 when hosted behind a proxy
++# Trusting the hosting proxy (so each visitor gets their own rate limit) is on by default in production
++# (NODE_ENV=production, which `npm start` sets). Set 0 to turn it off, or 1 to force it on.
+ TRUST_PROXY=""
+ 
+ # Optional (payments, not used right now)
+ # STRIPE_SECRET_KEY=""
+ # STRIPE_WEBHOOK_SECRET=""
+diff --git a/README.md b/README.md
+index 488cbea..69203ce 100644
+--- a/README.md
++++ b/README.md
+@@ -1,9 +1,10 @@
+ # Bundle
+ 
+ > **Track:** Track 1: Solving Fragmented Intelligence
+-> **Sponsor technology:** Zetaris (SQL data door), Meterless H-MEM (memory), NVIDIA-hosted models (supported, not exercised in the saved results), built in Cursor
++> **Sponsor technology:** Zetaris (SQL data door), Meterless H-MEM (memory), NVIDIA-hosted models (supported, not exercised in the saved results)
++> **How it was built:** Built with Claude Code. (Cursor was listed as required in the original rules; the organizers announced it optional; confirmation on HackOS is pending.)
+ > **Run with no keys:** `cp .env.example .env && npm ci && npm run dev`, then `POST /api/run` on port 5050
+ 
+ ## 1. Problem
+ 
+ New parents are owed money, benefits and safety information that is scattered across a dozen places: a tax credit on
+@@ -24,12 +25,12 @@ Example year-one value for a Boston family is in `research-boston-baby-benefits.
+ | Clawback Hunter | Finds money that can come back: FSA/HSA-eligible spend, store price-adjustment refunds, daycare for a Dependent Care FSA | Revises when sent back |
+ | Recall Checker | Checks purchases against live government recall feeds through Zetaris | Revises when sent back |
+ | Benefits Planner | Likely benefits and deadlines from birth or due date | Revises when sent back |
+ | Fine Print Court | Deal hunter proposes, fine-print lawyer attacks, judge rules (max 5 offers per run) | **Yes: rejects offers** |
+ | Fact-Checker | Every card needs a source link, correct dollars and dates | **Yes: sends back up to 2 times, then drops the card and logs it** |
+-| Coach | Turns "report an issue" feedback into proposed rules; a reviewer approves them into memory | Proposes only |
+-| Scout (script) | Reads 3 saved pages and proposes benefit rows; rows not written on the page are rejected | Fact-Checker rejects |
++| Coach | Turns "report an issue" feedback into proposed rules; a reviewer approves them into memory. **Offline (no model), the Coach does not write rules:** when 2 or more reports share a theme it proposes one of two pre-written rule sentences (`THEMES` in `server/agents/coach.ts`: auto-renewing membership, shipping fee). With a model it clusters and words the rule itself | Proposes only |
++| Scout (script) | Reads 3 saved pages and proposes benefit rows; rows not written on the page are rejected | Scout's own checks (and the Fact-Checker's no-source rule) reject; the saved run uses a scripted stand-in model |
+ 
+ What makes this more than a chain: the agents share one memory (learned rules), the Fact-Checker can send work back
+ or drop it, the Court can block an offer, sources can fail and the run still finishes, and a rule learned in run 1
+ changes the outcome of run 2. Diagram: [`docs/architecture.md`](docs/architecture.md).
+ 
+@@ -41,11 +42,11 @@ changes the outcome of run 2. Diagram: [`docs/architecture.md`](docs/architectur
+ | App | React, Vite, Tailwind (mobile first, 375px) |
+ | Data door | **Zetaris**: one SQL layer over a Neon Postgres database and live public recall feeds |
+ | Memory | **Meterless H-MEM** reference implementation (vendored in `vendor/hmem`, Apache-2.0) |
+ | Models | NVIDIA-hosted models (supported, not exercised in the saved results), via an OpenAI-compatible endpoint |
+ | Database | Neon Postgres via Drizzle (live mode only) |
+-| Built in | Cursor |
++| Built with | Claude Code (AI coding assistant) |
+ | Logging | One JSON line per event in `logs/run-<id>.jsonl` |
+ 
+ ## 4. Setup
+ 
+ Needs Node 24 or newer. No GPU. No keys for the sample run.
+@@ -59,25 +60,32 @@ npm run dev              # http://localhost:5050
+ Starts in a few seconds. Open http://localhost:5050 for the app, or call the API below.
+ 
+ Other commands:
+ 
+ ```bash
+-npm test         # unit tests
++npm test         # unit tests (the one live-database test is skipped when DATABASE_URL is not set)
+ npm run check    # type check
+ npm run eval     # the evals (answer key) and prints the scoreboard
+ npm run build && npm start   # production build
+ ```
+ 
++### Hosting checklist (for a public demo)
++
++1. `SAMPLE_MODE=true`, and **no `ZETARIS_*` keys on the host**. With keys present, `SAMPLE_MODE=true` still goes live to Zetaris (replay is used only when the keys are missing), which is slow.
++2. `NODE_ENV=production`. `npm start` sets it for you; if your host starts the app another way, set it yourself. In production the app trusts one proxy hop so each visitor gets their own rate limit (`TRUST_PROXY=0` turns that off).
++3. `npm ci && npm run build && npm start`. Optional: `FRONTEND_URL` (the site's own address, for CORS) and `REVIEWER_MODE_TOKEN` if you want Approve to work for visitors.
++4. Check it from two different networks (e.g. a laptop and a phone on mobile data): both should be able to run a sample family, and each gets its own limits.
++
+ ## 5. Usage
+ 
+ ```bash
+ curl -s -XPOST 'localhost:5050/api/run?wait=true' \
+   -H 'content-type: application/json' \
+   -d @input_examples/leo.json
+ ```
+ 
+-Request (a sample family, or type your own: `{"zip":"02446","birthDate":"2026-10-10"}`):
++Request (a sample family, or type your own: `{"zip":"02446","birthDate":"2026-10-10"}`; a birth date must be within the last 2 years, a due date within the next 10 months):
+ 
+ ```json
+ { "familyId": "leo" }
+ ```
+ 
+@@ -101,29 +109,45 @@ Money is integer cents, computed in code, never by the model.
+ ## 6. Sample mode (honest version)
+ 
+ `SAMPLE_MODE=true` (the default in `.env.example`) lets you run with **no keys and no database**:
+ 
+ - The three families come from `data/sample/families.json` (made up).
+-- **Zetaris is answered from saved real responses** (`data/sample/zetaris-cache/`, 113 files, captured 2026-10-23 by running the agents live against Zetaris). Nothing is pre-written: the agents still run their queries, the fact-checks and the court. See `data/README.md`.
+-- **Without `MODEL_API_KEY`, the model-written parts fall back to deterministic text.** The Fine Print Court uses a plain screen (rejects offers matching a learned rule's keywords or an explicit shipping/handling fee over $5; trace status `fallback`). Explanations use fixed text.
++- **Zetaris is answered from saved real responses** (`data/sample/zetaris-cache/`, 126 files, captured 2026-10-23 by running the agents live against Zetaris). Nothing is pre-written: the agents still run their queries, the fact-checks and the court. See `data/README.md`.
++- **Without `MODEL_API_KEY`, the model-written parts fall back to deterministic text.** The Fine Print Court uses a plain screen (rejects offers matching a learned rule's keywords, a stated shipping/handling fee over $5 or a fee that "may apply", or fine print that says Prime/a membership is required; trace status `fallback`). Its approvals say so: "Offline screen: no flagged terms found. Not reviewed by the AI court." It does not catch a free trial that auto-renews into a paid plan until a parent-reported rule teaches it (that is the learning demo). Explanations use fixed text.
+ - Memory is H-MEM running locally (folder `data/hmem`, created on first run).
+ - The sample families run on a fixed **demo date, 2026-10-23**, so their deadlines make sense. Change it with `TODAY=YYYY-MM-DD`. A family you type in uses the real date.
+-- A family you type in asks new SQL that isn't in the cache, so you will see the banner "Some sources didn't respond" and a safe, never-empty feed (`output_examples/custom-family.json`). That is the failure handling working, and it is also a limit of sample mode. Add Zetaris keys and the same code queries live.
++- A family you type in is never saved, so it has no purchases or card data: Clawback and Recall skip their lookups (the Receipt then says "Connect your data to safety-check items", never "all clear"). Benefits and the Fine Print Court still run on the saved shared data (benefit rules, the offers table), so a typed-in family gets checked benefit cards and court-judged offers with no banner (`output_examples/custom-family.json`). Anything that was never saved in the replay cache fails safely: the failure handling shows a banner and "Not yet verified" stand-ins, which sit in their own section, outside the Receipt, and never under "Deals that passed Fine Print Court".
++- `SAMPLE_MODE=true` replays only when the `ZETARIS_*` keys are missing. If you set the keys, it queries Zetaris live (and saves new answers into `data/sample/zetaris-cache/`).
++
++### Try the learning loop (2 minutes, no keys)
++
++This is the main idea: parents' feedback becomes a rule in memory that changes the next run. Reviewer mode is **off** unless you set a code, so first:
++
++1. In `.env` set `REVIEWER_MODE_TOKEN=demo`, then restart `npm run dev`.
++2. Run the maya sample (tap "Try as guest" in the app, or `curl -s -XPOST 'localhost:5050/api/run?wait=true' -H 'content-type: application/json' -d '{"familyId":"maya"}'`). Note the **"Free newborn diaper box"** card under the deals (its id is in the response; this is the planted trap: a "free" box that turns into a paid membership).
++3. Report it twice (in the app: open the card, "Report issue"; or the API, using that card's id):
++   `curl -s -XPOST localhost:5050/api/feedback -H 'content-type: application/json' -d '{"familyId":"maya","cardId":"<that card id>","kind":"issue","note":"free box turned into a paid monthly membership"}'` (send it two times).
++4. `curl -s localhost:5050/api/case-law` shows the proposed rule (or open "Bundle got smarter" in the app).
++5. Approve it: `curl -s -XPOST localhost:5050/api/case-law/<proposal id>/approve -H 'x-reviewer-token: demo'` (in the app: "Bundle got smarter", open Reviewer mode, enter `demo`, tap "Approve rule").
++6. Run maya again: the card is gone, and the run's trace (`GET /api/runs/<runId>/trace`) shows the judge blocking it and citing the new `mem-…` rule.
++7. The rule lives in `data/hmem/` (git-ignored). Delete that folder to reset.
++
++Offline, the proposal wording comes from one of two pre-written sentences (see the Coach row above). The same flow, scripted, is `npm run eval -- --learning` (writes `output_examples/learning/run1.jsonl` and `run2.jsonl`). `server/__tests__/sampleMode.test.ts` runs these exact steps.
+ 
+ Live mode: set `SAMPLE_MODE=false`, `DATABASE_URL`, the `ZETARIS_*` values and `MODEL_*` values, then `npm run seed`.
+ Secrets go only in `.env` (git-ignored). `.env.example` holds placeholders.
+ 
+ ## 7. How failures are handled
+ 
+ | What fails | What happens |
+ |---|---|
+ | A Zetaris query errors or times out | One retry for one known transient error (the purchases query, errors mentioning thrift or resultset); then a saved response if one exists (logged as `fallback`); otherwise that agent is skipped, the others finish, and the feed shows a banner |
+ | An agent throws | The orchestrator logs `agent_failed` and continues |
+-| The model is unavailable | Deterministic text and a plain court screen; logged as `fallback` |
++| The model is unavailable | Deterministic text and a plain court screen (its approvals are labelled "Offline screen ... Not reviewed by the AI court"); logged as `fallback` |
+ | A claim has no source, or a wrong amount or date | Fact-Checker sends it back (max 2), then drops it and logs the drop |
+ | Too little to show | The feed is never empty: fixed minimums of benefits, one recall card, discounts, and two "coming soon" tiles |
+-| Abuse | Rate limit of 10 runs per IP per 10 minutes; typed-in families are never saved |
++| Abuse | Rate limit of 10 runs per IP per 10 minutes; at most 2 runs at once per IP and 5 at once overall; typed-in families are never saved |
+ 
+ ## 8. Proof: logs and the scoreboard
+ 
+ - Every Zetaris query, memory call and agent step is one JSON line (fields: `timestamp, trace_id, agent_name, action, input_summary, output_summary, target_agent, confidence, retry_count, status`). Saved runs: `logs/sample/` (maya, leo, ava, custom-family). Live runs write `logs/run-<id>.jsonl`.
+ - `npm run eval` prints the scoreboard and saves `logs/scoreboard.json`. Latest saved result (demo date 2026-10-23):
+@@ -133,11 +157,11 @@ Secrets go only in `.env` (git-ignored). `.env.example` holds placeholders.
+ | Planted traps caught | **6 of 6** (auto-renew offer, wrong-amount Scout row, recalled crib mattress, refund, duplicate purchase, out-of-state family) |
+ | False alarms | **0** |
+ | Cards with a source | **100%** |
+ | Learning demo | Run 1 approves the "free trial that auto-renews" offer; a reviewer-approved rule is stored in memory; run 2 **blocks** it and cites that rule (`mem-1`) |
+ 
+-  This saved scoreboard was produced with the offline fallbacks (`llmMode: "offline-fallback"`, Scout `fake-llm`), not a live model. The learning traces are in `output_examples/learning/`.
++  **Every saved run here is offline** (`llmMode: "offline-fallback"`, Scout `fake-llm`): no real AI model was used for the scoreboard, the examples or the traces. Offline, the Fine Print Court's debate lines are "model unavailable" and the Coach picks from two pre-written rule sentences once 2 or more reports share a theme (see the Coach row in §2), so the learning demo shows the *mechanism* (feedback, then memory, then a changed outcome), not AI-written rules. A real-model run will be added when a model key is available. The learning traces are in `output_examples/learning/`: `run1.jsonl`, `approve.jsonl` (the reviewer's approval: the `memory add_rule` call) and `run2.jsonl` (`memory recall_rules` returns the rule, then the judge blocks the offer and cites it).
+ 
+ ## 9. Folder map
+ 
+ | Hackathon suggestion | Here |
+ |---|---|
+@@ -147,21 +171,22 @@ Secrets go only in `.env` (git-ignored). `.env.example` holds placeholders.
+ | `input_examples/` | `input_examples/` (4 requests) |
+ | `output_examples/` | `output_examples/` (4 saved SAMPLE_MODE runs + learning traces) |
+ | `logs/` | `logs/` (`logs/sample/` committed) |
+ | UI | `client/` |
+ 
+-`output_examples/` are real saved responses from `SAMPLE_MODE=true` runs (replayed Zetaris, offline fallbacks), not live results.
++`output_examples/` are real saved responses from `SAMPLE_MODE=true` runs (replayed Zetaris, offline fallbacks), not live results. The maya and ava examples are **before learning** (the trap box is still approved); `output_examples/learning/run2.jsonl` shows it blocked after a parent-taught rule.
+ 
+ ## 10. Data and licences
+ 
+ See [`data/README.md`](data/README.md): each source, licence, record count, how to rebuild it, and limits. All families
+ and purchases are made up. No real personal data and no income in logs.
+ 
+ ## 11. Limitations
+ 
+ - Sample mode replays saved Zetaris answers, so only the three sample families run fully offline.
+-- The saved scoreboard used offline fallbacks; model quality is not measured there.
++- The saved scoreboard, examples and traces used offline fallbacks; model quality is not measured there, and the offline Coach reuses two pre-written rule sentences.
++- Offline, the Fine Print Court is a plain screen, not a judgement: it catches stated fees and membership requirements, not everything.
+ - Benefit amounts and windows are hand-checked as of 2026-10-23 and can go stale. Poverty-guideline figures were not independently re-verified.
+ - Offers are one hand-checked snapshot; the Scout demo reads only 3 saved, hand-written page excerpts.
+ - No real bank or retailer connections; the Plaid-shaped data is a fixture. The Amazon upload is optional.
+ - "Likely eligible" is a screening, not a determination.
+ - Zetaris data-quality rules were not set up; the Fact-Checker's "no source" rule is the enforced backstop.
+@@ -175,11 +200,11 @@ and purchases are made up. No real personal data and no income in logs.
+ 
+ Everything else (agents, orchestrator, Fact-Checker, court, Coach, Scout, evals, UI, seed data, sample cache) was built in the hackathon window.
+ 
+ ## 13. Sponsor tech
+ 
+-- **Zetaris:** the one door for all data. Agents never talk to Postgres or the recall sites directly; they send SQL to Zetaris (`server/adapters/zetaris.ts`). The key trick: **one query joins a private purchase list with a live government recall feed** (`bundle_pg` x `bundle_live.cpsc_recalls`). Registered objects: `scripts/zetaris/register.ts`. Every query is a trace line.
++- **Zetaris:** the one door for all data. Agents read all their data through Zetaris and never touch Postgres or the recall sites directly (`server/adapters/zetaris.ts`); only the app shell loads a saved family profile and stores feedback, through Drizzle, in live mode. The key trick: **one query joins a private purchase list with a live government recall feed** (`bundle_pg` x `bundle_live.cpsc_recalls`). Registered objects: `scripts/zetaris/register.ts`. Every query is a trace line.
+ - **Meterless H-MEM:** stores rules learned from parent feedback (long-term memory with confidence and an append-only ledger); the Fine Print Court recalls them. `server/adapters/memory.ts`.
+ - **NVIDIA:** NVIDIA-hosted models (supported, not exercised in the saved results) for explanations and court reasoning (`server/adapters/llm.ts`); everything degrades to offline text. No live model run is included in the saved scoreboard or examples.
+-- **Cursor:** the build tool.
++- **Claude Code:** the AI coding assistant this project was built with. Cursor was listed as required in the original rules and later announced as optional; confirmation on HackOS is pending.
+ 
+ Licence: MIT (see `LICENSE`).
+diff --git a/client/src/components/ReceiptCard.tsx b/client/src/components/ReceiptCard.tsx
+index 530bb82..479f894 100644
+--- a/client/src/components/ReceiptCard.tsx
++++ b/client/src/components/ReceiptCard.tsx
+@@ -1,8 +1,11 @@
+ import type { BundleReceipt } from '@shared/bundle';
+ import { daysUntil, fmtUsdShort } from '@/lib/bundle';
+ 
++/** Shown instead of "all clear" when no item was checked (no purchases connected, or the Recall Checker could not run). */
++export const NOT_CHECKED_TEXT = 'Connect your data to safety-check items';
++
+ interface Props {
+   receipt: BundleReceipt;
+   /** Verified recall cards in this feed (0 = all clear). */
+   recallCount: number;
+   today?: string;
+@@ -35,16 +38,23 @@ export default function ReceiptCard({ receipt, recallCount, today }: Props) {
+         <dl className="space-y-2 text-[15px]">
+           <div className="flex items-center justify-between gap-3">
+             <dt className="font-semibold text-ink">{receipt.deadlineCount} {receipt.deadlineCount === 1 ? 'deadline' : 'deadlines'}</dt>
+             <dd className="font-bold text-coral-deep">{nextText ?? 'none coming up'}</dd>
+           </div>
+-          <div className="flex items-center justify-between gap-3">
+-            <dt className="font-semibold text-ink">{receipt.itemsChecked} {receipt.itemsChecked === 1 ? 'item' : 'items'} safety-checked</dt>
+-            <dd className={recallCount > 0 ? 'font-bold text-kind-recall' : 'font-bold text-kind-clawback'}>
+-              {recallCount > 0 ? `${recallCount} ${recallCount === 1 ? 'recall' : 'recalls'}` : 'all clear'}
+-            </dd>
+-          </div>
++          {receipt.itemsChecked === 0 ? (
++            <div className="flex items-center justify-between gap-3">
++              <dt className="font-semibold text-ink">Safety check</dt>
++              <dd data-testid="receipt-safety" className="text-right font-bold text-ink-2">{NOT_CHECKED_TEXT}</dd>
++            </div>
++          ) : (
++            <div className="flex items-center justify-between gap-3">
++              <dt className="font-semibold text-ink">{receipt.itemsChecked} {receipt.itemsChecked === 1 ? 'item' : 'items'} safety-checked</dt>
++              <dd data-testid="receipt-safety" className={recallCount > 0 ? 'font-bold text-kind-recall' : 'font-bold text-kind-clawback'}>
++                {recallCount > 0 ? `${recallCount} ${recallCount === 1 ? 'recall' : 'recalls'}` : 'all clear'}
++              </dd>
++            </div>
++          )}
+         </dl>
+       </div>
+     </section>
+   );
+ }
+diff --git a/client/src/components/__tests__/ReceiptCard.test.tsx b/client/src/components/__tests__/ReceiptCard.test.tsx
+new file mode 100644
+index 0000000..c992187
+--- /dev/null
++++ b/client/src/components/__tests__/ReceiptCard.test.tsx
+@@ -0,0 +1,31 @@
++import React from 'react';
++import { render, screen, cleanup } from '@testing-library/react';
++import type { BundleReceipt } from '@shared/bundle';
++import ReceiptCard, { NOT_CHECKED_TEXT } from '../ReceiptCard';
++
++const receipt = (over: Partial<BundleReceipt> = {}): BundleReceipt => ({
++  moneyBackCents: 0, likelyBenefitsCents: 0, deadlineCount: 0, nextDeadline: null, itemsChecked: 0, ...over,
++});
++
++afterEach(cleanup);
++
++describe('ReceiptCard safety line (I5)', () => {
++  it('never says "all clear" when nothing was checked', () => {
++    const { container } = render(<ReceiptCard receipt={receipt({ itemsChecked: 0 })} recallCount={0} />);
++    expect(screen.getByTestId('receipt-safety').textContent).toBe(NOT_CHECKED_TEXT);
++    expect(NOT_CHECKED_TEXT).toBe('Connect your data to safety-check items');
++    expect(container.textContent).not.toMatch(/all clear/i);
++    expect(container.textContent).not.toMatch(/0 items safety-checked/);
++  });
++
++  it('says "all clear" only when items were checked and no recall was found', () => {
++    render(<ReceiptCard receipt={receipt({ itemsChecked: 9 })} recallCount={0} />);
++    expect(screen.getByTestId('receipt-safety').textContent).toBe('all clear');
++    expect(screen.getByText('9 items safety-checked')).toBeTruthy();
++  });
++
++  it('shows the recall count when a recall was found', () => {
++    render(<ReceiptCard receipt={receipt({ itemsChecked: 9 })} recallCount={1} />);
++    expect(screen.getByTestId('receipt-safety').textContent).toBe('1 recall');
++  });
++});
+diff --git a/client/src/lib/__tests__/bundle.test.tsx b/client/src/lib/__tests__/bundle.test.tsx
+index 0744a87..2279d1b 100644
+--- a/client/src/lib/__tests__/bundle.test.tsx
++++ b/client/src/lib/__tests__/bundle.test.tsx
+@@ -1,7 +1,7 @@
+ import type { FeedCard } from '@shared/bundle';
+-import { groupCards, traceForCard, familyChip, fmtUsdShort, type TraceLine } from '../bundle';
++import { groupCards, amountCaption, UNCHECKED_DEALS_SECTION, traceForCard, familyChip, fmtUsdShort, type TraceLine } from '../bundle';
+ 
+ const c = (id: string, kind: FeedCard['kind'], traceId = ''): FeedCard => ({
+   id, kind, title: id, body: '', amountCents: null, deadline: null, verdict: 'verified', sources: [], traceId,
+ });
+ const line = (trace_id: string, agent_name: string, action: string, input_summary: string): TraceLine => ({
+@@ -18,10 +18,35 @@ describe('groupCards', () => {
+     expect(groups[2].cards.map((x) => x.id)).toEqual(['benefit-trump_account']);
+     expect(groups[4].cards.map((x) => x.title)).toEqual(['coming-soon-prefilled', 'Connect your bank (Plaid)']);
+   });
+ });
+ 
++describe('I2: deals the court has not checked', () => {
++  const info = (id: string, kind: FeedCard['kind']): FeedCard => ({ ...c(id, kind), verdict: 'info', amountCents: 3500 });
++
++  it('puts "Not yet verified" discounts in their own group, after the checked deals', () => {
++    const { groups } = groupCards([info('fallback-offer-1', 'discount'), c('discount-1', 'discount')]);
++    const discounts = groups.filter((g) => g.kind === 'discount');
++    expect(discounts.map((g) => g.unchecked ?? false)).toEqual([false, true]);
++    expect(discounts[0].cards.map((x) => x.id)).toEqual(['discount-1']);
++    expect(discounts[1].cards.map((x) => x.id)).toEqual(['fallback-offer-1']);
++    expect(UNCHECKED_DEALS_SECTION).not.toMatch(/passed/i);
++  });
++
++  it('with only stand-in deals there is no "passed Fine Print Court" group at all', () => {
++    const { groups } = groupCards([info('fallback-offer-1', 'discount'), info('fallback-offer-2', 'discount')]);
++    expect(groups.filter((g) => g.kind === 'discount').every((g) => g.unchecked)).toBe(true);
++  });
++
++  it('M4: an unverified insurance stand-in is not pinned, and "info" cards are captioned "not yet verified"', () => {
++    const filler = info('fallback-benefit-insurance_add_baby', 'benefit');
++    expect(groupCards([filler]).pinned).toBeNull();
++    expect(groupCards([c('benefit-insurance_add_baby', 'benefit')]).pinned?.id).toBe('benefit-insurance_add_baby');
++    expect(amountCaption(filler)).toBe('not yet verified');
++  });
++});
++
+ describe('traceForCard', () => {
+   it('keeps the card line, its explanation, court arguments and fact-checks only', () => {
+     const lines = [
+       line('a', 'judge', 'rule', 'offer 673'),
+       line('b', 'fine_print_lawyer', 'argue', 'offer 674'),
+diff --git a/client/src/lib/bundle.ts b/client/src/lib/bundle.ts
+index a3853d5..42a6acd 100644
+--- a/client/src/lib/bundle.ts
++++ b/client/src/lib/bundle.ts
+@@ -113,15 +113,17 @@ export const VERDICT_LABEL: Record<Verdict, string> = {
+ 
+ /** Only http(s) links are rendered, so a bad source URL (e.g. "javascript:") can never become a clickable link. */
+ export const safeSources = (sources: Source[]): Source[] => sources.filter((s) => /^https?:\/\//i.test(s.url));
+ 
+ export const isDcfsa = (c: FeedCard) => c.id.startsWith('clawback-dcfsa');
+-export const isInsurance = (c: FeedCard) => c.kind === 'benefit' && /insurance/i.test(c.id);
++/** The insurance card is pinned first only when it was actually checked; a "Not yet verified" stand-in is not promoted. */
++export const isInsurance = (c: FeedCard) => c.kind === 'benefit' && /insurance/i.test(c.id) && c.verdict !== 'info';
+ 
+ /** The small word under a card amount. DCFSA is the family's own pre-tax money, so it is "eligible spend", never "money back". */
+ export function amountCaption(c: FeedCard): string | null {
+   if (c.amountCents === null) return null;
++  if (c.verdict === 'info') return 'not yet verified';
+   if (isDcfsa(c)) return 'eligible spend';
+   if (c.kind === 'clawback') return 'money back';
+   if (c.kind === 'benefit') return 'likely benefit';
+   if (c.kind === 'discount') return 'savings';
+   return null;
+@@ -134,16 +136,35 @@ export const PLAID_TILE: FeedCard = {
+   id: 'coming-soon-plaid', kind: 'coming_soon', title: 'Connect your bank (Plaid)',
+   body: 'Coming soon: link a card once and Bundle checks every new purchase for you.',
+   amountCents: null, deadline: null, verdict: 'info', sources: [], traceId: '',
+ };
+ 
+-/** Pinned insurance card first, then groups in the fixed order clawback, recall, benefit, discount, coming_soon. */
+-export function groupCards(cards: FeedCard[]): { pinned: FeedCard | null; groups: { kind: CardKind; cards: FeedCard[] }[] } {
++/** Section title for deals that never went through Fine Print Court (bundled stand-ins shown when the court could not run). */
++export const UNCHECKED_DEALS_SECTION = 'Offers not yet checked by Fine Print Court';
++
++export interface CardGroup { kind: CardKind; cards: FeedCard[]; /** true = offers the court has not checked */ unchecked?: boolean }
++
++/**
++ * Pinned insurance card first, then groups in the fixed order clawback, recall, benefit, discount, coming_soon.
++ * Discounts the court did not check (verdict "info") get their own group and title, never "passed Fine Print Court".
++ */
++export function groupCards(cards: FeedCard[]): { pinned: FeedCard | null; groups: CardGroup[] } {
+   const pinned = cards.find(isInsurance) ?? null;
+   const rest = cards.filter((c) => c !== pinned);
+   if (!rest.some((c) => c.id === PLAID_TILE.id)) rest.push(PLAID_TILE);
+-  const groups = ORDER.map((kind) => ({ kind, cards: rest.filter((c) => c.kind === kind) })).filter((g) => g.cards.length > 0);
++  const groups: CardGroup[] = [];
++  for (const kind of ORDER) {
++    if (kind === 'discount') {
++      const checked = rest.filter((c) => c.kind === 'discount' && c.verdict !== 'info');
++      const unchecked = rest.filter((c) => c.kind === 'discount' && c.verdict === 'info');
++      if (checked.length) groups.push({ kind, cards: checked });
++      if (unchecked.length) groups.push({ kind, cards: unchecked, unchecked: true });
++    } else {
++      const inKind = rest.filter((c) => c.kind === kind);
++      if (inKind.length) groups.push({ kind, cards: inKind });
++    }
++  }
+   return { pinned, groups };
+ }
+ 
+ // ---------- trace ----------
+ 
+diff --git a/client/src/pages/Feed.tsx b/client/src/pages/Feed.tsx
+index 67b15f3..227ccd6 100644
+--- a/client/src/pages/Feed.tsx
++++ b/client/src/pages/Feed.tsx
+@@ -1,11 +1,11 @@
+ import { useEffect, useMemo, useRef, useState } from 'react';
+ import { Link, useParams } from 'wouter';
+ import AppShell from '@/components/AppShell';
+ import ReceiptCard from '@/components/ReceiptCard';
+ import FeedCardView from '@/components/FeedCardView';
+-import { KIND_META, api, demoDateLabel, describeLine, familyChip, groupCards, loadRun, saveRun, type SavedRun, type TraceLine } from '@/lib/bundle';
++import { KIND_META, UNCHECKED_DEALS_SECTION, api, demoDateLabel, describeLine, familyChip, groupCards, loadRun, saveRun, type SavedRun, type TraceLine } from '@/lib/bundle';
+ import { pollRun } from '@/lib/poll';
+ import { cn } from '@/lib/utils';
+ 
+ const POLL_MS = 1000;
+ 
+@@ -164,12 +164,12 @@ export default function Feed() {
+           <FeedCardView card={grouped.pinned} pinned today={today} detailHref={href(grouped.pinned.id)} />
+         </section>
+       )}
+ 
+       {grouped.groups.map((g) => (
+-        <section key={g.kind} className="mt-7" aria-labelledby={`sec-${g.kind}`}>
+-          <h2 id={`sec-${g.kind}`} className="eyebrow text-ink-2">{KIND_META[g.kind].section}</h2>
++        <section key={g.unchecked ? `${g.kind}-unchecked` : g.kind} className="mt-7" aria-labelledby={`sec-${g.kind}${g.unchecked ? '-unchecked' : ''}`}>
++          <h2 id={`sec-${g.kind}${g.unchecked ? '-unchecked' : ''}`} className="eyebrow text-ink-2">{g.unchecked ? UNCHECKED_DEALS_SECTION : KIND_META[g.kind].section}</h2>
+           <div className={cn('mt-2', g.kind === 'coming_soon' ? 'grid gap-2' : 'space-y-3')}>
+             {g.cards.map((c) => (
+               <FeedCardView key={c.id} card={c} today={today} detailHref={href(c.id)} />
+             ))}
+           </div>
+diff --git a/client/src/pages/Onboarding.tsx b/client/src/pages/Onboarding.tsx
+index 99e8296..feecbdd 100644
+--- a/client/src/pages/Onboarding.tsx
++++ b/client/src/pages/Onboarding.tsx
+@@ -1,17 +1,19 @@
+ import { useState, type FormEvent } from 'react';
+ import { useLocation } from 'wouter';
+ import AppShell from '@/components/AppShell';
+ import { api, localToday, type RunRequest } from '@/lib/bundle';
++import { dateLimits, dateRangeError } from '@shared/dateRange';
+ 
+ const field = 'block rounded-2xl border border-line bg-paper px-4 pb-3 pt-2.5 focus-within:border-coral focus-within:ring-2 focus-within:ring-coral/25';
+ const label = 'eyebrow block text-ink-2';
+ const input = 'mt-1 block w-full bg-transparent text-[18px] font-semibold text-ink outline-none placeholder:font-medium placeholder:text-ink-2';
+ 
+ export default function Onboarding() {
+   const [, navigate] = useLocation();
+   const [date, setDate] = useState('');
++  const limits = dateLimits(localToday());
+   const [zip, setZip] = useState('');
+   const [employer, setEmployer] = useState('');
+   const [busy, setBusy] = useState<'form' | 'guest' | null>(null);
+   const [error, setError] = useState<string | null>(null);
+   const [soon, setSoon] = useState<string | null>(null);
+@@ -31,11 +33,14 @@ export default function Onboarding() {
+   function onSubmit(e: FormEvent) {
+     e.preventDefault();
+     if (!date) return setError('Enter your due date or your baby’s birth date.');
+     if (!/^\d{5}$/.test(zip)) return setError('Enter a valid US ZIP code');
+     // A date on or before today is a birth date; a future date is a due date.
+-    const dates = date <= localToday() ? { birthDate: date } : { dueDate: date };
++    const isBirth = date <= localToday();
++    const rangeError = dateRangeError(isBirth ? 'birth' : 'due', date, localToday());
++    if (rangeError) return setError(rangeError);
++    const dates = isBirth ? { birthDate: date } : { dueDate: date };
+     void start({ zip, employer: employer.trim(), ...dates }, 'form');
+   }
+ 
+   const comingSoon = (what: string) =>
+     setSoon(`${what} is coming soon. Tap “Try as guest” to see a sample family whose card and Amazon orders are already connected.`);
+@@ -48,13 +53,13 @@ export default function Onboarding() {
+       <p className="mt-2 text-[16px] text-ink-2">Three answers. About 30 seconds. No sign‑up.</p>
+ 
+       <form className="mt-6 space-y-3" onSubmit={onSubmit} noValidate>
+         <label className={field}>
+           <span className={label}>Due date or birth date</span>
+-          <input className={input} type="date" value={date} onChange={(e) => setDate(e.target.value)} aria-describedby="date-help" />
++          <input className={input} type="date" value={date} min={limits.birthMin} max={limits.dueMax} onChange={(e) => setDate(e.target.value)} aria-describedby="date-help" />
+         </label>
+-        <p id="date-help" className="sr-only">A past date counts as a birth date, a future date as a due date.</p>
++        <p id="date-help" className="sr-only">A past date (within 2 years) counts as a birth date, a future date (within 10 months) as a due date.</p>
+         <label className={field}>
+           <span className={label}>ZIP code</span>
+           <input
+             className={input} inputMode="numeric" autoComplete="postal-code" maxLength={5} placeholder="02139"
+             value={zip} onChange={(e) => setZip(e.target.value.replace(/\D/g, '').slice(0, 5))}
+diff --git a/data/README.md b/data/README.md
+index 66c6c6c..3792332 100644
+--- a/data/README.md
++++ b/data/README.md
+@@ -10,11 +10,11 @@ and store policies are real public facts, entered or fetched by hand and kept sm
+ | Families (maya, leo, ava), bank-style transactions, Amazon orders | Made up. Income figures are invented and never appear in logs. |
+ | Recalls (CPSC, FDA) | Real, from the government feeds below. |
+ | Benefit rules, FSA categories, store return/price policies, offers | Real public programmes and policies, summarised by hand with a source link each. |
+ | One offer ("Free newborn diaper box", Cuddle & Co) | **Made up on purpose** as a trap: it quietly turns into a paid membership. Its URL is a placeholder. |
+ | Saved Scout pages in `data/sample/saved-pages/` | **Hand-written short excerpts** (not copies) of public pages, with the source URL in each file and the capture date 2026-10-23. The live sites blocked automated download. |
+-| Zetaris replay cache in `data/sample/zetaris-cache/` | **Saved real Zetaris responses** (113 files) over the made-up family data and the real recall feeds. Captured 2026-10-23 between about 10:18 and 14:18 (US Eastern) by running the agents live. The capture times are the files' modification times (the files carry no timestamp inside). |
++| Zetaris replay cache in `data/sample/zetaris-cache/` | **Saved real Zetaris responses** (126 files) over the made-up family data and the real recall feeds. Captured 2026-10-23 between about 10:18 and 14:18 (US Eastern) by running the agents live. The capture times are the files' modification times (the files carry no timestamp inside). |
+ 
+ ## Sources
+ 
+ | Source | Link | Licence / terms | What we used | Records | Rebuild | Limits |
+ |---|---|---|---|---|---|---|
+@@ -41,13 +41,18 @@ They therefore run at that **demo date** unless the `TODAY` setting overrides it
+ A family you type in uses the real date.
+ 
+ ## Why a cache, and what it means for SAMPLE_MODE
+ 
+ Zetaris answers are saved by the exact SQL text. With `SAMPLE_MODE=true` and no Zetaris keys, the three sample
+-families replay these saved real responses, so a judge can run everything with no keys. A new family you type in
+-asks different SQL, misses the cache, and the app shows its "some sources didn't respond" banner with a safe,
+-never-empty feed (see `output_examples/custom-family.json`). With real keys the same code queries Zetaris live.
++families replay these saved real responses, so a judge can run everything with no keys. A family you type in is never
++saved, so it has no purchases and the Clawback and Recall agents skip their lookups; Benefits and the Fine Print Court
++use only shared data (benefit rules, the offers table), whose answers are in the cache (captured for a spread of baby
++ages), so it gets checked benefit and offer cards with no banner (see `output_examples/custom-family.json`). A query
++that was never saved still fails safely (banner, "Not yet verified" stand-ins). With real keys the same code queries
++Zetaris live. The offers table was re-seeded during the build, so the cache holds offers under two sets of ids; both are
++real answers from the days they were captured.
+ 
+ ## Re-capturing the cache
+ 
+ With Zetaris keys in `.env`: `npx tsx scripts/run-family.ts maya` (and `leo`, `ava`). Every live query is written to
+-`data/sample/zetaris-cache/`.
++`data/sample/zetaris-cache/`. To also cover typed-in families, run a few made-up families of different baby ages live
++(the offers lookup is the same for everyone, the per-offer fact-check lookup depends on which offers fall in the age window).
+diff --git a/metadata.json b/metadata.json
+index 7c42f25..adaf623 100644
+--- a/metadata.json
++++ b/metadata.json
+@@ -21,11 +21,11 @@
+   },
+   "sponsor_tech": {
+     "zetaris": "One SQL layer over a private Postgres database (bundle_pg) and live public recall feeds (bundle_live.cpsc_recalls, fda_food_recalls). Every agent reads through it. server/adapters/zetaris.ts, scripts/zetaris/",
+     "meterless": "H-MEM reference memory (vendored, Apache-2.0) stores the rules Bundle learns from parent feedback; the Fine Print Court recalls them. server/adapters/memory.ts, vendor/hmem/",
+     "nvidia": "NVIDIA-hosted models (supported, not exercised in the saved results) through an OpenAI-compatible endpoint (MODEL_BASE_URL) write short explanations and judge offers. Without a key, offline fallbacks run. server/adapters/llm.ts",
+-    "cursor": "Built in Cursor."
++    "built_with": "Built with Claude Code. (Cursor was listed as required in the original rules; the organizers announced it optional; confirmation on HackOS is pending.)"
+   },
+   "pre_existing_components": [
+     "VibeCode starter template by Colin Matthews (MIT), upstream commit 6af369a, imported in commit b2bc3be",
+     "Meterless H-MEM reference implementation (Apache-2.0), vendored in vendor/hmem",
+     "Zetaris getting-started patterns (zetaris-getting-started repo)",
+diff --git a/scripts/eval.ts b/scripts/eval.ts
+index 308aba5..c9eadd5 100644
+--- a/scripts/eval.ts
++++ b/scripts/eval.ts
+@@ -16,10 +16,11 @@ import type { BundleResult, Family } from '../shared/bundle';
+ import { loadEnv } from '../server/env';
+ import { ZetarisClient } from '../server/adapters/zetaris';
+ import { createGenerator, FakeGenerator, UnavailableGenerator, type Generator } from '../server/adapters/llm';
+ import { BundleMemory } from '../server/adapters/memory';
+ import { runBundle } from '../server/agents/orchestrator';
++import { TraceLogger } from '../server/agents/trace';
+ import { proposeRules, type FeedbackRow } from '../server/agents/coach';
+ import { MemoryStore, type BundleStore } from '../server/bundleStore';
+ import { resolveToday } from '../server/demoDate';
+ import { scout, type ScoutResult } from './scout';
+ 
+@@ -111,13 +112,16 @@ export async function runLearning(o: { z: ZetarisClient; llm: Generator; memory:
+   const saved = await o.store.saveProposals(proposed);
+   // saveProposals skips text it already has (a re-run): reuse that proposal instead of losing it.
+   const all = await o.store.listProposals();
+   const mine = proposed.map((p) => saved.find((s) => s.text === p.text) ?? all.find((s) => s.text.trim().toLowerCase() === p.text.trim().toLowerCase())).filter((x): x is NonNullable<typeof x> => !!x);
+   // The eval plays the reviewer: same two steps as POST /api/case-law/:id/approve (store the rule in memory, mark it approved).
++  // The approval gets its own small trace (memory add_rule), saved between run 1 and run 2, so the memory write is visible too.
++  const approveId = `approve-${r1.runId}`;
++  const approveTrace = new TraceLogger(approveId, o.logsDir);
+   const memoryIds: string[] = [];
+   for (const p of mine) {
+-    const memoryId = o.memory.addRule(p.text, `case_law:${p.id}`, p.confidence, p.sourceFeedbackIds);
++    const memoryId = o.memory.withTrace(approveTrace).addRule(p.text, `case_law:${p.id}`, p.confidence, p.sourceFeedbackIds);
+     await o.store.markApproved(p.id, memoryId);
+     memoryIds.push(memoryId);
+   }
+ 
+   const r2 = await run('maya');
+@@ -127,10 +131,11 @@ export async function runLearning(o: { z: ZetarisClient; llm: Generator; memory:
+   const citedRuleId = citing ? memoryIds.find((id) => citing.output_summary.includes(id)) ?? null : null;
+ 
+   if (o.copyTracesTo) {
+     fs.mkdirSync(o.copyTracesTo, { recursive: true });
+     fs.copyFileSync(readTrace(o.logsDir, r1.runId).file, path.join(o.copyTracesTo, 'run1.jsonl'));
++    if (memoryIds.length) fs.copyFileSync(readTrace(o.logsDir, approveId).file, path.join(o.copyTracesTo, 'approve.jsonl'));
+     fs.copyFileSync(t2.file, path.join(o.copyTracesTo, 'run2.jsonl'));
+   }
+   return {
+     r1, r2,
+     learning: { run1Approved: !!trap1, run2Blocked: !!trap1 && !trap2 && citedRuleId !== null, citedRuleId },
+diff --git a/server/__tests__/benefits.test.ts b/server/__tests__/benefits.test.ts
+index 1d4e476..fa4a40e 100644
+--- a/server/__tests__/benefits.test.ts
++++ b/server/__tests__/benefits.test.ts
+@@ -156,10 +156,21 @@ describe('benefits planner', () => {
+     const c = byRef(await planBenefits(ctxWith(maya).ctx, TODAY));
+     expect(c.INSURANCE_ADD_BABY.body).toContain('2026-11-02');
+     expect(c.INSURANCE_ADD_BABY.body).toMatch(/likely/);
+   });
+ 
++  it('I4: a typed-in family skips the planner-view lookup and still gets benefit cards from the rules table', async () => {
++    const guest = { ...maya, id: 'guest-ab12cd34', dataConnected: false, annualIncomeCents: null };
++    const { ctx, runQuery } = ctxWith(guest);
++    const cards = await planBenefits(ctx, TODAY);
++    expect(runQuery.mock.calls.some(([sql]) => String(sql).includes('v_planner_family'))).toBe(false);
++    expect(runQuery.mock.calls.some(([sql]) => String(sql).includes('poverty_guidelines'))).toBe(false);
++    const refs = cards.map((c) => c.claim.ref);
++    expect(refs).toEqual(expect.arrayContaining(['TRUMP_ACCOUNT', 'FEDERAL_CHILD_TAX_CREDIT', 'INSURANCE_ADD_BABY']));
++    expect(refs).not.toContain('WIC_SCREEN');
++  });
++
+   it('refuses an unsafe family id without querying', async () => {
+     const { ctx, runQuery } = ctxWith({ ...maya, id: "x'; DROP" });
+     expect(await planBenefits(ctx, TODAY)).toEqual([]);
+     expect(runQuery).not.toHaveBeenCalled();
+   });
+diff --git a/server/__tests__/bundleRoutes.test.ts b/server/__tests__/bundleRoutes.test.ts
+index 353bd40..10e80fb 100644
+--- a/server/__tests__/bundleRoutes.test.ts
++++ b/server/__tests__/bundleRoutes.test.ts
+@@ -39,10 +39,11 @@ function build(over: Partial<ApiDeps> = {}) {
+   const deps: ApiDeps = {
+     makeRunDeps: () => ({ z: { runQuery: jest.fn(async () => ({ headers: [], rows: [], ms: 1 })) } as any, llm, memory, logsDir, today: '2026-10-23' }),
+     loadSeedFamily: async (id) => mk(id),
+     store, memory, llm,
+     reviewerToken: () => 'sekret',
++    now: () => new Date('2026-10-23T12:00:00Z'),
+     ...over,
+   };
+   const app = express();
+   app.use(...bodyParsers());
+   app.use(createBundleRouter(deps));
+@@ -102,10 +103,24 @@ describe('POST /api/run', () => {
+     expect(seen).toMatchObject({ householdSize: 3, annualIncomeCents: null, dcfsaOffered: true, state: 'MA', employer: 'Acme', isGuest: true, userId: null });
+     expect(seen!.id).toMatch(/^guest-/);
+     expect(deps.store).toBeDefined();
+   });
+ 
++  it('M11: birth date must be within the last 2 years, due date within the next 10 months', async () => {
++    const { app } = build();
++    const post = (b: object) => request(app).post('/api/run?wait=true').send({ zip: '02139', employer: 'X', ...b });
++    expect((await post({ birthDate: '2010-05-01' })).status).toBe(400);
++    expect((await post({ birthDate: '2010-05-01' })).body.error).toMatch(/last 2 years/);
++    expect((await post({ birthDate: '2026-12-01' })).status).toBe(400); // a "birth" date in the future
++    expect((await post({ dueDate: '2031-01-01' })).status).toBe(400);
++    expect((await post({ dueDate: '2031-01-01' })).body.error).toMatch(/next 10 months/);
++    expect((await post({ dueDate: '2026-01-01' })).status).toBe(400); // a "due" date long past
++    expect((await post({ birthDate: '2024-11-01' })).status).toBe(200);
++    expect((await post({ birthDate: '2026-10-23' })).status).toBe(200);
++    expect((await post({ dueDate: '2027-08-01' })).status).toBe(200);
++  });
++
+   it('inline family needs a birth or due date; unknown seed id is 400', async () => {
+     const { app } = build();
+     expect((await request(app).post('/api/run').send({ zip: '02139', employer: 'X' })).status).toBe(400);
+     expect((await request(app).post('/api/run').send({ familyId: 'someone-else' })).status).toBe(400);
+   });
+@@ -119,11 +134,11 @@ describe('POST /api/run', () => {
+   });
+ });
+ 
+ describe('abuse limits', () => {
+   it('503 when 5 runs are in flight, and a slot frees when one finishes', async () => {
+-    const { app } = build();
++    const { app } = build({ maxInFlightPerIp: 100 });
+     let release!: () => void;
+     const gate = new Promise<void>((r) => { release = r; });
+     (benefits.planBenefits as jest.Mock).mockImplementation(async () => { await gate; return []; });
+     for (let i = 0; i < 5; i++) expect((await request(app).post('/api/run').send({ familyId: 'leo' })).status).toBe(202);
+     const busy = await request(app).post('/api/run').send({ familyId: 'leo' });
+@@ -131,10 +146,25 @@ describe('abuse limits', () => {
+     release();
+     await new Promise((r) => setTimeout(r, 300));
+     expect((await request(app).post('/api/run').send({ familyId: 'leo' })).status).toBe(202);
+   });
+ 
++  it('I9: one visitor (IP) can have only 2 runs going at once; a slot frees when one finishes', async () => {
++    const { app } = build();
++    let release!: () => void;
++    const gate = new Promise<void>((r) => { release = r; });
++    (benefits.planBenefits as jest.Mock).mockImplementation(async () => { await gate; return []; });
++    expect((await request(app).post('/api/run').send({ familyId: 'leo' })).status).toBe(202);
++    expect((await request(app).post('/api/run').send({ familyId: 'leo' })).status).toBe(202);
++    const third = await request(app).post('/api/run').send({ familyId: 'leo' });
++    expect(third.status).toBe(429);
++    expect(third.body.error).toMatch(/2 runs going/);
++    release();
++    await new Promise((r) => setTimeout(r, 300));
++    expect((await request(app).post('/api/run').send({ familyId: 'leo' })).status).toBe(202);
++  });
++
+   it('bodies over 100kb get 413', async () => {
+     const { app } = build();
+     const res = await request(app).post('/api/feedback').send({ familyId: 'maya', cardId: 'c', kind: 'issue', note: 'x'.repeat(150_000) });
+     expect(res.status).toBe(413);
+   });
+diff --git a/server/__tests__/clawback.test.ts b/server/__tests__/clawback.test.ts
+index 5dd4450..20e3d45 100644
+--- a/server/__tests__/clawback.test.ts
++++ b/server/__tests__/clawback.test.ts
+@@ -146,5 +146,13 @@ describe('clawback hunter', () => {
+     expect(fixed?.retryCount).toBe(1);
+     const gone = ctxWith(maya, { fsa: [], price: [], dcfsa: [] });
+     expect(await revise(stale, 'source not found', gone.ctx)).toBeNull();
+   });
+ });
++
++describe('I4: typed-in family', () => {
++  it('queries nothing (no saved purchases can exist)', async () => {
++    const { ctx, runQuery } = ctxWith({ ...maya, id: 'guest-ab12cd34', dataConnected: false }, {});
++    expect(await findClawbacks(ctx)).toEqual([]);
++    expect(runQuery).not.toHaveBeenCalled();
++  });
++});
+diff --git a/server/__tests__/dateRange.test.ts b/server/__tests__/dateRange.test.ts
+new file mode 100644
+index 0000000..02ef8a9
+--- /dev/null
++++ b/server/__tests__/dateRange.test.ts
+@@ -0,0 +1,22 @@
++import { dateLimits, dateRangeError, BIRTH_ERROR, DUE_ERROR } from '../../shared/dateRange';
++
++const TODAY = '2026-10-23';
++
++describe('dateRange (M11)', () => {
++  it('limits: birth within 2 years back, due within 10 months ahead (a day of slack each side)', () => {
++    expect(dateLimits(TODAY)).toEqual({ birthMin: '2024-10-23', birthMax: '2026-10-24', dueMin: '2026-10-22', dueMax: '2027-08-23' });
++  });
++  it('accepts sensible dates and rejects odd ones with a plain message', () => {
++    expect(dateRangeError('birth', '2026-10-03', TODAY)).toBeNull();
++    expect(dateRangeError('birth', '2010-01-01', TODAY)).toBe(BIRTH_ERROR);
++    expect(dateRangeError('birth', '2026-12-01', TODAY)).toBe(BIRTH_ERROR);
++    expect(dateRangeError('due', '2026-12-07', TODAY)).toBeNull();
++    expect(dateRangeError('due', '2031-01-01', TODAY)).toBe(DUE_ERROR);
++    expect(dateRangeError('due', '2026-01-01', TODAY)).toBe(DUE_ERROR);
++  });
++  it('handles month ends (Mar 31 -> Jan 31)', () => {
++    expect(dateLimits('2026-03-31').dueMax).toBe('2027-01-31');
++    expect(dateLimits('2026-12-31').dueMax).toBe('2027-10-31');
++    expect(dateLimits('2028-02-29').birthMin).toBe('2026-02-28');
++  });
++});
+diff --git a/server/__tests__/env.test.ts b/server/__tests__/env.test.ts
+index 551c1ce..2011797 100644
+--- a/server/__tests__/env.test.ts
++++ b/server/__tests__/env.test.ts
+@@ -1,9 +1,9 @@
+ import fs from 'fs';
+ import os from 'os';
+ import path from 'path';
+-import { loadEnv } from '../env';
++import { trustProxyHops, loadEnv } from '../env';
+ 
+ describe('loadEnv', () => {
+   let dir: string;
+ 
+   beforeEach(() => {
+@@ -44,5 +44,17 @@ describe('loadEnv', () => {
+     fs.writeFileSync(second, 'FOO=second\n');
+     loadEnv([first, second]);
+     expect(process.env.FOO).toBe('first');
+   });
+ });
++
++describe('trustProxyHops (I9)', () => {
++  it('trusts one proxy in production by default, none otherwise', () => {
++    expect(trustProxyHops({ NODE_ENV: 'production' })).toBe(1);
++    expect(trustProxyHops({ NODE_ENV: 'development' })).toBe(0);
++    expect(trustProxyHops({})).toBe(0);
++  });
++  it('TRUST_PROXY overrides in either direction', () => {
++    expect(trustProxyHops({ NODE_ENV: 'production', TRUST_PROXY: '0' })).toBe(0);
++    expect(trustProxyHops({ NODE_ENV: 'development', TRUST_PROXY: '1' })).toBe(1);
++  });
++});
+diff --git a/server/__tests__/eval.test.ts b/server/__tests__/eval.test.ts
+index 749611e..1c3b091 100644
+--- a/server/__tests__/eval.test.ts
++++ b/server/__tests__/eval.test.ts
+@@ -40,10 +40,14 @@ describe('runEval (offline: no model key, replayed Zetaris, fake families)', ()
+     expect(sb.learning.run2Blocked).toBe(true);
+     expect(sb.learning.citedRuleId).toEqual(expect.any(String));
+     expect(sb.learningDetail.ruleText).toMatch(/membership/i);
+     const run2 = fs.readFileSync(path.join(logsDir, `run-${sb.learningDetail.run2Id}.jsonl`), 'utf8');
+     expect(run2).toContain(`[cited ${sb.learning.citedRuleId}]`);
++    const approve = fs.readFileSync(path.join(logsDir, `run-approve-${sb.learningDetail.run1Id}.jsonl`), 'utf8');
++    expect(approve).toContain('"action":"add_rule"');
++    expect(run2).toContain('"action":"recall_rules"');
++    expect(run2).toMatch(/"agent_name":"zetaris"/);
+     const run1 = fs.readFileSync(path.join(logsDir, `run-${sb.learningDetail.run1Id}.jsonl`), 'utf8');
+     expect(run1).not.toContain('[cited ');
+   });
+ 
+   it('demo date comes from the demo-date rule', () => {
+diff --git a/server/__tests__/factChecker.test.ts b/server/__tests__/factChecker.test.ts
+index 2bae640..5497fb4 100644
+--- a/server/__tests__/factChecker.test.ts
++++ b/server/__tests__/factChecker.test.ts
+@@ -45,10 +45,19 @@ describe('fact-checker', () => {
+     expect(out.ok).toBe(false);
+     expect(out.reason).toContain('amount mismatch');
+     expect(out.corrected?.amountCents).toBe(2499);
+   });
+ 
++  it('M10: a source that is not an http(s) link counts as no source', async () => {
++    for (const url of ['', 'javascript:alert(1)', 'not a url']) {
++      const { ctx, runQuery } = ctxWith(() => res([{ value_cents: 2899, max_age_days: 365 }]));
++      const out = await verify(cand({ sources: [{ label: 'x', url }] }), ctx);
++      expect(out).toEqual({ ok: false, reason: 'no source', corrected: null });
++      expect(runQuery).not.toHaveBeenCalled();
++    }
++  });
++
+   it('fails with "no source" when sources is empty, without querying', async () => {
+     const { ctx, runQuery } = ctxWith(() => res([]));
+     const out = await verify(cand({ sources: [] }), ctx);
+     expect(out).toEqual({ ok: false, reason: 'no source', corrected: null });
+     expect(runQuery).not.toHaveBeenCalled();
+diff --git a/server/__tests__/fallback.test.ts b/server/__tests__/fallback.test.ts
+new file mode 100644
+index 0000000..34dd995
+--- /dev/null
++++ b/server/__tests__/fallback.test.ts
+@@ -0,0 +1,26 @@
++import { buildFallbackFillers } from '../agents/fallback';
++import type { Family } from '../../shared/bundle';
++
++const fam: Family = {
++  id: 'guest-ab12cd34', userId: null, isGuest: true, name: 'Guest', birthDate: '2026-10-03', dueDate: null,
++  zip: '02139', state: 'MA', employer: '', householdSize: 3, annualIncomeCents: null, dcfsaOffered: true, dataConnected: false,
++};
++
++describe('bundled stand-ins (I2)', () => {
++  it('every stand-in is "info" and says the court has not checked it', () => {
++    const { approvedGeneralOffers } = buildFallbackFillers(fam, '2026-10-23');
++    expect(approvedGeneralOffers.length).toBeGreaterThanOrEqual(3);
++    for (const o of approvedGeneralOffers) {
++      expect(o.verdict).toBe('info');
++      expect(o.body).toMatch(/Not yet verified/);
++      expect(o.body).toMatch(/Fine Print Court has not checked it/);
++    }
++  });
++
++  it('drops stand-ins whose fine print needs Prime/a membership or has a shipping fee', () => {
++    const titles = buildFallbackFillers(fam, '2026-10-23').approvedGeneralOffers.map((o) => o.title);
++    expect(titles).not.toContain('Free baby registry welcome box');
++    expect(titles).not.toContain('Babylist registry welcome box');
++    expect(titles).toContain('15% registry completion discount');
++  });
++});
+diff --git a/server/__tests__/finePrintCourt.test.ts b/server/__tests__/finePrintCourt.test.ts
+index bc48f8e..fe97db5 100644
+--- a/server/__tests__/finePrintCourt.test.ts
++++ b/server/__tests__/finePrintCourt.test.ts
+@@ -121,10 +121,40 @@ describe('fine print court', () => {
+         expect(await judgeOffers(ctx, IN)).toEqual([]);
+       }
+     });
+   });
+ 
++  it('I4: asks for all offers in one query and applies the baby\'s age in code', async () => {
++    const rows = [offer(1), offer(2, { min_age_days: 100, max_age_days: 365 }), offer(3, { min_age_days: -280, max_age_days: 10 })];
++    const { ctx, runQuery } = setup(rows, new FakeGenerator(['p', 'c', APPROVE]));
++    const out = await judgeOffers(ctx, IN);
++    expect(out.map((c) => c.claim.offerId)).toEqual([1]);
++    expect(runQuery).toHaveBeenCalledTimes(1);
++    expect(runQuery.mock.calls[0][0]).not.toMatch(/WHERE/i);
++  });
++
++  it('I3: an AI approval keeps the full-check wording; an offline approval never claims one', async () => {
++    const online = setup([offer(1)], new FakeGenerator(['p', 'c', APPROVE]));
++    expect((await judgeOffers(online.ctx, IN))[0].body).toContain('Our fine-print check found nothing that makes it costly');
++    const offline = setup([offer(1)], new UnavailableGenerator('no key'));
++    const body = (await judgeOffers(offline.ctx, IN))[0].body;
++    expect(body).toContain('Offline screen: no flagged terms found. Not reviewed by the AI court.');
++    expect(body).not.toMatch(/found nothing that makes it costly|Likely a good deal/);
++    expect(offline.trace.lines().find((l) => l.agent_name === 'judge')!.output_summary).toContain('Offline screen: no flagged terms found. Not reviewed by the AI court.');
++  });
++
++  it('I3: the offline screen rejects offers that need a paid membership, but not the auto-renew trap (only case law catches that)', async () => {
++    for (const fp of ['Requires Prime and a registry with at least one item; limited to one per household.', 'Costco membership required.', 'Box ships after you add 10 items; shipping fee may apply.']) {
++      const { ctx } = setup([offer(1, { fine_print: fp })], new UnavailableGenerator('no key'));
++      expect(await judgeOffers(ctx, IN)).toEqual([]);
++    }
++    for (const fp of ['Autoship must remain active for 2 deliveries.', 'First bundle only; subscription is optional and can be skipped.', TRAP_PRINT]) {
++      const { ctx } = setup([offer(1, { fine_print: fp })], new UnavailableGenerator('no key'));
++      expect(await judgeOffers(ctx, IN)).toHaveLength(1);
++    }
++  });
++
+   it('matches trigger keywords as whole words only', async () => {
+     const rows = [offer(1, { trigger_keyword: 'diaper' }), offer(2, { trigger_keyword: 'car seat' })];
+     const run = async (kw: string) => {
+       const { ctx } = setup(rows, new FakeGenerator(['p', 'c', APPROVE]));
+       return (await judgeOffers(ctx, { ...IN, includeGeneral: false, purchaseKeywords: [kw] })).map((c) => c.claim.offerId);
+diff --git a/server/__tests__/orchestrator.test.ts b/server/__tests__/orchestrator.test.ts
+index b6e9bbb..c846d8a 100644
+--- a/server/__tests__/orchestrator.test.ts
++++ b/server/__tests__/orchestrator.test.ts
+@@ -69,11 +69,11 @@ describe('assembleFeed', () => {
+       disc(1), disc(2), disc(3),
+       ben('tax', { amountCents: 220000 }),
+       ben('x', { amountCents: 50, deadline: '2026-10-10' }),
+       cand('benefit-insurance_add_baby', 'benefit', 'benefits', { deadline: '2026-11-02' }),
+       cand('benefit-pfml', 'benefit', 'benefits', { deadline: '2027-10-03' }),
+-      cand('clawback-1', 'clawback', 'clawback', { amountCents: 5000 }),
++      cand('clawback-1', 'clawback', 'clawback', { amountCents: 5000, claim: { type: 'fsa_reimbursement', txId: 't1', txAmountCents: 5000 } }),
+       cand('clawback-2', 'clawback', 'clawback', { amountCents: 700, verdict: 'blocked' }),
+     ];
+     const { cards, receipt } = assembleFeed(verified, maya, 12, fillers(), TODAY);
+     expect(cards[0].id).toBe('benefit-insurance_add_baby');
+     const kinds = cards.map((c) => c.kind);
+@@ -84,10 +84,28 @@ describe('assembleFeed', () => {
+       moneyBackCents: 5000, likelyBenefitsCents: 220000 + 50,
+       deadlineCount: 2, nextDeadline: '2026-11-02', itemsChecked: 12,
+     });
+   });
+ 
++  it('I1: deadline count and next deadline ignore unverified stand-ins (same filter as the totals)', () => {
++    const insuranceFiller = cand('fallback-benefit-insurance_add_baby', 'benefit', 'fallback', { verdict: 'info', deadline: '2026-11-02' });
++    const dcfsaFiller = cand('fallback-benefit-dcfsa_life_event', 'benefit', 'fallback', { verdict: 'info', deadline: '2026-11-05' });
++    const { cards, receipt } = assembleFeed([], maya, 0, { approvedGeneralOffers: [], federalBenefits: [insuranceFiller, dcfsaFiller] }, TODAY);
++    expect(cards.map((c) => c.id)).toEqual(expect.arrayContaining(['fallback-benefit-insurance_add_baby']));
++    expect(receipt.deadlineCount).toBe(0);
++    expect(receipt.nextDeadline).toBeNull();
++    expect(receipt.likelyBenefitsCents).toBe(0);
++  });
++
++  it('M2: only fsa_reimbursement and price_adjustment cards count as money back', () => {
++    const { receipt } = assembleFeed([
++      cand('clawback-x', 'clawback', 'clawback', { amountCents: 1234, claim: { type: 'clawback', txId: 'x', txAmountCents: 1234 } }),
++      cand('clawback-price-y', 'clawback', 'clawback', { amountCents: 2000, claim: { type: 'price_adjustment', txId: 'y', txAmountCents: 9000 } }),
++    ], maya, 3, fillers(), TODAY);
++    expect(receipt.moneyBackCents).toBe(2000);
++  });
++
+   it('does not duplicate a filler already verified', () => {
+     const f = fillers();
+     const { cards } = assembleFeed([f.federalBenefits[0], ben('c'), ben('d')], maya, 1, f, TODAY);
+     expect(cards.filter((c) => c.id === 'benefit-a')).toHaveLength(1);
+   });
+@@ -121,10 +139,28 @@ describe('Receipt honesty (maya-like)', () => {
+     expect(receipt.likelyBenefitsCents).toBe(300);
+   });
+ });
+ 
+ describe('runBundle', () => {
++  it('I1: when the benefits agent fails, the insurance stand-in does not reach the Receipt deadlines', async () => {
++    const { deps } = setup();
++    (benefits.planBenefits as jest.Mock).mockRejectedValue(new Error('boom'));
++    const r = await runBundle('maya', deps);
++    expect(r.cards.some((c) => c.id.startsWith('fallback-benefit-'))).toBe(true);
++    expect(r.receipt.deadlineCount).toBe(0);
++    expect(r.receipt.nextDeadline).toBeNull();
++  });
++
++  it('I4: a typed-in family triggers no purchase lookup (nothing saved to look up)', async () => {
++    const guest: Family = { ...maya, id: 'guest-ab12cd34', isGuest: true, dataConnected: false, annualIncomeCents: null };
++    const { deps } = setup({ family: guest });
++    const r = await runBundle(guest.id, deps);
++    expect(deps.z.runQuery).not.toHaveBeenCalled();
++    expect(r.banner).toBeNull();
++    expect(r.cards.length).toBeGreaterThanOrEqual(9);
++  });
++
+   it('survives ZetarisUnavailable on recalls: banner set, minimums met', async () => {
+     const { deps } = setup();
+     (recall.checkRecalls as jest.Mock).mockRejectedValue(new ZetarisUnavailable('down'));
+     const r = await runBundle('maya', deps);
+     expect(r.banner).toBe("Some sources didn't respond: showing what we could check.");
+diff --git a/server/__tests__/recall.test.ts b/server/__tests__/recall.test.ts
+index 525b682..8ca3b71 100644
+--- a/server/__tests__/recall.test.ts
++++ b/server/__tests__/recall.test.ts
+@@ -157,5 +157,13 @@ describe('recall checker', () => {
+     expect(fixed?.retryCount).toBe(1);
+     const gone = ctxWith(maya, ITEMS, [], yes());
+     expect(await revise(first, 'source not found', gone.ctx)).toBeNull();
+   });
+ });
++
++describe('I4: typed-in family', () => {
++  it('queries nothing and reports 0 items checked', async () => {
++    const { ctx, runQuery } = ctxWith({ ...maya, id: 'guest-ab12cd34', dataConnected: false }, ITEMS, [], yes());
++    expect(await checkRecalls(ctx)).toEqual({ candidates: [], itemsChecked: 0 });
++    expect(runQuery).not.toHaveBeenCalled();
++  });
++});
+diff --git a/server/__tests__/sampleMode.test.ts b/server/__tests__/sampleMode.test.ts
+index 3080e87..c667611 100644
+--- a/server/__tests__/sampleMode.test.ts
++++ b/server/__tests__/sampleMode.test.ts
+@@ -37,5 +37,73 @@ describe('SAMPLE_MODE with no secrets', () => {
+     process.env.SAMPLE_MODE = 'true';
+     const deps = createDefaultApiDeps();
+     expect(await deps.store.zipState('021')).toBe('MA');
+   });
+ });
++
++// The README's "Try the learning loop" steps, end to end, with no keys and no database.
++describe('SAMPLE_MODE learning loop (README steps)', () => {
++  const saved = { ...process.env };
++  afterEach(() => { process.env = { ...saved }; });
++
++  it('maya shows the free-box trap, two reports + a reviewer approval block it, and run 2 cites the learned rule', async () => {
++    for (const k of ['DATABASE_URL', 'ZETARIS_BASE_URL', 'ZETARIS_ORG_ID', 'ZETARIS_API_KEY', 'MODEL_API_KEY']) delete process.env[k];
++    process.env.SAMPLE_MODE = 'true';
++    process.env.REVIEWER_MODE_TOKEN = 'demo';
++    const logsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'learn-'));
++    const { BundleMemory } = await import('../adapters/memory');
++    const memory = new BundleMemory(fs.mkdtempSync(path.join(os.tmpdir(), 'learn-mem-')));
++    const deps = createDefaultApiDeps();
++    const base = deps.makeRunDeps;
++    deps.makeRunDeps = (f) => ({ ...base(f), logsDir, memory });
++    deps.memory = memory;
++    const app = express();
++    app.use(...bodyParsers());
++    app.use(createBundleRouter(deps));
++    const trap = (cards: { title: string; id: string }[]) => cards.find((c) => c.title === 'Free newborn diaper box');
++
++    const run1 = await request(app).post('/api/run?wait=true').send({ familyId: 'maya' });
++    expect(run1.status).toBe(200);
++    const t1 = trap(run1.body.cards);
++    expect(t1).toBeDefined();
++
++    for (const note of ['free box turned into a paid monthly membership', 'the free box turned into a paid monthly membership after the trial']) {
++      const fb = await request(app).post('/api/feedback').send({ familyId: 'maya', cardId: t1!.id, kind: 'issue', note });
++      expect(fb.status).toBe(200);
++    }
++    const law = await request(app).get('/api/case-law');
++    expect(law.body.proposals).toHaveLength(1);
++    const id = law.body.proposals[0].id;
++    expect((await request(app).post(`/api/case-law/${id}/approve`)).status).toBe(403); // no token
++    const ok = await request(app).post(`/api/case-law/${id}/approve`).set('x-reviewer-token', 'demo');
++    expect(ok.status).toBe(200);
++
++    const run2 = await request(app).post('/api/run?wait=true').send({ familyId: 'maya' });
++    expect(trap(run2.body.cards)).toBeUndefined();
++    const file = fs.readdirSync(logsDir).filter((f) => f.startsWith('run-maya')).map((f) => fs.readFileSync(path.join(logsDir, f), 'utf8')).join('\n');
++    expect(file).toMatch(/\[cited mem-/);
++    expect(file).toMatch(/"agent_name":"memory"/);
++  });
++
++  it('a typed-in family gets checked cards from the saved shared data, a real Receipt and no banner (I4)', async () => {
++    for (const k of ['DATABASE_URL', 'ZETARIS_BASE_URL', 'ZETARIS_ORG_ID', 'ZETARIS_API_KEY', 'MODEL_API_KEY']) delete process.env[k];
++    process.env.SAMPLE_MODE = 'true';
++    const logsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'guest-'));
++    const { BundleMemory } = await import('../adapters/memory');
++    const memory = new BundleMemory(fs.mkdtempSync(path.join(os.tmpdir(), 'guest-mem-')));
++    const deps = createDefaultApiDeps();
++    const base = deps.makeRunDeps;
++    deps.makeRunDeps = (f) => ({ ...base(f), logsDir, memory });
++    const app = express();
++    app.use(...bodyParsers());
++    app.use(createBundleRouter(deps));
++    const born = new Date(Date.now() - 20 * 86_400_000).toISOString().slice(0, 10);
++    const res = await request(app).post('/api/run?wait=true').send({ zip: '02139', birthDate: born, employer: 'X' });
++    expect(res.status).toBe(200);
++    expect(res.body.banner).toBeNull();
++    expect(res.body.cards.length).toBeGreaterThanOrEqual(9);
++    expect(res.body.cards.some((c: any) => c.kind === 'benefit' && c.verdict === 'likely')).toBe(true);
++    expect(res.body.cards.some((c: any) => c.kind === 'discount' && c.verdict === 'likely')).toBe(true);
++    expect(res.body.receipt.likelyBenefitsCents).toBeGreaterThan(0);
++    expect(res.body.receipt.itemsChecked).toBe(0);
++  });
++});
+diff --git a/server/__tests__/seed.test.ts b/server/__tests__/seed.test.ts
+index b52a878..02ebf5e 100644
+--- a/server/__tests__/seed.test.ts
++++ b/server/__tests__/seed.test.ts
+@@ -2,11 +2,14 @@
+ // clears and refills Bundle's own tables, so this is safe to repeat.
+ import { loadEnv } from '../env';
+ 
+ loadEnv();
+ 
+-describe('seed()', () => {
++// This is a live-database test. Without DATABASE_URL (a fresh clone, SAMPLE_MODE) it is skipped instead of failing.
++const describeWithDb = process.env.DATABASE_URL ? describe : describe.skip;
++
++describeWithDb('seed()', () => {
+   let db: any;
+   let s: any;
+   let pool: any;
+ 
+   beforeAll(async () => {
+diff --git a/server/agents/benefits.ts b/server/agents/benefits.ts
+index 5567196..ee9e963 100644
+--- a/server/agents/benefits.ts
++++ b/server/agents/benefits.ts
+@@ -1,6 +1,6 @@
+-import { col, quoteId, quoteInt, addDays, today as todayIso, fmtUsd, InvalidId } from './sql';
++import { col, isInlineFamily, quoteId, quoteInt, addDays, today as todayIso, fmtUsd, InvalidId } from './sql';
+ import { explain } from './explain';
+ import type { AgentContext, Candidate } from './types';
+ 
+ const AGENT = 'benefits';
+ 
+@@ -96,22 +96,23 @@ export function ruleFallbackText(code: string, title: string, cents: number | nu
+   return fallbackText(code, title, cents, deadline, unborn);
+ }
+ 
+ /** Work out which benefits a family likely qualifies for. Amounts and deadlines come from the rules table. */
+ export async function planBenefits(ctx: AgentContext, today: string): Promise<Candidate[]> {
+-  let famSql: string;
++  let famSql: string | null = null;
+   try {
+-    famSql = familySql(ctx.family.id);
++    // A typed-in family is never saved, so the planner view can never hold it: skip that query and use the family as typed.
++    famSql = isInlineFamily(ctx.family) ? null : familySql(ctx.family.id);
+   } catch (e) {
+     if (e instanceof InvalidId) {
+       log(ctx, 'plan_benefits', 'family', 'unsafe family id: nothing queried', 'error');
+       return [];
+     }
+     throw e;
+   }
+   const rSql = rulesSql();
+-  const [rules, fam] = await Promise.all([ctx.z.runQuery(rSql), ctx.z.runQuery(famSql)]);
++  const [rules, fam] = await Promise.all([ctx.z.runQuery(rSql), famSql ? ctx.z.runQuery(famSql) : Promise.resolve({ rows: [] as Row[] })]);
+   const f = fam.rows[0];
+   // Income and household size come from the planner view (the only one that carries income); dates and state from the family.
+   const incomeCents = f ? num(f, 'annual_income_cents') : ctx.family.annualIncomeCents;
+   const householdSize = (f ? num(f, 'household_size') : null) ?? ctx.family.householdSize;
+   const dcfsaOffered = f ? ['true', '1', 't'].includes(String(col(f, 'dcfsa_offered')).toLowerCase()) : ctx.family.dcfsaOffered;
+diff --git a/server/agents/clawback.ts b/server/agents/clawback.ts
+index 915550c..4cfee5b 100644
+--- a/server/agents/clawback.ts
++++ b/server/agents/clawback.ts
+@@ -1,6 +1,6 @@
+-import { col, quoteId, quoteDate, InvalidId, addDays, today, fmtUsd, dupKey } from './sql';
++import { col, isInlineFamily, quoteId, quoteDate, InvalidId, addDays, today, fmtUsd, dupKey } from './sql';
+ import { explain } from './explain';
+ import { DCFSA_CAP_CENTS } from './factChecker';
+ import type { AgentContext, Candidate } from './types';
+ 
+ const AGENT = 'clawback';
+@@ -157,10 +157,14 @@ async function daycareCandidates(ctx: AgentContext): Promise<Candidate[]> {
+   }];
+ }
+ 
+ /** Find money a family can get back: FSA reimbursements, store price adjustments, Dependent Care FSA. */
+ export async function findClawbacks(ctx: AgentContext): Promise<Candidate[]> {
++  if (isInlineFamily(ctx.family)) {
++    log(ctx, 'find_clawbacks', 'typed-in family', 'no saved purchases to look up: nothing queried');
++    return [];
++  }
+   try {
+     quoteId(ctx.family.id);
+   } catch (e) {
+     if (e instanceof InvalidId) {
+       log(ctx, 'find_clawbacks', 'family', 'unsafe family id: nothing queried', 'error');
+diff --git a/server/agents/factChecker.ts b/server/agents/factChecker.ts
+index a904c50..f3c630e 100644
+--- a/server/agents/factChecker.ts
++++ b/server/agents/factChecker.ts
+@@ -184,11 +184,11 @@ async function check(c: Candidate, ctx: AgentContext): Promise<VerifyResult> {
+   return fail(`cannot verify: unknown claim type "${type}"`);
+ }
+ 
+ /** Re-read the source row through a different query path than the producing agent used. */
+ export async function verify(c: Candidate, ctx: AgentContext): Promise<VerifyResult> {
+-  if (!c.sources || c.sources.length === 0) {
++  if (!c.sources || !c.sources.some((s) => /^https?:\/\/\S+/i.test(String(s?.url ?? '')))) {
+     return finish(c, ctx, fail('no source'), 'blocked');
+   }
+   try {
+     const res = await check(c, ctx);
+     return finish(c, ctx, res, res.ok ? 'ok' : 'blocked');
+diff --git a/server/agents/fallback.ts b/server/agents/fallback.ts
+index dc8410a..20516a4 100644
+--- a/server/agents/fallback.ts
++++ b/server/agents/fallback.ts
+@@ -2,10 +2,11 @@ import fs from 'fs';
+ import path from 'path';
+ import type { Family } from '../../shared/bundle';
+ import type { Candidate } from './types';
+ import { screenRule, ruleFallbackText } from './benefits';
+ import { addDays, fmtUsd } from './sql';
++import { offlineProblem } from './offerScreen';
+ 
+ export const NOT_VERIFIED = "Not yet verified: some sources didn't respond.";
+ 
+ interface FallbackRule { code: string; title: string; scope: string; amountCents: number | null; windowEndDaysFromBirth: number | null; condition: string; sourceUrl: string }
+ interface FallbackOffer { title: string; store: string; valueCents: number | null; minAgeDays: number; maxAgeDays: number; finePrint: string; sourceUrl: string }
+@@ -40,13 +41,14 @@ export function buildFallbackFillers(family: Family, today: string): { approvedG
+     });
+   }
+   const age = anchor ? Math.round((Date.parse(`${today}T00:00:00Z`) - Date.parse(`${anchor}T00:00:00Z`)) / 86_400_000) : 0;
+   const approvedGeneralOffers: Candidate[] = readJson<FallbackOffer>('fallback-offers.json')
+     .filter((o) => o.minAgeDays <= age && o.maxAgeDays >= age)
++    .filter((o) => offlineProblem(o.finePrint) === null) // never offer a stand-in whose fine print needs a membership or has a big fee
+     .map((o, i) => ({
+       id: `fallback-offer-${i + 1}`, kind: 'discount' as const, title: o.title,
+-      body: `${o.store} has an offer${o.valueCents !== null ? ` worth about ${fmtUsd(o.valueCents)}` : ''}. ${NOT_VERIFIED}`,
++      body: `${o.store} has an offer${o.valueCents !== null ? ` worth about ${fmtUsd(o.valueCents)}` : ''}. ${NOT_VERIFIED} Fine Print Court has not checked it.`,
+       amountCents: o.valueCents, deadline: anchor ? addDays(anchor, o.maxAgeDays) : null, verdict: 'info' as const,
+       sources: [{ label: `${o.store} offer page`, url: o.sourceUrl }], traceId: 'fallback', agent: 'fallback',
+       claim: { type: 'offer', title: o.title }, evidenceSql: '', retryCount: 0,
+     }));
+   return { approvedGeneralOffers, federalBenefits };
+diff --git a/server/agents/finePrintCourt.ts b/server/agents/finePrintCourt.ts
+index cf51fe2..e1b8932 100644
+--- a/server/agents/finePrintCourt.ts
++++ b/server/agents/finePrintCourt.ts
+@@ -1,29 +1,28 @@
+ import { askJson } from '../adapters/llm';
+ import { col, quoteInt, InvalidId, addDays, today, fmtUsd } from './sql';
+ import type { AgentContext, Candidate, CourtRuling } from './types';
++import { offlineProblem } from './offerScreen';
+ 
+ const AGENT = 'fine_print_court';
+ const MAX_OFFERS = 5;
+-/** A shipping or handling fee above this (in dollars) makes a "free" offer not free. */
+-const FEE_LIMIT_DOLLARS = 5;
+ 
+ type Row = Record<string, string | number | null>;
+ const s = (r: Row, k: string) => String(col(r, k) ?? '');
+ 
+ interface Offer {
+   id: number; title: string; store: string; trigger: string; valueCents: number | null;
+-  finePrint: string; sourceUrl: string; maxAgeDays: number;
++  finePrint: string; sourceUrl: string; minAgeDays: number; maxAgeDays: number;
+ }
+ type Rule = { id: string; text: string; confidence: number };
+ 
+ function toOffer(r: Row): Offer {
+   const v = col(r, 'value_cents');
+   return {
+     id: Number(col(r, 'id')), title: s(r, 'title'), store: s(r, 'store'), trigger: s(r, 'trigger_keyword').trim().toLowerCase(),
+     valueCents: v === null || v === undefined ? null : Number(v), finePrint: s(r, 'fine_print'),
+-    sourceUrl: s(r, 'source_url'), maxAgeDays: Number(col(r, 'max_age_days')),
++    sourceUrl: s(r, 'source_url'), minAgeDays: Number(col(r, 'min_age_days')), maxAgeDays: Number(col(r, 'max_age_days')),
+   };
+ }
+ 
+ function log(ctx: AgentContext, agent: string, action: string, input: string, output: string,
+   status: 'ok' | 'retry' | 'blocked' | 'error' | 'fallback' = 'ok', retry = 0): string {
+@@ -49,36 +48,19 @@ function ruleMatches(finePrint: string, rule: Rule): boolean {
+   const rk = keywords(rule.text);
+   const fk = keywords(finePrint);
+   const shared = [...rk].filter((w) => fk.has(w)).length;
+   return shared >= Math.min(2, rk.size) && shared > 0;
+ }
+-const FEE_WORD = '(?:shipping|handling|postage)';
+-const AMOUNT = '\\$\\s?(\\d[\\d,]*(?:\\.\\d+)?)';
+-// "$7.99 shipping" / "$7.99 shipping fee"
+-const FEE_BEFORE = new RegExp(`${AMOUNT}\\s+${FEE_WORD}\\b`, 'gi');
+-// "shipping fee of $7.99" / "shipping and handling: $7.95" / "shipping is $6"
+-const FEE_AFTER = new RegExp(`\\b${FEE_WORD}(?:\\s+(?:and|&)\\s+${FEE_WORD})?(?:\\s+(?:fees?|charges?|costs?))?(?:\\s*:|\\s+(?:of|is|are|costs?|will be))?\\s*${AMOUNT}`, 'gi');
+-const THRESHOLD_WORDS = /(over|above|than|minimum|least|exceed\w*|spend\w*|orders?\s+of)\s*$/i;
+-
+-/** A dollar amount directly attached to shipping/handling/postage and over $5. Thresholds like "free shipping on orders over $50" do not count. */
+-function bigFee(finePrint: string): number | null {
+-  for (const re of [FEE_BEFORE, FEE_AFTER]) {
+-    for (const m of finePrint.matchAll(re)) {
+-      const amountAt = (m.index ?? 0) + m[0].indexOf('$');
+-      if (THRESHOLD_WORDS.test(finePrint.slice(Math.max(0, amountAt - 20), amountAt))) continue;
+-      const n = Number(m[1].replace(/,/g, ''));
+-      if (n > FEE_LIMIT_DOLLARS) return n;
+-    }
+-  }
+-  return null;
+-}
++/** What an offline approval says. It never claims the AI court looked at the offer. */
++export const OFFLINE_APPROVE_TEXT = 'Offline screen: no flagged terms found. Not reviewed by the AI court.';
++
+ function screen(offer: Offer, rules: Rule[]): CourtRuling {
+   const hit = rules.find((r) => ruleMatches(offer.finePrint, r));
+   if (hit) return { verdict: 'reject', citedRuleIds: [hit.id], reason: `Court was offline; case law applies: ${hit.text}` };
+-  const fee = bigFee(offer.finePrint);
+-  if (fee !== null) return { verdict: 'reject', citedRuleIds: [], reason: `Court was offline; the fine print states a $${fee} shipping or handling fee, which is over $${FEE_LIMIT_DOLLARS}` };
+-  return { verdict: 'approve', citedRuleIds: [], reason: 'Court was offline; screened against case law and fees, nothing found' };
++  const problem = offlineProblem(offer.finePrint);
++  if (problem) return { verdict: 'reject', citedRuleIds: [], reason: `Court was offline; ${problem}` };
++  return { verdict: 'approve', citedRuleIds: [], reason: OFFLINE_APPROVE_TEXT };
+ }
+ 
+ function caseLawText(rules: Rule[]): string {
+   return rules.length
+     ? rules.map((r) => `- [${r.id}] (confidence ${r.confidence.toFixed(2)}) ${r.text}`).join('\n')
+@@ -130,17 +112,19 @@ async function judgeOne(ctx: AgentContext, offer: Offer, note: string): Promise<
+   log(ctx, 'judge', usedFallback ? 'rule_by_screen' : 'rule', `offer ${offer.id}`,
+     `${ruling.verdict}: ${ruling.reason}${ruling.citedRuleIds.length ? ` [cited ${ruling.citedRuleIds.join(', ')}]` : ''}`, status);
+   return { ruling, usedFallback };
+ }
+ 
+-function toCandidate(ctx: AgentContext, offer: Offer, ruling: CourtRuling, retry: number, sql: string): Candidate {
++function toCandidate(ctx: AgentContext, offer: Offer, ruling: CourtRuling, retry: number, sql: string, usedFallback: boolean): Candidate {
+   const anchor = ctx.family.birthDate ?? ctx.family.dueDate;
+   const worth = offer.valueCents !== null ? ` worth about ${fmtUsd(offer.valueCents)}` : '';
+   const traceId = ctx.trace.lines().filter((l) => l.agent_name === 'judge' && l.input_summary === `offer ${offer.id}`).pop()?.trace_id ?? '';
+   return {
+     id: `discount-${offer.id}`, kind: 'discount', title: offer.title,
+-    body: `${offer.store} has an offer${worth}. Our fine-print check found nothing that makes it costly. Likely a good deal.`,
++    body: usedFallback
++      ? `${offer.store} has an offer${worth}. ${ruling.reason}`
++      : `${offer.store} has an offer${worth}. Our fine-print check found nothing that makes it costly. Likely a good deal.`,
+     amountCents: offer.valueCents, deadline: anchor ? addDays(anchor, offer.maxAgeDays) : null,
+     verdict: 'likely', sources: [{ label: `${offer.store} offer page`, url: offer.sourceUrl }], traceId,
+     agent: AGENT, claim: { type: 'offer', offerId: offer.id }, evidenceSql: sql, retryCount: retry,
+   };
+ }
+@@ -153,30 +137,31 @@ function wholeWord(needle: string, hay: string): boolean {
+ 
+ const OFFER_COLS = 'id, title, store, min_age_days, max_age_days, trigger_keyword, value_cents, fine_print, source_url';
+ 
+ /**
+  * Offers go to court: Deal Hunter argues for, Fine Print Lawyer against, Judge rules with recalled case law.
+- * Reads bundle_pg.v_judge_offers (offer columns only, no family data).
++ * Reads bundle_pg.v_judge_offers (offer columns only, no family data); the baby's age picks the offers in code.
+  */
+ export async function judgeOffers(
+   ctx: AgentContext,
+   input: { ageDays: number; purchaseKeywords: string[]; includeGeneral: boolean },
+ ): Promise<Candidate[]> {
+-  const age = quoteInt(input.ageDays);
+-  const sql = `SELECT ${OFFER_COLS} FROM bundle_pg.v_judge_offers WHERE min_age_days <= ${age} AND max_age_days >= ${age} ORDER BY id`;
++  quoteInt(input.ageDays); // throws on a non-number
++  // One query for every offer (it holds no family data, so it is the same for everyone and can be saved for replay); the age window is applied here.
++  const sql = `SELECT ${OFFER_COLS} FROM bundle_pg.v_judge_offers ORDER BY id`;
+   const { rows } = await ctx.z.runQuery(sql);
+   const kws = input.purchaseKeywords.map((k) => k.toLowerCase().trim()).filter(Boolean);
+-  const offers = rows.map(toOffer);
++  const offers = rows.map(toOffer).filter((o) => o.minAgeDays <= input.ageDays && o.maxAgeDays >= input.ageDays);
+   const triggered = offers.filter((o) => o.trigger && kws.some((k) => wholeWord(o.trigger, k) || (k.length >= 3 && wholeWord(k, o.trigger))));
+   const general = input.includeGeneral ? offers.filter((o) => !o.trigger) : [];
+   const picked = [...triggered, ...general].slice(0, MAX_OFFERS);
+   log(ctx, AGENT, 'select_offers', `age ${input.ageDays}d, ${kws.length} keyword(s)`, `${picked.length} offer(s) go to court (cap ${MAX_OFFERS})`);
+ 
+   const out: Candidate[] = [];
+   for (const offer of picked) {
+-    const { ruling } = await judgeOne(ctx, offer, '');
+-    if (ruling.verdict === 'approve') out.push(toCandidate(ctx, offer, ruling, 0, sql));
++    const { ruling, usedFallback } = await judgeOne(ctx, offer, '');
++    if (ruling.verdict === 'approve') out.push(toCandidate(ctx, offer, ruling, 0, sql, usedFallback));
+   }
+   return out;
+ }
+ 
+ /** Re-judge one offer after the Fact-Checker sent it back, with the reason added. null = give up. */
+@@ -186,12 +171,12 @@ export async function revise(c: Candidate, reason: string, ctx: AgentContext): P
+     const sql = `SELECT ${OFFER_COLS} FROM bundle_pg.v_judge_offers WHERE id = ${id}`;
+     const { rows } = await ctx.z.runQuery(sql);
+     log(ctx, AGENT, 'revise', `offer ${id}: ${reason}`, 're-judging with the reason', 'retry', c.retryCount + 1);
+     if (!rows.length) return null;
+     const offer = toOffer(rows[0]);
+-    const { ruling } = await judgeOne(ctx, offer, reason);
+-    return ruling.verdict === 'approve' ? toCandidate(ctx, offer, ruling, c.retryCount + 1, sql) : null;
++    const { ruling, usedFallback } = await judgeOne(ctx, offer, reason);
++    return ruling.verdict === 'approve' ? toCandidate(ctx, offer, ruling, c.retryCount + 1, sql, usedFallback) : null;
+   } catch (e) {
+     if (e instanceof InvalidId) return null;
+     throw e;
+   }
+ }
+diff --git a/server/agents/offerScreen.ts b/server/agents/offerScreen.ts
+new file mode 100644
+index 0000000..e3f07e1
+--- /dev/null
++++ b/server/agents/offerScreen.ts
+@@ -0,0 +1,46 @@
++/**
++ * Plain, model-free checks on an offer's fine print. Shared by the Fine Print Court's offline screen and the
++ * list of bundled stand-in offers (so a stand-in never needs a membership or has a big fee).
++ */
++
++/** A shipping or handling fee above this (in dollars) makes a "free" offer not free. */
++export const FEE_LIMIT_DOLLARS = 5;
++
++const FEE_WORD = '(?:shipping|handling|postage)';
++const AMOUNT = '\\$\\s?(\\d[\\d,]*(?:\\.\\d+)?)';
++// "$7.99 shipping" / "$7.99 shipping fee"
++const FEE_BEFORE = new RegExp(`${AMOUNT}\\s+${FEE_WORD}\\b`, 'gi');
++// "shipping fee of $7.99" / "shipping and handling: $7.95" / "shipping is $6"
++const FEE_AFTER = new RegExp(`\\b${FEE_WORD}(?:\\s+(?:and|&)\\s+${FEE_WORD})?(?:\\s+(?:fees?|charges?|costs?))?(?:\\s*:|\\s+(?:of|is|are|costs?|will be))?\\s*${AMOUNT}`, 'gi');
++const THRESHOLD_WORDS = /(over|above|than|minimum|least|exceed\w*|spend\w*|orders?\s+of)\s*$/i;
++
++/** A dollar amount directly attached to shipping/handling/postage and over $5. Thresholds like "free shipping on orders over $50" do not count. */
++function bigFee(finePrint: string): number | null {
++  for (const re of [FEE_BEFORE, FEE_AFTER]) {
++    for (const m of finePrint.matchAll(re)) {
++      const amountAt = (m.index ?? 0) + m[0].indexOf('$');
++      if (THRESHOLD_WORDS.test(finePrint.slice(Math.max(0, amountAt - 20), amountAt))) continue;
++      const n = Number(m[1].replace(/,/g, ''));
++      if (n > FEE_LIMIT_DOLLARS) return n;
++    }
++  }
++  return null;
++}
++/** The fine print says a paid membership or subscription is needed ("Requires Prime", "Costco membership required"). */
++const MEMBERSHIP_NEEDED = /\b(?:requires?|required)\b[^.;]{0,40}\b(?:prime|membership|member|subscription)\b|\b(?:prime|membership|member|subscription)\s+(?:is\s+)?required\b/i;
++
++/** A shipping or handling fee that "may apply" with no amount given. */
++const FEE_MAY_APPLY = /\b(?:shipping|handling|postage)(?:\s+(?:and|&)\s+(?:shipping|handling|postage))?\s+(?:fees?|charges?|costs?)\s+(?:may|will|can)\s+apply\b/i;
++
++/**
++ * Plain checks that need no model: the fine print needs a paid membership, or states a shipping/handling fee (over $5, or of an unstated size).
++ * Returns why the offer is a problem, or null. Also used to keep such offers out of the bundled stand-in list.
++ */
++export function offlineProblem(finePrint: string): string | null {
++  if (MEMBERSHIP_NEEDED.test(finePrint)) return 'the fine print says a paid membership (Prime, membership or subscription) is required';
++  if (FEE_MAY_APPLY.test(finePrint)) return 'the fine print says a shipping or handling fee may apply (no amount given)';
++  const fee = bigFee(finePrint);
++  if (fee !== null) return `the fine print states a $${fee} shipping or handling fee, which is over $${FEE_LIMIT_DOLLARS}`;
++  return null;
++}
++
+diff --git a/server/agents/orchestrator.ts b/server/agents/orchestrator.ts
+index c7c8e84..d7b8200 100644
+--- a/server/agents/orchestrator.ts
++++ b/server/agents/orchestrator.ts
+@@ -12,11 +12,11 @@ import { verify } from './factChecker';
+ import * as clawback from './clawback';
+ import * as recall from './recall';
+ import * as court from './finePrintCourt';
+ import * as benefits from './benefits';
+ import { itemsSql } from './recall';
+-import { col } from './sql';
++import { col, isInlineFamily } from './sql';
+ import { buildFallbackFillers } from './fallback';
+ 
+ export const BANNER = "Some sources didn't respond: showing what we could check.";
+ export const COPY = {
+   clawbackNoData: 'No money to claw back yet. Connect a card or upload Amazon orders.',
+@@ -64,11 +64,11 @@ const infoCard = (id: string, kind: FeedCard['kind'], title: string, body: strin
+   id, kind, title, body, amountCents: null, deadline: null, verdict, sources: [], traceId,
+ });
+ 
+ /**
+  * Turn verified candidates into the feed, enforcing the never-empty minimums.
+- * Fillers are only ever agent output that already passed fact-check (benefit rules, court-approved offers).
++ * Fillers are bundled stand-ins (verdict 'info', "Not yet verified"). They only top up a short feed and never count in the Receipt.
+  * Real recalls are all kept (a safety recall is never hidden); the all-clear card appears only when there are none.
+  */
+ export function assembleFeed(
+   verified: Candidate[],
+   family: Family,
+@@ -112,17 +112,20 @@ export function assembleFeed(
+   // Stable sort: insurance pinned first, then by kind.
+   const rank = (c: FeedCard) => (c.id === INSURANCE_ID ? -1 : KIND_ORDER[c.kind]);
+   const ordered = cards.map((c, i) => ({ c, i })).sort((a, b) => rank(a.c) - rank(b.c) || a.i - b.i).map((x) => x.c);
+ 
+   const counts = (c: FeedCard) => c.verdict === 'verified' || c.verdict === 'likely';
+-  // Receipt honesty: the Dependent Care FSA card is eligible spend, not money back or a benefit payout, so it is in neither total.
++  // Receipt honesty: only checked cards count (never the "Not yet verified" stand-ins). The Dependent Care FSA card is eligible
++  // spend, not money back or a benefit payout, so it is in neither total. Money back is an explicit list of claim types.
++  const MONEY_BACK_TYPES = new Set(['fsa_reimbursement', 'price_adjustment']);
+   const eligibleSpendIds = new Set([...verified, ...fillers.federalBenefits].filter((c) => c.claim.type === 'dcfsa_childcare').map((c) => c.id));
++  const moneyBackIds = new Set(verified.filter((c) => c.kind === 'clawback' && MONEY_BACK_TYPES.has(String(c.claim.type))).map((c) => c.id));
+   const sum = (k: string) => ordered
+-    .filter((c) => c.kind === k && counts(c) && !eligibleSpendIds.has(c.id) && !c.id.startsWith('clawback-dcfsa-'))
++    .filter((c) => c.kind === k && counts(c) && !eligibleSpendIds.has(c.id) && !c.id.startsWith('clawback-dcfsa-') && (k !== 'clawback' || moneyBackIds.has(c.id)))
+     .reduce((a, c) => a + (c.amountCents ?? 0), 0);
+   const deadlines = ordered
+-    .filter((c) => c.kind === 'benefit' && c.deadline && c.deadline >= today)
++    .filter((c) => c.kind === 'benefit' && counts(c) && c.deadline && c.deadline >= today)
+     .map((c) => c.deadline as string).sort();
+   return {
+     cards: ordered,
+     receipt: {
+       moneyBackCents: sum('clawback'), likelyBenefitsCents: sum('benefit'),
+@@ -160,10 +163,11 @@ async function retryTransient<T>(fn: () => Promise<T>, onRetry: (msg: string) =>
+   }
+ }
+ 
+ /** Words and phrases from what the family bought; used by the court to pick trigger offers (e.g. a diaper deal). */
+ async function purchaseKeywords(ctx: AgentContext, onRetry: (msg: string) => void): Promise<string[]> {
++  if (isInlineFamily(ctx.family)) return []; // a typed-in family is never saved, so it has no purchases to look up
+   try {
+     const { rows } = await retryTransient(() => ctx.z.runQuery(itemsSql(ctx.family.id)), onRetry);
+     const items = rows.map((r) => String(col(r, 'item_text') ?? '').toLowerCase().trim()).filter(Boolean);
+     const words = items.flatMap((t) => t.match(/[a-z]{3,}/g) ?? []);
+     return [...new Set([...items.map((t) => t.slice(0, 80)), ...words])].slice(0, 200);
+diff --git a/server/agents/recall.ts b/server/agents/recall.ts
+index 307ba50..47ae4f8 100644
+--- a/server/agents/recall.ts
++++ b/server/agents/recall.ts
+@@ -1,7 +1,7 @@
+ import { askJson } from '../adapters/llm';
+-import { col, quoteId, InvalidId } from './sql';
++import { col, quoteId, InvalidId, isInlineFamily } from './sql';
+ import { explain } from './explain';
+ import type { AgentContext, Candidate } from './types';
+ 
+ const AGENT = 'recall';
+ const MAX_PAIRS = 25; // keeps the model cost and the run time bounded
+@@ -122,10 +122,14 @@ async function toCandidate(ctx: AgentContext, j: Judged): Promise<Candidate> {
+   };
+ }
+ 
+ /** Safety-check what a family bought against live CPSC and FDA recalls. */
+ export async function checkRecalls(ctx: AgentContext): Promise<{ candidates: Candidate[]; itemsChecked: number }> {
++  if (isInlineFamily(ctx.family)) {
++    log(ctx, 'check_recalls', 'typed-in family', 'no saved purchases to check: nothing queried');
++    return { candidates: [], itemsChecked: 0 };
++  }
+   let itemsSqlText: string;
+   let pairs: string;
+   try {
+     itemsSqlText = itemsSql(ctx.family.id);
+     pairs = pairsSql(ctx.family.id);
+diff --git a/server/agents/sql.ts b/server/agents/sql.ts
+index 45c674b..0a64385 100644
+--- a/server/agents/sql.ts
++++ b/server/agents/sql.ts
+@@ -13,10 +13,16 @@ export function quoteId(v: string | number | undefined | null): string {
+   const s = v === undefined || v === null ? '' : String(v);
+   if (!SAFE_ID.test(s)) throw new InvalidId('invalid id');
+   return `'${s}'`;
+ }
+ 
++/**
++ * A family typed into the form (id `guest-…`): it is never saved, so no database row, purchase or card
++ * transaction can exist for it. Agents skip the queries that look those up (they could never return anything).
++ */
++export const isInlineFamily = (f: { id: string; isGuest: boolean }): boolean => f.isGuest && f.id.startsWith('guest-');
++
+ /** Quote an ISO date (YYYY-MM-DD) for SQL, or throw. */
+ export function quoteDate(v: string): string {
+   if (!ISO_DATE.test(String(v)) || Number.isNaN(Date.parse(`${v}T00:00:00Z`))) throw new InvalidId('invalid date');
+   return `'${v}'`;
+ }
+diff --git a/server/env.ts b/server/env.ts
+index f43b4c8..daa4044 100644
+--- a/server/env.ts
++++ b/server/env.ts
+@@ -3,10 +3,12 @@ import path from 'path';
+ import dotenv from 'dotenv';
+ 
+ /** Default places to look for settings, in priority order (first one wins). */
+ export function defaultEnvFiles(cwd: string = process.cwd()): string[] {
+   return [
++    // The author's private settings file, kept outside the repo. A fresh clone does not have it and does not need it
++    // (SAMPLE_MODE runs from .env alone); the other files are skipped when missing.
+     path.resolve(cwd, '../.secrets/bundle.env.local'),
+     path.resolve(cwd, '.env.local'),
+     path.resolve(cwd, '.env'),
+   ];
+ }
+@@ -20,5 +22,15 @@ export function loadEnv(files: string[] = defaultEnvFiles()): void {
+   for (const file of files) {
+     if (!fs.existsSync(file)) continue;
+     dotenv.config({ path: file, override: false });
+   }
+ }
++
++/**
++ * How many proxy hops to trust for the visitor's address: 1 in production (hosts sit behind one proxy),
++ * 0 otherwise. TRUST_PROXY=1 forces it on and TRUST_PROXY=0 forces it off, in any mode.
++ */
++export function trustProxyHops(env: Record<string, string | undefined> = process.env): number {
++  if (env.TRUST_PROXY === '0') return 0;
++  if (env.TRUST_PROXY === '1') return 1;
++  return env.NODE_ENV === 'production' ? 1 : 0;
++}
+diff --git a/server/index.ts b/server/index.ts
+index a8ca1eb..93e8b64 100644
+--- a/server/index.ts
++++ b/server/index.ts
+@@ -1,6 +1,6 @@
+-import { loadEnv } from './env';
++import { loadEnv, trustProxyHops } from './env';
+ loadEnv(); // must run before anything reads process.env
+ 
+ import express, { type Request, Response, NextFunction } from "express";
+ import { randomUUID } from 'crypto';
+ import rateLimit from 'express-rate-limit';
+@@ -13,12 +13,14 @@ import { sanitizeInputs } from './middleware/sanitize';
+ 
+ const app = express();
+ const PORT = parseInt(process.env.PORT || '5050', 10);
+ const isProd = process.env.NODE_ENV === 'production';
+ 
+-// Behind a hosting proxy (Render, Fly, etc.) set TRUST_PROXY=1 so rate limits see the real visitor address.
+-if (process.env.TRUST_PROXY === '1') app.set('trust proxy', 1);
++// Hosts put a proxy in front of the app (Render, Fly, Replit...). Trust it in production so rate limits see each visitor's
++// real address instead of the proxy's. Set TRUST_PROXY=0 to turn that off (e.g. production build run directly on a laptop).
++const proxy = trustProxyHops();
++if (proxy) app.set('trust proxy', proxy);
+ 
+ (async () => {
+   app.use(helmet({
+     contentSecurityPolicy: {
+       directives: {
+diff --git a/server/routes/bundleRoutes.ts b/server/routes/bundleRoutes.ts
+index c56ad93..41ab15c 100644
+--- a/server/routes/bundleRoutes.ts
++++ b/server/routes/bundleRoutes.ts
+@@ -10,10 +10,11 @@ import { runBundle, newRunId, type RunDeps } from '../agents/orchestrator';
+ import { proposeRules, MAX_ISSUES } from '../agents/coach';
+ import type { BundleStore } from '../bundleStore';
+ import type { TraceLine } from '../agents/trace';
+ 
+ import { SEED_FAMILY_IDS, isSeedFamily } from '../demoDate';
++import { dateRangeError } from '../../shared/dateRange';
+ export { SEED_FAMILY_IDS };
+ export const ZIP_ERROR = 'Enter a valid US ZIP code';
+ const WINDOW_MS = 10 * 60 * 1000;
+ const MAX_REGISTRY = 200;
+ 
+@@ -27,10 +28,14 @@ export interface ApiDeps {
+   /** Reviewer-mode token (env REVIEWER_MODE_TOKEN). Empty means Reviewer mode is off. */
+   reviewerToken: () => string;
+   runLimit?: { limit: number; windowMs: number };
+   /** Runs allowed at the same time across all visitors (default 5). */
+   maxInFlight?: number;
++  /** Runs one visitor (IP address) may have going at the same time (default 2). */
++  maxInFlightPerIp?: number;
++  /** The current date, for the date-range checks (tests pin it). */
++  now?: () => Date;
+   /** Where Task 13's eval writes its scoreboard (default logs/scoreboard.json). */
+   scoreboardFile?: () => string;
+ }
+ 
+ /** Display-only family fields the UI needs (header chip, day count). Never income. */
+@@ -50,10 +55,12 @@ function tokenOk(supplied: unknown, expected: string): boolean {
+ export function createBundleRouter(deps: ApiDeps): Router {
+   const router = Router();
+   const runs = new Map<string, RunEntry>();
+   let inFlight = 0;
+   const maxInFlight = deps.maxInFlight ?? 5;
++  const maxPerIp = deps.maxInFlightPerIp ?? 2;
++  const inFlightByIp = new Map<string, number>();
+   const knownFamilies = new Set<string>(SEED_FAMILY_IDS);
+ 
+   const runLimiter = rateLimit({
+     windowMs: deps.runLimit?.windowMs ?? WINDOW_MS, limit: deps.runLimit?.limit ?? 10,
+     standardHeaders: true, legacyHeaders: false,
+@@ -77,48 +84,58 @@ export function createBundleRouter(deps: ApiDeps): Router {
+     const hasBirth = body.birthDate !== undefined && body.birthDate !== null && body.birthDate !== '';
+     const hasDue = body.dueDate !== undefined && body.dueDate !== null && body.dueDate !== '';
+     if (hasBirth === hasDue) return { error: 'Enter either a birth date or a due date.' };
+     if (hasBirth && !isIsoDate(body.birthDate)) return { error: 'Enter the birth date as YYYY-MM-DD.' };
+     if (hasDue && !isIsoDate(body.dueDate)) return { error: 'Enter the due date as YYYY-MM-DD.' };
++    const todayIso = (deps.now?.() ?? new Date()).toISOString().slice(0, 10);
++    const rangeError = hasBirth ? dateRangeError('birth', body.birthDate, todayIso) : dateRangeError('due', body.dueDate, todayIso);
++    if (rangeError) return { error: rangeError };
+     const employer = typeof body.employer === 'string' ? body.employer.trim().slice(0, 100) : '';
+     return {
+       family: {
+         id: `guest-${crypto.randomBytes(4).toString('hex')}`, userId: null, isGuest: true, name: 'Guest',
+         birthDate: hasBirth ? body.birthDate : null, dueDate: hasDue ? body.dueDate : null,
+         zip, state, employer, householdSize: 3, annualIncomeCents: null, dcfsaOffered: true, dataConnected: false,
+       },
+     };
+   }
+ 
+-  function startRun(family: Family): { entry: RunEntry; done: Promise<void> } {
++  function startRun(family: Family, ip: string): { entry: RunEntry; done: Promise<void> } {
+     const base = deps.makeRunDeps(family);
+     const runId = newRunId(family.id);
+     knownFamilies.add(family.id);
+     const entry: RunEntry = {
+       runId, familyId: family.id, status: 'running', startedAt: new Date().toISOString(), logsDir: base.logsDir,
+       family: { name: family.name, birthDate: family.birthDate, dueDate: family.dueDate }, today: base.today, demoDate: isSeedFamily(family.id),
+     };
+     runs.set(runId, entry);
+     while (runs.size > MAX_REGISTRY) runs.delete(runs.keys().next().value as string);
+     inFlight++;
++    inFlightByIp.set(ip, (inFlightByIp.get(ip) ?? 0) + 1);
+     const done = runBundle(family.id, { ...base, runId, loadFamily: async () => family })
+       .then((result) => { entry.result = result; entry.status = 'done'; })
+       .catch((e) => {
+         entry.status = 'failed';
+         entry.error = 'The run did not finish. Please try again.';
+         console.error('Bundle run failed:', runId, (e as Error)?.message);
+       })
+-      .finally(() => { inFlight--; });
++      .finally(() => {
++        inFlight--;
++        const left = (inFlightByIp.get(ip) ?? 1) - 1;
++        if (left > 0) inFlightByIp.set(ip, left); else inFlightByIp.delete(ip);
++      });
+     return { entry, done };
+   }
+ 
+   router.post('/api/run', runLimiter, async (req: Request, res: Response) => {
+     try {
+       const { family, error } = await resolveFamily(req.body);
+       if (!family) return res.status(400).json({ error });
+       if (inFlight >= maxInFlight) return res.status(503).json({ error: 'Bundle is busy right now. Please try again in a minute.' });
+-      const { entry, done } = startRun(family);
++      const ip = req.ip ?? 'unknown';
++      if ((inFlightByIp.get(ip) ?? 0) >= maxPerIp) return res.status(429).json({ error: `You already have ${maxPerIp} runs going. Please wait for one to finish.` });
++      const { entry, done } = startRun(family, ip);
+       if (req.query.wait === 'true') {
+         await done;
+         if (entry.status === 'done') return res.json(entry.result);
+         return res.status(500).json({ error: entry.error, runId: entry.runId });
+       }
+diff --git a/shared/dateRange.ts b/shared/dateRange.ts
+new file mode 100644
+index 0000000..9d844c5
+--- /dev/null
++++ b/shared/dateRange.ts
+@@ -0,0 +1,39 @@
++/**
++ * Sensible limits for a typed-in family: a birth date in the last 2 years, a due date in the next 10 months.
++ * Used by the server (rejects anything else) and the sign-up form (min/max on the date box).
++ */
++export const BIRTH_ERROR = 'The birth date must be within the last 2 years.';
++export const DUE_ERROR = 'The due date must be within the next 10 months.';
++
++const iso = (d: Date): string => d.toISOString().slice(0, 10);
++
++function shiftMonths(today: string, months: number): string {
++  const d = new Date(`${today}T00:00:00Z`);
++  const day = d.getUTCDate();
++  d.setUTCDate(1);
++  d.setUTCMonth(d.getUTCMonth() + months);
++  const lastDay = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0)).getUTCDate();
++  d.setUTCDate(Math.min(day, lastDay));
++  return iso(d);
++}
++
++function shiftDays(today: string, days: number): string {
++  return iso(new Date(Date.parse(`${today}T00:00:00Z`) + days * 86_400_000));
++}
++
++/** Earliest and latest allowed dates (ISO). A day of slack on each end covers time zones. */
++export function dateLimits(today: string): { birthMin: string; birthMax: string; dueMin: string; dueMax: string } {
++  return {
++    birthMin: shiftMonths(today, -24),
++    birthMax: shiftDays(today, 1),
++    dueMin: shiftDays(today, -1),
++    dueMax: shiftMonths(today, 10),
++  };
++}
++
++/** An error message when the date is outside the allowed range, otherwise null. */
++export function dateRangeError(kind: 'birth' | 'due', date: string, today: string): string | null {
++  const l = dateLimits(today);
++  if (kind === 'birth') return date >= l.birthMin && date <= l.birthMax ? null : BIRTH_ERROR;
++  return date >= l.dueMin && date <= l.dueMax ? null : DUE_ERROR;
++}
+diff --git a/vendor/hmem/LICENSE b/vendor/hmem/LICENSE
+new file mode 100644
+index 0000000..d1a6bb8
+--- /dev/null
++++ b/vendor/hmem/LICENSE
+@@ -0,0 +1,201 @@
++                                 Apache License
++                           Version 2.0, January 2004
++                        http://www.apache.org/licenses/
++
++   TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
++
++   1. Definitions.
++
++      "License" shall mean the terms and conditions for use, reproduction,
++      and distribution as defined by Sections 1 through 9 of this document.
++
++      "Licensor" shall mean the copyright owner or entity authorized by
++      the copyright owner that is granting the License.
++
++      "Legal Entity" shall mean the union of the acting entity and all
++      other entities that control, are controlled by, or are under common
++      control with that entity. For the purposes of this definition,
++      "control" means (i) the power, direct or indirect, to cause the
++      direction or management of such entity, whether by contract or
++      otherwise, or (ii) ownership of fifty percent (50%) or more of the
++      outstanding shares, or (iii) beneficial ownership of such entity.
++
++      "You" (or "Your") shall mean an individual or Legal Entity
++      exercising permissions granted by this License.
++
++      "Source" form shall mean the preferred form for making modifications,
++      including but not limited to software source code, documentation
++      source, and configuration files.
++
++      "Object" form shall mean any form resulting from mechanical
++      transformation or translation of a Source form, including but
++      not limited to compiled object code, generated documentation,
++      and conversions to other media types.
++
++      "Work" shall mean the work of authorship, whether in Source or
++      Object form, made available under the License, as indicated by a
++      copyright notice that is included in or attached to the work
++      (an example is provided in the Appendix below).
++
++      "Derivative Works" shall mean any work, whether in Source or Object
++      form, that is based on (or derived from) the Work and for which the
++      editorial revisions, annotations, elaborations, or other modifications
++      represent, as a whole, an original work of authorship. For the purposes
++      of this License, Derivative Works shall not include works that remain
++      separable from, or merely link (or bind by name) to the interfaces of,
++      the Work and Derivative Works thereof.
++
++      "Contribution" shall mean any work of authorship, including
++      the original version of the Work and any modifications or additions
++      to that Work or Derivative Works thereof, that is intentionally
++      submitted to Licensor for inclusion in the Work by the copyright owner
++      or by an individual or Legal Entity authorized to submit on behalf of
++      the copyright owner. For the purposes of this definition, "submitted"
++      means any form of electronic, verbal, or written communication sent
++      to the Licensor or its representatives, including but not limited to
++      communication on electronic mailing lists, source code control systems,
++      and issue tracking systems that are managed by, or on behalf of, the
++      Licensor for the purpose of discussing and improving the Work, but
++      excluding communication that is conspicuously marked or otherwise
++      designated in writing by the copyright owner as "Not a Contribution."
++
++      "Contributor" shall mean Licensor and any individual or Legal Entity
++      on behalf of whom a Contribution has been received by Licensor and
++      subsequently incorporated within the Work.
++
++   2. Grant of Copyright License. Subject to the terms and conditions of
++      this License, each Contributor hereby grants to You a perpetual,
++      worldwide, non-exclusive, no-charge, royalty-free, irrevocable
++      copyright license to reproduce, prepare Derivative Works of,
++      publicly display, publicly perform, sublicense, and distribute the
++      Work and such Derivative Works in Source or Object form.
++
++   3. Grant of Patent License. Subject to the terms and conditions of
++      this License, each Contributor hereby grants to You a perpetual,
++      worldwide, non-exclusive, no-charge, royalty-free, irrevocable
++      (except as stated in this section) patent license to make, have made,
++      use, offer to sell, sell, import, and otherwise transfer the Work,
++      where such license applies only to those patent claims licensable
++      by such Contributor that are necessarily infringed by their
++      Contribution(s) alone or by combination of their Contribution(s)
++      with the Work to which such Contribution(s) was submitted. If You
++      institute patent litigation against any entity (including a
++      cross-claim or counterclaim in a lawsuit) alleging that the Work
++      or a Contribution incorporated within the Work constitutes direct
++      or contributory patent infringement, then any patent licenses
++      granted to You under this License for that Work shall terminate
++      as of the date such litigation is filed.
++
++   4. Redistribution. You may reproduce and distribute copies of the
++      Work or Derivative Works thereof in any medium, with or without
++      modifications, and in Source or Object form, provided that You
++      meet the following conditions:
++
++      (a) You must give any other recipients of the Work or
++          Derivative Works a copy of this License; and
++
++      (b) You must cause any modified files to carry prominent notices
++          stating that You changed the files; and
++
++      (c) You must retain, in the Source form of any Derivative Works
++          that You distribute, all copyright, patent, trademark, and
++          attribution notices from the Source form of the Work,
++          excluding those notices that do not pertain to any part of
++          the Derivative Works; and
++
++      (d) If the Work includes a "NOTICE" text file as part of its
++          distribution, then any Derivative Works that You distribute must
++          include a readable copy of the attribution notices contained
++          within such NOTICE file, excluding those notices that do not
++          pertain to any part of the Derivative Works, in at least one
++          of the following places: within a NOTICE text file distributed
++          as part of the Derivative Works; within the Source form or
++          documentation, if provided along with the Derivative Works; or,
++          within a display generated by the Derivative Works, if and
++          wherever such third-party notices normally appear. The contents
++          of the NOTICE file are for informational purposes only and
++          do not modify the License. You may add Your own attribution
++          notices within Derivative Works that You distribute, alongside
++          or as an addendum to the NOTICE text from the Work, provided
++          that such additional attribution notices cannot be construed
++          as modifying the License.
++
++      You may add Your own copyright statement to Your modifications and
++      may provide additional or different license terms and conditions
++      for use, reproduction, or distribution of Your modifications, or
++      for any such Derivative Works as a whole, provided Your use,
++      reproduction, and distribution of the Work otherwise complies with
++      the conditions stated in this License.
++
++   5. Submission of Contributions. Unless You explicitly state otherwise,
++      any Contribution intentionally submitted for inclusion in the Work
++      by You to the Licensor shall be under the terms and conditions of
++      this License, without any additional terms or conditions.
++      Notwithstanding the above, nothing herein shall supersede or modify
++      the terms of any separate license agreement you may have executed
++      with Licensor regarding such Contributions.
++
++   6. Trademarks. This License does not grant permission to use the trade
++      names, trademarks, service marks, or product names of the Licensor,
++      except as required for reasonable and customary use in describing the
++      origin of the Work and reproducing the content of the NOTICE file.
++
++   7. Disclaimer of Warranty. Unless required by applicable law or
++      agreed to in writing, Licensor provides the Work (and each
++      Contributor provides its Contributions) on an "AS IS" BASIS,
++      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
++      implied, including, without limitation, any warranties or conditions
++      of TITLE, NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A
++      PARTICULAR PURPOSE. You are solely responsible for determining the
++      appropriateness of using or redistributing the Work and assume any
++      risks associated with Your exercise of permissions under this License.
++
++   8. Limitation of Liability. In no event and under no legal theory,
++      whether in tort (including negligence), contract, or otherwise,
++      unless required by applicable law (such as deliberate and grossly
++      negligent acts) or agreed to in writing, shall any Contributor be
++      liable to You for damages, including any direct, indirect, special,
++      incidental, or consequential damages of any character arising as a
++      result of this License or out of the use or inability to use the
++      Work (including but not limited to damages for loss of goodwill,
++      work stoppage, computer failure or malfunction, or any and all
++      other commercial damages or losses), even if such Contributor
++      has been advised of the possibility of such damages.
++
++   9. Accepting Warranty or Additional Liability. While redistributing
++      the Work or Derivative Works thereof, You may choose to offer,
++      and charge a fee for, acceptance of support, warranty, indemnity,
++      or other liability obligations and/or rights consistent with this
++      License. However, in accepting such obligations, You may act only
++      on Your own behalf and on Your sole responsibility, not on behalf
++      of any other Contributor, and only if You agree to indemnify,
++      defend, and hold each Contributor harmless for any liability
++      incurred by, or claims asserted against, such Contributor by reason
++      of your accepting any such warranty or additional liability.
++
++   END OF TERMS AND CONDITIONS
++
++   APPENDIX: How to apply the Apache License to your work.
++
++      To apply the Apache License to your work, attach the following
++      boilerplate notice, with the fields enclosed by brackets "[]"
++      replaced with your own identifying information. (Don't include
++      the brackets!)  The text should be enclosed in the appropriate
++      comment syntax for the file format. We also recommend that a
++      file or class name and description of purpose be included on the
++      same "printed page" as the copyright notice for easier
++      identification within third-party archives.
++
++   Copyright 2026 Meterless
++
++   Licensed under the Apache License, Version 2.0 (the "License");
++   you may not use this file except in compliance with the License.
++   You may obtain a copy of the License at
++
++       http://www.apache.org/licenses/LICENSE-2.0
++
++   Unless required by applicable law or agreed to in writing, software
++   distributed under the License is distributed on an "AS IS" BASIS,
++   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++   See the License for the specific language governing permissions and
++   limitations under the License.
+diff --git a/vendor/hmem/NOTICE b/vendor/hmem/NOTICE
+index baa8b9c..ffb7769 100644
+--- a/vendor/hmem/NOTICE
++++ b/vendor/hmem/NOTICE
+@@ -1,5 +1,6 @@
+ H-MEM reference implementation
+ Copyright Meterless. Licensed under the Apache License, Version 2.0.
+ Source: https://github.com/meterless/meterless/tree/main/engines/hmem/reference
+ Vendored unmodified (fetched with degit) for the Open Agent Hackathon 2026.
+ Bundle uses it through server/adapters/memory.ts.
++The full licence text is in LICENSE (copied from the upstream repository's LICENSE file).

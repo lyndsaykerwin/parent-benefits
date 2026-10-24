@@ -1,0 +1,34 @@
+{
+  "v": 3,
+  "createdOnFiles": {"v": 1, "at": "2026-10-23T22:10:00Z"},
+  "title": "Bundle Onboarding v2",
+  "launch": {"view": "canvas"},
+  "pages": [],
+  "boards": {
+    "Main.dc.html": {"x": 0, "y": 0, "w": 390, "h": 844, "title": "1 · Hook: expecting or baby's here", "is_interactive": true, "radius": 40},
+    "Date.dc.html": {"x": 470, "y": 0, "w": 390, "h": 844, "title": "2 · Date (baby's here path)", "is_interactive": true, "radius": 40},
+    "Zip.dc.html": {"x": 940, "y": 0, "w": 390, "h": 844, "title": "3 · ZIP sets the state", "is_interactive": true, "radius": 40},
+    "Work.dc.html": {"x": 1410, "y": 0, "w": 390, "h": 844, "title": "4 · Work benefits (optional)", "is_interactive": true, "radius": 40},
+    "Checking.dc.html": {"x": 1880, "y": 0, "w": 390, "h": 844, "title": "5 · Checking (real steps)", "is_interactive": true, "radius": 40},
+    "ListBabyHere.dc.html": {"x": 0, "y": 1244, "w": 390, "h": 1320, "title": "6a · Your list: baby's here", "is_interactive": true, "radius": 40},
+    "ListExpecting.dc.html": {"x": 470, "y": 1244, "w": 390, "h": 1320, "title": "6b · Your list: expecting", "is_interactive": true, "radius": 40},
+    "Share.dc.html": {"x": 940, "y": 1244, "w": 390, "h": 844, "title": "7 · First check-off, then share", "is_interactive": true, "radius": 40},
+    "MoneyHook.dc.html": {"x": 1410, "y": 1244, "w": 390, "h": 844, "title": "8 · Find money in past purchases", "is_interactive": true, "radius": 40},
+    "Save.dc.html": {"x": 1880, "y": 1244, "w": 390, "h": 844, "title": "9 · Save list + reminders", "is_interactive": true, "radius": 40},
+    "NavApp.dc.html": {"x": 0, "y": 2964, "w": 390, "h": 844, "title": "B1 · Home (tap the tabs in Play)", "is_interactive": true, "radius": 40},
+    "NavTaxes.dc.html": {"x": 470, "y": 2964, "w": 390, "h": 844, "title": "B2 · Taxes tab", "is_interactive": true, "radius": 40},
+    "NavSavings.dc.html": {"x": 940, "y": 2964, "w": 390, "h": 844, "title": "B3 · Savings tab", "is_interactive": true, "radius": 40},
+    "NavInsurance.dc.html": {"x": 1410, "y": 2964, "w": 390, "h": 844, "title": "B4 · Insurance & leave tab", "is_interactive": true, "radius": 40},
+    "NavDeals.dc.html": {"x": 1880, "y": 2964, "w": 390, "h": 844, "title": "B5 · Deals tab", "is_interactive": true, "radius": 40}
+  },
+  "order": ["Main.dc.html", "Date.dc.html", "Zip.dc.html", "Work.dc.html", "Checking.dc.html", "ListBabyHere.dc.html", "ListExpecting.dc.html", "Share.dc.html", "MoneyHook.dc.html", "Save.dc.html", "NavApp.dc.html", "NavTaxes.dc.html", "NavSavings.dc.html", "NavInsurance.dc.html", "NavDeals.dc.html"],
+  "notes": {
+    "rowQuestions": {"x": 0, "y": -300, "text": "Questions: 3 taps + 1 optional, about 30 seconds, no sign-up", "kind": "title1", "maxW": 2270},
+    "rowPayoff": {"x": 0, "y": 944, "text": "The payoff first, then the asks", "kind": "title1", "maxW": 2270},
+    "rowNav": {"x": 0, "y": 2664, "text": "Version B: the list split into tabs with a bottom bar", "kind": "title1", "maxW": 2270},
+    "navNote": {"x": 2350, "y": 2964, "w": 340, "text": "Version B replaces the single long list (6a) with 5 tabs: Home, Taxes, Savings, Insurance, Deals.\n\nHome keeps the big number and \"Do these first,\" so the wow and the deadlines still come first. Each category tile opens its tab.\n\nThe Insurance tab shows a \"2\" badge for the deadlines. Everything else follows the ui-ux-pro-max navigation rules: 5 tabs at most, an icon plus a label on each, a clear active tab, and the bar never covers content.", "fill": "blue"},
+    "stateNote": {"x": 2350, "y": 0, "w": 340, "text": "Nothing is fixed to one state. The ZIP decides the state, and every state label, section and dollar total comes from that state's rules. The Massachusetts numbers here are just the sample family.\n\nScreen 2 asks for the exact date, because deadlines count from it. Expecting path: \"When's your baby due?\" with a date picker. The due date from your doctor is fine, and we update it when baby arrives.", "fill": "orange"},
+    "progressNote": {"x": 2350, "y": 1244, "w": 340, "text": "Progress happens in two places:\n1. A bar during the questions that starts a quarter full.\n2. A checklist on your list. \"See what you qualify for\" is already ticked, and each tick adds to \"$ claimed\". The first money tick is the high point, so that's when we ask you to share.\n\nClick through in Play: the checkboxes on 6a really work.", "fill": "orange"}
+  },
+  "designSystems": []
+}

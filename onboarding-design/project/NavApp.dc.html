@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Bundle: app with bottom navigation</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#1B1714}a:hover{color:#5C534B}
+.nb-tab{transition:background-color .15s ease,color .15s ease}
+.nb-tab:active{opacity:.7}
+.nb-card:active{background:#FBF6EF}
+@media (prefers-reduced-motion: reduce){.nb-tab{transition:none}}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; position: relative; overflow: hidden; background: #FBF6EF; color: #1B1714; font-family: Manrope, system-ui, sans-serif;">
+  <div style="position: absolute; inset: 0; overflow-y: auto; box-sizing: border-box; padding: 20px 16px 120px; display: flex; flex-direction: column; gap: 14px;">
+    <div style="display: flex; align-items: center; justify-content: space-between; min-height: 44px; padding: 0 4px;">
+      <span style="font-size: 26px; font-weight: 800; letter-spacing: -0.03em;">bundle<span style="color: #E4572E;">.</span></span>
+      <span style="font-size: 13px; font-weight: 700; color: #5C534B;">Sample family · Massachusetts</span>
+    </div>
+
+    <sc-if value="{{isHome}}" hint-placeholder-val="{{true}}">
+      <section style="padding: 22px 20px; background: #FFFFFF; border: 1px solid #E9E0D4; border-radius: 24px; box-shadow: 0 1px 2px rgba(27,23,20,.04), 0 12px 32px rgba(27,23,20,.06);">
+        <span style="font-size: 12px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: #5C534B;">Your family could get</span>
+        <p style="margin: 6px 0 0; font-size: 56px; font-weight: 800; line-height: 1; letter-spacing: -0.04em; color: #E4572E; font-variant-numeric: tabular-nums;">$3,640</p>
+        <p style="margin: 6px 0 0; font-size: 16px; font-weight: 600;">in cash and tax credits, plus $85 in free gifts</p>
+      </section>
+
+      <h2 style="margin: 6px 4px 0; font-size: 12px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: #B93E1A;">Do these first</h2>
+      <sc-for list="{{urgent}}" as="item" hint-placeholder-count="2">
+        <button type="button" onClick="{{item.go}}" class="nb-card" style="display: flex; align-items: center; gap: 12px; width: 100%; padding: 14px 16px; background: #FFFFFF; border: 1px solid #E9E0D4; border-radius: 18px; font-family: inherit; text-align: left; color: #1B1714; cursor: pointer;">
+          <span style="width: 10px; height: 10px; flex-shrink: 0; border-radius: 99px; background: #E4572E;" aria-hidden="true"></span>
+          <span style="flex-grow: 1; display: flex; flex-direction: column; gap: 2px;">
+            <span style="font-size: 15px; font-weight: 800;">{{item.title}}</span>
+            <span style="font-size: 13px; color: #5C534B;">{{item.where}}</span>
+          </span>
+          <span style="padding: 4px 8px; border-radius: 99px; background: #FCE6DC; color: #B93E1A; font-size: 12px; font-weight: 800; white-space: nowrap;">10 days left</span>
+        </button>
+      </sc-for>
+
+      <h2 style="margin: 6px 4px 0; font-size: 12px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: #5C534B;">By category</h2>
+      <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px;">
+        <sc-for list="{{tiles}}" as="t" hint-placeholder-count="4">
+          <button type="button" onClick="{{t.go}}" class="nb-card" style="display: flex; flex-direction: column; align-items: flex-start; gap: 6px; min-height: 112px; padding: 16px; background: #FFFFFF; border: 1px solid #E9E0D4; border-radius: 20px; font-family: inherit; text-align: left; color: #1B1714; cursor: pointer;">
+            <span style="display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; color: #5C534B;"><span style="width: 8px; height: 8px; border-radius: 99px; background: {{t.dot}};" aria-hidden="true"></span>{{t.label}}</span>
+            <span style="font-size: 24px; font-weight: 800; letter-spacing: -0.02em; font-variant-numeric: tabular-nums;">{{t.big}}</span>
+            <span style="font-size: 13px; color: #5C534B;">{{t.small}}</span>
+          </button>
+        </sc-for>
+      </div>
+
+      <button type="button" onClick="{{goDeals}}" class="nb-card" style="display: flex; align-items: center; gap: 12px; width: 100%; padding: 14px 16px; background: #FFFFFF; border: 1px solid #E9E0D4; border-radius: 18px; font-family: inherit; text-align: left; color: #1B1714; cursor: pointer;">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#1E8A5A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"></path><path d="M9 12l2 2 4-4"></path></svg>
+        <span style="flex-grow: 1; display: flex; flex-direction: column; gap: 2px;">
+          <span style="font-size: 15px; font-weight: 800;">We blocked 1 deal with a hidden catch</span>
+          <span style="font-size: 13px; color: #5C534B;">A “free” box that turns into a paid membership</span>
+        </span>
+      </button>
+    </sc-if>
+
+    <sc-if value="{{isCategory}}" hint-placeholder-val="{{false}}">
+      <section style="padding: 4px 4px 2px;">
+        <span style="display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; color: #5C534B;"><span style="width: 8px; height: 8px; border-radius: 99px; background: {{cat.dot}};" aria-hidden="true"></span>{{cat.eyebrow}}</span>
+        <h1 style="margin: 6px 0 0; font-size: 32px; font-weight: 800; line-height: 1.08; letter-spacing: -0.03em;">{{cat.title}}</h1>
+        <p style="margin: 6px 0 0; font-size: 15px; line-height: 1.4; color: #5C534B;">{{cat.sub}}</p>
+      </section>
+
+      <sc-for list="{{cat.items}}" as="item" hint-placeholder-count="3">
+        <article style="padding: 16px; background: #FFFFFF; border: 1px solid #E9E0D4; border-radius: 20px; display: flex; flex-direction: column; gap: 8px;">
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+            <span style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 99px; background: #F2EDE6; font-size: 12px; font-weight: 800; color: #5C534B;"><span style="width: 7px; height: 7px; border-radius: 99px; background: {{item.dot}};" aria-hidden="true"></span>{{item.kind}}</span>
+            <span style="padding: 4px 10px; border-radius: 99px; font-size: 12px; font-weight: 800; {{item.statusStyle}}">{{item.status}}</span>
+          </div>
+          <h3 style="margin: 0; font-size: 17px; font-weight: 800; line-height: 1.25;">{{item.title}}</h3>
+          <p style="margin: 0; font-size: 14px; line-height: 1.4; color: #5C534B;">{{item.sub}}</p>
+          <div style="display: flex; align-items: center; justify-content: space-between; padding-top: 6px; border-top: 1px solid #E9E0D4;">
+            <span style="font-size: 18px; font-weight: 800; color: {{item.amountColor}}; font-variant-numeric: tabular-nums;">{{item.amount}}</span>
+            <a href="#how" style="min-height: 44px; display: flex; align-items: center; font-size: 14px; font-weight: 700; color: #1B1714;">How we checked</a>
+          </div>
+        </article>
+      </sc-for>
+
+      <sc-if value="{{isSavings}}" hint-placeholder-val="{{false}}">
+        <a href="MoneyHook.dc.html" style="display: flex; gap: 14px; align-items: center; padding: 18px; background: #1B1714; border-radius: 20px; color: #FBF6EF; text-decoration: none;">
+          <span style="flex-grow: 1; display: flex; flex-direction: column; gap: 4px;">
+            <span style="font-size: 16px; font-weight: 800;">Find money in what you’ve already bought</span>
+            <span style="font-size: 14px; line-height: 1.35; color: #E9E0D4;">Unlocks the two items above</span>
+          </span>
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg>
+        </a>
+      </sc-if>
+
+      <sc-if value="{{isDeals}}" hint-placeholder-val="{{false}}">
+        <article style="padding: 16px; background: #FBE3E0; border: 1px solid #F2C2BC; border-radius: 20px; display: flex; flex-direction: column; gap: 6px;">
+          <span style="font-size: 12px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: #9E2A21;">Blocked by Bundle</span>
+          <h3 style="margin: 0; font-size: 17px; font-weight: 800;">“Free newborn diaper box”, Cuddle &amp; Co</h3>
+          <p style="margin: 0; font-size: 14px; line-height: 1.4; color: #5C534B;">The fine print turns it into a paid monthly membership. We left it off your list.</p>
+        </article>
+      </sc-if>
+    </sc-if>
+  </div>
+
+  <nav aria-label="Main" style="position: absolute; left: 12px; right: 12px; bottom: 16px; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 2px; padding: 6px; background: rgba(255,255,255,.96); border: 1px solid #E9E0D4; border-radius: 28px; box-shadow: 0 8px 28px rgba(27,23,20,.12);">
+    <sc-for list="{{tabs}}" as="tab" hint-placeholder-count="5">
+      <button type="button" onClick="{{tab.go}}" aria-current="{{tab.current}}" class="nb-tab" style="position: relative; min-height: 56px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; border: 0; border-radius: 22px; font-family: inherit; font-size: 11px; font-weight: 800; cursor: pointer; {{tab.style}}">
+        <sc-if value="{{tab.isHome}}" hint-placeholder-val="{{false}}"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11l8-7 8 7v9a1 1 0 0 1-1 1h-4v-6h-6v6H5a1 1 0 0 1-1-1z"></path></svg></sc-if>
+        <sc-if value="{{tab.isTaxes}}" hint-placeholder-val="{{false}}"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"></path><path d="M9 8h6M9 12h6"></path></svg></sc-if>
+        <sc-if value="{{tab.isSavings}}" hint-placeholder-val="{{false}}"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 11a7 6 0 0 1 13-2h2v4l-2 1v3h-3v-2H9v2H6v-3a6 6 0 0 1-1-3z"></path><path d="M10 7h4"></path></svg></sc-if>
+        <sc-if value="{{tab.isInsurance}}" hint-placeholder-val="{{false}}"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"></path></svg></sc-if>
+        <sc-if value="{{tab.isDeals}}" hint-placeholder-val="{{false}}"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12V4h8l10 10-8 8z"></path><circle cx="7.5" cy="8.5" r="1.5"></circle></svg></sc-if>
+        <span>{{tab.label}}</span>
+        <sc-if value="{{tab.hasBadge}}" hint-placeholder-val="{{false}}">
+          <span style="position: absolute; top: 4px; right: 12px; min-width: 18px; height: 18px; padding: 0 5px; box-sizing: border-box; border-radius: 99px; background: #E4572E; color: #FFFFFF; font-size: 11px; font-weight: 800; display: flex; align-items: center; justify-content: center;" aria-label="2 deadlines">2</span>
+        </sc-if>
+      </button>
+    </sc-for>
+  </nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"startTab":{"editor":"enum","options":["home","taxes","savings","insurance","deals"],"default":"home"},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+constructor(props) {
+super(props);
+this.state = { tab: null };
+}
+renderVals() {
+var self = this;
+var tab = this.state.tab || this.props.startTab || 'home';
+var go = function (t) { return function () { self.setState({ tab: t }); }; };
+var likely = 'background: #E3F2EA; color: #1E6B47;';
+var check = 'background: #F2EDE6; color: #5C534B;';
+var due = 'background: #FCE6DC; color: #B93E1A;';
+var cats = {
+taxes: { dot: '#6B4EE6', eyebrow: 'Tax benefits', title: '$2,640 off your taxes', sub: 'Claimed when you file next spring. Bundle walks you through each one.', items: [
+{ kind: 'Federal', dot: '#6B4EE6', status: 'Likely eligible', statusStyle: likely, title: 'Child Tax Credit', sub: 'Lowers your federal tax bill for each child.', amount: '$2,200', amountColor: '#1E6B47' },
+{ kind: 'Massachusetts', dot: '#E4572E', status: 'Likely eligible', statusStyle: likely, title: 'Child and Family Tax Credit', sub: 'Your state adds its own credit when you file state taxes.', amount: '$440', amountColor: '#1E6B47' },
+{ kind: 'Through work', dot: '#8A8076', status: '10 days left', statusStyle: due, title: 'Dependent Care FSA', sub: 'Pay for daycare with money before taxes. 30 days from the birth to sign up.', amount: 'Tax savings', amountColor: '#1B1714' }
+] },
+savings: { dot: '#1E8A5A', eyebrow: 'Savings', title: '$1,000 for your baby', sub: 'Plus money back on baby gear you’ve already bought.', items: [
+{ kind: 'Federal', dot: '#1E8A5A', status: 'Likely eligible', statusStyle: likely, title: 'Baby’s $1,000 starter account', sub: 'A free government deposit for babies born 2025 to 2028.', amount: '$1,000', amountColor: '#1E6B47' },
+{ kind: 'Money back', dot: '#1E8A5A', status: 'Needs purchases', statusStyle: check, title: 'Pay yourself back from an FSA or HSA', sub: 'Thermometers, pumps and more can come out of a pre-tax health account.', amount: 'Varies', amountColor: '#1B1714' },
+{ kind: 'Money back', dot: '#1E8A5A', status: 'Needs purchases', statusStyle: check, title: 'Price dropped after you bought', sub: 'Many stores refund the difference if you ask in time.', amount: 'Varies', amountColor: '#1B1714' }
+] },
+insurance: { dot: '#E4572E', eyebrow: 'Insurance & leave', title: '2 deadlines in 10 days', sub: 'These count from your baby’s birth date. Miss them and you may wait a year.', items: [
+{ kind: 'Health insurance', dot: '#E4572E', status: '10 days left', statusStyle: due, title: 'Add your baby to your health insurance', sub: 'You have 30 days from the birth. Call your plan or HR.', amount: 'Deadline Nov 2', amountColor: '#B93E1A' },
+{ kind: 'Massachusetts', dot: '#E4572E', status: 'Check with your job', statusStyle: check, title: 'Paid Family and Medical Leave', sub: 'Paid time off to bond with your baby in the first year.', amount: 'Paid leave', amountColor: '#1B1714' }
+] },
+deals: { dot: '#C9352B', eyebrow: 'Discounts & offers', title: '$85 in free gifts', sub: 'Every offer read for fine print. Anything with a catch gets blocked.', items: [
+{ kind: 'Amazon', dot: '#C9352B', status: 'Checked', statusStyle: likely, title: 'Registry welcome box', sub: 'Needs Prime and one registry item.', amount: '$35', amountColor: '#1E6B47' },
+{ kind: 'Walmart', dot: '#C9352B', status: 'Checked', statusStyle: likely, title: 'Welcome gift bag', sub: 'Make an online registry, pick up in store.', amount: '$25', amountColor: '#1E6B47' },
+{ kind: 'Babylist', dot: '#C9352B', status: 'Shipping may cost', statusStyle: check, title: 'Registry welcome box', sub: 'Ships after you add 10 items.', amount: '$20', amountColor: '#1E6B47' },
+{ kind: 'Target', dot: '#C9352B', status: 'Checked', statusStyle: likely, title: '15% registry completion coupon', sub: 'Good for 60 days after you make a registry.', amount: '15% off', amountColor: '#1E6B47' }
+] }
+};
+var tabDefs = [['home', 'Home'], ['taxes', 'Taxes'], ['savings', 'Savings'], ['insurance', 'Insurance'], ['deals', 'Deals']];
+return {
+isHome: tab === 'home',
+isCategory: tab !== 'home',
+isSavings: tab === 'savings',
+isDeals: tab === 'deals',
+cat: cats[tab] || cats.taxes,
+goDeals: go('deals'),
+urgent: [
+{ title: 'Add baby to health insurance', where: 'Insurance', go: go('insurance') },
+{ title: 'Start a Dependent Care FSA', where: 'Taxes', go: go('taxes') }
+],
+tiles: [
+{ label: 'Taxes', dot: '#6B4EE6', big: '$2,640', small: '3 benefits', go: go('taxes') },
+{ label: 'Savings', dot: '#1E8A5A', big: '$1,000', small: '+ money back', go: go('savings') },
+{ label: 'Insurance', dot: '#E4572E', big: '2 to-dos', small: 'Due in 10 days', go: go('insurance') },
+{ label: 'Deals', dot: '#C9352B', big: '$85', small: '4 offers, 1 blocked', go: go('deals') }
+],
+tabs: tabDefs.map(function (d) {
+var on = d[0] === tab;
+return {
+label: d[1], go: go(d[0]), current: on ? 'page' : 'false',
+style: on ? 'background: #FCE6DC; color: #B93E1A;' : 'background: transparent; color: #5C534B;',
+isHome: d[0] === 'home', isTaxes: d[0] === 'taxes', isSavings: d[0] === 'savings', isInsurance: d[0] === 'insurance', isDeals: d[0] === 'deals',
+hasBadge: d[0] === 'insurance' && !on
+};
+})
+};
+}
+}
+</script>
+</body>
+</html>

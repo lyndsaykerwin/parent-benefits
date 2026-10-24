@@ -1,0 +1,534 @@
+5f4bab2 chore: refresh replay cache
+9aaac65 fix: Receipt excludes Dependent Care FSA eligible spend from both totals
+b13cdd7 chore: refresh Zetaris replay cache with orchestrator queries (live run Oct 23)
+6667d36 feat: orchestrator with fact-check loop and never-empty feed
+ ...cce1c18e2cc41187b0b3b6720a9cc604978588ec52.json |   2 +-
+ scripts/run-family.ts                              |  41 ++++
+ server/__tests__/orchestrator.test.ts              | 189 ++++++++++++++++
+ server/agents/clawback.ts                          |   4 +-
+ server/agents/orchestrator.ts                      | 247 +++++++++++++++++++++
+ 69 files changed, 544 insertions(+), 34 deletions(-)
+diff --git a/scripts/run-family.ts b/scripts/run-family.ts
+new file mode 100644
+index 0000000..ff3f280
+--- /dev/null
++++ b/scripts/run-family.ts
+@@ -0,0 +1,41 @@
++/**
++ * Runs the whole Bundle pipeline LIVE for one family and prints a summary (no income, no secrets).
++ *   npx tsx scripts/run-family.ts maya
++ */
++import path from 'path';
++import { loadEnv } from '../server/env';
++import { ZetarisClient } from '../server/adapters/zetaris';
++import { createGenerator } from '../server/adapters/llm';
++import { BundleMemory } from '../server/adapters/memory';
++import { runBundle, defaultLoadFamily } from '../server/agents/orchestrator';
++
++loadEnv();
++process.env.TODAY = process.env.TODAY || '2026-10-23';
++
++async function main() {
++  const familyId = process.argv[2];
++  if (!familyId) throw new Error('Usage: npx tsx scripts/run-family.ts <familyId>');
++  const missing = ['ZETARIS_BASE_URL', 'ZETARIS_ORG_ID', 'ZETARIS_API_KEY'].filter((k) => !process.env[k]);
++  if (missing.length) throw new Error(`Missing settings: ${missing.join(', ')}`);
++  process.env.SAMPLE_MODE = 'true'; // families come from the sample file; Zetaris below is still live
++  const logsDir = path.resolve('logs');
++  const memory = new BundleMemory(path.resolve('data/hmem'));
++  const z = new ZetarisClient({
++    baseUrl: process.env.ZETARIS_BASE_URL!, orgId: process.env.ZETARIS_ORG_ID!, apiKey: process.env.ZETARIS_API_KEY!,
++    timeoutMs: (Number(process.env.SOURCE_TIMEOUT_SECONDS) || 20) * 1000 * 4, sampleMode: false,
++    cacheDir: path.resolve('data/sample/zetaris-cache'),
++  });
++  const t0 = Date.now();
++  const r = await runBundle(familyId, { z, llm: createGenerator(), memory, loadFamily: defaultLoadFamily, logsDir, today: process.env.TODAY! });
++  const secs = ((Date.now() - t0) / 1000).toFixed(1);
++  const kinds: Record<string, number> = {};
++  for (const c of r.cards) kinds[c.kind] = (kinds[c.kind] ?? 0) + 1;
++  console.log(`\n=== ${familyId} (run ${r.runId}) ===`);
++  console.log(`cards by kind: ${JSON.stringify(kinds)}  total ${r.cards.length}`);
++  console.log(`receipt: ${JSON.stringify(r.receipt)}`);
++  console.log(`banner: ${r.banner ?? '(none)'}`);
++  console.log(`elapsed: ${secs}s`);
++  for (const c of r.cards) console.log(`  [${c.kind}/${c.verdict}] ${c.id} | ${c.title} | ${c.amountCents ?? '-'} | ${c.deadline ?? '-'}`);
++  console.log(`trace: logs/run-${r.runId}.jsonl`);
++}
++main().catch((e) => { console.error(String(e.message ?? e)); process.exit(1); });
+diff --git a/server/__tests__/orchestrator.test.ts b/server/__tests__/orchestrator.test.ts
+new file mode 100644
+index 0000000..f5d5909
+--- /dev/null
++++ b/server/__tests__/orchestrator.test.ts
+@@ -0,0 +1,189 @@
++import os from 'os';
++import fs from 'fs';
++import path from 'path';
++
++jest.mock('../agents/clawback');
++jest.mock('../agents/recall');
++jest.mock('../agents/finePrintCourt');
++jest.mock('../agents/benefits');
++jest.mock('../agents/factChecker');
++
++import * as clawback from '../agents/clawback';
++import * as recall from '../agents/recall';
++import * as court from '../agents/finePrintCourt';
++import * as benefits from '../agents/benefits';
++import * as fc from '../agents/factChecker';
++import { runBundle, assembleFeed, BANNER } from '../agents/orchestrator';
++import { ZetarisUnavailable } from '../adapters/zetaris';
++import { FakeGenerator } from '../adapters/llm';
++import type { Candidate } from '../agents/types';
++import type { Family } from '../../shared/bundle';
++
++const maya: Family = {
++  id: 'maya', userId: null, isGuest: true, name: 'Maya', birthDate: '2026-10-03', dueDate: null,
++  zip: '02139', state: 'MA', employer: 'N', householdSize: 3, annualIncomeCents: 14500000, dcfsaOffered: true, dataConnected: true,
++};
++const leo: Family = { ...maya, id: 'leo', birthDate: null, dueDate: '2026-12-07', dataConnected: false };
++const TODAY = '2026-10-23';
++
++function cand(id: string, kind: Candidate['kind'], agent: string, over: Partial<Candidate> = {}): Candidate {
++  return {
++    id, kind, title: id, body: 'b', amountCents: null, deadline: null, verdict: 'likely', sources: [{ label: 's', url: 'https://x' }],
++    traceId: 't', agent, claim: { type: 'rule', ref: id }, evidenceSql: 'SELECT 1', retryCount: 0, ...over,
++  };
++}
++const ben = (n: string, over: Partial<Candidate> = {}) => cand(`benefit-${n}`, 'benefit', 'benefits', over);
++const disc = (n: number) => cand(`discount-${n}`, 'discount', 'fine_print_court', { amountCents: 1000 });
++const fillers = () => ({
++  approvedGeneralOffers: [disc(1), disc(2), disc(3)],
++  federalBenefits: [ben('a', { amountCents: 100 }), ben('b', { amountCents: 200 })],
++});
++
++describe('assembleFeed', () => {
++  it('empty input still meets every minimum, with the exact empty-state copy', () => {
++    const { cards } = assembleFeed([], leo, 0, fillers(), TODAY);
++    const of = (k: string) => cards.filter((c) => c.kind === k);
++    expect(of('benefit').length).toBeGreaterThanOrEqual(2);
++    expect(of('recall')).toHaveLength(1);
++    expect(of('recall')[0].body).toBe('Connect your data to safety-check your items.');
++    expect(of('discount').length).toBeGreaterThanOrEqual(3);
++    expect(of('clawback')).toHaveLength(1);
++    expect(of('clawback')[0].body).toBe('No money to claw back yet. Connect a card or upload Amazon orders.');
++    expect(of('coming_soon').map((c) => c.title)).toEqual(['Pre-filled applications', "We'll watch for price drops"]);
++  });
++
++  it('data connected, no clawbacks: doing-great copy', () => {
++    const { cards } = assembleFeed([], maya, 5, fillers(), TODAY);
++    expect(cards.find((c) => c.kind === 'clawback')!.body).toBe("Nothing to claw back: you're doing great.");
++  });
++
++  it('all clear names the number of items checked', () => {
++    const { cards } = assembleFeed([], maya, 23, fillers(), TODAY);
++    const r = cards.find((c) => c.kind === 'recall')!;
++    expect(r.body).toBe('We checked 23 items: all clear.');
++    expect(r.verdict).toBe('all_clear');
++  });
++
++  it('orders insurance first, then clawback, recall, benefit, discount, coming_soon; builds the split receipt', () => {
++    const verified = [
++      disc(1), disc(2), disc(3),
++      ben('tax', { amountCents: 220000 }),
++      ben('x', { amountCents: 50, deadline: '2026-10-10' }),
++      cand('benefit-insurance_add_baby', 'benefit', 'benefits', { deadline: '2026-11-02' }),
++      cand('benefit-pfml', 'benefit', 'benefits', { deadline: '2027-10-03' }),
++      cand('clawback-1', 'clawback', 'clawback', { amountCents: 5000 }),
++      cand('clawback-2', 'clawback', 'clawback', { amountCents: 700, verdict: 'blocked' }),
++    ];
++    const { cards, receipt } = assembleFeed(verified, maya, 12, fillers(), TODAY);
++    expect(cards[0].id).toBe('benefit-insurance_add_baby');
++    const kinds = cards.map((c) => c.kind);
++    const order = ['clawback', 'recall', 'benefit', 'discount', 'coming_soon'];
++    const rest = kinds.slice(1);
++    expect([...rest].sort((a, b) => order.indexOf(a) - order.indexOf(b))).toEqual(rest);
++    expect(receipt).toEqual({
++      moneyBackCents: 5000, likelyBenefitsCents: 220000 + 50,
++      deadlineCount: 2, nextDeadline: '2026-11-02', itemsChecked: 12,
++    });
++  });
++
++  it('does not duplicate a filler already verified', () => {
++    const f = fillers();
++    const { cards } = assembleFeed([f.federalBenefits[0], ben('c'), ben('d')], maya, 1, f, TODAY);
++    expect(cards.filter((c) => c.id === 'benefit-a')).toHaveLength(1);
++  });
++});
++
++function setup(opts: { family?: Family; verify?: (c: Candidate) => any } = {}) {
++  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'orch-'));
++  const family = opts.family ?? maya;
++  (clawback.findClawbacks as jest.Mock).mockResolvedValue([]);
++  (recall.checkRecalls as jest.Mock).mockResolvedValue({ candidates: [], itemsChecked: 9 });
++  (benefits.planBenefits as jest.Mock).mockResolvedValue([ben('a', { amountCents: 100 }), ben('b', { amountCents: 200 })]);
++  (court.judgeOffers as jest.Mock).mockResolvedValue([disc(1), disc(2), disc(3)]);
++  (fc.verify as jest.Mock).mockImplementation(async (c: Candidate) => (opts.verify ? opts.verify(c) : { ok: true, reason: null, corrected: null }));
++  const z = { runQuery: jest.fn(async () => ({ headers: [], rows: [], ms: 1 })) } as any;
++  const memory = { exportLedger: jest.fn((f: string) => fs.writeFileSync(f, '')), recallRules: jest.fn(() => []) } as any;
++  const deps = { z, llm: new FakeGenerator([]), memory, loadFamily: async () => family, logsDir: dir, today: TODAY };
++  return { dir, deps, memory };
++}
++
++describe('Receipt honesty (maya-like)', () => {
++  it('DCFSA card is shown but excluded from both totals: moneyBack = 2899 + 2000', () => {
++    const verified = [
++      cand('clawback-fsa-maya-tx-01', 'clawback', 'clawback', { amountCents: 2899, claim: { type: 'fsa_reimbursement', txId: 'tx-01', txAmountCents: 2899 } }),
++      cand('clawback-price-maya-tx-02', 'clawback', 'clawback', { amountCents: 2000, claim: { type: 'price_adjustment', txId: 'tx-02', txAmountCents: 9000 } }),
++      cand('clawback-dcfsa-maya-2026', 'clawback', 'clawback', { amountCents: 555000, claim: { type: 'dcfsa_childcare', txId: 'tx-9', txAmountCents: 1, planYear: 2026 } }),
++      ben('a', { amountCents: 100 }), ben('b', { amountCents: 200 }),
++    ];
++    const { cards, receipt } = assembleFeed(verified, maya, 7, fillers(), TODAY);
++    expect(cards.find((c) => c.id === 'clawback-dcfsa-maya-2026')).toBeDefined();
++    expect(receipt.moneyBackCents).toBe(4899);
++    expect(receipt.likelyBenefitsCents).toBe(300);
++  });
++});
++
++describe('runBundle', () => {
++  it('survives ZetarisUnavailable on recalls: banner set, minimums met', async () => {
++    const { deps } = setup();
++    (recall.checkRecalls as jest.Mock).mockRejectedValue(new ZetarisUnavailable('down'));
++    const r = await runBundle('maya', deps);
++    expect(r.banner).toBe("Some sources didn't respond: showing what we could check.");
++    expect(r.cards.filter((c) => c.kind === 'recall')).toHaveLength(1);
++    expect(r.cards.filter((c) => c.kind === 'benefit').length).toBeGreaterThanOrEqual(2);
++    expect(r.cards.filter((c) => c.kind === 'discount').length).toBeGreaterThanOrEqual(3);
++    expect(BANNER).toBe(r.banner);
++  });
++
++  it('retries an agent once after a transient Zetaris Thrift error', async () => {
++    const { deps } = setup();
++    (recall.checkRecalls as jest.Mock)
++      .mockRejectedValueOnce(new Error('Zetaris rejected the query (HTTP 400): TTransportException thrift'))
++      .mockResolvedValue({ candidates: [], itemsChecked: 4 });
++    const r = await runBundle('maya', deps);
++    expect(r.banner).toBeNull();
++    expect(r.receipt.itemsChecked).toBe(4);
++  });
++
++  it('no banner when everything answers; exports the ledger', async () => {
++    const { deps, memory, dir } = setup();
++    const r = await runBundle('maya', deps);
++    expect(r.banner).toBeNull();
++    expect(memory.exportLedger).toHaveBeenCalledTimes(1);
++    expect(fs.readdirSync(dir).some((f) => f.startsWith('ledger-'))).toBe(true);
++    expect(r.receipt.itemsChecked).toBe(9);
++  });
++
++  it('a filler offer the court rejected never appears (only court output is used)', async () => {
++    const { deps } = setup();
++    (court.judgeOffers as jest.Mock).mockResolvedValue([disc(1), disc(2), disc(3)]);
++    const r = await runBundle('maya', deps);
++    expect(r.cards.filter((c) => c.kind === 'discount').map((c) => c.id).sort()).toEqual(['discount-1', 'discount-2', 'discount-3']);
++    expect((court.judgeOffers as jest.Mock).mock.calls[0][1].includeGeneral).toBe(true);
++  });
++
++  it('a candidate failing fact-check 3 times is dropped after 2 retries and traced as blocked', async () => {
++    const bad = ben('bad', { amountCents: 999 });
++    const { deps, dir } = setup({ verify: (c) => (c.id === 'benefit-bad' ? { ok: false, reason: 'amount mismatch', corrected: { amountCents: 1 } } : { ok: true, reason: null, corrected: null }) });
++    (benefits.planBenefits as jest.Mock).mockResolvedValue([bad, ben('a'), ben('b')]);
++    (benefits.revise as jest.Mock).mockImplementation(async (c: Candidate) => ({ ...c, retryCount: c.retryCount + 1 }));
++    const r = await runBundle('maya', deps);
++    expect(r.cards.find((c) => c.id === 'benefit-bad')).toBeUndefined();
++    expect(benefits.revise).toHaveBeenCalledTimes(2);
++    expect((benefits.revise as jest.Mock).mock.calls[0][1]).toContain('amount mismatch');
++    expect((benefits.revise as jest.Mock).mock.calls[0][1]).toContain('amountCents');
++    const file = fs.readdirSync(dir).find((f) => f.startsWith('run-'))!;
++    const lines = fs.readFileSync(path.join(dir, file), 'utf8').trim().split('\n').map((l) => JSON.parse(l));
++    const blocked = lines.find((l) => l.status === 'blocked' && l.retry_count === 2);
++    expect(blocked).toBeTruthy();
++    expect(blocked.input_summary).toContain('benefit-bad');
++  });
++
++  it('a candidate fixed by revise is kept', async () => {
++    let n = 0;
++    const { deps } = setup({ verify: (c) => (c.id === 'benefit-fix' && n++ === 0 ? { ok: false, reason: 'wrong', corrected: null } : { ok: true, reason: null, corrected: null }) });
++    (benefits.planBenefits as jest.Mock).mockResolvedValue([ben('fix'), ben('a'), ben('b')]);
++    (benefits.revise as jest.Mock).mockImplementation(async (c: Candidate) => ({ ...c, retryCount: 1 }));
++    const r = await runBundle('maya', deps);
++    expect(r.cards.find((c) => c.id === 'benefit-fix')).toBeDefined();
++  });
++});
+diff --git a/server/agents/clawback.ts b/server/agents/clawback.ts
+index 6d00252..260b117 100644
+--- a/server/agents/clawback.ts
++++ b/server/agents/clawback.ts
+@@ -137,22 +137,22 @@ async function daycareCandidates(ctx: AgentContext): Promise<Candidate[]> {
+     const key = dupKey(s(r, 'merchant'), s(r, 'date').slice(0, 10), cents);
+     if (cents <= 0 || seen.has(key)) continue;
+     seen.add(key);
+     pay.push(r);
+   }
+   if (!pay.length) return [];
+   const total = pay.reduce((a, r) => a + n(r, 'amount_cents'), 0);
+   const cents = Math.min(total, DCFSA_CAP_CENTS);
+   const last = pay[pay.length - 1];
+   const who = s(pay[0], 'merchant');
+-  const fallback = `You paid ${fmtUsd(total)} to ${who} in ${pay.length} payment${pay.length === 1 ? '' : 's'} this year. Your employer offers a Dependent Care FSA (a work account for daycare costs, up to ${fmtUsd(DCFSA_CAP_CENTS)} a year), so this is likely eligible. Counted here: ${fmtUsd(cents)}.`;
+-  const body = await explain(ctx, AGENT, `Daycare payments to ${who} in ${year}: ${pay.length}, total ${fmtUsd(total)}. Employer offers a Dependent Care FSA with a yearly limit of ${fmtUsd(DCFSA_CAP_CENTS)}. Counted: ${fmtUsd(cents)}.`, [total, cents, DCFSA_CAP_CENTS], fallback);
++  const fallback = `You paid ${fmtUsd(total)} to ${who} in ${pay.length} payment${pay.length === 1 ? '' : 's'} this year. Your employer offers a Dependent Care FSA (a work account that lets you pay for daycare with pre-tax dollars, up to ${fmtUsd(DCFSA_CAP_CENTS)} a year). You are likely eligible to pay up to ${fmtUsd(cents)} of daycare with pre-tax dollars. This is eligible spend, not money back.`;
++  const body = await explain(ctx, AGENT, `Daycare payments to ${who} in ${year}: ${pay.length}, total ${fmtUsd(total)}. Employer offers a Dependent Care FSA with a yearly limit of ${fmtUsd(DCFSA_CAP_CENTS)}. Up to ${fmtUsd(cents)} of daycare can be paid with pre-tax dollars through the family's dependent-care FSA. This is eligible spend, not money back.`, [total, cents, DCFSA_CAP_CENTS], fallback);
+   return [{
+     id: `clawback-dcfsa-${ctx.family.id}-${year}`, kind: 'clawback', title: 'Your daycare payments may qualify for a Dependent Care FSA',
+     body, amountCents: cents, deadline: null, verdict: 'likely',
+     sources: [{ label: 'IRS Publication 503 (dependent care)', url: s(pay[0], 'source_url') }],
+     traceId: log(ctx, 'dcfsa_childcare', `${pay.length} payments in ${year}`, `${fmtUsd(cents)} likely eligible`),
+     agent: AGENT,
+     claim: { type: 'dcfsa_childcare', txId: s(last, 'tx_id'), txAmountCents: n(last, 'amount_cents'), planYear: year },
+     evidenceSql: sql, retryCount: 0,
+   }];
+ }
+diff --git a/server/agents/orchestrator.ts b/server/agents/orchestrator.ts
+new file mode 100644
+index 0000000..ed028e1
+--- /dev/null
++++ b/server/agents/orchestrator.ts
+@@ -0,0 +1,247 @@
++import fs from 'fs';
++import path from 'path';
++import crypto from 'crypto';
++import type { BundleReceipt, BundleResult, Family, FeedCard } from '../../shared/bundle';
++import type { ZetarisClient } from '../adapters/zetaris';
++import { ZetarisUnavailable } from '../adapters/zetaris';
++import type { Generator } from '../adapters/llm';
++import type { BundleMemory } from '../adapters/memory';
++import { TraceLogger } from './trace';
++import type { AgentContext, Candidate } from './types';
++import { verify } from './factChecker';
++import * as clawback from './clawback';
++import * as recall from './recall';
++import * as court from './finePrintCourt';
++import * as benefits from './benefits';
++import { itemsSql } from './recall';
++import { col } from './sql';
++
++export const BANNER = "Some sources didn't respond: showing what we could check.";
++export const COPY = {
++  clawbackNoData: 'No money to claw back yet. Connect a card or upload Amazon orders.',
++  clawbackNone: "Nothing to claw back: you're doing great.",
++  recallNoPurchases: 'Connect your data to safety-check your items.',
++  recallAllClear: (n: number) => `We checked ${n} items: all clear.`,
++};
++const INSURANCE_ID = 'benefit-insurance_add_baby';
++
++export interface RunDeps {
++  z: ZetarisClient;
++  llm: Generator;
++  memory: BundleMemory;
++  loadFamily: (id: string) => Promise<Family>;
++  logsDir: string;
++  today: string;
++}
++
++/** Load a family: sample file in SAMPLE_MODE, otherwise Neon through Drizzle (imported lazily: server/db.ts throws without DATABASE_URL). */
++export async function defaultLoadFamily(id: string): Promise<Family> {
++  if (process.env.SAMPLE_MODE === 'true') {
++    const all: Family[] = JSON.parse(fs.readFileSync(path.resolve('data/sample/families.json'), 'utf8'));
++    const f = all.find((x) => x.id === id);
++    if (!f) throw new Error(`Unknown sample family: ${id}`);
++    return f;
++  }
++  const { db } = await import('../db');
++  const { families } = await import('../../shared/schema');
++  const { eq } = await import('drizzle-orm');
++  const rows = await db.select().from(families).where(eq(families.id, id)).limit(1);
++  if (!rows.length) throw new Error(`Unknown family: ${id}`);
++  return rows[0] as Family;
++}
++
++// ---------- never-empty feed ----------
++
++const KIND_ORDER: Record<string, number> = { clawback: 0, recall: 1, benefit: 2, discount: 3, coming_soon: 4 };
++const toCard = (c: Candidate): FeedCard => ({
++  id: c.id, kind: c.kind, title: c.title, body: c.body, amountCents: c.amountCents, deadline: c.deadline,
++  verdict: c.verdict, sources: c.sources, traceId: c.traceId,
++});
++const infoCard = (id: string, kind: FeedCard['kind'], title: string, body: string, verdict: FeedCard['verdict'], traceId: string): FeedCard => ({
++  id, kind, title, body, amountCents: null, deadline: null, verdict, sources: [], traceId,
++});
++
++/**
++ * Turn verified candidates into the feed, enforcing the never-empty minimums.
++ * Fillers are only ever agent output that already passed fact-check (benefit rules, court-approved offers).
++ * Real recalls are all kept (a safety recall is never hidden); the all-clear card appears only when there are none.
++ */
++export function assembleFeed(
++  verified: Candidate[],
++  family: Family,
++  itemsChecked: number,
++  fillers: { approvedGeneralOffers: Candidate[]; federalBenefits: Candidate[] },
++  today: string = new Date().toISOString().slice(0, 10),
++): { cards: FeedCard[]; receipt: BundleReceipt } {
++  const cards: FeedCard[] = [];
++  const seen = new Set<string>();
++  const add = (c: Candidate) => { if (!seen.has(c.id)) { seen.add(c.id); cards.push(toCard(c)); } };
++  const count = (k: string) => cards.filter((c) => c.kind === k).length;
++
++  for (const c of verified) if (c.kind !== 'coming_soon') add(c);
++  for (const c of fillers.federalBenefits) if (count('benefit') < 2 && c.kind === 'benefit') add(c);
++  for (const c of fillers.approvedGeneralOffers) if (count('discount') < 3 && c.kind === 'discount') add(c);
++
++  if (count('recall') === 0) {
++    cards.push(itemsChecked > 0
++      ? infoCard('recall-all-clear', 'recall', 'Recall check', COPY.recallAllClear(itemsChecked), 'all_clear', 'assemble')
++      : infoCard('recall-no-purchases', 'recall', 'Recall check', COPY.recallNoPurchases, 'info', 'assemble'));
++  }
++  if (count('clawback') === 0) {
++    cards.push(infoCard('clawback-info', 'clawback', 'Money back',
++      family.dataConnected ? COPY.clawbackNone : COPY.clawbackNoData, 'info', 'assemble'));
++  }
++  cards.push(
++    infoCard('coming-soon-prefilled', 'coming_soon', 'Pre-filled applications', 'Coming soon: we will fill in benefit applications for you to review.', 'info', 'assemble'),
++    infoCard('coming-soon-price-watch', 'coming_soon', "We'll watch for price drops", 'Coming soon: we will watch your purchases and flag price drops.', 'info', 'assemble'),
++  );
++
++  // Stable sort: insurance pinned first, then by kind.
++  const rank = (c: FeedCard) => (c.id === INSURANCE_ID ? -1 : KIND_ORDER[c.kind]);
++  const ordered = cards.map((c, i) => ({ c, i })).sort((a, b) => rank(a.c) - rank(b.c) || a.i - b.i).map((x) => x.c);
++
++  const counts = (c: FeedCard) => c.verdict === 'verified' || c.verdict === 'likely';
++  // Receipt honesty: the Dependent Care FSA card is eligible spend, not money back or a benefit payout, so it is in neither total.
++  const eligibleSpendIds = new Set([...verified, ...fillers.federalBenefits].filter((c) => c.claim.type === 'dcfsa_childcare').map((c) => c.id));
++  const sum = (k: string) => ordered
++    .filter((c) => c.kind === k && counts(c) && !eligibleSpendIds.has(c.id) && !c.id.startsWith('clawback-dcfsa-'))
++    .reduce((a, c) => a + (c.amountCents ?? 0), 0);
++  const deadlines = ordered
++    .filter((c) => c.kind === 'benefit' && c.deadline && c.deadline >= today)
++    .map((c) => c.deadline as string).sort();
++  return {
++    cards: ordered,
++    receipt: {
++      moneyBackCents: sum('clawback'), likelyBenefitsCents: sum('benefit'),
++      deadlineCount: deadlines.length, nextDeadline: deadlines[0] ?? null, itemsChecked,
++    },
++  };
++}
++
++// ---------- run ----------
++
++type Reviser = (c: Candidate, reason: string, ctx: AgentContext) => Promise<Candidate | null>;
++const REVISERS: Record<string, Reviser> = {
++  clawback: (c, r, x) => clawback.revise(c, r, x),
++  recall: (c, r, x) => recall.revise(c, r, x),
++  fine_print_court: (c, r, x) => court.revise(c, r, x),
++  benefits: (c, r, x) => benefits.revise(c, r, x),
++};
++
++function ageDays(family: Family, today: string): number {
++  const anchor = family.birthDate ?? family.dueDate;
++  if (!anchor) return 0;
++  return Math.round((Date.parse(`${today}T00:00:00Z`) - Date.parse(`${anchor}T00:00:00Z`)) / 86_400_000);
++}
++
++/** Words and phrases from what the family bought; used by the court to pick trigger offers (e.g. a diaper deal). */
++async function purchaseKeywords(ctx: AgentContext): Promise<string[]> {
++  try {
++    const { rows } = await ctx.z.runQuery(itemsSql(ctx.family.id));
++    const items = rows.map((r) => String(col(r, 'item_text') ?? '').toLowerCase().trim()).filter(Boolean);
++    const words = items.flatMap((t) => t.match(/[a-z]{3,}/g) ?? []);
++    return [...new Set([...items.map((t) => t.slice(0, 80)), ...words])].slice(0, 200);
++  } catch (e) {
++    if (e instanceof ZetarisUnavailable) throw e;
++    return [];
++  }
++}
++
++export async function runBundle(familyId: string, deps: RunDeps): Promise<BundleResult> {
++  const family = await deps.loadFamily(familyId);
++  const runId = `${familyId}-${new Date().toISOString().replace(/[^0-9]/g, '').slice(0, 14)}-${crypto.randomBytes(2).toString('hex')}`;
++  const trace = new TraceLogger(runId, deps.logsDir);
++  const ctx: AgentContext = { runId, family, z: deps.z, llm: deps.llm, memory: deps.memory, trace };
++  const maxRetries = Number.isInteger(Number(process.env.MAX_RETRIES)) && process.env.MAX_RETRIES !== '' && process.env.MAX_RETRIES !== undefined
++    ? Number(process.env.MAX_RETRIES) : 2;
++  let banner: string | null = null;
++  const log = (action: string, input: string, output: string, status: 'ok' | 'retry' | 'blocked' | 'error' | 'fallback', retry = 0) =>
++    trace.log({ agent_name: 'orchestrator', action, input_summary: input.slice(0, 250), output_summary: output.slice(0, 250), target_agent: null, confidence: null, retry_count: retry, status });
++  const noteFailure = (who: string, e: unknown) => {
++    banner = BANNER;
++    log('agent_failed', who, `${(e as Error)?.name ?? 'Error'}: ${(e as Error)?.message ?? e}`, 'error');
++  };
++  log('start', `family ${familyId}`, `today ${deps.today}`, 'ok');
++
++  // Zetaris sometimes answers HTTP 400 with a server-side Thrift/ResultSet hiccup (seen live Oct 23); one pause-and-retry clears it.
++  const withRetry = async <T>(who: string, fn: () => Promise<T>): Promise<T> => {
++    try {
++      return await fn();
++    } catch (e) {
++      if (!/thrift|resultset/i.test(String((e as Error)?.message))) throw e;
++      log('retry_transient', who, String((e as Error).message), 'retry', 1);
++      await new Promise((r) => setTimeout(r, 1500));
++      return fn();
++    }
++  };
++
++  // 2. Run the four agents at the same time; one failing never stops the rest.
++  const [claws, rec, ben, offers] = await Promise.allSettled([
++    withRetry('clawback', () => clawback.findClawbacks(ctx)),
++    withRetry('recall', () => recall.checkRecalls(ctx)),
++    withRetry('benefits', () => benefits.planBenefits(ctx, deps.today)),
++    withRetry('fine_print_court', async () => court.judgeOffers(ctx, { ageDays: ageDays(family, deps.today), purchaseKeywords: await purchaseKeywords(ctx), includeGeneral: true })),
++  ]);
++  const take = <T>(r: PromiseSettledResult<T>, who: string, empty: T): T => {
++    if (r.status === 'fulfilled') return r.value;
++    noteFailure(who, r.reason);
++    return empty;
++  };
++  const clawCands = take(claws, 'clawback', [] as Candidate[]);
++  const recRes = take(rec, 'recall', { candidates: [] as Candidate[], itemsChecked: 0 });
++  const benCands = take(ben, 'benefits', [] as Candidate[]);
++  const offerCands = take(offers, 'fine_print_court', [] as Candidate[]);
++
++  // 3. Fact-check everything; a failing card goes back to its owner, up to maxRetries times, then is dropped.
++  const verified: Candidate[] = [];
++  const checkOne = async (start: Candidate): Promise<void> => {
++    let c = start;
++    for (let attempt = 0; ; attempt++) {
++      let res;
++      try {
++        res = await verify(c, ctx);
++      } catch (e) {
++        noteFailure(`fact_checker ${c.id}`, e);
++        log('drop', `${c.kind} ${c.id} from ${c.agent}`, 'dropped: could not be checked', 'blocked', attempt);
++        return;
++      }
++      if (res.ok) { verified.push(c); return; }
++      if (attempt >= maxRetries) {
++        log('drop', `${c.kind} ${c.id} from ${c.agent}`, `dropped after ${attempt} retries: ${res.reason}`, 'blocked', attempt);
++        return;
++      }
++      const reviser = REVISERS[c.agent];
++      const reason = `${res.reason ?? 'failed fact-check'}${res.corrected ? ` (corrected values: ${JSON.stringify(res.corrected)})` : ''}`;
++      log('send_back', `${c.id} to ${c.agent}`, reason, 'retry', attempt + 1);
++      let next: Candidate | null = null;
++      try {
++        next = reviser ? await reviser(c, reason, ctx) : null;
++      } catch (e) {
++        noteFailure(`revise ${c.agent}`, e);
++      }
++      if (!next) {
++        log('drop', `${c.kind} ${c.id} from ${c.agent}`, `dropped: ${c.agent} could not fix it (${res.reason})`, 'blocked', attempt + 1);
++        return;
++      }
++      c = { ...next, retryCount: attempt + 1 };
++    }
++  };
++  // Sequential keeps the trace readable and avoids hammering Zetaris with parallel re-derivations.
++  const all = [...clawCands, ...recRes.candidates, ...benCands, ...offerCands];
++  for (const c of all) await checkOne(c);
++
++  // 4. Assemble. Fillers are the verified benefit and offer cards (court-approved only; never unvetted).
++  const { cards, receipt } = assembleFeed(verified, family, recRes.itemsChecked, {
++    approvedGeneralOffers: verified.filter((c) => c.kind === 'discount'),
++    federalBenefits: verified.filter((c) => c.kind === 'benefit'),
++  }, deps.today);
++  log('assemble', `family ${familyId}`, `${cards.length} cards, ${verified.length}/${all.length} passed fact-check`, 'ok');
++
++  // 5. Trust ledger out to logs/.
++  try {
++    deps.memory.exportLedger(path.join(deps.logsDir, `ledger-${runId}.jsonl`));
++  } catch (e) {
++    log('export_ledger', runId, `failed: ${(e as Error).message}`, 'error');
++  }
++  return { familyId, runId, receipt, cards, banner };
++}

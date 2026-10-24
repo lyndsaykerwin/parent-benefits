@@ -1,0 +1,97 @@
+diff --git a/scripts/eval.ts b/scripts/eval.ts
+index 26044ff..308aba5 100644
+--- a/scripts/eval.ts
++++ b/scripts/eval.ts
+@@ -210,28 +210,48 @@ export async function runEval(opts: EvalOptions = {}): Promise<Scoreboard> {
+ 
+   const stable = FAMILIES.every((id) => perFamily[id].length < 2 || new Set(perFamily[id].map(sig)).size === 1);
+   return {
+     trapsCaught: Object.values(traps).filter((t) => t.caught).length, trapsTotal: Object.keys(traps).length, falseAlarms, sourcedPct,
+     runs: n, stable, learning: learn.learning, llmMode: llmModeOf(llm), scoutLlmMode: 'fake-llm', generatedAt: new Date().toISOString(),
+-    demoDate: expected.demoDate, traps, expectationFailures: failures, moneyBackCents: moneyBack,
++    demoDate: resolveToday('maya').today, traps, expectationFailures: failures, moneyBackCents: moneyBack,
+     learningDetail: { run1Id: learn.r1.runId, run2Id: learn.r2.runId, ruleText: learn.ruleText, storedIn: store instanceof MemoryStore ? 'memory' : 'neon' },
+     scout: { accepted: scoutRows.length, rejected: sc.rejected.map((r) => ({ title: r.title, reason: r.reason })) },
+   };
+ }
+ 
++/**
++ * A --learning run only measured the learning demo, so it updates just the `learning` and `learningDetail` fields of the
++ * saved scoreboard. With no saved scoreboard it starts one with nulls for everything it did not measure.
++ */
++export function mergeLearning(existing: Record<string, unknown> | null, sb: Scoreboard): Record<string, unknown> {
++  const base = existing ?? {
++    trapsCaught: null, trapsTotal: null, falseAlarms: null, sourcedPct: null, runs: null, stable: null,
++    llmMode: sb.llmMode, scoutLlmMode: null, demoDate: sb.demoDate, traps: null, expectationFailures: null,
++    moneyBackCents: null, scout: null,
++  };
++  return { ...base, generatedAt: sb.generatedAt, learning: sb.learning, learningDetail: sb.learningDetail };
++}
++
+ async function main() {
+   loadEnv();
+   const args = new Set(process.argv.slice(2));
+   const llm = createGenerator();
+   const store: BundleStore = args.has('--neon') ? new (await import('../server/bundleStore')).DrizzleStore() : new MemoryStore();
+   const sb = await runEval({
+     z: makeEvalZetaris({ live: args.has('--live') }), llm, store, logsDir: path.resolve('logs'),
+     copyTracesTo: path.resolve('output_examples/learning'), learningOnly: args.has('--learning'),
+   });
+   fs.mkdirSync(path.resolve('logs'), { recursive: true });
+-  fs.writeFileSync(path.resolve('logs/scoreboard.json'), JSON.stringify(sb, null, 2) + '\n');
+-  console.log(JSON.stringify(sb, null, 2));
++  const file = path.resolve('logs/scoreboard.json');
++  let out: unknown = sb;
++  if (args.has('--learning')) {
++    let existing: Record<string, unknown> | null = null;
++    try { existing = JSON.parse(fs.readFileSync(file, 'utf8')); } catch { /* none yet */ }
++    out = mergeLearning(existing, sb);
++  }
++  fs.writeFileSync(file, JSON.stringify(out, null, 2) + '\n');
++  console.log(JSON.stringify(out, null, 2));
+   if (args.has('--neon')) { const { pool } = await import('../server/db'); await pool.end(); }
+ }
+ 
+ if (/scripts[\\/]eval\.ts$/.test(process.argv[1] ?? '')) {
+   main().catch((e) => { console.error(String(e?.message ?? e)); process.exit(1); });
+diff --git a/server/__tests__/eval.test.ts b/server/__tests__/eval.test.ts
+index 9fbcc6c..749611e 100644
+--- a/server/__tests__/eval.test.ts
++++ b/server/__tests__/eval.test.ts
+@@ -1,9 +1,9 @@
+ import fs from 'fs';
+ import os from 'os';
+ import path from 'path';
+-import { runEval, makeEvalZetaris, ISSUE_FIXTURES } from '../../scripts/eval';
++import { runEval, makeEvalZetaris, mergeLearning, ISSUE_FIXTURES } from '../../scripts/eval';
+ import { scout } from '../../scripts/scout';
+ import { FakeGenerator } from '../adapters/llm';
+ 
+ const PAGES = path.resolve('data/sample/saved-pages');
+ const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), 'eval-'));
+@@ -44,10 +44,25 @@ describe('runEval (offline: no model key, replayed Zetaris, fake families)', ()
+     expect(run2).toContain(`[cited ${sb.learning.citedRuleId}]`);
+     const run1 = fs.readFileSync(path.join(logsDir, `run-${sb.learningDetail.run1Id}.jsonl`), 'utf8');
+     expect(run1).not.toContain('[cited ');
+   });
+ 
++  it('demo date comes from the demo-date rule', () => {
++    expect(sb.demoDate).toBe('2026-10-23');
++  });
++
++  it('a --learning run keeps the full scoreboard and only refreshes the learning fields', () => {
++    const merged = mergeLearning({ ...sb, trapsCaught: 6 }, { ...sb, learning: { run1Approved: false, run2Blocked: false, citedRuleId: null } });
++    expect(merged.trapsCaught).toBe(6);
++    expect(merged.trapsTotal).toBe(6);
++    expect(merged.learning).toEqual({ run1Approved: false, run2Blocked: false, citedRuleId: null });
++    const fresh = mergeLearning(null, sb);
++    expect(fresh.learning).toEqual(sb.learning);
++    expect(fresh.trapsCaught).toBeNull();
++    expect(fresh.traps).toBeNull();
++  });
++
+   it('labels what was behind the numbers', () => {
+     expect(sb.llmMode).toBe('offline-fallback');
+     expect(sb.scoutLlmMode).toBe('fake-llm');
+   });
+ 

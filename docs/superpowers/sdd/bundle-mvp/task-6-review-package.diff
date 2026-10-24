@@ -1,0 +1,1073 @@
+6d9d224 feat: clawback hunter and recall checker
+ server/agents/clawback.ts                          | 191 +++++++++++++++++++++
+ server/agents/explain.ts                           |  44 +++++
+ server/agents/factChecker.ts                       |  88 +++++++---
+ server/agents/recall.ts                            | 168 ++++++++++++++++++
+ server/agents/sql.ts                               |  54 ++++++
+ 26 files changed, 933 insertions(+), 22 deletions(-)
+diff --git a/scripts/zetaris/agents-live.ts b/scripts/zetaris/agents-live.ts
+new file mode 100644
+index 0000000..51d8871
+--- /dev/null
++++ b/scripts/zetaris/agents-live.ts
+@@ -0,0 +1,55 @@
++/**
++ * Runs the Clawback Hunter and Recall Checker (and the Fact-Checker on what they find)
++ * LIVE against Zetaris for the three sample families. Every query result is saved to
++ * data/sample/zetaris-cache/ so SAMPLE_MODE can replay it later.
++ *
++ *   npx tsx scripts/zetaris/agents-live.ts
++ *
++ * Read-only: Zetaris only ever receives SELECTs. Secrets are never printed.
++ */
++import fs from 'fs';
++import os from 'os';
++import path from 'path';
++import { loadEnv } from '../../server/env';
++import { ZetarisClient } from '../../server/adapters/zetaris';
++import { createGenerator } from '../../server/adapters/llm';
++import { TraceLogger } from '../../server/agents/trace';
++import { findClawbacks } from '../../server/agents/clawback';
++import { checkRecalls } from '../../server/agents/recall';
++import { verify } from '../../server/agents/factChecker';
++import type { AgentContext } from '../../server/agents/types';
++import type { Family } from '../../shared/bundle';
++
++loadEnv();
++process.env.TODAY = process.env.TODAY || '2026-10-23';
++
++async function main() {
++  const need = ['ZETARIS_BASE_URL', 'ZETARIS_ORG_ID', 'ZETARIS_API_KEY'];
++  const missing = need.filter((k) => !process.env[k]);
++  if (missing.length) throw new Error(`Missing settings: ${missing.join(', ')}`);
++  const families: Family[] = JSON.parse(fs.readFileSync(path.resolve('data/sample/families.json'), 'utf8'));
++  const logDir = fs.mkdtempSync(path.join(os.tmpdir(), 'bundle-agents-live-'));
++
++  for (const family of families) {
++    const trace = new TraceLogger(`live-${family.id}`, logDir);
++    const z = new ZetarisClient({
++      baseUrl: process.env.ZETARIS_BASE_URL!, orgId: process.env.ZETARIS_ORG_ID!, apiKey: process.env.ZETARIS_API_KEY!,
++      timeoutMs: 90_000, sampleMode: false, cacheDir: path.resolve('data/sample/zetaris-cache'), trace,
++    });
++    const ctx: AgentContext = { runId: `live-${family.id}`, family, z, llm: createGenerator(), memory: {} as any, trace };
++    console.log(`\n=== ${family.id} ===`);
++    const t0 = Date.now();
++    const claws = await findClawbacks(ctx);
++    console.log(`clawbacks (${Date.now() - t0} ms): ${claws.length}`);
++    const rc = await checkRecalls(ctx);
++    console.log(`recalls (${Date.now() - t0} ms total): ${rc.candidates.length}, itemsChecked ${rc.itemsChecked}`);
++    for (const c of [...claws, ...rc.candidates]) {
++      const v = await verify(c, ctx);
++      console.log(`  - ${c.claim.type} ${c.claim.txId ?? c.claim.recallId ?? c.claim.recallNumber} amount=${c.amountCents} deadline=${c.deadline} verdict=${c.verdict} | "${c.title}" | verify=${v.ok ? 'OK' : 'FAIL ' + v.reason}`);
++      console.log(`      body: ${c.body}`);
++    }
++  }
++  console.log(`\ntrace logs (temp): ${logDir}`);
++}
++
++main().catch((e) => { console.error(String(e.message ?? e)); process.exit(1); });
+diff --git a/server/__tests__/clawback.test.ts b/server/__tests__/clawback.test.ts
+new file mode 100644
+index 0000000..5dd4450
+--- /dev/null
++++ b/server/__tests__/clawback.test.ts
+@@ -0,0 +1,150 @@
++import os from 'os';
++import fs from 'fs';
++import path from 'path';
++import { findClawbacks, revise } from '../agents/clawback';
++import { TraceLogger } from '../agents/trace';
++import { FakeGenerator } from '../adapters/llm';
++import type { AgentContext } from '../agents/types';
++
++const maya = {
++  id: 'maya', userId: null, isGuest: true, name: 'Maya', birthDate: '2026-10-03', dueDate: null,
++  zip: '02139', state: 'MA', employer: 'Northwind', householdSize: 3, annualIncomeCents: 14500000,
++  dcfsaOffered: true, dataConnected: true,
++};
++const leo = { ...maya, id: 'leo', birthDate: null, dueDate: '2026-12-07', dcfsaOffered: false, dataConnected: false };
++
++const res = (rows: any[]) => ({ headers: Object.keys(rows[0] ?? {}), rows, ms: 1 });
++
++// Rows shaped like the fixtures in scripts/seed.ts and data/sample/plaid-transactions.json.
++const FSA_ROWS = [
++  // the refund (-24.00) and the Walgreens duplicate must never come out as candidates, even if a query returned them
++  { tx_id: 'maya-tx-01', merchant: 'Target', date: '2026-10-05', amount_cents: 2899, item: 'Frida baby thermometer', keyword: 'thermometer', fsa_category: 'Baby thermometer', account: 'FSA', source_url: 'https://fsastore.com/baby-thermometers.html' },
++  { tx_id: 'maya-tx-04', merchant: 'Target', date: '2026-10-14', amount_cents: -2400, item: 'Carter onesies (returned)', keyword: 'onesies', fsa_category: 'x', account: 'FSA', source_url: 'https://x.test' },
++  { tx_id: 'maya-tx-05', merchant: 'Walgreens', date: '2026-10-15', amount_cents: 3149, item: 'Pampers Swaddlers diaper rash cream', keyword: 'diaper rash', fsa_category: 'Diaper rash ointment', account: 'FSA', source_url: 'https://fsastore.com/skin-care.html' },
++  { tx_id: 'maya-tx-06', merchant: 'Walgreens', date: '2026-10-15', amount_cents: 3149, item: 'Pampers Swaddlers diaper rash cream', keyword: 'diaper rash', fsa_category: 'Diaper rash ointment', account: 'FSA', source_url: 'https://fsastore.com/skin-care.html' },
++];
++const PRICE_ROWS = [
++  { tx_id: 'maya-tx-02', merchant: 'Target', date: '2026-10-09', amount_cents: 8999, item: "Graco Pack 'n Play playard", window_days: 14, observed_price_cents: 6999, observed_at: '2026-10-20', store_source_url: 'https://help.target.com/x', price_source_url: 'https://www.target.com/c/playards/-/N-5xtbz' },
++];
++const DAYCARE_ROWS = [
++  { tx_id: 'maya-tx-07', merchant: 'Bright Horizons', date: '2026-08-01', amount_cents: 185000, source_url: 'https://www.irs.gov/publications/p503' },
++  { tx_id: 'maya-tx-08', merchant: 'Bright Horizons', date: '2026-09-01', amount_cents: 185000, source_url: 'https://www.irs.gov/publications/p503' },
++  { tx_id: 'maya-tx-09', merchant: 'Bright Horizons', date: '2026-10-01', amount_cents: 185000, source_url: 'https://www.irs.gov/publications/p503' },
++];
++
++function ctxWith(family: any, rows: { fsa?: any[]; price?: any[]; dcfsa?: any[] }, llm = new FakeGenerator([])) {
++  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cb-'));
++  const trace = new TraceLogger('t', dir);
++  const runQuery = jest.fn(async (sql: string) => {
++    if (sql.includes("account = 'DCFSA'")) return res(rows.dcfsa ?? []);
++    if (sql.includes('store_policies')) return res(rows.price ?? []);
++    if (sql.includes('fsa_eligible_categories')) return res(rows.fsa ?? []);
++    throw new Error('unexpected sql ' + sql);
++  });
++  const ctx = { runId: 't', family, z: { runQuery } as any, llm, memory: {} as any, trace } as AgentContext;
++  return { ctx, runQuery, trace };
++}
++
++describe('clawback hunter', () => {
++  beforeEach(() => { process.env.TODAY = '2026-10-23'; });
++
++  it('maya: finds the FSA thermometer (2899), the Pack n Play price adjustment (2000) and DCFSA childcare', async () => {
++    const { ctx } = ctxWith(maya, { fsa: FSA_ROWS, price: PRICE_ROWS, dcfsa: DAYCARE_ROWS });
++    const out = await findClawbacks(ctx);
++    const by: Record<string, any> = Object.fromEntries(out.map((c) => [c.claim.type, c]));
++    by.fsa_reimbursement = out.find((c) => c.claim.txId === 'maya-tx-01')!;
++    expect(by.fsa_reimbursement.amountCents).toBe(2899);
++    expect(by.fsa_reimbursement.claim.txId).toBe('maya-tx-01');
++    expect(by.fsa_reimbursement.claim.txAmountCents).toBe(2899);
++    expect(by.price_adjustment.amountCents).toBe(2000);
++    expect(by.price_adjustment.deadline).toBe('2026-10-23'); // 2026-10-09 + 14 days
++    expect(by.dcfsa_childcare.amountCents).toBe(555000);
++    expect(by.dcfsa_childcare.verdict).toBe('likely');
++    for (const c of out) {
++      expect(c.kind).toBe('clawback');
++      expect(c.sources.length).toBeGreaterThan(0);
++      expect(c.claim.txId).toBeTruthy();
++      expect(c.claim.txAmountCents).toBeGreaterThan(0);
++      expect(c.agent).toBe('clawback');
++      expect(c.retryCount).toBe(0);
++      expect(c.traceId).toBeTruthy();
++    }
++  });
++
++  it('does not make candidates from the refund or the duplicate pair', async () => {
++    const { ctx } = ctxWith(maya, { fsa: FSA_ROWS, price: [], dcfsa: [] });
++    const out = await findClawbacks(ctx);
++    const fsa = out.filter((c) => c.claim.type === 'fsa_reimbursement');
++    expect(fsa.map((c) => c.claim.txId)).toEqual(['maya-tx-01', 'maya-tx-05']); // one Walgreens, no refund
++    expect(out.some((c) => c.amountCents !== null && c.amountCents <= 0)).toBe(false);
++  });
++
++  it('a family with no transactions gets []', async () => {
++    const { ctx } = ctxWith(leo, {});
++    expect(await findClawbacks(ctx)).toEqual([]);
++  });
++
++  it('skips DCFSA when the employer does not offer it, and caps at 750000', async () => {
++    const no = ctxWith({ ...maya, dcfsaOffered: false }, { dcfsa: DAYCARE_ROWS });
++    expect((await findClawbacks(no.ctx)).length).toBe(0);
++    expect(no.runQuery.mock.calls.some((c) => String(c[0]).includes("account = 'DCFSA'"))).toBe(false);
++    const big = Array.from({ length: 6 }, (_, i) => ({ ...DAYCARE_ROWS[0], tx_id: `d${i}`, date: `2026-0${i + 1}-01` }));
++    const out = await findClawbacks(ctxWith(maya, { dcfsa: big }).ctx);
++    expect(out[0].amountCents).toBe(750000);
++  });
++
++  it('ignores a price observation outside the store window or not lower', async () => {
++    const late = { ...PRICE_ROWS[0], observed_at: '2026-10-30' };
++    const same = { ...PRICE_ROWS[0], observed_at: '2026-10-12', observed_price_cents: 8999 };
++    const out = await findClawbacks(ctxWith(maya, { price: [late, same] }).ctx);
++    expect(out).toEqual([]);
++  });
++
++  it('uses the lowest in-window price when there are several', async () => {
++    const lower = { ...PRICE_ROWS[0], observed_price_cents: 6500, observed_at: '2026-10-12' };
++    const out = await findClawbacks(ctxWith(maya, { price: [PRICE_ROWS[0], lower] }).ctx);
++    expect(out[0].amountCents).toBe(2499);
++  });
++
++  it('uses the LLM body when it only repeats known amounts, else the deterministic text', async () => {
++    const good = new FakeGenerator([JSON.stringify({ body: 'You bought a thermometer for $28.99; it is likely FSA eligible.' })]);
++    const a = await findClawbacks(ctxWith(maya, { fsa: [FSA_ROWS[0]] }, good).ctx);
++    expect(a[0].body).toContain('likely FSA eligible');
++    const invented = new FakeGenerator([JSON.stringify({ body: 'Claim $999.00 back now!' })]);
++    const b = await findClawbacks(ctxWith(maya, { fsa: [FSA_ROWS[0]] }, invented).ctx);
++    expect(b[0].body).toContain('$28.99');
++    expect(b[0].body).not.toContain('999');
++  });
++
++  it('never puts income in the model prompt', async () => {
++    const g = new FakeGenerator([JSON.stringify({ body: 'ok' })]);
++    await findClawbacks(ctxWith(maya, { fsa: [FSA_ROWS[0]] }, g).ctx);
++    expect(g.prompts.join('\n')).not.toContain('14500000');
++  });
++
++  it('keeps unsafe family ids out of SQL', async () => {
++    const { ctx, runQuery } = ctxWith({ ...maya, id: "m'; DROP" }, { fsa: FSA_ROWS });
++    await expect(findClawbacks(ctx)).resolves.toEqual([]);
++    expect(runQuery).not.toHaveBeenCalled();
++  });
++
++  it('sends no trailing semicolons and scopes every query to the family', async () => {
++    const { ctx, runQuery } = ctxWith(maya, { fsa: FSA_ROWS, price: PRICE_ROWS, dcfsa: DAYCARE_ROWS });
++    await findClawbacks(ctx);
++    for (const [sql] of runQuery.mock.calls) {
++      expect(sql).not.toMatch(/;\s*$/);
++      expect(sql).toContain("family_id = 'maya'");
++    }
++  });
++
++  it('revise re-derives a fresh candidate, bumps retryCount, or gives up with null', async () => {
++    const h = ctxWith(maya, { fsa: FSA_ROWS, price: PRICE_ROWS, dcfsa: DAYCARE_ROWS });
++    const first = (await findClawbacks(h.ctx)).find((c) => c.claim.type === 'price_adjustment')!;
++    const stale = { ...first, amountCents: 1, retryCount: 0 };
++    const fixed = await revise(stale, 'amount mismatch', h.ctx);
++    expect(fixed?.amountCents).toBe(2000);
++    expect(fixed?.retryCount).toBe(1);
++    const gone = ctxWith(maya, { fsa: [], price: [], dcfsa: [] });
++    expect(await revise(stale, 'source not found', gone.ctx)).toBeNull();
++  });
++});
+diff --git a/server/__tests__/factChecker.test.ts b/server/__tests__/factChecker.test.ts
+index 6cb6f07..6a68955 100644
+--- a/server/__tests__/factChecker.test.ts
++++ b/server/__tests__/factChecker.test.ts
+@@ -92,20 +92,72 @@ describe('fact-checker', () => {
+     const c = cand({ kind: 'clawback', amountCents: 500, claim: { type: 'clawback', txId: 'tx1', txAmountCents: 4000 } });
+     const good = ctxWith(() => res([{ amount_cents: 4000, family_id: 'maya' }]));
+     expect((await verify(c, good.ctx)).ok).toBe(true);
+     expect(good.runQuery.mock.calls[0][0]).toContain("family_id = 'maya'");
+     const bad = ctxWith(() => res([{ amount_cents: 3500, family_id: 'maya' }]));
+     const out = await verify(c, bad.ctx);
+     expect(out.ok).toBe(false);
+     expect(out.reason).toContain('amount mismatch');
+   });
+ 
++  describe('clawback subtypes', () => {
++    const clawCand = (type: string, over: Partial<Candidate> = {}) =>
++      cand({ kind: 'clawback', agent: 'clawback', claim: { type, txId: 'maya-tx-02', txAmountCents: 8999, planYear: 2026 }, ...over });
++    const priceRows = [
++      { amount_cents: 8999, tx_date: '2026-10-09', window_days: 14, price_cents: 6999, observed_at: '2026-10-20' },
++      { amount_cents: 8999, tx_date: '2026-10-09', window_days: 14, price_cents: 5000, observed_at: '2026-10-30' }, // outside window
++    ];
++
++    it('fsa_reimbursement: amount must equal the transaction', async () => {
++      const c = clawCand('fsa_reimbursement', { amountCents: 8999 });
++      const ok = ctxWith(() => res([{ amount_cents: 8999, family_id: 'maya' }]));
++      expect((await verify(c, ok.ctx)).ok).toBe(true);
++      const bad = ctxWith(() => res([{ amount_cents: 8999, family_id: 'maya' }]));
++      const out = await verify({ ...c, amountCents: 100 }, bad.ctx);
++      expect(out.ok).toBe(false);
++      expect(out.corrected?.amountCents).toBe(8999);
++    });
++
++    it('price_adjustment: recomputes paid minus lowest in-window price and the deadline', async () => {
++      const c = clawCand('price_adjustment', { amountCents: 2000, deadline: '2026-10-23' });
++      const ok = ctxWith(() => res(priceRows));
++      expect((await verify(c, ok.ctx)).ok).toBe(true);
++      expect(ok.runQuery.mock.calls[0][0]).toContain("t.family_id = 'maya'");
++      const wrongAmt = await verify({ ...c, amountCents: 3999 }, ctxWith(() => res(priceRows)).ctx);
++      expect(wrongAmt.ok).toBe(false);
++      expect(wrongAmt.corrected?.amountCents).toBe(2000);
++      const wrongDay = await verify({ ...c, deadline: '2026-11-30' }, ctxWith(() => res(priceRows)).ctx);
++      expect(wrongDay.corrected?.deadline).toBe('2026-10-23');
++      const none = await verify(c, ctxWith(() => res([priceRows[1]])).ctx);
++      expect(none.ok).toBe(false);
++      expect(none.reason).toContain('no lower price');
++    });
++
++    it('dcfsa_childcare: sums distinct payments, caps at 750000, needs the employer benefit', async () => {
++      const c = clawCand('dcfsa_childcare', { amountCents: 555000 });
++      const ok = ctxWith(() => res([{ total_cents: 555000, n: 3 }]));
++      expect((await verify(c, ok.ctx)).ok).toBe(true);
++      expect(ok.runQuery.mock.calls[0][0]).toContain('SELECT DISTINCT');
++      expect(ok.runQuery.mock.calls[0][0]).toContain("'2026-01-01'");
++      const bad = await verify({ ...c, amountCents: 600000 }, ctxWith(() => res([{ total_cents: 555000, n: 3 }])).ctx);
++      expect(bad.corrected?.amountCents).toBe(555000);
++      const capped = await verify({ ...c, amountCents: 750000 }, ctxWith(() => res([{ total_cents: 900000, n: 6 }])).ctx);
++      expect(capped.ok).toBe(true);
++      const noBenefit = ctxWith(() => res([{ total_cents: 555000, n: 3 }]));
++      noBenefit.ctx.family = { ...family, dcfsaOffered: false };
++      expect((await verify(c, noBenefit.ctx)).ok).toBe(false);
++      const badYear = ctxWith(() => res([]));
++      expect((await verify({ ...c, claim: { ...c.claim, planYear: "2026'" } }, badYear.ctx)).ok).toBe(false);
++      expect(badYear.runQuery).not.toHaveBeenCalled();
++    });
++  });
++
+   it('fails closed on unknown claims and when Zetaris is down', async () => {
+     const unk = ctxWith(() => res([]));
+     const o1 = await verify(cand({ claim: { type: 'mystery' } }), unk.ctx);
+     expect(o1.ok).toBe(false);
+     expect(o1.reason).toContain('cannot verify');
+     const down = ctxWith(() => { throw new ZetarisUnavailable('down'); });
+     const o2 = await verify(cand(), down.ctx);
+     expect(o2.ok).toBe(false);
+     expect(o2.reason).toContain('could not verify');
+   });
+diff --git a/server/__tests__/recall.test.ts b/server/__tests__/recall.test.ts
+new file mode 100644
+index 0000000..5ca4a09
+--- /dev/null
++++ b/server/__tests__/recall.test.ts
+@@ -0,0 +1,136 @@
++import os from 'os';
++import fs from 'fs';
++import path from 'path';
++import { checkRecalls, revise } from '../agents/recall';
++import { TraceLogger } from '../agents/trace';
++import { FakeGenerator, UnavailableGenerator } from '../adapters/llm';
++import type { AgentContext } from '../agents/types';
++
++const maya = {
++  id: 'maya', userId: null, isGuest: true, name: 'Maya', birthDate: '2026-10-03', dueDate: null,
++  zip: '02139', state: 'MA', employer: 'Northwind', householdSize: 3, annualIncomeCents: 14500000,
++  dcfsaOffered: true, dataConnected: true,
++};
++const leo = { ...maya, id: 'leo', dcfsaOffered: false, dataConnected: false };
++const res = (rows: any[]) => ({ headers: Object.keys(rows[0] ?? {}), rows, ms: 1 });
++
++// Maya's purchases: 3 Amazon orders + distinct card items (refund excluded, Walgreens pair counted once).
++const ITEMS = [
++  { item_text: 'KEAWIS Crib Mattress, Dual-Sided Firm Baby Mattress', source: 'amazon' },
++  { item_text: 'Aden + Anais Muslin Swaddle Blankets, 4 Pack', source: 'amazon' },
++  { item_text: 'Hatch Baby Rest Sound Machine and Night Light', source: 'amazon' },
++  { item_text: 'Frida baby thermometer', source: 'card' },
++  { item_text: 'Pampers Swaddlers newborn diapers', source: 'card' },
++];
++const CPSC_PAIR = {
++  item_text: 'KEAWIS Crib Mattress, Dual-Sided Firm Baby Mattress', purchased_on: '2026-09-10', source: 'amazon',
++  recall_source: 'cpsc', recall_id: 10560, recall_number: '26191', recall_date: '2026-01-15',
++  recall_title: 'Yixing Trading Recalls KEAWIS Crib Mattresses Due to Risk of Serious Injury or Death from Entrapment and Suffocation',
++  recall_url: 'https://www.cpsc.gov/Recalls/2026/Yixing-Trading-Recalls-KEAWIS-Crib-Mattresses', recalled_product: 'KEAWIS Crib Mattress',
++};
++// A loose token match that is NOT the same product (the model must say no).
++const LOOSE_PAIR = {
++  item_text: 'Hatch Baby Rest Sound Machine and Night Light', purchased_on: '2026-10-02', source: 'amazon',
++  recall_source: 'cpsc', recall_id: 777, recall_number: '25001', recall_date: '2026-02-01',
++  recall_title: 'Acme Recalls Baby Night Lights', recall_url: 'https://www.cpsc.gov/Recalls/2026/acme', recalled_product: 'Acme Baby Night Light',
++};
++const FDA_PAIR = {
++  item_text: 'Enfamil NeuroPro infant formula', purchased_on: '2026-09-02', source: 'card',
++  recall_source: 'fda', recall_id: null, recall_number: 'F-0123-2026', recall_date: '2026-03-04',
++  recall_title: 'Infant formula recall', recall_url: 'https://www.fda.gov/safety/recalls', recalled_product: 'Enfamil NeuroPro Infant Formula powder 12.5 oz',
++};
++
++function ctxWith(family: any, items: any[], pairs: any[], llm: any) {
++  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'rc-'));
++  const trace = new TraceLogger('t', dir);
++  const runQuery = jest.fn(async (sql: string) => {
++    if (sql.includes('LATERAL VIEW')) return res(pairs);
++    if (sql.includes('v_recall_orders')) return res(items);
++    throw new Error('unexpected sql ' + sql);
++  });
++  const ctx = { runId: 't', family, z: { runQuery } as any, llm, memory: {} as any, trace } as AgentContext;
++  return { ctx, runQuery };
++}
++const yes = () => new FakeGenerator([JSON.stringify({ same: true })]);
++const no = () => new FakeGenerator([JSON.stringify({ same: false })]);
++
++describe('recall checker', () => {
++  it('maya: 1 KEAWIS recall candidate; itemsChecked is her distinct purchase items', async () => {
++    const llm = new FakeGenerator([JSON.stringify({ same: true }), JSON.stringify({ same: false })]);
++    const { ctx } = ctxWith(maya, ITEMS, [CPSC_PAIR, LOOSE_PAIR], llm);
++    const out = await checkRecalls(ctx);
++    expect(out.itemsChecked).toBe(5);
++    expect(out.candidates).toHaveLength(1);
++    const c = out.candidates[0];
++    expect(c.kind).toBe('recall');
++    expect(c.claim).toMatchObject({ type: 'recall', recallId: 10560 });
++    expect(c.title).toContain('KEAWIS');
++    expect(c.sources[0].url).toContain('cpsc.gov');
++    expect(c.amountCents).toBeNull();
++    expect(c.agent).toBe('recall');
++  });
++
++  it('leo (no purchases): no candidates, itemsChecked 0, and no recall query needed', async () => {
++    const { ctx, runQuery } = ctxWith(leo, [], [], yes());
++    expect(await checkRecalls(ctx)).toEqual({ candidates: [], itemsChecked: 0 });
++    expect(runQuery.mock.calls.some((c) => String(c[0]).includes('LATERAL VIEW'))).toBe(false);
++  });
++
++  it('ordinary items with no pairs give no candidates but still count', async () => {
++    const { ctx } = ctxWith(maya, ITEMS, [], yes());
++    const out = await checkRecalls(ctx);
++    expect(out.candidates).toEqual([]);
++    expect(out.itemsChecked).toBe(5);
++  });
++
++  it('without a model, accepts only exact product-name containment (KEAWIS yes, loose match no)', async () => {
++    const { ctx } = ctxWith(maya, ITEMS, [CPSC_PAIR, LOOSE_PAIR, FDA_PAIR], new UnavailableGenerator('off'));
++    const out = await checkRecalls(ctx);
++    expect(out.candidates.map((c) => c.claim.recallId)).toEqual([10560]);
++  });
++
++  it('a model "no" on the KEAWIS pair drops it (the model is the judge, not the SQL)', async () => {
++    const { ctx } = ctxWith(maya, ITEMS, [CPSC_PAIR], no());
++    expect((await checkRecalls(ctx)).candidates).toEqual([]);
++  });
++
++  it('an FDA match carries recallSource fda and the recall number', async () => {
++    const { ctx } = ctxWith(maya, ITEMS, [FDA_PAIR], yes());
++    const c = (await checkRecalls(ctx)).candidates[0];
++    expect(c.claim).toMatchObject({ type: 'recall', recallSource: 'fda', recallNumber: 'F-0123-2026' });
++  });
++
++  it('one card per recall even if two items hit it', async () => {
++    const two = [CPSC_PAIR, { ...CPSC_PAIR, item_text: 'KEAWIS Crib Mattress 2nd' }];
++    const { ctx } = ctxWith(maya, ITEMS, two, yes());
++    expect((await checkRecalls(ctx)).candidates).toHaveLength(1);
++  });
++
++  it('keeps the join in one Zetaris query: LATERAL VIEW inside a subquery, FDA dates normalised, no trailing semicolon', async () => {
++    const { ctx, runQuery } = ctxWith(maya, ITEMS, [], yes());
++    await checkRecalls(ctx);
++    const sqls = runQuery.mock.calls.map((c) => String(c[0]));
++    const pair = sqls.find((s) => s.includes('LATERAL VIEW'))!;
++    expect(pair).toMatch(/FROM \(SELECT[^]*LATERAL VIEW explode\(Products\)/);
++    expect(pair).toContain('fda_food_recalls');
++    expect(pair).toContain('recall_initiation_date');
++    expect(pair).toContain("family_id = 'maya'");
++    for (const s of sqls) expect(s).not.toMatch(/;\s*$/);
++  });
++
++  it('refuses an unsafe family id without querying', async () => {
++    const { ctx, runQuery } = ctxWith({ ...maya, id: "a'b" }, ITEMS, [CPSC_PAIR], yes());
++    expect(await checkRecalls(ctx)).toEqual({ candidates: [], itemsChecked: 0 });
++    expect(runQuery).not.toHaveBeenCalled();
++  });
++
++  it('revise re-derives the recall, or gives up', async () => {
++    const h = ctxWith(maya, ITEMS, [CPSC_PAIR], yes());
++    const first = (await checkRecalls(h.ctx)).candidates[0];
++    const fixed = await revise({ ...first, title: 'wrong' }, 'source not found', h.ctx);
++    expect(fixed?.title).toContain('KEAWIS');
++    expect(fixed?.retryCount).toBe(1);
++    const gone = ctxWith(maya, ITEMS, [], yes());
++    expect(await revise(first, 'source not found', gone.ctx)).toBeNull();
++  });
++});
+diff --git a/server/agents/clawback.ts b/server/agents/clawback.ts
+new file mode 100644
+index 0000000..6d00252
+--- /dev/null
++++ b/server/agents/clawback.ts
+@@ -0,0 +1,191 @@
++import { col, quoteId, quoteDate, InvalidId, addDays, today, fmtUsd, dupKey } from './sql';
++import { explain } from './explain';
++import { DCFSA_CAP_CENTS } from './factChecker';
++import type { AgentContext, Candidate } from './types';
++
++const AGENT = 'clawback';
++
++type Row = Record<string, string | number | null>;
++const s = (r: Row, k: string) => String(col(r, k) ?? '');
++const n = (r: Row, k: string) => Number(col(r, k) ?? 0);
++
++/** Does a transaction's item description or merchant contain a keyword? The match happens inside Zetaris. */
++const KEYWORD_MATCH =
++  "(lower(t.category) LIKE concat('%', lower(c.keyword), '%') OR lower(t.merchant) LIKE concat('%', lower(c.keyword), '%'))";
++
++export function fsaSql(familyId: string): string {
++  return (
++    'SELECT DISTINCT t.id AS tx_id, t.merchant AS merchant, t.date AS date, t.amount_cents AS amount_cents, ' +
++    't.category AS item, c.keyword AS keyword, c.category AS fsa_category, c.account AS account, c.source_url AS source_url ' +
++    'FROM bundle_pg.v_clawback_tx t ' +
++    `JOIN bundle_pg.fsa_eligible_categories c ON c.account <> 'DCFSA' AND ${KEYWORD_MATCH} ` +
++    `WHERE t.family_id = ${quoteId(familyId)} AND t.amount_cents > 0 ORDER BY date, tx_id`
++  );
++}
++
++export function priceSql(familyId: string): string {
++  return (
++    'SELECT t.id AS tx_id, t.merchant AS merchant, t.date AS date, t.amount_cents AS amount_cents, t.category AS item, ' +
++    'sp.adjustment_window_days AS window_days, po.price_cents AS observed_price_cents, po.observed_at AS observed_at, ' +
++    'sp.source_url AS store_source_url, po.source_url AS price_source_url ' +
++    'FROM bundle_pg.v_clawback_tx t ' +
++    'JOIN bundle_pg.store_policies sp ON lower(sp.store) = lower(t.merchant) ' +
++    'JOIN bundle_pg.price_observations po ON lower(po.store) = lower(sp.store) ' +
++    "AND lower(t.category) LIKE concat('%', lower(po.keyword), '%') " +
++    `WHERE t.family_id = ${quoteId(familyId)} AND t.amount_cents > 0 ` +
++    'AND po.price_cents < t.amount_cents ' +
++    'AND datediff(CAST(po.observed_at AS date), CAST(t.date AS date)) BETWEEN 0 AND sp.adjustment_window_days ' +
++    'ORDER BY t.date, t.id'
++  );
++}
++
++export function daycareSql(familyId: string, year: number): string {
++  return (
++    'SELECT DISTINCT t.id AS tx_id, t.merchant AS merchant, t.date AS date, t.amount_cents AS amount_cents, c.source_url AS source_url ' +
++    'FROM bundle_pg.v_clawback_tx t ' +
++    `JOIN bundle_pg.fsa_eligible_categories c ON c.account = 'DCFSA' AND ${KEYWORD_MATCH} ` +
++    `WHERE t.family_id = ${quoteId(familyId)} AND t.amount_cents > 0 ` +
++    `AND t.date >= ${quoteDate(`${year}-01-01`)} AND t.date <= ${quoteDate(`${year}-12-31`)} ORDER BY date, tx_id`
++  );
++}
++
++function log(ctx: AgentContext, action: string, input: string, output: string, status: 'ok' | 'retry' | 'blocked' | 'error' | 'fallback' = 'ok', retry = 0): string {
++  return ctx.trace.log({
++    agent_name: AGENT, action, input_summary: input, output_summary: output,
++    target_agent: null, confidence: null, retry_count: retry, status,
++  });
++}
++
++async function fsaCandidates(ctx: AgentContext, seen: Set<string>): Promise<Candidate[]> {
++  const sql = fsaSql(ctx.family.id);
++  const { rows } = await ctx.z.runQuery(sql);
++  const out: Candidate[] = [];
++  for (const r of rows) {
++    const cents = n(r, 'amount_cents');
++    if (cents <= 0) continue;
++    const key = dupKey(s(r, 'merchant'), s(r, 'date').slice(0, 10), cents);
++    if (seen.has(key)) continue; // duplicate listing of the same purchase (or the same tx matched by two keywords)
++    seen.add(key);
++    const item = s(r, 'item') || s(r, 'merchant');
++    const fallback = `You paid ${fmtUsd(cents)} at ${s(r, 'merchant')} for ${item}. It is likely eligible (${s(r, 'fsa_category')}), so you may be able to reimburse it from your health FSA or HSA.`;
++    const body = await explain(ctx, AGENT, `Purchase: ${item} at ${s(r, 'merchant')} for ${fmtUsd(cents)}. Likely ${s(r, 'account')}-eligible as: ${s(r, 'fsa_category')}.`, [cents], fallback);
++    const id = `clawback-fsa-${s(r, 'tx_id')}`;
++    out.push({
++      id, kind: 'clawback', title: `Reimburse your ${item}`, body, amountCents: cents, deadline: null,
++      verdict: 'verified', sources: [{ label: `${s(r, 'fsa_category')} (eligible-items list)`, url: s(r, 'source_url') }],
++      traceId: log(ctx, 'fsa_reimbursement', `tx ${s(r, 'tx_id')}`, `${fmtUsd(cents)} likely ${s(r, 'account')}-eligible`),
++      agent: AGENT, claim: { type: 'fsa_reimbursement', txId: s(r, 'tx_id'), txAmountCents: cents },
++      evidenceSql: sql, retryCount: 0,
++    });
++  }
++  return out;
++}
++
++async function priceCandidates(ctx: AgentContext, seen: Set<string>): Promise<Candidate[]> {
++  const sql = priceSql(ctx.family.id);
++  const { rows } = await ctx.z.runQuery(sql);
++  // One candidate per purchase: the lowest price seen inside that store's window.
++  const best = new Map<string, Row>();
++  for (const r of rows) {
++    const paid = n(r, 'amount_cents');
++    const price = n(r, 'observed_price_cents');
++    const date = s(r, 'date').slice(0, 10);
++    const end = addDays(date, n(r, 'window_days'));
++    const seenOn = s(r, 'observed_at').slice(0, 10);
++    // Re-check the window in code as well, so a surprising query result can never leak through.
++    if (paid <= 0 || price >= paid || seenOn < date || seenOn > end) continue;
++    const id = s(r, 'tx_id');
++    const cur = best.get(id);
++    if (!cur || price < n(cur, 'observed_price_cents')) best.set(id, r);
++  }
++  const out: Candidate[] = [];
++  for (const r of best.values()) {
++    const paid = n(r, 'amount_cents');
++    const cents = paid - n(r, 'observed_price_cents');
++    const date = s(r, 'date').slice(0, 10);
++    const key = dupKey(s(r, 'merchant'), date, paid);
++    if (seen.has(`price|${key}`)) continue;
++    seen.add(`price|${key}`);
++    const deadline = addDays(date, n(r, 'window_days'));
++    const item = s(r, 'item');
++    const fallback = `You paid ${fmtUsd(paid)} for ${item} at ${s(r, 'merchant')} on ${date}. The price is now ${fmtUsd(n(r, 'observed_price_cents'))}, and ${s(r, 'merchant')} adjusts prices for ${n(r, 'window_days')} days, so ask for ${fmtUsd(cents)} back by ${deadline}.`;
++    const body = await explain(ctx, AGENT, `Bought ${item} at ${s(r, 'merchant')} for ${fmtUsd(paid)} on ${date}. Price dropped to ${fmtUsd(n(r, 'observed_price_cents'))} on ${s(r, 'observed_at')}. Store adjusts prices for ${n(r, 'window_days')} days; ask by ${deadline}. Difference ${fmtUsd(cents)}.`, [paid, n(r, 'observed_price_cents'), cents], fallback);
++    out.push({
++      id: `clawback-price-${s(r, 'tx_id')}`, kind: 'clawback', title: `Price drop on your ${item}`, body, amountCents: cents, deadline,
++      verdict: 'verified',
++      sources: [
++        { label: `${s(r, 'merchant')} price-adjustment policy`, url: s(r, 'store_source_url') },
++        { label: 'Price check', url: s(r, 'price_source_url') },
++      ],
++      traceId: log(ctx, 'price_adjustment', `tx ${s(r, 'tx_id')}`, `${fmtUsd(cents)} back by ${deadline}`),
++      agent: AGENT, claim: { type: 'price_adjustment', txId: s(r, 'tx_id'), txAmountCents: paid },
++      evidenceSql: sql, retryCount: 0,
++    });
++  }
++  return out;
++}
++
++async function daycareCandidates(ctx: AgentContext): Promise<Candidate[]> {
++  if (!ctx.family.dcfsaOffered) return [];
++  const year = Number(today().slice(0, 4));
++  const sql = daycareSql(ctx.family.id, year);
++  const { rows } = await ctx.z.runQuery(sql);
++  const seen = new Set<string>();
++  const pay: Row[] = [];
++  for (const r of rows) {
++    const cents = n(r, 'amount_cents');
++    const key = dupKey(s(r, 'merchant'), s(r, 'date').slice(0, 10), cents);
++    if (cents <= 0 || seen.has(key)) continue;
++    seen.add(key);
++    pay.push(r);
++  }
++  if (!pay.length) return [];
++  const total = pay.reduce((a, r) => a + n(r, 'amount_cents'), 0);
++  const cents = Math.min(total, DCFSA_CAP_CENTS);
++  const last = pay[pay.length - 1];
++  const who = s(pay[0], 'merchant');
++  const fallback = `You paid ${fmtUsd(total)} to ${who} in ${pay.length} payment${pay.length === 1 ? '' : 's'} this year. Your employer offers a Dependent Care FSA (a work account for daycare costs, up to ${fmtUsd(DCFSA_CAP_CENTS)} a year), so this is likely eligible. Counted here: ${fmtUsd(cents)}.`;
++  const body = await explain(ctx, AGENT, `Daycare payments to ${who} in ${year}: ${pay.length}, total ${fmtUsd(total)}. Employer offers a Dependent Care FSA with a yearly limit of ${fmtUsd(DCFSA_CAP_CENTS)}. Counted: ${fmtUsd(cents)}.`, [total, cents, DCFSA_CAP_CENTS], fallback);
++  return [{
++    id: `clawback-dcfsa-${ctx.family.id}-${year}`, kind: 'clawback', title: 'Your daycare payments may qualify for a Dependent Care FSA',
++    body, amountCents: cents, deadline: null, verdict: 'likely',
++    sources: [{ label: 'IRS Publication 503 (dependent care)', url: s(pay[0], 'source_url') }],
++    traceId: log(ctx, 'dcfsa_childcare', `${pay.length} payments in ${year}`, `${fmtUsd(cents)} likely eligible`),
++    agent: AGENT,
++    claim: { type: 'dcfsa_childcare', txId: s(last, 'tx_id'), txAmountCents: n(last, 'amount_cents'), planYear: year },
++    evidenceSql: sql, retryCount: 0,
++  }];
++}
++
++/** Find money a family can get back: FSA reimbursements, store price adjustments, Dependent Care FSA. */
++export async function findClawbacks(ctx: AgentContext): Promise<Candidate[]> {
++  try {
++    quoteId(ctx.family.id);
++  } catch (e) {
++    if (e instanceof InvalidId) {
++      log(ctx, 'find_clawbacks', 'family', 'unsafe family id: nothing queried', 'error');
++      return [];
++    }
++    throw e;
++  }
++  const seen = new Set<string>();
++  const out = [
++    ...(await fsaCandidates(ctx, seen)),
++    ...(await priceCandidates(ctx, seen)),
++    ...(await daycareCandidates(ctx)),
++  ];
++  log(ctx, 'find_clawbacks', `family ${ctx.family.id}`, `${out.length} candidate(s): ${out.map((c) => c.claim.type).join(', ') || 'none'}`);
++  return out;
++}
++
++/** Re-derive one candidate from the source data after the Fact-Checker sent it back. null = give up. */
++export async function revise(c: Candidate, reason: string, ctx: AgentContext): Promise<Candidate | null> {
++  log(ctx, 'revise', `${c.claim.type} ${c.claim.txId}: ${reason}`.slice(0, 200), 're-deriving from source', 'retry', c.retryCount + 1);
++  const fresh = await findClawbacks(ctx);
++  const match = fresh.find((f) => f.claim.type === c.claim.type && (c.claim.type === 'dcfsa_childcare' || f.claim.txId === c.claim.txId));
++  if (!match) {
++    log(ctx, 'revise', `${c.claim.type} ${c.claim.txId}`, 'gave up: not in source data', 'blocked', c.retryCount + 1);
++    return null;
++  }
++  return { ...match, retryCount: c.retryCount + 1 };
++}
+diff --git a/server/agents/explain.ts b/server/agents/explain.ts
+new file mode 100644
+index 0000000..2fb15c3
+--- /dev/null
++++ b/server/agents/explain.ts
+@@ -0,0 +1,44 @@
++import { askJson } from '../adapters/llm';
++import type { AgentContext } from './types';
++
++const MONEY = /\$\s?(\d[\d,]*(?:\.\d+)?)/g;
++
++/** Every dollar figure mentioned in the text, as a number. */
++function amountsIn(text: string): number[] {
++  return [...text.matchAll(MONEY)].map((m) => Number(m[1].replace(/,/g, '')));
++}
++
++/**
++ * The model writes only the card's explanation. Numbers come from code: if the
++ * model's text mentions a dollar figure we did not give it, we throw the text away
++ * and use the deterministic fallback.
++ */
++export async function explain(
++  ctx: AgentContext,
++  agent: string,
++  facts: string,
++  allowedCents: number[],
++  fallback: string,
++): Promise<string> {
++  const allowed = new Set(allowedCents.map((c) => Math.round(c) / 100));
++  const prompt =
++    'Write a short, friendly explanation (1 to 2 sentences, plain English, no jargon) for a new parent about this finding. ' +
++    'Say "likely eligible", never "eligible". Do not give advice. Use ONLY the dollar amounts listed in the facts. ' +
++    'Reply as JSON: {"body": "..."}.\n\nFacts:\n' + facts;
++  const { value, usedFallback } = await askJson<{ body: string }>(
++    ctx.llm,
++    prompt,
++    (x): x is { body: string } => {
++      const b = (x as any)?.body;
++      return typeof b === 'string' && b.trim().length > 0 && b.length <= 500 && amountsIn(b).every((n) => allowed.has(n));
++    },
++    { body: fallback },
++  );
++  if (usedFallback) {
++    ctx.trace.log({
++      agent_name: agent, action: 'explain', input_summary: facts.slice(0, 120),
++      output_summary: 'used deterministic text', target_agent: null, confidence: null, retry_count: 0, status: 'fallback',
++    });
++  }
++  return value.body.trim();
++}
+diff --git a/server/agents/factChecker.ts b/server/agents/factChecker.ts
+index 52843d5..c13259c 100644
+--- a/server/agents/factChecker.ts
++++ b/server/agents/factChecker.ts
+@@ -1,57 +1,41 @@
+ import type { AgentContext, Candidate } from './types';
++import { InvalidId, quoteId as q, quoteDate, addDays, col } from './sql';
+ 
+ export interface VerifyResult {
+   ok: boolean;
+   reason: string | null;
+   corrected: Partial<Candidate> | null;
+ }
+ 
+ /**
+  * Claim shapes a producing agent must attach to `Candidate.claim` (keyed by `type`):
+  *   rule     { type:'rule', ref: <benefit_rules.code> }            -> amount + deadline
+  *   offer    { type:'offer', offerId: <offers.id> }                -> amount + deadline
+  *   recall   { type:'recall', recallId: <CPSC RecallID> }          (or recallSource:'fda', recallNumber)
+  *   clawback { type:'clawback', txId: <transactions.id>, txAmountCents }
++ *   fsa_reimbursement { type, txId, txAmountCents }                -> card amount must equal the transaction
++ *   price_adjustment  { type, txId, txAmountCents }                -> amount = paid minus the lowest in-window price; deadline = purchase + store window
++ *   dcfsa_childcare   { type, txId, txAmountCents, planYear }      -> amount = min(sum of that year's daycare payments, cap)
+  * Anything else cannot be verified, so it fails closed.
+  */
+ 
+ const CENT_TOLERANCE = 1;
+-const DAY_MS = 86_400_000;
+-
+-class InvalidId extends Error {}
+-const SAFE_ID = /^[A-Za-z0-9_.:-]+$/;
+-
+-/** Quote an id for SQL. Only plain id characters are allowed (no quotes, backslashes, spaces); anything else fails closed. */
+-function q(v: string | number | undefined): string {
+-  const s = v === undefined || v === null ? '' : String(v);
+-  if (!SAFE_ID.test(s)) throw new InvalidId('invalid id');
+-  return `'${s}'`;
+-}
++/** Federal Dependent Care FSA yearly limit for a household (2026), in cents. */
++export const DCFSA_CAP_CENTS = 750000;
+ 
+ function intId(v: string | number | undefined): number | null {
+   if (v === undefined || v === null || String(v).trim() === '') return null;
+   const n = Number(v);
+   return Number.isInteger(n) ? n : null;
+ }
+ 
+-function addDays(iso: string, days: number): string {
+-  const d = new Date(`${iso}T00:00:00Z`);
+-  return new Date(d.getTime() + days * DAY_MS).toISOString().slice(0, 10);
+-}
+-
+-/** Read a column ignoring case (Zetaris may return headers in a different case). */
+-function col(row: Record<string, string | number | null>, name: string): string | number | null | undefined {
+-  const k = Object.keys(row).find((x) => x.toLowerCase() === name.toLowerCase());
+-  return k === undefined ? undefined : row[k];
+-}
+-
+ function finish(c: Candidate, ctx: AgentContext, res: VerifyResult, status: 'ok' | 'blocked' | 'error'): VerifyResult {
+   ctx.trace.log({
+     agent_name: 'fact_checker',
+     action: 'verify',
+     input_summary: `${c.kind} card ${c.id} from ${c.agent}: claim ${JSON.stringify(c.claim)}`.slice(0, 300),
+     output_summary: res.ok ? 'verified' : (res.reason ?? 'failed'),
+     target_agent: res.ok ? null : c.agent,
+     confidence: res.ok ? 1 : 0,
+     retry_count: c.retryCount,
+     status,
+@@ -128,20 +112,80 @@ async function check(c: Candidate, ctx: AgentContext): Promise<VerifyResult> {
+     if (!rows.length) return fail(`source not found: transaction ${claim.txId} for this family`);
+     const truth = col(rows[0], 'amount_cents') as number;
+     const claimed = Number(claim.txAmountCents);
+     if (!Number.isFinite(claimed) || Math.abs(claimed - truth) > CENT_TOLERANCE) {
+       // The claimed refund is built on the transaction amount, so it cannot be trusted either.
+       return fail(`amount mismatch: card used ${claim.txAmountCents}, transaction is ${truth}`);
+     }
+     return { ok: true, reason: null, corrected: null };
+   }
+ 
++  if (type === 'fsa_reimbursement') {
++    const sql = `SELECT amount_cents, family_id FROM bundle_pg.v_clawback_tx WHERE id = ${q(claim.txId)} AND family_id = ${q(ctx.family.id)}`;
++    const { rows } = await ctx.z.runQuery(sql);
++    if (!rows.length) return fail(`source not found: transaction ${claim.txId} for this family`);
++    const truth = col(rows[0], 'amount_cents') as number;
++    const claimed = Number(claim.txAmountCents);
++    if (!Number.isFinite(claimed) || Math.abs(claimed - truth) > CENT_TOLERANCE) {
++      return fail(`amount mismatch: card used ${claim.txAmountCents}, transaction is ${truth}`);
++    }
++    return compare(c, truth, null);
++  }
++
++  if (type === 'price_adjustment') {
++    // Independent path: pull every possible price row and apply the window rule here, in code.
++    const sql =
++      'SELECT t.amount_cents AS amount_cents, t.date AS tx_date, sp.adjustment_window_days AS window_days, ' +
++      'po.price_cents AS price_cents, po.observed_at AS observed_at ' +
++      'FROM bundle_pg.v_clawback_tx t ' +
++      'JOIN bundle_pg.store_policies sp ON lower(sp.store) = lower(t.merchant) ' +
++      'JOIN bundle_pg.price_observations po ON lower(po.store) = lower(sp.store) ' +
++      "AND lower(t.category) LIKE concat('%', lower(po.keyword), '%') " +
++      `WHERE t.id = ${q(claim.txId)} AND t.family_id = ${q(ctx.family.id)}`;
++    const { rows } = await ctx.z.runQuery(sql);
++    if (!rows.length) return fail(`source not found: price check for transaction ${claim.txId}`);
++    const paid = col(rows[0], 'amount_cents') as number;
++    const claimed = Number(claim.txAmountCents);
++    if (!Number.isFinite(claimed) || Math.abs(claimed - paid) > CENT_TOLERANCE) {
++      return fail(`amount mismatch: card used ${claim.txAmountCents}, transaction is ${paid}`);
++    }
++    let best: number | null = null;
++    let deadline: string | null = null;
++    for (const r of rows) {
++      const date = String(col(r, 'tx_date')).slice(0, 10);
++      const win = Number(col(r, 'window_days'));
++      const seen = String(col(r, 'observed_at')).slice(0, 10);
++      const price = Number(col(r, 'price_cents'));
++      const end = addDays(date, win);
++      if (seen >= date && seen <= end && price < paid && (best === null || price < best)) { best = price; deadline = end; }
++    }
++    if (best === null || deadline === null) return fail('source not found: no lower price inside the store window');
++    return compare(c, paid - best, deadline);
++  }
++
++  if (type === 'dcfsa_childcare') {
++    if (!ctx.family.dcfsaOffered) return fail('source not found: employer does not offer a Dependent Care FSA');
++    const year = intId(claim.planYear);
++    if (year === null || year < 2000 || year > 2100) return fail('cannot verify: planYear is not a year');
++    const sql =
++      'SELECT COALESCE(SUM(p.amount_cents), 0) AS total_cents, COUNT(*) AS n FROM ' +
++      '(SELECT DISTINCT t.merchant AS merchant, t.date AS date, t.amount_cents AS amount_cents ' +
++      "FROM bundle_pg.v_clawback_tx t JOIN bundle_pg.fsa_eligible_categories c ON c.account = 'DCFSA' " +
++      "AND (lower(t.category) LIKE concat('%', lower(c.keyword), '%') OR lower(t.merchant) LIKE concat('%', lower(c.keyword), '%')) " +
++      `WHERE t.family_id = ${q(ctx.family.id)} AND t.amount_cents > 0 ` +
++      `AND t.date >= ${quoteDate(`${year}-01-01`)} AND t.date <= ${quoteDate(`${year}-12-31`)}) p`;
++    const { rows } = await ctx.z.runQuery(sql);
++    const total = rows.length ? Number(col(rows[0], 'total_cents')) : 0;
++    if (!Number.isFinite(total) || total <= 0) return fail('source not found: no daycare payments this plan year');
++    return compare(c, Math.min(total, DCFSA_CAP_CENTS), null);
++  }
++
+   return fail(`cannot verify: unknown claim type "${type}"`);
+ }
+ 
+ /** Re-read the source row through a different query path than the producing agent used. */
+ export async function verify(c: Candidate, ctx: AgentContext): Promise<VerifyResult> {
+   if (!c.sources || c.sources.length === 0) {
+     return finish(c, ctx, fail('no source'), 'blocked');
+   }
+   try {
+     const res = await check(c, ctx);
+diff --git a/server/agents/recall.ts b/server/agents/recall.ts
+new file mode 100644
+index 0000000..4f0d664
+--- /dev/null
++++ b/server/agents/recall.ts
+@@ -0,0 +1,168 @@
++import { askJson } from '../adapters/llm';
++import { col, quoteId, InvalidId } from './sql';
++import { explain } from './explain';
++import type { AgentContext, Candidate } from './types';
++
++const AGENT = 'recall';
++const MAX_PAIRS = 25; // keeps the model cost and the run time bounded
++
++type Row = Record<string, string | number | null>;
++const s = (r: Row, k: string) => String(col(r, k) ?? '');
++
++/** Words too generic to prove two product names refer to the same thing. */
++const STOP = ['baby', 'infant', 'child', 'kids', 'kid', 'toddler', 'newborn', 'crib', 'with', 'from', 'pack', 'size', 'count', 'and', 'the', 'for', 'set', 'new', 'little', 'light', 'night'];
++const STOP_SQL = `array(${STOP.map((w) => `'${w}'`).join(', ')})`;
++
++/** Lower-case words of a text, minus short and generic ones, as a Zetaris array expression. */
++const tokens = (expr: string) =>
++  `filter(split(trim(regexp_replace(lower(${expr}), '[^a-z0-9]+', ' ')), ' '), w -> length(w) >= 3 AND NOT array_contains(${STOP_SQL}, w))`;
++const brand = (expr: string) => `split(trim(regexp_replace(lower(${expr}), '[^a-z0-9]+', ' ')), ' ')[0]`;
++
++/** Everything the family bought: Amazon titles (from v_recall_orders) plus the item text on card purchases. */
++function itemsSelect(familyId: string): string {
++  const f = quoteId(familyId);
++  return (
++    'SELECT item_text, source, purchased_on FROM (' +
++    `SELECT item_text, source, purchased_on FROM bundle_pg.v_recall_orders WHERE family_id = ${f} AND source = 'amazon' AND price_cents > 0 ` +
++    'UNION ALL ' +
++    `SELECT category AS item_text, 'card' AS source, date AS purchased_on FROM bundle_pg.v_clawback_tx WHERE family_id = ${f} AND amount_cents > 0 AND category <> ''` +
++    ') u'
++  );
++}
++
++export function itemsSql(familyId: string): string {
++  return `SELECT DISTINCT item_text, source FROM (${itemsSelect(familyId)}) a ORDER BY item_text`;
++}
++
++/** One statement: purchases x (CPSC + openFDA) recalls, joined inside Zetaris on a brand word or two real title words. */
++export function pairsSql(familyId: string): string {
++  const cpsc =
++    "SELECT 'cpsc' AS recall_source, CAST(RecallID AS bigint) AS recall_id, CAST(RecallNumber AS string) AS recall_number, " +
++    'substr(RecallDate, 1, 10) AS recall_date, Title AS recall_title, URL AS recall_url, p.Name AS recalled_product ' +
++    'FROM bundle_live.cpsc_recalls LATERAL VIEW explode(Products) t AS p';
++  const dateFix = (d: string) => `concat(substr(CAST(${d} AS string), 1, 4), '-', substr(CAST(${d} AS string), 5, 2), '-', substr(CAST(${d} AS string), 7, 2))`;
++  const fda =
++    "SELECT 'fda' AS recall_source, CAST(NULL AS bigint) AS recall_id, x.recall_number AS recall_number, " +
++    `${dateFix('x.recall_initiation_date')} AS recall_date, concat('FDA recall: ', x.recalling_firm) AS recall_title, ` +
++    "'https://www.accessdata.fda.gov/scripts/ires/index.cfm' AS recall_url, x.product_description AS recalled_product " +
++    'FROM bundle_live.fda_food_recalls LATERAL VIEW explode(results) t AS x';
++  return (
++    'SELECT i.item_text AS item_text, i.purchased_on AS purchased_on, i.source AS source, r.recall_source AS recall_source, ' +
++    'r.recall_id AS recall_id, r.recall_number AS recall_number, r.recall_date AS recall_date, r.recall_title AS recall_title, ' +
++    'r.recall_url AS recall_url, r.recalled_product AS recalled_product ' +
++    `FROM (${itemsSelect(familyId)}) i JOIN (SELECT * FROM (${cpsc}) c UNION ALL SELECT * FROM (${fda}) f) r ` +
++    "ON lower(i.item_text) LIKE concat('%', lower(r.recalled_product), '%') " +
++    `OR size(array_intersect(${tokens('i.item_text')}, ${tokens('r.recalled_product')})) >= 2 ` +
++    `OR (length(${brand('r.recalled_product')}) >= 4 AND NOT array_contains(${STOP_SQL}, ${brand('r.recalled_product')}) ` +
++    `AND array_contains(${tokens('i.item_text')}, ${brand('r.recalled_product')})) ` +
++    'ORDER BY r.recall_date DESC'
++  );
++}
++
++const norm = (t: string) => t.toLowerCase().replace(/\s+/g, ' ').trim();
++/** The only match we accept without a model: the recalled product's whole name appears in what was bought. */
++export const exactContainment = (item: string, product: string): boolean => {
++  const p = norm(product);
++  return p.length >= 4 && norm(item).includes(p);
++};
++
++function log(ctx: AgentContext, action: string, input: string, output: string, status: 'ok' | 'retry' | 'blocked' | 'error' | 'fallback' = 'ok', retry = 0): string {
++  return ctx.trace.log({
++    agent_name: AGENT, action, input_summary: input, output_summary: output,
++    target_agent: null, confidence: null, retry_count: retry, status,
++  });
++}
++
++interface Judged { row: Row; exact: boolean }
++
++async function judgePair(ctx: AgentContext, row: Row): Promise<Judged | null> {
++  const item = s(row, 'item_text');
++  const product = s(row, 'recalled_product');
++  const exact = exactContainment(item, product);
++  const prompt =
++    'Is the product a family bought the SAME product (same brand and model) as the product named in a safety recall? ' +
++    'Different products from the same category do not count. Reply as JSON: {"same": true} or {"same": false}.\n' +
++    `Bought: ${item}\nRecalled: ${product}\nRecall: ${s(row, 'recall_title')}`;
++  const { value, usedFallback } = await askJson<{ same: boolean }>(
++    ctx.llm, prompt, (x): x is { same: boolean } => typeof (x as any)?.same === 'boolean', { same: exact },
++  );
++  if (usedFallback) log(ctx, 'confirm_match', item.slice(0, 80), `no model answer: exact name match = ${exact}`, 'fallback');
++  return value.same ? { row, exact } : null;
++}
++
++async function toCandidate(ctx: AgentContext, j: Judged): Promise<Candidate> {
++  const r = j.row;
++  const fda = s(r, 'recall_source') === 'fda';
++  const item = s(r, 'item_text');
++  const bought = s(r, 'purchased_on').slice(0, 10);
++  const fallback = `You bought "${item}"${bought ? ` on ${bought}` : ''}. ${s(r, 'recall_title')} (recall date ${s(r, 'recall_date')}). Check the official notice and stop using the item if it is the same product.`;
++  const body = await explain(ctx, AGENT, `Bought: ${item}. Recalled product: ${s(r, 'recalled_product')}. Recall: ${s(r, 'recall_title')} dated ${s(r, 'recall_date')}.`, [], fallback);
++  const claim: Candidate['claim'] = fda
++    ? { type: 'recall', recallSource: 'fda', recallNumber: s(r, 'recall_number') }
++    : { type: 'recall', recallId: Number(col(r, 'recall_id')) };
++  const key = fda ? `fda-${s(r, 'recall_number')}` : `cpsc-${s(r, 'recall_id')}`;
++  return {
++    id: `recall-${key}`, kind: 'recall', title: `Recall alert: ${s(r, 'recalled_product')}`.slice(0, 120), body,
++    amountCents: null, deadline: null, verdict: j.exact ? 'verified' : 'likely',
++    sources: [{ label: fda ? 'FDA recall notice' : 'CPSC recall notice', url: s(r, 'recall_url') }],
++    traceId: log(ctx, 'recall_match', `${item.slice(0, 60)} vs ${s(r, 'recalled_product').slice(0, 60)}`, `${key}, ${j.exact ? 'exact name' : 'model-confirmed'}`),
++    agent: AGENT, claim, evidenceSql: pairsSql(ctx.family.id), retryCount: 0,
++  };
++}
++
++/** Safety-check what a family bought against live CPSC and FDA recalls. */
++export async function checkRecalls(ctx: AgentContext): Promise<{ candidates: Candidate[]; itemsChecked: number }> {
++  let itemsSqlText: string;
++  let pairs: string;
++  try {
++    itemsSqlText = itemsSql(ctx.family.id);
++    pairs = pairsSql(ctx.family.id);
++  } catch (e) {
++    if (e instanceof InvalidId) {
++      log(ctx, 'check_recalls', 'family', 'unsafe family id: nothing queried', 'error');
++      return { candidates: [], itemsChecked: 0 };
++    }
++    throw e;
++  }
++  const items = await ctx.z.runQuery(itemsSqlText);
++  const distinct = new Set(items.rows.map((r) => norm(s(r, 'item_text'))).filter(Boolean));
++  const itemsChecked = distinct.size;
++  if (itemsChecked === 0) {
++    log(ctx, 'check_recalls', `family ${ctx.family.id}`, 'no purchases to check');
++    return { candidates: [], itemsChecked: 0 };
++  }
++
++  const { rows } = await ctx.z.runQuery(pairs);
++  const seenPair = new Set<string>();
++  const unique = rows.filter((r) => {
++    const k = `${norm(s(r, 'item_text'))}|${s(r, 'recall_source')}|${s(r, 'recall_id')}|${s(r, 'recall_number')}`;
++    if (seenPair.has(k)) return false;
++    seenPair.add(k);
++    return true;
++  }).slice(0, MAX_PAIRS);
++
++  const byRecall = new Map<string, Judged>();
++  for (const row of unique) {
++    const j = await judgePair(ctx, row);
++    if (!j) continue;
++    const key = `${s(row, 'recall_source')}|${s(row, 'recall_id')}|${s(row, 'recall_number')}`;
++    const cur = byRecall.get(key);
++    if (!cur || (j.exact && !cur.exact)) byRecall.set(key, j);
++  }
++  const candidates: Candidate[] = [];
++  for (const j of byRecall.values()) candidates.push(await toCandidate(ctx, j));
++  log(ctx, 'check_recalls', `family ${ctx.family.id}`, `${itemsChecked} items checked, ${rows.length} possible pairs, ${candidates.length} recall(s) confirmed`);
++  return { candidates, itemsChecked };
++}
++
++/** Re-derive one recall candidate after the Fact-Checker sent it back. null = give up. */
++export async function revise(c: Candidate, reason: string, ctx: AgentContext): Promise<Candidate | null> {
++  log(ctx, 'revise', `${c.id}: ${reason}`.slice(0, 200), 're-deriving from source', 'retry', c.retryCount + 1);
++  const { candidates } = await checkRecalls(ctx);
++  const match = candidates.find((f) => f.id === c.id);
++  if (!match) {
++    log(ctx, 'revise', c.id, 'gave up: recall no longer matches', 'blocked', c.retryCount + 1);
++    return null;
++  }
++  return { ...match, retryCount: c.retryCount + 1 };
++}
+diff --git a/server/agents/sql.ts b/server/agents/sql.ts
+new file mode 100644
+index 0000000..45c674b
+--- /dev/null
++++ b/server/agents/sql.ts
+@@ -0,0 +1,54 @@
++/**
++ * Safe building blocks for the SQL our agents send to Zetaris.
++ * Anything interpolated into SQL goes through one of these; everything else
++ * (item text, merchant names, keywords) stays inside Zetaris and is joined there.
++ */
++export class InvalidId extends Error {}
++
++const SAFE_ID = /^[A-Za-z0-9_.:-]+$/;
++const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
++
++/** Quote an id for SQL. Only plain id characters are allowed (no quotes, backslashes, spaces); anything else throws. */
++export function quoteId(v: string | number | undefined | null): string {
++  const s = v === undefined || v === null ? '' : String(v);
++  if (!SAFE_ID.test(s)) throw new InvalidId('invalid id');
++  return `'${s}'`;
++}
++
++/** Quote an ISO date (YYYY-MM-DD) for SQL, or throw. */
++export function quoteDate(v: string): string {
++  if (!ISO_DATE.test(String(v)) || Number.isNaN(Date.parse(`${v}T00:00:00Z`))) throw new InvalidId('invalid date');
++  return `'${v}'`;
++}
++
++/** An integer for SQL, or throw. */
++export function quoteInt(v: string | number | undefined | null): string {
++  const n = Number(v);
++  if (v === undefined || v === null || String(v).trim() === '' || !Number.isInteger(n)) throw new InvalidId('invalid number');
++  return String(n);
++}
++
++const DAY_MS = 86_400_000;
++export function addDays(iso: string, days: number): string {
++  return new Date(new Date(`${iso}T00:00:00Z`).getTime() + days * DAY_MS).toISOString().slice(0, 10);
++}
++
++/** Today as ISO. The TODAY env var wins (SAMPLE_MODE pins it so cached results stay valid). */
++export function today(): string {
++  const t = process.env.TODAY;
++  return t && ISO_DATE.test(t) ? t : new Date().toISOString().slice(0, 10);
++}
++
++type Row = Record<string, string | number | null>;
++/** Read a column ignoring case (Zetaris may return headers in a different case). */
++export function col(row: Row, name: string): string | number | null | undefined {
++  const k = Object.keys(row).find((x) => x.toLowerCase() === name.toLowerCase());
++  return k === undefined ? undefined : row[k];
++}
++
++export const fmtUsd = (cents: number): string =>
++  `$${(cents / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
++
++/** Dedupe key used everywhere: merchant + date + amount. */
++export const dupKey = (merchant: string, date: string, amountCents: number): string =>
++  `${merchant.toLowerCase()}|${date}|${amountCents}`;

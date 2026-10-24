@@ -1,0 +1,490 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Bundle Deck</title>
+<meta name="viewport" content="width=1920">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --cream:#FBF6EF; --paper:#FFFFFF; --ink:#1B1714; --ink-2:#5C534B; --ink-3:#8A8076;
+  --line:#E9E0D4; --coral:#E4572E; --coral-deep:#B93E1A; --coral-tint:#FCE6DC; --night:#1B1714;
+  --k-claw:#1E8A5A; --k-recall:#C9352B; --k-dead:#E4572E; --k-disc:#6B4EE6; --k-soon:#8A8076;
+  --shadow:0 1px 2px rgba(27,23,20,.04),0 12px 32px rgba(27,23,20,.07);
+  --r-s:12px; --r-m:24px; --r-l:40px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:#d9d2c8}
+body{font-family:Manrope,system-ui,sans-serif;color:var(--ink);-webkit-font-smoothing:antialiased;width:1920px}
+@page{size:1920px 1080px;margin:0}
+section.slide{width:1920px;height:1080px;position:relative;overflow:hidden;background:var(--cream);padding:96px 112px;page-break-after:always;break-after:page;display:flex;flex-direction:column}
+section.slide:last-child{page-break-after:auto;break-after:auto}
+body.solo section.slide{display:none}
+body.solo section.slide.show{display:flex}
+@media print{html,body{background:none}}
+
+/* type */
+.eyebrow{font-size:20px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--coral-deep);margin-bottom:28px}
+.night .eyebrow{color:#F3A285}
+h1{font-size:84px;line-height:1.05;letter-spacing:-.025em;font-weight:800}
+h1 em,h2 em{font-style:normal;color:var(--coral)}
+.display{font-size:132px;line-height:.98;letter-spacing:-.035em;font-weight:800}
+h2{font-size:52px;line-height:1.15;letter-spacing:-.015em;font-weight:800}
+h3{font-size:30px;line-height:1.25;font-weight:800;letter-spacing:-.01em}
+.lede{font-size:32px;line-height:1.4;color:var(--ink-2);font-weight:500;max-width:1100px}
+.body{font-size:26px;line-height:1.45;color:var(--ink-2);font-weight:500}
+.cap{font-size:22px;line-height:1.35;color:var(--ink-2);font-weight:500}
+.mono{font-family:"JetBrains Mono",monospace}
+.foot{position:absolute;left:112px;right:112px;bottom:40px;display:flex;justify-content:space-between;align-items:flex-end;font-size:18px;color:var(--ink-3);font-weight:600;gap:40px}
+.foot .src{font-weight:500;max-width:1450px;line-height:1.35}
+.night .foot{color:#9C9187}
+.wordmark{font-weight:800;letter-spacing:-.04em}
+.wordmark i{font-style:normal;color:var(--coral)}
+
+/* night slides */
+section.slide.night{background:var(--night);color:#FBF6EF}
+.night .lede{color:#CFC5BA}
+
+/* cards */
+.card{background:var(--paper);border:1px solid var(--line);border-radius:var(--r-m);box-shadow:var(--shadow);padding:36px}
+.pill{display:inline-flex;align-items:center;gap:10px;font-size:18px;font-weight:700;padding:8px 16px;border-radius:999px;background:var(--coral-tint);color:var(--coral-deep)}
+.dot{width:12px;height:12px;border-radius:50%;display:inline-block;flex:none}
+.badge{display:inline-flex;align-items:center;gap:12px;padding:12px 22px;border-radius:999px;border:1.5px solid rgba(251,246,239,.25);font-size:20px;font-weight:700;color:#FBF6EF}
+
+/* phone */
+.phone.sm{zoom:.86}
+.phone{width:400px;height:836px;border-radius:62px;background:#151210;padding:13px;box-shadow:0 2px 4px rgba(0,0,0,.08),0 40px 80px rgba(27,23,20,.22);position:relative;flex:none}
+.screen{width:100%;height:100%;border-radius:50px;background:var(--cream);color:var(--ink);overflow:hidden;position:relative;font-size:16px}
+.island{position:absolute;top:11px;left:50%;transform:translateX(-50%);width:116px;height:33px;border-radius:20px;background:#000;z-index:3}
+.status{height:54px;display:flex;justify-content:space-between;align-items:center;padding:6px 32px 0 36px;font-weight:700;font-size:16px}
+.status .sig{display:flex;gap:6px;align-items:center}
+.app{padding:4px 20px 20px}
+.apphead{display:flex;justify-content:space-between;align-items:center;margin:6px 0 14px}
+.apphead .wordmark{font-size:24px}
+.avatar{font-size:13px;font-weight:700;padding:6px 12px;border-radius:999px;background:var(--paper);border:1px solid var(--line);color:var(--ink-2)}
+.preview{font-size:18px;color:var(--ink-3);font-weight:600;text-align:center;margin-top:18px;letter-spacing:.02em}
+.night .preview{color:#9C9187}
+.night .phone{box-shadow:0 0 0 2px #3A322C,0 40px 100px rgba(228,87,46,.18)}
+
+/* in-app */
+.a-h{font-size:28px;line-height:1.12;font-weight:800;letter-spacing:-.02em}
+.a-sub{font-size:15px;color:var(--ink-2);line-height:1.4;font-weight:500}
+.field{background:var(--paper);border:1px solid var(--line);border-radius:16px;padding:10px 16px;margin-top:10px}
+.field label{display:block;font-size:12px;font-weight:700;color:var(--ink-3);text-transform:uppercase;letter-spacing:.08em}
+.field div{font-size:18px;font-weight:700;margin-top:2px}
+.btn{border-radius:16px;padding:16px;text-align:center;font-weight:800;font-size:17px}
+.btn.pri{background:var(--ink);color:#fff}
+.btn.coral{background:var(--coral);color:#fff}
+.btn.sec{background:var(--coral-tint);color:var(--coral-deep);border:1.5px solid #F6C3AE}
+.fc{background:var(--paper);border:1px solid var(--line);border-radius:18px;padding:13px 15px;margin-bottom:10px}
+.fc .k{display:flex;align-items:center;gap:7px;font-size:11.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}
+.fc .t{font-size:16.5px;font-weight:800;line-height:1.25;margin-top:6px;letter-spacing:-.01em}
+.fc .d{font-size:13.5px;color:var(--ink-2);line-height:1.35;margin-top:4px;font-weight:500}
+.fc .m{display:flex;justify-content:space-between;align-items:center;margin-top:9px;font-size:12.5px;font-weight:700;color:var(--ink-3)}
+.fc .m b{color:var(--coral-deep)}
+.fc.pin{border:2px solid var(--coral);box-shadow:0 8px 20px rgba(228,87,46,.15)}
+.chip{font-size:12px;font-weight:800;padding:3px 9px;border-radius:999px}
+.tr{display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
+.tr:last-child{border-bottom:none}
+.tr .av{width:30px;height:30px;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:#fff}
+.tr .who{font-size:12.5px;font-weight:800;letter-spacing:.02em}
+.tr .say{font-size:13.5px;line-height:1.35;color:var(--ink-2);font-weight:500;margin-top:2px}
+
+/* layout helpers */
+.row{display:flex;gap:48px}
+.grow{flex:1}
+.center{align-items:center}
+.stat-n{font-size:150px;line-height:.92;letter-spacing:-.045em;font-weight:800;color:var(--coral)}
+.kicker{font-size:22px;font-weight:700;color:var(--ink)}
+</style>
+</head>
+<body>
+
+<!-- 1 TITLE -->
+<section class="slide night" id="s1">
+  <div class="row" style="height:100%;align-items:center;gap:80px">
+    <div class="grow">
+      <div class="badge" style="margin-bottom:56px"><span class="dot" style="background:var(--coral)"></span>Open Agent Hackathon 2026 · Track 1: Solving Fragmented Intelligence</div>
+      <div class="wordmark" style="font-size:200px;line-height:.9">bundle<i>.</i></div>
+      <div class="display" style="font-size:88px;margin-top:40px;line-height:1.04">Your first 100 days,<br><span style="color:var(--coral)">checked.</span></div>
+      <p class="lede" style="margin-top:40px;max-width:900px">Money back, recalls and deadlines for new parents. A team of AI agents argues over every claim before a parent sees it.</p>
+    </div>
+    <div style="margin-right:40px">
+      <div class="phone"><div class="screen"><img src="img/03-feed-receipt.png" alt="Real Bundle Receipt screen" style="width:100%;height:100%;display:block;object-fit:cover;object-position:top"></div></div>
+      <div class="preview">real app screenshot · sample family (fake data)</div>
+    </div>
+  </div>
+  <div class="foot"><span>Solo build by Lyndsay Kerwin · Zetaris · Meterless · Built with Claude Code</span><span>1</span></div>
+</section>
+
+<!-- 2 PROBLEM -->
+<section class="slide" id="s2">
+  <div class="eyebrow">The problem</div>
+  <h1>New parents leave money<br>and safety <em>on the table.</em></h1>
+  <div class="row" style="margin-top:72px;gap:40px">
+    <div class="card grow" style="padding:44px">
+      <div class="stat-n">$441</div>
+      <div class="kicker" style="margin-top:20px">lost per FSA holder who forfeits</div>
+      <div class="cap" style="margin-top:10px">About half of FSA holders lose money every year. Top reason: not knowing what counts.</div>
+    </div>
+    <div class="card grow" style="padding:44px">
+      <div class="stat-n">~40%</div>
+      <div class="kicker" style="margin-top:20px">of recalled car seats ever get fixed</div>
+      <div class="cap" style="margin-top:10px">Only 42% of parents register their seat, so most never hear about a recall.</div>
+    </div>
+    <div class="card grow" style="padding:44px">
+      <div class="stat-n">56%</div>
+      <div class="kicker" style="margin-top:20px">of WIC-eligible people enrolled</div>
+      <div class="cap" style="margin-top:10px">The "take-up gap": people qualify for help and never get it (2023).</div>
+    </div>
+  </div>
+  <div style="margin-top:40px;display:flex;align-items:center;gap:20px;flex-wrap:wrap">
+    <span class="kicker" style="margin-right:8px">And 2026 rewrote the rules:</span>
+    <span class="pill">$1,000 Trump Account</span>
+    <span class="pill">$2,200 child tax credit</span>
+    <span class="pill">$7,500 dependent-care FSA limit</span>
+    <span class="pill">$440 MA child credit</span>
+  </div>
+  <div class="foot"><span class="src">Sources: EBRI via Retail Dive (FSA) · Safe Kids Worldwide (car seats) · CBPP, Mar 2026 (WIC) · IRS 2026 adjustments, Axios, HWH Law, Mass.gov via Kiplinger (2026 rules). Full links in the repo README.</span><span>2</span></div>
+</section>
+
+<!-- 3 USER + FRAGMENTATION -->
+<section class="slide" id="s3">
+  <div class="eyebrow">Who it's for · why it's Track 1</div>
+  <h1>What Maya's family is owed<br>is scattered across <em>five places.</em></h1>
+  <div style="flex:1;margin-top:56px;display:flex;flex-direction:column">
+    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:20px">
+      <div class="card" style="padding:26px 26px"><div class="cap" style="font-weight:700;color:var(--ink-3)">Her bank</div><h3 style="margin-top:4px">Card spending</h3><div class="cap" style="margin-top:8px">A $28.99 thermometer: FSA-eligible, paid with a regular card</div></div>
+      <div class="card" style="padding:26px 26px"><div class="cap" style="font-weight:700;color:var(--ink-3)">Amazon</div><h3 style="margin-top:4px">Order history</h3><div class="cap" style="margin-top:8px">A crib mattress that is on a recall list</div></div>
+      <div class="card" style="padding:26px 26px"><div class="cap" style="font-weight:700;color:var(--ink-3)">Her employer</div><h3 style="margin-top:4px">Benefits plan</h3><div class="cap" style="margin-top:8px">30-day windows for insurance and dependent-care FSA</div></div>
+      <div class="card" style="padding:26px 26px"><div class="cap" style="font-weight:700;color:var(--ink-3)">IRS + Massachusetts</div><h3 style="margin-top:4px">2026 rules</h3><div class="cap" style="margin-top:8px">Rewritten this year. Most parents' info is stale.</div></div>
+      <div class="card" style="padding:26px 26px"><div class="cap" style="font-weight:700;color:var(--ink-3)">CPSC + FDA</div><h3 style="margin-top:4px">Live recalls</h3><div class="cap" style="margin-top:8px">Updated constantly. A week-old copy is dangerous.</div></div>
+    </div>
+    <svg width="1696" height="96" viewBox="0 0 1696 96" aria-hidden="true" style="display:block">
+      <g stroke="#E4572E" stroke-width="2.5" stroke-dasharray="7 9" fill="none" stroke-linecap="round">
+        <path d="M160 0 C160 60 848 40 848 92"/><path d="M504 0 C504 60 848 40 848 92"/><path d="M848 0 L848 92"/><path d="M1192 0 C1192 60 848 40 848 92"/><path d="M1536 0 C1536 60 848 40 848 92"/>
+      </g>
+    </svg>
+    <div class="card" style="border:2px solid var(--ink);display:flex;align-items:center;gap:40px;padding:30px 40px">
+      <div style="flex:none"><div class="cap" style="font-weight:700;color:var(--ink-3)">Sample family (fake)</div><h2 style="margin-top:2px;white-space:nowrap">Baby Maya, day 20</h2></div>
+      <div class="body" style="flex:1">Boston, MA. Parent works full-time with employer benefits. Nobody joins these five sources for her.</div>
+      <div style="flex:none;background:var(--coral);color:#fff;border-radius:18px;padding:18px 26px;font-size:24px;font-weight:800;white-space:nowrap">Insurance window: 10 days left</div>
+    </div>
+  </div>
+  <div class="foot"><span>For: a working parent, expecting or within 100 days of a birth, with employer benefits. Demo state: Massachusetts; federal items work everywhere.</span><span>3</span></div>
+</section>
+
+<!-- 4 SOLUTION -->
+<section class="slide" id="s4">
+  <div class="row" style="height:100%;gap:64px">
+    <div style="width:540px;flex:none;display:flex;flex-direction:column;justify-content:center">
+      <div class="eyebrow">The solution</div>
+      <h1>One screen.<br>Everything she's <em>owed.</em></h1>
+      <p class="lede" style="margin-top:36px">Three inputs, or "Try as guest." Bundle joins her data with live public rules and returns one Receipt.</p>
+      <p class="body" style="margin-top:28px">Useful with no bank connected. Connecting data is the upgrade.</p>
+    </div>
+    <div class="row grow" style="gap:28px;align-items:center;justify-content:flex-end">
+      <!-- onboarding -->
+      <div><div class="phone sm"><div class="screen"><img src="img/01-onboarding.png" alt="Real onboarding screen" style="width:100%;height:100%;display:block;object-fit:cover;object-position:top"></div></div><div class="preview">1 · Onboarding</div></div>
+      <div><div class="phone sm"><div class="screen"><img src="img/03-feed-receipt.png" alt="Real receipt screen" style="width:100%;height:100%;display:block;object-fit:cover;object-position:top"></div></div><div class="preview">2 · Bundle Receipt</div></div>
+      <div><div class="phone sm"><div class="screen"><img src="img/feed-1.png" alt="Real feed: money back cards" style="width:100%;height:100%;display:block;object-fit:cover;object-position:top"></div></div><div class="preview">3 · Feed: money back</div></div>
+    </div>
+  </div>
+  <div class="foot"><span>Real app screenshots · sample family, fake data</span><span>4</span></div>
+</section>
+
+<!-- 5 FEED -->
+<section class="slide" id="s5">
+  <div class="row" style="height:100%;gap:96px;align-items:center">
+    <div class="grow">
+      <div class="eyebrow">Product</div>
+      <h1>Five kinds of cards.<br>Every one <em>shows its work.</em></h1>
+      <div style="margin-top:44px;display:grid;grid-template-columns:1fr;gap:16px;max-width:900px">
+        <div style="display:flex;gap:22px;align-items:baseline"><span class="dot" style="background:var(--k-claw);width:16px;height:16px"></span><div><h3>Money back <span class="cap" style="font-weight:700;color:var(--k-claw)">· the hero</span></h3><div class="cap">FSA claims, store price adjustments, dependent-care FSA for daycare</div></div></div>
+        <div style="display:flex;gap:22px;align-items:baseline"><span class="dot" style="background:var(--k-recall);width:16px;height:16px"></span><div><h3>Recalls</h3><div class="cap">Her purchases checked against live recall feeds, or "We checked N items: all clear"</div></div></div>
+        <div style="display:flex;gap:22px;align-items:baseline"><span class="dot" style="background:var(--k-dead);width:16px;height:16px"></span><div><h3>Benefits + deadlines</h3><div class="cap">Dated countdowns: insurance window, Form 4547, MA paid leave</div></div></div>
+        <div style="display:flex;gap:22px;align-items:baseline"><span class="dot" style="background:var(--k-disc);width:16px;height:16px"></span><div><h3>Discounts</h3><div class="cap">Matched to baby's age and purchases. Each one survived Fine Print Court</div></div></div>
+        <div style="display:flex;gap:22px;align-items:baseline"><span class="dot" style="background:var(--k-soon);width:16px;height:16px"></span><div><h3>Coming soon</h3><div class="cap">Pre-filled applications · price-drop watching</div></div></div>
+      </div>
+      <div style="margin-top:40px;max-width:900px;background:var(--coral-tint);border-radius:20px;padding:22px 28px;font-size:23px;font-weight:600;color:var(--ink);line-height:1.4"><b>Never empty.</b> No bank, no orders, baby not born yet? Every family still gets benefits, a recall check and court-vetted discounts.</div>
+    </div>
+    <div style="margin-right:60px">
+      <div class="phone" style="transform:scale(1.08);transform-origin:center"><div class="screen"><img src="img/feed-2.png" alt="Real feed: daycare and recall cards" style="width:100%;height:100%;display:block;object-fit:cover;object-position:top"></div></div>
+      <div class="preview" style="margin-top:44px">real app screenshot · sample family (fake data)</div>
+    </div>
+  </div>
+  <div class="foot"><span></span><span>5</span></div>
+</section>
+
+<!-- 6 ARCHITECTURE -->
+<section class="slide" id="s6">
+  <div class="eyebrow">Agent architecture</div>
+  <h1 style="font-size:72px">A newsroom of agents, wired to <em>one data door.</em></h1>
+  <div style="flex:1;margin-top:36px">
+  <svg viewBox="0 0 1696 700" width="1696" height="700" font-family="Manrope" aria-label="Architecture diagram">
+    <defs>
+      <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#5C534B"/></marker>
+      <marker id="arc" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#E4572E"/></marker>
+    </defs>
+    <!-- orchestrator band -->
+    <rect x="0" y="0" width="1696" height="96" rx="24" fill="#1B1714"/>
+    <text x="36" y="44" fill="#FBF6EF" font-size="26" font-weight="800">Orchestrator <tspan fill="#CFC5BA" font-weight="600" font-size="21">(plain code)  ·  runs the agents  ·  never-empty rules  ·  writes a JSON trace of every step</tspan></text>
+    <text x="36" y="76" fill="#F3A285" font-size="19" font-weight="700">Branches per family: no data · unborn baby · out of state  ·  models: NVIDIA-hosted, supported</text>
+    <text x="1660" y="58" fill="#FBF6EF" font-size="22" font-weight="800" text-anchor="end">→ Receipt + feed</text>
+
+    <!-- send-back loop -->
+    <path d="M1540 196 L1540 140 L640 140 L640 192" fill="none" stroke="#E4572E" stroke-width="3" marker-end="url(#arc)"/>
+    <rect x="660" y="122" width="530" height="36" rx="18" fill="#FCE6DC"/>
+    <text x="925" y="147" fill="#B93E1A" font-size="19" font-weight="800" text-anchor="middle">Wrong number? Send back (max 2 retries), else block</text>
+
+    <!-- agents -->
+    <g font-size="23" font-weight="800" fill="#1B1714">
+      <rect x="0" y="196" width="470" height="236" rx="24" fill="#fff" stroke="#1B1714" stroke-width="2"/>
+      <text x="28" y="236">Fine Print Court</text>
+      <text x="28" y="262" font-size="17" font-weight="600" fill="#5C534B">debates every discount (max 5 per run)</text>
+      <rect x="28" y="284" width="190" height="56" rx="14" fill="#F3EEFF"/><text x="123" y="319" font-size="18" text-anchor="middle" fill="#4B33B8">Deal Hunter</text>
+      <text x="235" y="319" font-size="17" font-weight="700" fill="#8A8076" text-anchor="middle">vs</text>
+      <rect x="252" y="284" width="190" height="56" rx="14" fill="#FDECEA"/><text x="347" y="319" font-size="18" text-anchor="middle" fill="#A32A21">Fine Print Lawyer</text>
+      <rect x="140" y="362" width="190" height="52" rx="14" fill="#1B1714"/><text x="235" y="395" font-size="18" text-anchor="middle" fill="#fff">Judge rules</text>
+      <path d="M123 340 L200 362" stroke="#8A8076" stroke-width="2"/><path d="M347 340 L270 362" stroke="#8A8076" stroke-width="2"/>
+
+      <rect x="510" y="196" width="250" height="236" rx="24" fill="#fff" stroke="#E9E0D4" stroke-width="2"/>
+      <circle cx="540" cy="232" r="8" fill="#1E8A5A"/><text x="558" y="240">Clawback</text><text x="538" y="268">Hunter</text>
+      <text x="538" y="306" font-size="17" font-weight="600" fill="#5C534B"><tspan x="538">Money back from</tspan><tspan x="538" dy="24">spending × FSA list</tspan><tspan x="538" dy="24">× store policies</tspan></text>
+
+      <rect x="780" y="196" width="250" height="236" rx="24" fill="#fff" stroke="#E9E0D4" stroke-width="2"/>
+      <circle cx="810" cy="232" r="8" fill="#C9352B"/><text x="828" y="240">Recall</text><text x="808" y="268">Checker</text>
+      <text x="808" y="306" font-size="17" font-weight="600" fill="#5C534B"><tspan x="808">Purchases × live</tspan><tspan x="808" dy="24">recall feeds</tspan></text>
+
+      <rect x="1050" y="196" width="250" height="236" rx="24" fill="#fff" stroke="#E9E0D4" stroke-width="2"/>
+      <circle cx="1080" cy="232" r="8" fill="#E4572E"/><text x="1098" y="240">Benefits</text><text x="1078" y="268">Planner</text>
+      <text x="1078" y="306" font-size="17" font-weight="600" fill="#5C534B"><tspan x="1078">Rules + birth date</tspan><tspan x="1078" dy="24">→ dated deadlines</tspan></text>
+
+      <rect x="1384" y="196" width="312" height="236" rx="24" fill="#FCE6DC" stroke="#E4572E" stroke-width="2.5"/>
+      <text x="1412" y="240">Fact-Checker</text>
+      <text x="1412" y="276" font-size="17" font-weight="600" fill="#5C534B"><tspan x="1412">Re-checks every dollar</tspan><tspan x="1412" dy="24">and date with its own</tspan><tspan x="1412" dy="24">Zetaris query. Gate</tspan><tspan x="1412" dy="24">before anything ships.</tspan></text>
+    </g>
+    <!-- to fact-checker -->
+    <path d="M1300 314 L1380 314" stroke="#5C534B" stroke-width="2.5" marker-end="url(#ar)"/>
+    <path d="M470 420 Q 520 470 1380 420" fill="none" stroke="#5C534B" stroke-width="0"/>
+    <!-- orchestrator to agents -->
+    <path d="M235 96 L235 192" stroke="#5C534B" stroke-width="2.5" marker-end="url(#ar)"/>
+    <path d="M1250 96 L1250 192" stroke="#5C534B" stroke-width="2.5" marker-end="url(#ar)"/>
+    <path d="M1620 192 L1620 100" stroke="#5C534B" stroke-width="2.5" marker-end="url(#ar)"/>
+
+    <!-- bottom: meterless -->
+    <rect x="0" y="500" width="560" height="200" rx="28" fill="#1B1714"/>
+    <text x="32" y="546" fill="#FBF6EF" font-size="26" font-weight="800">Meterless H-MEM</text>
+    <text x="32" y="574" fill="#F3A285" font-size="17" font-weight="700">shared memory = "case law"</text>
+    <text x="32" y="612" fill="#CFC5BA" font-size="18" font-weight="600"><tspan x="32">Parent taps "Report issue" → Coach agent</tspan><tspan x="32" dy="27">proposes a rule → a human approves →</tspan><tspan x="32" dy="27">stored with source + confidence</tspan></text>
+    <text x="32" y="688" fill="#9C9187" font-size="15" font-weight="600">audit ledger in logs/</text>
+    <path d="M110 496 L110 436" stroke="#E4572E" stroke-width="3" marker-end="url(#arc)"/>
+    <rect x="128" y="452" width="250" height="32" rx="16" fill="#FCE6DC"/><text x="253" y="474" fill="#B93E1A" font-size="17" font-weight="800" text-anchor="middle">Judge cites past rulings</text>
+
+    <!-- bottom: zetaris -->
+    <rect x="620" y="500" width="1076" height="200" rx="28" fill="#fff" stroke="#1B1714" stroke-width="2"/>
+    <text x="652" y="546" font-size="26" font-weight="800" fill="#1B1714">Zetaris: one SQL question across all sources</text>
+    <text x="652" y="574" font-size="17" font-weight="700" fill="#B93E1A">each agent sees only its own governed view  ·  rule: no source link, no card</text>
+    <g font-size="18" font-weight="800" fill="#1B1714">
+      <rect x="652" y="594" width="320" height="88" rx="16" fill="#FBF6EF" stroke="#E9E0D4"/><text x="672" y="626">Private family data</text><text x="672" y="656" font-size="15" font-weight="600" fill="#5C534B">Neon: card txns, orders, profile</text>
+      <rect x="990" y="594" width="320" height="88" rx="16" fill="#FBF6EF" stroke="#E9E0D4"/><text x="1010" y="626">Curated rules</text><text x="1010" y="656" font-size="15" font-weight="600" fill="#5C534B">Neon: FSA list, policies, offers</text>
+      <rect x="1328" y="594" width="340" height="88" rx="16" fill="#FBF6EF" stroke="#E9E0D4"/><text x="1348" y="626">Live public feeds</text><text x="1348" y="656" font-size="15" font-weight="600" fill="#5C534B">CPSC recalls · openFDA (REST)</text>
+    </g>
+    <!-- agents to zetaris -->
+    <g stroke="#5C534B" stroke-width="2.5">
+      <path d="M635 432 L635 496" marker-end="url(#ar)"/>
+      <path d="M905 432 L905 496" marker-end="url(#ar)"/>
+      <path d="M1175 432 L1175 496" marker-end="url(#ar)"/>
+      <path d="M1540 432 L1540 496" marker-end="url(#ar)"/>
+      <path d="M440 432 L640 520" marker-end="url(#ar)"/>
+    </g>
+  </svg>
+  </div>
+  <div class="foot"><span>Math and deadlines are computed in plain SQL and code. Agents explain, argue and check.</span><span>6</span></div>
+</section>
+
+<!-- 7 COURT -->
+<section class="slide" id="s7">
+  <div class="row" style="height:100%;gap:88px;align-items:center">
+    <div class="grow">
+      <div class="eyebrow">Agents that check each other</div>
+      <h1>Nothing reaches a parent until it <em>survives the court.</em></h1>
+      <div style="margin-top:56px;display:flex;flex-direction:column;gap:20px;max-width:960px">
+        <div class="card" style="padding:26px 32px;display:flex;gap:24px;align-items:center"><span class="pill" style="background:#F3EEFF;color:#4B33B8;flex:none">Run 1 · Judge</span><span class="body" style="color:var(--ink)">Approves the "free trial" box: <span class="mono" style="font-size:21px">"no flagged terms found. Not reviewed by the AI court."</span></span></div>
+        <div class="card" style="padding:26px 32px;display:flex;gap:24px;align-items:center"><span class="pill" style="background:#FDECEA;color:#A32A21;flex:none">Reviewer</span><span class="body" style="color:var(--ink)">Approves a rule: <span class="mono" style="font-size:21px">"Reject offers whose free trial turns into a paid membership that renews automatically."</span></span></div>
+        <div class="card" style="padding:26px 32px;display:flex;gap:24px;align-items:center;border:2px solid var(--ink)"><span class="pill" style="background:var(--ink);color:#fff;flex:none">Run 2 · Judge</span><span class="body" style="color:var(--ink)"><b>Blocked.</b> <span class="mono" style="font-size:21px">"case law applies ... [cited mem-1]"</span></span></div>
+        <div class="card" style="padding:26px 32px;display:flex;gap:24px;align-items:center;background:var(--coral-tint);border-color:#F6C3AE"><span class="pill" style="background:var(--coral);color:#fff;flex:none">Fact-Checker</span><span class="body" style="color:var(--ink)">Re-checks every dollar and date. Wrong? Sent back, max 2 tries, then dropped.</span></div>
+      </div>
+    </div>
+    <div style="margin-right:40px">
+      <div class="phone"><div class="screen"><img src="img/court-0.png" alt="Real How we checked screen" style="width:100%;height:100%;display:block;object-fit:cover;object-position:top"></div></div>
+      <div class="preview">real "How we checked" screen · AI offline, backup check used</div>
+    </div>
+  </div>
+  <div class="foot"><span>Saved runs used the offline backup check, not an AI model. The learning shown is the real mechanism: feedback, then memory, then a changed outcome.</span><span>7</span></div>
+</section>
+
+<!-- 8 ZETARIS -->
+<section class="slide" id="s8">
+  <div class="eyebrow">Zetaris · real proof, Oct 23</div>
+  <h1>One SQL question across<br><em>private and public</em> data.</h1>
+  <div class="row" style="margin-top:56px;gap:48px;flex:1">
+    <div style="flex:1.25;display:flex;flex-direction:column;gap:24px">
+      <div style="background:#1B1714;border-radius:var(--r-m);padding:36px 40px;color:#FBF6EF;font-size:24px;line-height:1.6" class="mono">
+<span style="color:#F3A285">SELECT</span> o.title, r.recall_date, r.recall_url<br>
+<span style="color:#F3A285">FROM</span>   bundle_pg.amazon_orders o &nbsp;<span style="color:#9C9187">-- private · Neon</span><br>
+<span style="color:#F3A285">JOIN</span>   bundle_live.cpsc_recalls r <span style="color:#9C9187">-- live · CPSC API</span><br>
+&nbsp;&nbsp;<span style="color:#F3A285">ON</span> lower(o.title) <span style="color:#F3A285">LIKE</span> '%' || lower(r.product) || '%'<br>
+<span style="color:#F3A285">WHERE</span>  o.family_id = 'maya'
+      </div>
+      <div class="card" style="padding:26px 32px;display:flex;align-items:center;gap:24px">
+        <span class="pill" style="background:#FDECEA;color:#A32A21;flex:none">1 row</span>
+        <span class="body" style="color:var(--ink)"><b>KEAWIS Crib Mattress</b> · in the fake family's orders · real CPSC recall #26191, Jan 15, 2026</span>
+      </div>
+      <div class="cap">Simplified from the Spike 0 query. No data copied: the recall list is read live, so it is never stale.</div>
+    </div>
+    <div style="flex:1;display:flex;flex-direction:column;gap:24px">
+      <div class="card" style="padding:30px 36px;display:flex;align-items:center;gap:28px;flex:1"><div style="font-size:84px;line-height:1;font-weight:800;letter-spacing:-.04em;color:var(--coral);width:240px;flex:none">739</div><div class="kicker">live recall records read in one query</div></div>
+      <div class="card" style="padding:30px 36px;display:flex;align-items:center;gap:28px;flex:1"><div style="font-size:84px;line-height:1;font-weight:800;letter-spacing:-.04em;color:var(--coral);width:240px;flex:none">1 / 0</div><div class="kicker">correct match / false matches</div></div>
+      <div class="card" style="padding:30px 36px;display:flex;align-items:center;gap:28px;flex:1"><div style="font-size:84px;line-height:1;font-weight:800;letter-spacing:-.04em;color:var(--coral);width:240px;flex:none">~2s</div><div class="kicker">per query once warm (6s cold)</div></div>
+    </div>
+  </div>
+  <div class="foot"><span>Same pattern powers every agent: FSA list × card spending, store policies × prices, benefit rules × birth date.</span><span>8</span></div>
+</section>
+
+<!-- 9 METERLESS -->
+<section class="slide" id="s9">
+  <div class="eyebrow">Meterless H-MEM · it learns</div>
+  <h1>Run 2 is <em>smarter</em> than run 1.</h1>
+  <div class="row" style="margin-top:48px;gap:28px;align-items:stretch">
+    <div class="card grow" style="padding:36px">
+      <div class="pill" style="background:#F1ECE5;color:var(--ink-2)">Run 1</div>
+      <h3 style="margin-top:22px">Court approves a "free" membership</h3>
+      <div class="cap" style="margin-top:10px">No case law yet. Offline screen finds no flagged terms.</div>
+    </div>
+    <div style="align-self:center;font-size:40px;color:var(--ink-3);font-weight:800">→</div>
+    <div class="card grow" style="padding:36px">
+      <div class="pill" style="background:#F1ECE5;color:var(--ink-2)">Parents</div>
+      <h3 style="margin-top:22px">"It charged me after 30 days."</h3>
+      <div class="cap" style="margin-top:10px">Two or more parents tap "Report issue."</div>
+    </div>
+    <div style="align-self:center;font-size:40px;color:var(--ink-3);font-weight:800">→</div>
+    <div class="card grow" style="padding:36px;background:#1B1714;color:#FBF6EF;border-color:#1B1714">
+      <div class="pill" style="background:#3A322C;color:#F3A285">Coach → H-MEM</div>
+      <h3 style="margin-top:22px">Rule mem-1</h3>
+      <div class="mono" style="margin-top:12px;font-size:17px;line-height:1.55;color:#CFC5BA">Reject offers whose free trial renews as a paid membership.<br><span style="color:#F3A285">confidence:</span> 0.8<br><span style="color:#F3A285">approved:</span> reviewer</div>
+    </div>
+    <div style="align-self:center;font-size:40px;color:var(--ink-3);font-weight:800">→</div>
+    <div class="card grow" style="padding:36px;border:2.5px solid var(--coral)">
+      <div class="pill">Run 2</div>
+      <h3 style="margin-top:22px">Judge cites mem-1 and blocks the same offer</h3>
+      <div class="cap" style="margin-top:10px">Same code. New outcome, from memory.</div>
+    </div>
+  </div>
+  <div class="row" style="margin-top:40px;gap:48px">
+    <div class="grow"><h3>Stored <em style="font-style:normal;color:var(--coral)">and</em> loaded</h3><div class="cap" style="margin-top:8px">Relevant rulings are pulled into the Judge's instructions before it rules. Memory nobody reads is decoration.</div></div>
+    <div class="grow"><h3>Confidence that moves</h3><div class="cap" style="margin-top:8px">Each rule carries its source and a confidence score (0.8 for mem-1).</div></div>
+    <div class="grow"><h3>Audit trail</h3><div class="cap" style="margin-top:8px">Every memory call is one line in the trace. Run 1, approval and run 2 traces ship in the repo.</div></div>
+  </div>
+  <div class="mono" style="margin-top:28px;background:#1B1714;color:#CFC5BA;border-radius:20px;padding:16px 30px;font-size:17px;line-height:1.7">
+    <span style="color:#9C9187">// saved traces, output_examples/learning/ (agent · action · result · status)</span><br>
+    run1 · judge · rule_by_screen · "approve: Offline screen: no flagged terms found." · <span style="color:#9C9187">fallback</span><br>
+    approve · memory · add_rule · "stored mem-1 from case_law:1" · confidence 0.8 · ok<br>
+    run2 · memory · recall_rules · "1 rule(s)" · confidence 0.8 · ok<br>
+    run2 · judge · rule_by_screen · "<span style="color:#F08A7E">reject</span>: ... Reject offers whose free trial turns into a paid membership ... [cited <span style="color:#F3A285">mem-1</span>]" · <span style="color:#F08A7E">blocked</span>
+  </div>
+  <div class="foot"><span>Saved runs used offline fallbacks (no AI model), so the rule text is one of two pre-written sentences. Shows the mechanism, not AI-written rules.</span><span>9</span></div>
+</section>
+
+<!-- 10 UNIQUE -->
+<section class="slide" id="s10">
+  <div class="eyebrow">What's unique about our sponsor tech</div>
+  <h1>Take either one away and<br>Bundle <em>stops working.</em></h1>
+  <div class="row" style="margin-top:44px;gap:40px">
+    <div class="card grow" style="padding:40px 48px">
+      <div class="pill" style="background:var(--ink);color:#fff">Zetaris</div>
+      <h2 style="margin-top:22px;font-size:40px">Without it: zero personalized cards.</h2>
+      <div style="margin-top:22px;display:flex;flex-direction:column;gap:12px" class="body">
+        <div><b style="color:var(--ink)">Private × public in one query.</b> Family spending joined to rules and live recalls.</div>
+        <div><b style="color:var(--ink)">A view per agent.</b> The Judge never sees family income.</div>
+        <div><b style="color:var(--ink)">An independent check.</b> The Fact-Checker writes its own query.</div>
+        <div><b style="color:var(--ink)">Data-quality rule.</b> No source link, no card.</div>
+      </div>
+      <div class="mono" style="margin-top:24px;background:#1B1714;color:#CFC5BA;border-radius:16px;padding:18px 22px;font-size:18px;line-height:1.6">judge's view: offer · fine print · baby age <span style="color:#7DD3A8">✓</span><br>family income · bank details <span style="color:#F08A7E">✗ not visible</span></div>
+    </div>
+    <div class="card grow" style="padding:40px 48px">
+      <div class="pill" style="background:var(--ink);color:#fff">Meterless H-MEM</div>
+      <h2 style="margin-top:22px;font-size:40px">Without it: the court never learns.</h2>
+      <div style="margin-top:22px;display:flex;flex-direction:column;gap:12px" class="body">
+        <div><b style="color:var(--ink)">Parent feedback becomes a rule</b> with source and confidence.</div>
+        <div><b style="color:var(--ink)">Loaded, not just stored.</b> The Judge recalled it and cited it.</div>
+        <div><b style="color:var(--ink)">A human approves</b> before a rule becomes permanent.</div>
+        <div><b style="color:var(--ink)">Readable trace</b> of every memory call.</div>
+      </div>
+      <div class="mono" style="margin-top:24px;background:#1B1714;color:#CFC5BA;border-radius:16px;padding:18px 22px;font-size:18px;line-height:1.6">mem-1 · <span style="color:#F3A285">confidence 0.8</span> · source: case_law:1<br>approved by a reviewer before it counts</div>
+    </div>
+  </div>
+  <div class="foot"><span>NVIDIA-hosted Nemotron models are supported by the app; the saved results here ran offline and did not exercise them yet.</span><span>10</span></div>
+</section>
+
+<!-- 11 STACK -->
+<section class="slide" id="s11">
+  <div class="eyebrow">Technical stack</div>
+  <h1>Built to be <em>checked.</em></h1>
+  <div class="row" style="margin-top:56px;gap:56px;flex:1">
+    <div style="flex:1;display:grid;grid-template-columns:1fr 1fr;gap:20px;align-content:start">
+      <div class="card" style="padding:28px 32px"><div class="cap" style="font-weight:700;color:var(--ink-3)">AI models (supported)</div><h3 style="margin-top:6px;font-size:26px">NVIDIA Nemotron-ready</h3></div>
+      <div class="card" style="padding:28px 32px"><div class="cap" style="font-weight:700;color:var(--ink-3)">Data door</div><h3 style="margin-top:6px">Zetaris</h3></div>
+      <div class="card" style="padding:28px 32px"><div class="cap" style="font-weight:700;color:var(--ink-3)">Memory</div><h3 style="margin-top:6px">Meterless H-MEM</h3></div>
+      <div class="card" style="padding:28px 32px"><div class="cap" style="font-weight:700;color:var(--ink-3)">Database</div><h3 style="margin-top:6px">Neon Postgres</h3></div>
+      <div class="card" style="padding:28px 32px"><div class="cap" style="font-weight:700;color:var(--ink-3)">Live public data</div><h3 style="margin-top:6px">CPSC · openFDA</h3></div>
+      <div class="card" style="padding:28px 32px"><div class="cap" style="font-weight:700;color:var(--ink-3)">App</div><h3 style="margin-top:6px;font-size:26px">React + Express · Claude Code</h3></div>
+      <div class="card" style="padding:28px 32px;grid-column:span 2"><div class="cap" style="font-weight:700;color:var(--ink-3)">3 fake test families, 3 different feeds</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-top:12px">
+          <div><h3 style="font-size:24px">Maya</h3><div class="cap" style="font-size:19px">MA · day 20 · card + orders</div></div>
+          <div><h3 style="font-size:24px">Leo</h3><div class="cap" style="font-size:19px">MA · due soon · no data</div></div>
+          <div><h3 style="font-size:24px">Ava</h3><div class="cap" style="font-size:19px">Ohio · day 60 · card only</div></div>
+        </div></div>
+    </div>
+    <div style="flex:1;display:flex;flex-direction:column;gap:26px">
+      <div><h3>Code does math. AI explains and argues.</h3><div class="cap" style="margin-top:6px">Dollar amounts and deadlines come from SQL, so the AI can't invent numbers.</div></div>
+      <div><h3>A trace for every run</h3><div class="cap" style="margin-top:6px">JSON log of each agent step, query and memory read. Judges can call <span class="mono">POST /api/run</span>.</div></div>
+      <div><h3>Eval scoreboard (saved run, Oct 23)</h3>
+        <div style="display:flex;gap:14px;margin-top:12px">
+          <div class="card" style="padding:16px 20px;flex:1"><div style="font-size:52px;font-weight:800;letter-spacing:-.04em;color:var(--coral);line-height:1">6/6</div><div class="cap" style="font-size:18px;margin-top:4px">planted traps caught</div></div>
+          <div class="card" style="padding:16px 20px;flex:1"><div style="font-size:52px;font-weight:800;letter-spacing:-.04em;color:var(--coral);line-height:1">0</div><div class="cap" style="font-size:18px;margin-top:4px">false alarms</div></div>
+          <div class="card" style="padding:16px 20px;flex:1"><div style="font-size:52px;font-weight:800;letter-spacing:-.04em;color:var(--coral);line-height:1">100%</div><div class="cap" style="font-size:18px;margin-top:4px">cards sourced</div></div>
+        </div>
+        <div class="cap" style="margin-top:10px;font-size:19px">Learning: run 1 approved, run 2 blocked citing mem-1. Traps: auto-renew offer, wrong-amount row, recalled item, refund, duplicate, out-of-state family. Honest note: ran offline (no AI model); model quality is not measured here.</div></div>
+      <div><h3>Fails safe</h3><div class="cap" style="margin-top:6px">Court fails closed. Saved recall copy if the live feed breaks. Sample mode runs with sample inputs, never pre-written answers.</div></div>
+    </div>
+  </div>
+  <div class="foot"><span>Declared pre-existing: open-source app template; Meterless engine code vendored from its public repo.</span><span>11</span></div>
+</section>
+
+<!-- 12 FUTURE -->
+<section class="slide night" id="s12">
+  <div class="eyebrow">Future enhancements</div>
+  <h1 style="color:#FBF6EF">Next: from <em>&ldquo;found&rdquo;</em> to <em>&ldquo;done.&rdquo;</em></h1>
+  <div class="row" style="margin-top:72px;gap:28px">
+    <div class="grow" style="background:#26201C;border-radius:var(--r-m);padding:40px;border:1px solid #3A322C"><div style="font-size:56px;font-weight:800;color:var(--coral)">01</div><h3 style="margin-top:18px;color:#FBF6EF">Pre-filled applications</h3><div class="cap" style="margin-top:10px;color:#CFC5BA">Form 4547, MA paid leave. Agents fill them in and stop before submitting.</div></div>
+    <div class="grow" style="background:#26201C;border-radius:var(--r-m);padding:40px;border:1px solid #3A322C"><div style="font-size:56px;font-weight:800;color:var(--coral)">02</div><h3 style="margin-top:18px;color:#FBF6EF">Live bank + Amazon connect</h3><div class="cap" style="margin-top:10px;color:#CFC5BA">Today: Plaid-format sample data. Next: live Plaid and order uploads.</div></div>
+    <div class="grow" style="background:#26201C;border-radius:var(--r-m);padding:40px;border:1px solid #3A322C"><div style="font-size:56px;font-weight:800;color:var(--coral)">03</div><h3 style="margin-top:18px;color:#FBF6EF">Watching in the background</h3><div class="cap" style="margin-top:10px;color:#CFC5BA">Price drops inside refund windows, new recalls, new deadlines, as they happen.</div></div>
+    <div class="grow" style="background:#26201C;border-radius:var(--r-m);padding:40px;border:1px solid #3A322C"><div style="font-size:56px;font-weight:800;color:var(--coral)">04</div><h3 style="margin-top:18px;color:#FBF6EF">Every state, fair pricing</h3><div class="cap" style="margin-top:10px;color:#CFC5BA">Beyond Massachusetts. A success fee: families pay only when money comes back.</div></div>
+  </div>
+  <div style="margin-top:auto;display:flex;align-items:flex-end;justify-content:space-between;padding-bottom:40px">
+    <div><div class="wordmark" style="font-size:96px;line-height:1">bundle<i>.</i></div><div class="lede" style="margin-top:14px">Tap "Try as guest." No sign-up.</div></div>
+  </div>
+  <div class="foot"><span>The north star: Estonia offers family benefits automatically once a birth is registered. Bundle brings that to US parents.</span><span>12</span></div>
+</section>
+
+<script>
+(function(){
+  var m=location.search.match(/s=(\d+)/);
+  if(m){document.body.classList.add('solo');var el=document.getElementById('s'+m[1]);if(el)el.classList.add('show');}
+})();
+</script>
+</body>
+</html>

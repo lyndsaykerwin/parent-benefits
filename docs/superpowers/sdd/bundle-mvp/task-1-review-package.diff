@@ -1,0 +1,1079 @@
+1b40ad5 feat: guest-only skeleton with env loader and /api/health
+a953f61 chore: strip replit auth, chat, items, payments, template docs and tests
+
+ shared/schema.ts                                   |  148 +-
+ theme.json                                         |    6 -
+ tsconfig.json                                      |    2 +-
+ vite.config.ts                                     |   15 +-
+ 105 files changed, 3465 insertions(+), 21169 deletions(-)
+
+diff --git a/.claude/commands/add-ai.md b/.claude/commands/add-ai.md
+deleted file mode 100644
+index 3589eb7..0000000
++++ /dev/null
+@@ -1,196 +0,0 @@
+\ No newline at end of file
+diff --git a/.claude/commands/add-email.md b/.claude/commands/add-email.md
+deleted file mode 100644
+index 44bc58e..0000000
++++ /dev/null
+@@ -1,153 +0,0 @@
+\ No newline at end of file
+diff --git a/.claude/commands/add-file-features.md b/.claude/commands/add-file-features.md
+deleted file mode 100644
+index 1469d7e..0000000
++++ /dev/null
+@@ -1,216 +0,0 @@
+\ No newline at end of file
+diff --git a/.claude/commands/add-payment.md b/.claude/commands/add-payment.md
+deleted file mode 100644
+index 73191c8..0000000
++++ /dev/null
+@@ -1,240 +0,0 @@
+diff --git a/.claude/commands/deploy.md b/.claude/commands/deploy.md
+deleted file mode 100644
+index 6dbe814..0000000
++++ /dev/null
+@@ -1,363 +0,0 @@
+\ No newline at end of file
+diff --git a/.claude/commands/linear-ticket-guide.md b/.claude/commands/linear-ticket-guide.md
+deleted file mode 100644
+index 8e62ed6..0000000
++++ /dev/null
+@@ -1,255 +0,0 @@
+\ No newline at end of file
+diff --git a/.claude/commands/plan.md b/.claude/commands/plan.md
+deleted file mode 100644
+index 8674d45..0000000
++++ /dev/null
+@@ -1,500 +0,0 @@
+diff --git a/.claude/commands/productionize.md b/.claude/commands/productionize.md
+deleted file mode 100644
+index 2156dac..0000000
++++ /dev/null
+@@ -1,364 +0,0 @@
+\ No newline at end of file
+diff --git a/.claude/commands/setup.md b/.claude/commands/setup.md
+deleted file mode 100644
+index 7fd9350..0000000
++++ /dev/null
+@@ -1,243 +0,0 @@
+diff --git a/.cursor/rules/default.mdc b/.cursor/rules/default.mdc
+deleted file mode 100644
+index bb8fb20..0000000
++++ /dev/null
+@@ -1,89 +0,0 @@
+diff --git a/.env.example b/.env.example
+index c587111..508bb0f 100644
++++ b/.env.example
+@@ -1,59 +1,25 @@
++# Copy to .env.local (or keep real values in ../.secrets/bundle.env.local).
++# Placeholders only. Never commit real values.
+ 
++DATABASE_URL="postgresql://user:password@ep-xxxxx.region.aws.neon.tech/dbname?sslmode=require"
+ 
++ZETARIS_BASE_URL=""
++ZETARIS_ORG_ID=""
++ZETARIS_API_KEY=""
+ 
++MODEL_API_KEY=""
++MODEL_BASE_URL=https://integrate.api.nvidia.com/v1
++MODEL_REASONING=""
++MODEL_FAST=""
+ 
++SAMPLE_MODE=false
++SOURCE_TIMEOUT_SECONDS=20
++MAX_RETRIES=2
++REVIEWER_MODE_TOKEN=""
++TODAY=""
+ 
++PORT=5000
+ 
++# Optional (payments, not used right now)
++# STRIPE_SECRET_KEY=""
++# STRIPE_WEBHOOK_SECRET=""
+diff --git a/.env.test b/.env.test
+deleted file mode 100644
+index 4c44e9d..0000000
++++ /dev/null
+@@ -1,16 +0,0 @@
+\ No newline at end of file
+diff --git a/.github/workflows/claude-code-review.yml b/.github/workflows/claude-code-review.yml
+deleted file mode 100644
+index a12225a..0000000
++++ /dev/null
+@@ -1,78 +0,0 @@
+diff --git a/.github/workflows/claude.yml b/.github/workflows/claude.yml
+deleted file mode 100644
+index bc77307..0000000
++++ /dev/null
+@@ -1,64 +0,0 @@
+diff --git a/.github/workflows/deploy-preview.yml b/.github/workflows/deploy-preview.yml
+deleted file mode 100644
+index 0c5f5fa..0000000
++++ /dev/null
+@@ -1,71 +0,0 @@
+diff --git a/.github/workflows/test.yml b/.github/workflows/test.yml
+deleted file mode 100644
+index 02322ec..0000000
++++ /dev/null
+@@ -1,133 +0,0 @@
+diff --git a/.gitignore b/.gitignore
+index 8a68106..267420c 100644
++++ b/.gitignore
+@@ -1,11 +1,20 @@
+ node_modules
+ dist
+ .DS_Store
+ server/public
+ vite.config.ts.*
+ *.tar.gz
+ coverage
+ 
++# Secrets and local settings
++.env
++.env.*
++!.env.example
++
++# Bundle runtime files
++logs/*.jsonl
++vendor/hmem/node_modules
++data/hmem/
++
+ # Claude Code local config
+ .mcp.json
+diff --git a/.replit b/.replit
+deleted file mode 100644
+index b25b0f0..0000000
++++ /dev/null
+@@ -1,42 +0,0 @@
+diff --git a/AGENTS.md b/AGENTS.md
+deleted file mode 100644
+index f28779f..0000000
++++ /dev/null
+@@ -1,39 +0,0 @@
+diff --git a/CLAUDE.md b/CLAUDE.md
+deleted file mode 100644
+index 0513885..0000000
++++ /dev/null
+@@ -1,88 +0,0 @@
+diff --git a/PRODUCTION_READY_GUIDE.md b/PRODUCTION_READY_GUIDE.md
+deleted file mode 100644
+index c6c5b2d..0000000
++++ /dev/null
+@@ -1,236 +0,0 @@
+\ No newline at end of file
+diff --git a/README.md b/README.md
+index e0f510e..22d3868 100644
++++ b/README.md
+@@ -1,167 +1,14 @@
++# Bundle
+ 
++Helps new parents find, check and match benefits and deals. Guest-only (no sign-in).
+ 
++Started from the MIT-licensed VibeCode template (commit 6af369a); see the first git commit.
+ 
+ ```
+ npm install
++npm run dev      # http://localhost:5000, API health at /api/health
++npm test
++npm run check    # type check
+ ```
+ 
++Settings are read from `../.secrets/bundle.env.local`, then `.env.local` and `.env`. See `.env.example`.
+diff --git a/TESTING.md b/TESTING.md
+deleted file mode 100644
+index 152ff37..0000000
++++ /dev/null
+@@ -1,153 +0,0 @@
+diff --git a/attached_assets/Pasted-Deployment-Source-Log-2025-08-10-14-06-07-92-11695029-System-starting-up-user-application-2025-08-10-1754849983022_1754849983022.txt b/attached_assets/Pasted-Deployment-Source-Log-2025-08-10-14-06-07-92-11695029-System-starting-up-user-application-2025-08-10-1754849983022_1754849983022.txt
+deleted file mode 100644
+index 5f7246b..0000000
++++ /dev/null
+@@ -1,119 +0,0 @@
+\ No newline at end of file
+diff --git a/client/index.html b/client/index.html
+index 3490580..225f44f 100644
++++ b/client/index.html
+@@ -1,12 +1,12 @@
+ <!DOCTYPE html>
+ <html lang="en">
+   <head>
+     <meta charset="UTF-8" />
+     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
++    <title>Bundle</title>
+   </head>
+   <body>
+     <div id="root"></div>
+     <script type="module" src="/src/main.tsx"></script>
+   </body>
+\ No newline at end of file
++</html>
+diff --git a/client/src/App.tsx b/client/src/App.tsx
+index 86cb5dd..1bbe02f 100644
++++ b/client/src/App.tsx
+@@ -1,25 +1,18 @@
+ import { Switch, Route } from "wouter";
+ import { QueryClientProvider } from "@tanstack/react-query";
+ import { Component, ErrorInfo, ReactNode } from "react";
+ import { queryClient } from "./lib/queryClient";
+ import { Toaster } from "@/components/ui/toaster";
+ import { TooltipProvider } from "@/components/ui/tooltip";
++import Home from "@/pages/home";
+ import NotFound from "@/pages/not-found";
+ 
+ class ErrorBoundary extends Component<
+   { children: ReactNode },
+   { hasError: boolean }
+ > {
+   constructor(props: { children: ReactNode }) {
+     super(props);
+     this.state = { hasError: false };
+   }
+ 
+@@ -47,35 +40,24 @@ class ErrorBoundary extends Component<
+         </div>
+       );
+     }
+ 
+     return this.props.children;
+   }
+ }
+ 
+ function Router() {
+   return (
++    <Switch>
++      <Route path="/" component={Home} />
++      <Route component={NotFound} />
++    </Switch>
+   );
+ }
+ 
+ function App() {
+   return (
+     <ErrorBoundary>
+       <QueryClientProvider client={queryClient}>
+         <TooltipProvider>
+           <Router />
+           <Toaster />
+diff --git a/client/src/components/FileList.tsx b/client/src/components/FileList.tsx
+deleted file mode 100644
+index 0b6a50a..0000000
++++ /dev/null
+@@ -1,211 +0,0 @@
+\ No newline at end of file
+diff --git a/client/src/components/FileUpload.tsx b/client/src/components/FileUpload.tsx
+deleted file mode 100644
+index 3ef4937..0000000
++++ /dev/null
+@@ -1,269 +0,0 @@
+\ No newline at end of file
+diff --git a/client/src/components/Nav.tsx b/client/src/components/Nav.tsx
+deleted file mode 100644
+index 62254a0..0000000
++++ /dev/null
+@@ -1,25 +0,0 @@
+diff --git a/client/src/components/Navbar.tsx b/client/src/components/Navbar.tsx
+deleted file mode 100644
+index e5d279e..0000000
++++ /dev/null
+@@ -1,70 +0,0 @@
+diff --git a/client/src/components/SearchBar.tsx b/client/src/components/SearchBar.tsx
+deleted file mode 100644
+index af5d277..0000000
++++ /dev/null
+@@ -1,21 +0,0 @@
+\ No newline at end of file
+diff --git a/client/src/components/TodoList.tsx b/client/src/components/TodoList.tsx
+deleted file mode 100644
+index 7c1aca0..0000000
++++ /dev/null
+@@ -1,247 +0,0 @@
+diff --git a/client/src/components/UserProfileForm.tsx b/client/src/components/UserProfileForm.tsx
+deleted file mode 100644
+index 15a331f..0000000
++++ /dev/null
+@@ -1,55 +0,0 @@
+diff --git a/client/src/components/__tests__/TodoList.test.tsx b/client/src/components/__tests__/TodoList.test.tsx
+deleted file mode 100644
+index 18c762d..0000000
++++ /dev/null
+@@ -1,370 +0,0 @@
+diff --git a/client/src/hooks/use-auth.ts b/client/src/hooks/use-auth.ts
+deleted file mode 100644
+index cfabe84..0000000
++++ /dev/null
+@@ -1,47 +0,0 @@
+diff --git a/client/src/hooks/useFiles.ts b/client/src/hooks/useFiles.ts
+deleted file mode 100644
+index fd86a81..0000000
++++ /dev/null
+@@ -1,149 +0,0 @@
+\ No newline at end of file
+diff --git a/client/src/hooks/useUser.ts b/client/src/hooks/useUser.ts
+deleted file mode 100644
+index 71883ce..0000000
++++ /dev/null
+@@ -1,16 +0,0 @@
+diff --git a/client/src/lib/auth-utils.ts b/client/src/lib/auth-utils.ts
+deleted file mode 100644
+index a06807d..0000000
++++ /dev/null
+@@ -1,17 +0,0 @@
+diff --git a/client/src/lib/mail.ts b/client/src/lib/mail.ts
+deleted file mode 100644
+index fa0098e..0000000
++++ /dev/null
+@@ -1,48 +0,0 @@
+\ No newline at end of file
+diff --git a/client/src/lib/stripe.ts b/client/src/lib/stripe.ts
+deleted file mode 100644
+index 49f5efc..0000000
++++ /dev/null
+@@ -1,120 +0,0 @@
+\ No newline at end of file
+diff --git a/client/src/main.tsx b/client/src/main.tsx
+index 5af4121..65dc4ec 100644
++++ b/client/src/main.tsx
+@@ -1,17 +1,10 @@
+ import { StrictMode } from "react";
+ import { createRoot } from "react-dom/client";
+ import App from "./App";
+ import "./index.css";
+ 
+ createRoot(document.getElementById("root")!).render(
+   <StrictMode>
++    <App />
+   </StrictMode>
+ );
+diff --git a/client/src/pages/ai-chat.tsx b/client/src/pages/ai-chat.tsx
+deleted file mode 100644
+index 5da2a66..0000000
++++ /dev/null
+@@ -1,396 +0,0 @@
+diff --git a/client/src/pages/dashboard.tsx b/client/src/pages/dashboard.tsx
+deleted file mode 100644
+index d5af65f..0000000
++++ /dev/null
+@@ -1,206 +0,0 @@
+diff --git a/client/src/pages/files.tsx b/client/src/pages/files.tsx
+deleted file mode 100644
+index c759810..0000000
++++ /dev/null
+@@ -1,161 +0,0 @@
+diff --git a/client/src/pages/home.tsx b/client/src/pages/home.tsx
+new file mode 100644
+index 0000000..73174ba
++++ b/client/src/pages/home.tsx
+@@ -0,0 +1,7 @@
++export default function Home() {
++  return (
++    <main className="min-h-screen flex items-center justify-center">
++      <h1 className="text-3xl font-bold">Bundle</h1>
++    </main>
++  );
++}
+diff --git a/client/src/pages/login.tsx b/client/src/pages/login.tsx
+deleted file mode 100644
+index e65e348..0000000
++++ /dev/null
+@@ -1,55 +0,0 @@
+diff --git a/client/src/pages/not-found.tsx b/client/src/pages/not-found.tsx
+index 2f0d5f7..b9104cc 100644
++++ b/client/src/pages/not-found.tsx
+@@ -1,47 +1,7 @@
+ export default function NotFound() {
+   return (
++    <main className="min-h-screen flex items-center justify-center">
++      <h1 className="text-2xl font-bold">Page not found</h1>
++    </main>
+   );
+ }
+diff --git a/client/src/pages/pricing.tsx b/client/src/pages/pricing.tsx
+deleted file mode 100644
+index 1e515bf..0000000
++++ /dev/null
+@@ -1,232 +0,0 @@
+diff --git a/client/src/pages/profile.tsx b/client/src/pages/profile.tsx
+deleted file mode 100644
+index 2db5d69..0000000
++++ /dev/null
+@@ -1,129 +0,0 @@
+diff --git a/client/src/pages/settings.tsx b/client/src/pages/settings.tsx
+deleted file mode 100644
+index e3b3bf3..0000000
++++ /dev/null
+@@ -1,230 +0,0 @@
+diff --git a/docs/CHATKIT_FUNCTIONS.md b/docs/CHATKIT_FUNCTIONS.md
+deleted file mode 100644
+index d180364..0000000
++++ /dev/null
+@@ -1,238 +0,0 @@
+diff --git a/docs/CHATKIT_SETUP.md b/docs/CHATKIT_SETUP.md
+deleted file mode 100644
+index 5e46e43..0000000
++++ /dev/null
+@@ -1,301 +0,0 @@
+diff --git a/docs/agent-function-createTodo.json b/docs/agent-function-createTodo.json
+deleted file mode 100644
+index 32d2e80..0000000
++++ /dev/null
+@@ -1,18 +0,0 @@
+diff --git a/docs/agent-function-deleteTodo.json b/docs/agent-function-deleteTodo.json
+deleted file mode 100644
+index d2074ad..0000000
++++ /dev/null
+@@ -1,18 +0,0 @@
+diff --git a/docs/agent-function-getTodos.json b/docs/agent-function-getTodos.json
+deleted file mode 100644
+index 49a7710..0000000
++++ /dev/null
+@@ -1,11 +0,0 @@
+diff --git a/docs/agent-function-updateTodoStatus.json b/docs/agent-function-updateTodoStatus.json
+deleted file mode 100644
+index 18e412a..0000000
++++ /dev/null
+@@ -1,24 +0,0 @@
+diff --git a/drizzle.config.ts b/drizzle.config.ts
+index 5278a86..ac8134b 100644
++++ b/drizzle.config.ts
+@@ -1,15 +1,20 @@
++import { loadEnv } from "./server/env";
+ import { defineConfig } from "drizzle-kit";
+ 
++loadEnv();
++
+ if (!process.env.DATABASE_URL) {
++  throw new Error("DATABASE_URL is not set (see .env.example)");
+ }
+ 
+ export default defineConfig({
+   out: "./migrations",
+   schema: "./shared/schema.ts",
+   dialect: "postgresql",
+   dbCredentials: {
+     url: process.env.DATABASE_URL,
+   },
++  // Only touch tables Bundle owns. The shared Neon database also holds
++  // other tables (e.g. spike0_amazon_orders) that must never be dropped.
++  tablesFilter: ["users"],
+ });
+diff --git a/jest.afterEnv.js b/jest.afterEnv.js
+deleted file mode 100644
+index 6892732..0000000
++++ /dev/null
+@@ -1,36 +0,0 @@
+diff --git a/jest.config.cjs b/jest.config.cjs
+index 254641c..61f5da6 100644
++++ b/jest.config.cjs
+@@ -1,43 +1,15 @@
+ module.exports = {
+   preset: 'ts-jest',
+   maxWorkers: 1,
++  testEnvironment: 'node',
++  testMatch: ['<rootDir>/server/__tests__/**/*.test.ts'],
++  moduleNameMapper: {
++    '^@shared/(.*)$': '<rootDir>/shared/$1'
++  },
++  transform: {
++    '^.+\\.ts$': ['ts-jest', { tsconfig: 'tsconfig.json' }]
+   },
+   testTimeout: 10000,
+   clearMocks: true,
+   restoreMocks: true
++};
+diff --git a/jest.setup.js b/jest.setup.js
+deleted file mode 100644
+index 780115e..0000000
++++ /dev/null
+@@ -1,476 +0,0 @@
+diff --git a/migrations/0000_wild_raider.sql b/migrations/0000_wild_raider.sql
+deleted file mode 100644
+index 91abc37..0000000
++++ /dev/null
+@@ -1,39 +0,0 @@
+\ No newline at end of file
+diff --git a/migrations/meta/0000_snapshot.json b/migrations/meta/0000_snapshot.json
+deleted file mode 100644
+index 6bd6735..0000000
++++ /dev/null
+@@ -1,247 +0,0 @@
+\ No newline at end of file
+diff --git a/migrations/meta/_journal.json b/migrations/meta/_journal.json
+deleted file mode 100644
+index 56acfa7..0000000
++++ /dev/null
+@@ -1,13 +0,0 @@
+\ No newline at end of file
+diff --git a/package.json b/package.json
+index e1821a3..9229797 100644
++++ b/package.json
+@@ -1,41 +1,31 @@
+ {
++  "name": "bundle",
+   "version": "1.0.0",
+   "type": "module",
+   "license": "MIT",
+   "engines": {
+     "node": ">=24"
+   },
+   "scripts": {
+     "dev": "tsx server/index.ts",
+     "test": "NODE_ENV=test npx jest --maxWorkers=1",
+     "build": "vite build && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist",
+     "start": "NODE_ENV=production node dist/index.js",
+     "check": "tsc",
+     "db:push": "drizzle-kit push",
++    "db:studio": "drizzle-kit studio"
+   },
+   "dependencies": {
+     "@hookform/resolvers": "^3.9.1",
+     "@jridgewell/trace-mapping": "^0.3.25",
+     "@neondatabase/serverless": "^0.10.4",
+     "@radix-ui/react-accordion": "^1.2.1",
+     "@radix-ui/react-alert-dialog": "^1.1.2",
+     "@radix-ui/react-aspect-ratio": "^1.1.0",
+     "@radix-ui/react-avatar": "^1.1.1",
+     "@radix-ui/react-checkbox": "^1.1.2",
+     "@radix-ui/react-collapsible": "^1.1.1",
+     "@radix-ui/react-context-menu": "^2.2.2",
+     "@radix-ui/react-dialog": "^1.1.2",
+     "@radix-ui/react-dropdown-menu": "^2.1.2",
+     "@radix-ui/react-hover-card": "^1.1.2",
+@@ -49,101 +39,69 @@
+     "@radix-ui/react-select": "^2.1.2",
+     "@radix-ui/react-separator": "^1.1.0",
+     "@radix-ui/react-slider": "^1.2.1",
+     "@radix-ui/react-slot": "^1.2.3",
+     "@radix-ui/react-switch": "^1.1.1",
+     "@radix-ui/react-tabs": "^1.1.1",
+     "@radix-ui/react-toast": "^1.2.2",
+     "@radix-ui/react-toggle": "^1.1.0",
+     "@radix-ui/react-toggle-group": "^1.1.0",
+     "@radix-ui/react-tooltip": "^1.2.7",
+     "@tanstack/react-query": "^5.60.5",
+     "@types/cors": "^2.8.19",
+     "class-variance-authority": "^0.7.1",
+     "clsx": "^2.1.1",
+     "cmdk": "^1.0.0",
+     "cookie-parser": "^1.4.7",
+     "cors": "^2.8.5",
+     "date-fns": "^3.6.0",
+     "dotenv": "^16.5.0",
+     "drizzle-orm": "^0.44.6",
+     "drizzle-zod": "^0.8.3",
+     "embla-carousel-react": "^8.3.0",
+     "express": "^4.21.2",
+     "express-rate-limit": "^8.0.1",
+     "framer-motion": "^11.13.1",
+     "helmet": "^8.1.0",
+     "input-otp": "^1.2.4",
+     "lucide-react": "^0.453.0",
+     "react": "^18.3.1",
+     "react-day-picker": "^8.10.1",
+     "react-dom": "^18.3.1",
+     "react-hook-form": "^7.53.1",
+     "react-icons": "^5.4.0",
+     "react-resizable-panels": "^2.1.4",
+     "recharts": "^2.13.0",
+     "tailwind-merge": "^2.6.0",
+     "tailwindcss-animate": "^1.0.7",
+     "vaul": "^1.1.0",
+     "wouter": "^3.3.5",
+     "ws": "^8.18.0",
+     "xss": "^1.0.15",
+     "zod": "^3.23.8",
+     "zod-validation-error": "^3.4.0"
+   },
+   "devDependencies": {
+     "@tailwindcss/typography": "^0.5.15",
+     "@types/cookie-parser": "^1.4.9",
+     "@types/express": "4.17.21",
+     "@types/jest": "^30.0.0",
+     "@types/node": "^20.16.11",
+     "@types/react": "^18.3.11",
+     "@types/react-dom": "^18.3.1",
+     "@types/ws": "^8.5.13",
+     "@vitejs/plugin-react": "^4.3.2",
+     "autoprefixer": "^10.4.20",
+     "drizzle-kit": "^0.31.5",
+     "esbuild": "^0.25.10",
+     "jest": "^30.0.5",
+     "postcss": "^8.4.47",
+     "tailwindcss": "^3.4.14",
+     "ts-jest": "^29.4.1",
+     "tsx": "^4.19.1",
+     "typescript": "^5.9.3",
+     "vite": "^7.0.6"
+   },
+   "optionalDependencies": {
+     "bufferutil": "^4.0.8"
+   }
+ }
+diff --git a/replit.md b/replit.md
+deleted file mode 100644
+index fd5c2a5..0000000
++++ /dev/null
+@@ -1,123 +0,0 @@
+diff --git a/scripts/reset-db.ts b/scripts/reset-db.ts
+deleted file mode 100644
+index aaad880..0000000
++++ /dev/null
+@@ -1,33 +0,0 @@
+diff --git a/server/__tests__/auth-authorization.test.ts b/server/__tests__/auth-authorization.test.ts
+deleted file mode 100644
+index f4ad4ea..0000000
++++ /dev/null
+@@ -1,772 +0,0 @@
+\ No newline at end of file
+diff --git a/server/__tests__/auth-middleware.test.ts b/server/__tests__/auth-middleware.test.ts
+deleted file mode 100644
+index 370d97a..0000000
++++ /dev/null
+@@ -1,154 +0,0 @@
+diff --git a/server/__tests__/auth-security.test.ts b/server/__tests__/auth-security.test.ts
+deleted file mode 100644
+index 9f82add..0000000
++++ /dev/null
+@@ -1,397 +0,0 @@
+\ No newline at end of file
+diff --git a/server/__tests__/auth-workflow.test.ts b/server/__tests__/auth-workflow.test.ts
+deleted file mode 100644
+index b93d515..0000000
++++ /dev/null
+@@ -1,215 +0,0 @@
+\ No newline at end of file
+diff --git a/server/__tests__/chatKitRoutes.test.ts b/server/__tests__/chatKitRoutes.test.ts
+deleted file mode 100644
+index 8f15134..0000000
++++ /dev/null
+@@ -1,244 +0,0 @@
+diff --git a/server/__tests__/email-workflow.test.ts b/server/__tests__/email-workflow.test.ts
+deleted file mode 100644
+index 17887f2..0000000
++++ /dev/null
+@@ -1,518 +0,0 @@
+diff --git a/server/__tests__/env.test.ts b/server/__tests__/env.test.ts
+new file mode 100644
+index 0000000..551c1ce
++++ b/server/__tests__/env.test.ts
+@@ -0,0 +1,48 @@
++import fs from 'fs';
++import os from 'os';
++import path from 'path';
++import { loadEnv } from '../env';
++
++describe('loadEnv', () => {
++  let dir: string;
++
++  beforeEach(() => {
++    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'bundle-env-'));
++    delete process.env.FOO;
++    delete process.env.ALREADY_SET;
++  });
++
++  afterEach(() => {
++    fs.rmSync(dir, { recursive: true, force: true });
++    delete process.env.FOO;
++    delete process.env.ALREADY_SET;
++  });
++
++  it('loads variables from a file into process.env', () => {
++    const file = path.join(dir, 'a.env');
++    fs.writeFileSync(file, 'FOO=bar\n');
++    loadEnv([file]);
++    expect(process.env.FOO).toBe('bar');
++  });
++
++  it('does not overwrite a variable that is already set', () => {
++    const file = path.join(dir, 'a.env');
++    fs.writeFileSync(file, 'ALREADY_SET=from-file\n');
++    process.env.ALREADY_SET = 'from-shell';
++    loadEnv([file]);
++    expect(process.env.ALREADY_SET).toBe('from-shell');
++  });
++
++  it('skips files that do not exist', () => {
++    expect(() => loadEnv([path.join(dir, 'missing.env')])).not.toThrow();
++  });
++
++  it('lets earlier files win over later ones', () => {
++    const first = path.join(dir, 'first.env');
++    const second = path.join(dir, 'second.env');
++    fs.writeFileSync(first, 'FOO=first\n');
++    fs.writeFileSync(second, 'FOO=second\n');
++    loadEnv([first, second]);
++    expect(process.env.FOO).toBe('first');
++  });
++});
+diff --git a/server/__tests__/payment-workflow.test.ts b/server/__tests__/payment-workflow.test.ts
+deleted file mode 100644
+index 75c0c1b..0000000
++++ /dev/null
+@@ -1,356 +0,0 @@
+diff --git a/server/__tests__/setup/mocks.ts b/server/__tests__/setup/mocks.ts
+deleted file mode 100644
+index bbbadb1..0000000
++++ /dev/null
+@@ -1,189 +0,0 @@
+diff --git a/server/__tests__/storage.test.ts b/server/__tests__/storage.test.ts
+deleted file mode 100644
+index 60bb1e8..0000000
++++ /dev/null
+@@ -1,470 +0,0 @@
+\ No newline at end of file
+diff --git a/server/__tests__/webhook-workflow.test.ts b/server/__tests__/webhook-workflow.test.ts
+deleted file mode 100644
+index acc59e1..0000000
++++ /dev/null
+@@ -1,820 +0,0 @@
+\ No newline at end of file
+diff --git a/server/env.ts b/server/env.ts
+new file mode 100644
+index 0000000..f43b4c8
++++ b/server/env.ts
+@@ -0,0 +1,24 @@
++import fs from 'fs';
++import path from 'path';
++import dotenv from 'dotenv';
++
++/** Default places to look for settings, in priority order (first one wins). */
++export function defaultEnvFiles(cwd: string = process.cwd()): string[] {
++  return [
++    path.resolve(cwd, '../.secrets/bundle.env.local'),
++    path.resolve(cwd, '.env.local'),
++    path.resolve(cwd, '.env'),
++  ];
++}
++
++/**
++ * Load settings from env files into process.env.
++ * Missing files are skipped. A variable that is already set is never
++ * overwritten, so real environment variables and earlier files always win.
++ */
++export function loadEnv(files: string[] = defaultEnvFiles()): void {
++  for (const file of files) {
++    if (!fs.existsSync(file)) continue;
++    dotenv.config({ path: file, override: false });
++  }
++}
+diff --git a/server/index.ts b/server/index.ts
+index 3722c12..c168841 100644
++++ b/server/index.ts
+@@ -1,354 +1,93 @@
++import { loadEnv } from './env';
++loadEnv(); // must run before anything reads process.env
++
+ import express, { type Request, Response, NextFunction } from "express";
+ import { randomUUID } from 'crypto';
++import rateLimit from 'express-rate-limit';
+ import helmet from 'helmet';
+ import cors from 'cors';
+ import { registerRoutes } from "./routes";
+ import { setupVite, serveStatic, log } from "./vite";
+ import { sanitizeInputs } from './middleware/sanitize';
+ 
+ const app = express();
+ const PORT = parseInt(process.env.PORT || '5000', 10);
++const isProd = process.env.NODE_ENV === 'production';
+ 
+ (async () => {
+   app.use(helmet({
+     contentSecurityPolicy: {
+       directives: {
+         defaultSrc: ["'self'"],
++        styleSrc: isProd
+           ? ["'self'", "https://fonts.googleapis.com"]
+           : ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+         fontSrc: ["'self'", "https://fonts.gstatic.com"],
++        scriptSrc: isProd ? ["'self'"] : ["'self'", "'unsafe-inline'"],
++        connectSrc: ["'self'"],
++        imgSrc: ["'self'", "data:"],
+       }
+     },
+     crossOriginOpenerPolicy: { policy: "unsafe-none" },
+     crossOriginEmbedderPolicy: false,
+   }));
+ 
++  // Request ID on every response
++  app.use((_req, res, next) => {
++    res.setHeader('X-Request-Id', randomUUID());
+     next();
+   });
+ 
++  app.use('/api', rateLimit({
++    windowMs: 15 * 60 * 1000,
++    limit: 500,
++    standardHeaders: true,
++    legacyHeaders: false,
++    message: { error: 'Too many requests from this IP, please try again later.' },
++  }));
+ 
+   app.use(cors({
++    origin: isProd
++      ? [process.env.FRONTEND_URL].filter((u): u is string => Boolean(u))
++      : ['http://localhost:5173', `http://localhost:${PORT}`, 'http://127.0.0.1:5173'],
++    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
+     allowedHeaders: ['Content-Type', 'Authorization'],
++    maxAge: 86400,
+   }));
+ 
++  app.use(express.json({ limit: '10mb' }));
+   app.use(express.urlencoded({ extended: false, limit: '10mb' }));
++  app.use('/api', sanitizeInputs);
+ 
++  if (!isProd) {
+     app.use((req, res, next) => {
+       const start = Date.now();
+       res.on('finish', () => {
+         if (req.path.startsWith('/api')) {
++          log(`${req.method} ${req.path} ${res.statusCode} in ${Date.now() - start}ms`);
+         }
+       });
+       next();
+     });
+   }
+ 
+   const server = await registerRoutes(app);
+ 
++  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+     console.error('Error:', err);
+     const status = err.status || err.statusCode || 500;
++    const message = isProd && status >= 500 ? 'Internal Server Error' : err.message || 'Internal Server Error';
++    res.status(status).json({ error: message });
+   });
+ 
++  // Vite's catch-all must come after every API route
+   if (app.get("env") === "development") {
+     await setupVite(app, server);
+   } else {
+     serveStatic(app);
+   }
+ 
+   server.listen(PORT, "0.0.0.0", () => {
+     log(`serving on port ${PORT}`);
+   });
+ })();
+diff --git a/server/lib/audit.ts b/server/lib/audit.ts
+deleted file mode 100644
+index 14f3eed..0000000
++++ /dev/null
+@@ -1,32 +0,0 @@
+diff --git a/server/lib/errors.ts b/server/lib/errors.ts
+deleted file mode 100644
+index 180c766..0000000
++++ /dev/null
+@@ -1,142 +0,0 @@
+diff --git a/server/lib/sendgrid.ts b/server/lib/sendgrid.ts
+deleted file mode 100644
+index 46e6660..0000000
++++ /dev/null
+@@ -1,56 +0,0 @@
+diff --git a/server/lib/stripe.ts b/server/lib/stripe.ts
+deleted file mode 100644
+index 7b7318c..0000000
++++ /dev/null
+@@ -1,26 +0,0 @@
+diff --git a/server/mail.ts b/server/mail.ts
+deleted file mode 100644
+index 02b0c6e..0000000
++++ /dev/null
+@@ -1,106 +0,0 @@
+diff --git a/server/middleware/auth.ts b/server/middleware/auth.ts
+deleted file mode 100644
+index c06a920..0000000
++++ /dev/null
+@@ -1,74 +0,0 @@
+diff --git a/server/middleware/authHelpers.ts b/server/middleware/authHelpers.ts
+deleted file mode 100644
+index 59aa81d..0000000
++++ /dev/null
+@@ -1,147 +0,0 @@
+diff --git a/server/replit_integrations/auth/index.ts b/server/replit_integrations/auth/index.ts
+deleted file mode 100644
+index 2fd93de..0000000
++++ /dev/null
+@@ -1,3 +0,0 @@
+diff --git a/server/replit_integrations/auth/replitAuth.ts b/server/replit_integrations/auth/replitAuth.ts
+deleted file mode 100644
+index 7575424..0000000
++++ /dev/null
+@@ -1,160 +0,0 @@
+diff --git a/server/replit_integrations/auth/routes.ts b/server/replit_integrations/auth/routes.ts
+deleted file mode 100644
+index 282179a..0000000
++++ /dev/null
+@@ -1,27 +0,0 @@
+diff --git a/server/replit_integrations/auth/storage.ts b/server/replit_integrations/auth/storage.ts
+deleted file mode 100644
+index ac63c4f..0000000
++++ /dev/null
+@@ -1,52 +0,0 @@
+diff --git a/server/routes/chatKitRoutes.ts b/server/routes/chatKitRoutes.ts
+deleted file mode 100644
+index 17793e1..0000000
++++ /dev/null
+@@ -1,156 +0,0 @@
+diff --git a/server/routes/index.ts b/server/routes/index.ts
+index 6f257ba..978188d 100644
++++ b/server/routes/index.ts
+@@ -1,23 +1,12 @@
+ import type { Express } from "express";
+ import { createServer } from "http";
+ 
+ export async function registerRoutes(app: Express) {
+   const server = createServer(app);
+ 
++  app.get("/api/health", (_req, res) => {
++    res.json({ ok: true });
++  });
+ 
+   return server;
+ }
+diff --git a/server/routes/itemRoutes.ts b/server/routes/itemRoutes.ts
+deleted file mode 100644
+index 1b1f87a..0000000
++++ /dev/null
+@@ -1,112 +0,0 @@
+diff --git a/server/routes/paymentRoutes.ts b/server/routes/paymentRoutes.ts
+deleted file mode 100644
+index b55cdb1..0000000
++++ /dev/null
+@@ -1,173 +0,0 @@
+diff --git a/server/routes/userRoutes.ts b/server/routes/userRoutes.ts
+deleted file mode 100644
+index 3917d80..0000000
++++ /dev/null
+@@ -1,255 +0,0 @@
+diff --git a/server/routes/webhookRoutes.ts b/server/routes/webhookRoutes.ts
+deleted file mode 100644
+index 8f27f53..0000000
++++ /dev/null
+@@ -1,179 +0,0 @@
+diff --git a/server/storage/ItemStorage.ts b/server/storage/ItemStorage.ts
+deleted file mode 100644
+index 3286188..0000000
++++ /dev/null
+@@ -1,32 +0,0 @@
+\ No newline at end of file
+diff --git a/server/storage/UserStorage.ts b/server/storage/UserStorage.ts
+deleted file mode 100644
+index dda11f3..0000000
++++ /dev/null
+@@ -1,52 +0,0 @@
+diff --git a/server/storage/index.ts b/server/storage/index.ts
+deleted file mode 100644
+index d16041f..0000000
++++ /dev/null
+@@ -1,77 +0,0 @@
+diff --git a/server/vite.ts b/server/vite.ts
+index f8155da..af817af 100644
++++ b/server/vite.ts
+@@ -1,20 +1,20 @@
+ import express, { type Express } from "express";
+ import fs from "fs";
+ import path, { dirname } from "path";
+ import { fileURLToPath } from "url";
+ import { createServer as createViteServer, createLogger } from "vite";
+ const __filename = fileURLToPath(import.meta.url);
+ const __dirname = dirname(__filename);
+ import { type Server } from "http";
+ import viteConfig from "../vite.config";
++import { randomUUID } from "crypto";
+ 
+ const viteLogger = createLogger();
+ 
+ export function log(message: string, source = "express") {
+   const formattedTime = new Date().toLocaleTimeString("en-US", {
+     hour: "numeric",
+     minute: "2-digit",
+     second: "2-digit",
+     hour12: true,
+   });
+@@ -52,21 +52,21 @@ export async function setupVite(app: Express, server: Server) {
+         __dirname,
+         "..",
+         "client",
+         "index.html",
+       );
+ 
+       // always reload the index.html file from disk incase it changes
+       let template = await fs.promises.readFile(clientTemplate, "utf-8");
+       template = template.replace(
+         `src="/src/main.tsx"`,
++        `src="/src/main.tsx?v=${randomUUID()}"`,
+       );
+       const page = await vite.transformIndexHtml(url, template);
+       res.status(200).set({ "Content-Type": "text/html" }).end(page);
+     } catch (e) {
+       vite.ssrFixStacktrace(e as Error);
+       next(e);
+     }
+   });
+ }
+ 
+diff --git a/shared/schema.ts b/shared/schema.ts
+index 7f02a72..b9ae0ba 100644
++++ b/shared/schema.ts
+@@ -1,151 +1,11 @@
++import { pgTable, text, varchar, timestamp } from "drizzle-orm/pg-core";
+ 
++// Guest-only app: nothing requires a signed-in user. The users table is kept
++// (minimal) so later tasks can attach a family profile to it if they want.
+ export const users = pgTable("users", {
+   id: varchar("id").primaryKey(),
++  displayName: text("display_name"),
+   createdAt: timestamp("created_at").defaultNow(),
+ });
+ 
+ export type User = typeof users.$inferSelect;
+diff --git a/theme.json b/theme.json
+deleted file mode 100644
+index 51fd68f..0000000
++++ /dev/null
+@@ -1,6 +0,0 @@
+\ No newline at end of file
+diff --git a/tsconfig.json b/tsconfig.json
+index 03d71fe..a238f7e 100644
++++ b/tsconfig.json
+@@ -7,17 +7,17 @@
+     "noEmit": true,
+     "module": "ESNext",
+     "strict": true,
+     "lib": ["esnext", "dom", "dom.iterable"],
+     "jsx": "preserve",
+     "esModuleInterop": true,
+     "skipLibCheck": true,
+     "allowImportingTsExtensions": true,
+     "moduleResolution": "bundler",
+     "baseUrl": ".",
++    "types": ["node", "vite/client", "jest"],
+     "paths": {
+       "@/*": ["./client/src/*"],
+       "@shared/*": ["./shared/*"]
+     }
+   }
+ }
+diff --git a/vite.config.ts b/vite.config.ts
+index 6efb265..1d17aac 100644
++++ b/vite.config.ts
+@@ -1,32 +1,19 @@
+ import { defineConfig } from "vite";
+ import react from "@vitejs/plugin-react";
+ import path, { dirname } from "path";
+ import { fileURLToPath } from "url";
+ 
+ const __filename = fileURLToPath(import.meta.url);
+ const __dirname = dirname(__filename);
+ export default defineConfig({
++  plugins: [react()],
+   resolve: {
+     alias: {
+       "@": path.resolve(__dirname, "client", "src"),
+       "@shared": path.resolve(__dirname, "shared"),
+     },
+   },
+   root: path.resolve(__dirname, "client"),
+   build: {
+     outDir: path.resolve(__dirname, "dist/public"),
+     emptyOutDir: true,

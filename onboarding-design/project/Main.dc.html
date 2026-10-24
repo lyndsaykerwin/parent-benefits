@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Bundle: start</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#1B1714}a:hover{color:#5C534B}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; padding: 20px 20px 28px; background: #FBF6EF; color: #1B1714; font-family: Manrope, system-ui, sans-serif; display: flex; flex-direction: column;">
+  <div style="display: flex; align-items: center; gap: 12px; height: 44px;">
+    <span style="font-size: 26px; font-weight: 800; letter-spacing: -0.03em;">bundle<span style="color: #E4572E;">.</span></span>
+    <div style="flex-grow: 1; height: 6px; background: #E9E0D4; border-radius: 99px; overflow: hidden; margin-left: 12px;" role="progressbar" aria-label="Setup progress" aria-valuenow="25" aria-valuemin="0" aria-valuemax="100">
+      <div style="width: 25%; height: 100%; background: #E4572E; border-radius: 99px;"></div>
+    </div>
+    <span style="font-size: 13px; font-weight: 700; color: #5C534B;">1 of 4</span>
+  </div>
+
+  <h1 style="margin: 36px 0 0; font-size: 36px; font-weight: 800; line-height: 1.06; letter-spacing: -0.03em;">Let’s find what your family is <span style="color: #E4572E;">owed.</span></h1>
+  <p style="margin: 12px 0 0; font-size: 16px; line-height: 1.45; color: #5C534B;">Cash, credits and free stuff, checked for you. About 30 seconds. No sign-up.</p>
+
+  <p style="margin: 36px 0 12px; font-size: 20px; font-weight: 800; letter-spacing: -0.01em;">Where are you right now?</p>
+  <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px;">
+    <a href="Date.dc.html" style="display: flex; flex-direction: column; gap: 10px; min-height: 172px; box-sizing: border-box; padding: 18px; background: #FFFFFF; border: 1px solid #E9E0D4; border-radius: 24px; box-shadow: 0 1px 2px rgba(27,23,20,.04), 0 12px 32px rgba(27,23,20,.06); text-decoration: none; color: #1B1714;">
+      <span style="width: 44px; height: 44px; border-radius: 14px; background: #FCE6DC; display: flex; align-items: center; justify-content: center; color: #B93E1A;">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg>
+      </span>
+      <span style="font-size: 19px; font-weight: 800; letter-spacing: -0.01em;">We’re expecting</span>
+      <span style="font-size: 14px; line-height: 1.35; color: #5C534B;">Free registry boxes now, money once baby arrives</span>
+    </a>
+    <a href="Date.dc.html" style="display: flex; flex-direction: column; gap: 10px; min-height: 172px; box-sizing: border-box; padding: 18px; background: #FFFFFF; border: 1px solid #E9E0D4; border-radius: 24px; box-shadow: 0 1px 2px rgba(27,23,20,.04), 0 12px 32px rgba(27,23,20,.06); text-decoration: none; color: #1B1714;">
+      <span style="width: 44px; height: 44px; border-radius: 14px; background: #FCE6DC; display: flex; align-items: center; justify-content: center; color: #B93E1A;">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-4.5-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 11c0 5.5-7 10-7 10z"></path></svg>
+      </span>
+      <span style="font-size: 19px; font-weight: 800; letter-spacing: -0.01em;">Baby’s here</span>
+      <span style="font-size: 14px; line-height: 1.35; color: #5C534B;">Deadlines to catch, money to claim, savings on what you buy</span>
+    </a>
+  </div>
+
+  <div style="flex-grow: 1;"></div>
+
+  <a href="ListBabyHere.dc.html" style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 64px; padding: 8px 16px; background: #FCE6DC; border: 1px solid #F5C4B0; border-radius: 16px; text-decoration: none;">
+    <span style="font-size: 17px; font-weight: 700; color: #B93E1A;">Try a sample family</span>
+    <span style="font-size: 14px; font-weight: 500; color: #B93E1A;">Made-up data. See a finished list in one tap.</span>
+  </a>
+  <p style="margin: 16px 0 0; text-align: center; font-size: 13px; line-height: 1.4; color: #5C534B;">We never ask for bank details to get started. Bundle finds and prepares. You decide.</p>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

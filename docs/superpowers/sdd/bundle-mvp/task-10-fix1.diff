@@ -1,0 +1,312 @@
+1e5f369 fix: cap Coach input, 100kb body limit, in-flight run cap, uuid run ids
+diff --git a/server/__tests__/bundleRoutes.test.ts b/server/__tests__/bundleRoutes.test.ts
+index 2225ffd..1347981 100644
+--- a/server/__tests__/bundleRoutes.test.ts
++++ b/server/__tests__/bundleRoutes.test.ts
+@@ -14,10 +14,11 @@ import * as clawback from '../agents/clawback';
+ import * as recall from '../agents/recall';
+ import * as court from '../agents/finePrintCourt';
+ import * as benefits from '../agents/benefits';
+ import * as fc from '../agents/factChecker';
+ import { createBundleRouter, type ApiDeps } from '../routes/bundleRoutes';
++import { bodyParsers } from '../middleware/bodyLimit';
+ import { MemoryStore } from '../bundleStore';
+ import { FakeGenerator } from '../adapters/llm';
+ import type { Family } from '../../shared/bundle';
+ 
+ const mk = (id: string): Family => ({
+@@ -41,11 +42,11 @@ function build(over: Partial<ApiDeps> = {}) {
+     store, memory, llm,
+     reviewerToken: () => 'sekret',
+     ...over,
+   };
+   const app = express();
+-  app.use(express.json());
++  app.use(...bodyParsers());
+   app.use(createBundleRouter(deps));
+   return { app, deps, store, memory, logsDir };
+ }
+ 
+ describe('POST /api/run', () => {
+@@ -116,10 +117,37 @@ describe('POST /api/run', () => {
+     }
+     expect((await request(app).post('/api/run?wait=true').send({ familyId: 'leo' })).status).toBe(429);
+   });
+ });
+ 
++describe('abuse limits', () => {
++  it('503 when 5 runs are in flight, and a slot frees when one finishes', async () => {
++    const { app } = build();
++    let release!: () => void;
++    const gate = new Promise<void>((r) => { release = r; });
++    (benefits.planBenefits as jest.Mock).mockImplementation(async () => { await gate; return []; });
++    for (let i = 0; i < 5; i++) expect((await request(app).post('/api/run').send({ familyId: 'leo' })).status).toBe(202);
++    const busy = await request(app).post('/api/run').send({ familyId: 'leo' });
++    expect(busy.status).toBe(503);
++    release();
++    await new Promise((r) => setTimeout(r, 300));
++    expect((await request(app).post('/api/run').send({ familyId: 'leo' })).status).toBe(202);
++  });
++
++  it('bodies over 100kb get 413', async () => {
++    const { app } = build();
++    const res = await request(app).post('/api/feedback').send({ familyId: 'maya', cardId: 'c', kind: 'issue', note: 'x'.repeat(150_000) });
++    expect(res.status).toBe(413);
++  });
++
++  it('run ids are UUID-based', async () => {
++    const { app } = build();
++    const res = await request(app).post('/api/run').send({ familyId: 'leo' });
++    expect(res.body.runId).toMatch(/^leo-[0-9a-f-]{36}$/);
++  });
++});
++
+ describe('feedback and case law', () => {
+   it('saves feedback, then Coach proposes a rule from 2 issue notes', async () => {
+     const { app, store } = build();
+     const a = await request(app).post('/api/feedback').send({ familyId: 'maya', cardId: 'd1', kind: 'issue', note: 'shipping fee' });
+     expect(a.status).toBe(200);
+diff --git a/server/__tests__/coach.test.ts b/server/__tests__/coach.test.ts
+index 8fcd08f..a1fccb5 100644
+--- a/server/__tests__/coach.test.ts
++++ b/server/__tests__/coach.test.ts
+@@ -35,6 +35,17 @@ describe('Coach.proposeRules', () => {
+ 
+   it('returns nothing when the model is unavailable or answers badly', async () => {
+     const rows = [issue(1, 'a'), issue(2, 'b')];
+     expect(await proposeRules(rows, new FakeGenerator(['not json']))).toEqual([]);
+   });
++
++  it('sends only the newest 40 issue reports to the model', async () => {
++    const rows = Array.from({ length: 60 }, (_, i) => issue(i + 1, `shipping note ${i + 1}`));
++    const llm = new FakeGenerator([JSON.stringify({ clusters: [] })]);
++    await proposeRules(rows, llm);
++    const p = llm.prompts[0];
++    expect(p).toContain('60: shipping note 60');
++    expect(p).toContain('21: shipping note 21');
++    expect(p).not.toContain('20: shipping note 20');
++    expect(p.split('\n').filter((l) => /^\d+: shipping note/.test(l))).toHaveLength(40);
++  });
+ });
+diff --git a/server/agents/coach.ts b/server/agents/coach.ts
+index 8de0e3d..11e3dbf 100644
+--- a/server/agents/coach.ts
++++ b/server/agents/coach.ts
+@@ -18,19 +18,22 @@ export interface RuleProposal {
+ interface Clusters { clusters: { rule: string; feedbackIds: (number | string)[] }[] }
+ const isClusters = (x: unknown): x is Clusters =>
+   !!x && typeof x === 'object' && Array.isArray((x as Clusters).clusters)
+   && (x as Clusters).clusters.every((c) => c && typeof c.rule === 'string' && Array.isArray(c.feedbackIds));
+ 
++export const MAX_ISSUES = 40;
++
+ export const confidenceFor = (reports: number): number => Math.round(Math.min(0.9, 0.5 + 0.1 * reports) * 100) / 100;
+ 
+ /**
+  * Coach: reads parents' "issue" reports and proposes a rule only when 2 or more reports share a theme.
+  * A person still has to approve every proposal (Reviewer mode) before it changes anything.
+  * If the model is unavailable it proposes nothing (never invents a rule).
+  */
+ export async function proposeRules(feedbackRows: FeedbackRow[], llm: Generator): Promise<RuleProposal[]> {
+-  const issues = feedbackRows.filter((r) => r.kind === 'issue' && r.note.trim());
++  // Only the newest MAX_ISSUES reports are sent, so the prompt (and its cost) stays bounded.
++  const issues = feedbackRows.filter((r) => r.kind === 'issue' && r.note.trim()).sort((a, b) => a.id - b.id).slice(-MAX_ISSUES);
+   if (issues.length < 2) return [];
+   const valid = new Set(issues.map((r) => String(r.id)));
+   const listing = issues.map((r) => `${r.id}: ${r.note.trim().slice(0, 300)}`).join('\n');
+   const prompt = [
+     'Parents reported problems with deal and benefit cards. Group the reports that share the same underlying theme.',
+diff --git a/server/agents/orchestrator.ts b/server/agents/orchestrator.ts
+index 1c0ecc2..55881a8 100644
+--- a/server/agents/orchestrator.ts
++++ b/server/agents/orchestrator.ts
+@@ -172,11 +172,11 @@ async function purchaseKeywords(ctx: AgentContext, onRetry: (msg: string) => voi
+     return [];
+   }
+ }
+ 
+ export function newRunId(familyId: string): string {
+-  return `${familyId.replace(/[^A-Za-z0-9_-]/g, '_')}-${new Date().toISOString().replace(/[^0-9]/g, '').slice(0, 14)}-${crypto.randomBytes(2).toString('hex')}`;
++  return `${familyId.replace(/[^A-Za-z0-9_-]/g, '_')}-${crypto.randomUUID()}`;
+ }
+ 
+ export async function runBundle(familyId: string, deps: RunDeps): Promise<BundleResult> {
+   const family = await deps.loadFamily(familyId);
+   const runId = deps.runId ?? newRunId(familyId);
+diff --git a/server/bundleStore.ts b/server/bundleStore.ts
+index 85ac9d9..2934d99 100644
+--- a/server/bundleStore.ts
++++ b/server/bundleStore.ts
+@@ -11,11 +11,12 @@ export interface ProposalRow {
+ 
+ /** Everything the API reads or writes in Neon, behind one small interface so tests can use memory. */
+ export interface BundleStore {
+   zipState(zip3: string): Promise<string | null>;
+   addFeedback(row: Omit<FeedbackRow, 'id' | 'createdAt'>): Promise<FeedbackRow>;
+-  listFeedback(): Promise<FeedbackRow[]>;
++  /** Newest `limit` 'issue' reports only (never the whole table). */
++  listRecentIssues(limit: number): Promise<FeedbackRow[]>;
+   saveProposals(p: RuleProposal[]): Promise<ProposalRow[]>;
+   listProposals(): Promise<ProposalRow[]>;
+   getProposal(id: number): Promise<ProposalRow | null>;
+   markApproved(id: number, memoryId: string): Promise<void>;
+ }
+@@ -30,11 +31,11 @@ export class MemoryStore implements BundleStore {
+   async addFeedback(row: Omit<FeedbackRow, 'id' | 'createdAt'>) {
+     const r = { ...row, id: this.fb.length + 1, createdAt: new Date() };
+     this.fb.push(r);
+     return r;
+   }
+-  async listFeedback() { return [...this.fb]; }
++  async listRecentIssues(limit: number) { return this.fb.filter((r) => r.kind === 'issue').slice(-limit); }
+   async saveProposals(p: RuleProposal[]) {
+     const added: ProposalRow[] = [];
+     for (const x of p) {
+       if (this.props.some((e) => norm(e.text) === norm(x.text))) continue;
+       const row: ProposalRow = { id: this.props.length + 1, ...x, status: 'proposed', memoryId: null };
+@@ -70,13 +71,13 @@ export class DrizzleStore implements BundleStore {
+   async addFeedback(row: Omit<FeedbackRow, 'id' | 'createdAt'>) {
+     const { db, s } = await this.d();
+     const [r] = await db.insert(s.feedback).values(row).returning();
+     return r as FeedbackRow;
+   }
+-  async listFeedback() {
+-    const { db, s } = await this.d();
+-    return (await db.select().from(s.feedback)) as FeedbackRow[];
++  async listRecentIssues(limit: number) {
++    const { db, s, o } = await this.d();
++    return (await db.select().from(s.feedback).where(o.eq(s.feedback.kind, 'issue')).orderBy(o.desc(s.feedback.id)).limit(limit)) as FeedbackRow[];
+   }
+   async saveProposals(p: RuleProposal[]) {
+     const { db, s } = await this.d();
+     const existing = new Set((await db.select().from(s.caseLawProposals)).map((e: any) => norm(e.text)));
+     const added: ProposalRow[] = [];
+diff --git a/server/index.ts b/server/index.ts
+index bd0e5b6..4294c49 100644
+--- a/server/index.ts
++++ b/server/index.ts
+@@ -6,10 +6,11 @@ import { randomUUID } from 'crypto';
+ import rateLimit from 'express-rate-limit';
+ import helmet from 'helmet';
+ import cors from 'cors';
+ import { registerRoutes } from "./routes";
+ import { setupVite, serveStatic, log } from "./vite";
++import { bodyParsers } from './middleware/bodyLimit';
+ import { sanitizeInputs } from './middleware/sanitize';
+ 
+ const app = express();
+ const PORT = parseInt(process.env.PORT || '5000', 10);
+ const isProd = process.env.NODE_ENV === 'production';
+@@ -53,12 +54,11 @@ const isProd = process.env.NODE_ENV === 'production';
+     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
+     allowedHeaders: ['Content-Type', 'Authorization', 'x-reviewer-token'],
+     maxAge: 86400,
+   }));
+ 
+-  app.use(express.json({ limit: '10mb' }));
+-  app.use(express.urlencoded({ extended: false, limit: '10mb' }));
++  app.use(...bodyParsers());
+   app.use('/api', sanitizeInputs);
+ 
+   if (!isProd) {
+     app.use((req, res, next) => {
+       const start = Date.now();
+diff --git a/server/middleware/bodyLimit.ts b/server/middleware/bodyLimit.ts
+new file mode 100644
+index 0000000..27b4dfa
+--- /dev/null
++++ b/server/middleware/bodyLimit.ts
+@@ -0,0 +1,8 @@
++import express from 'express';
++
++/** Public API bodies are tiny forms; anything bigger gets a 413. (Any future upload route sets its own limit.) */
++export const BODY_LIMIT = '100kb';
++export const bodyParsers = () => [
++  express.json({ limit: BODY_LIMIT }),
++  express.urlencoded({ extended: false, limit: BODY_LIMIT }),
++];
+diff --git a/server/routes/bundleRoutes.ts b/server/routes/bundleRoutes.ts
+index 15d1986..01d5aea 100644
+--- a/server/routes/bundleRoutes.ts
++++ b/server/routes/bundleRoutes.ts
+@@ -5,11 +5,11 @@ import { Router, type Request, type Response } from 'express';
+ import rateLimit from 'express-rate-limit';
+ import type { BundleResult, Family } from '../../shared/bundle';
+ import type { Generator } from '../adapters/llm';
+ import type { BundleMemory } from '../adapters/memory';
+ import { runBundle, newRunId, type RunDeps } from '../agents/orchestrator';
+-import { proposeRules } from '../agents/coach';
++import { proposeRules, MAX_ISSUES } from '../agents/coach';
+ import type { BundleStore } from '../bundleStore';
+ import type { TraceLine } from '../agents/trace';
+ 
+ export const SEED_FAMILY_IDS = ['maya', 'leo', 'ava'] as const;
+ export const ZIP_ERROR = 'Enter a valid US ZIP code';
+@@ -24,10 +24,12 @@ export interface ApiDeps {
+   memory: Pick<BundleMemory, 'addRule'>;
+   llm: Generator;
+   /** Reviewer-mode token (env REVIEWER_MODE_TOKEN). Empty means Reviewer mode is off. */
+   reviewerToken: () => string;
+   runLimit?: { limit: number; windowMs: number };
++  /** Runs allowed at the same time across all visitors (default 5). */
++  maxInFlight?: number;
+ }
+ 
+ type RunEntry = { runId: string; familyId: string; status: 'running' | 'done' | 'failed'; startedAt: string; result?: BundleResult; error?: string; logsDir: string };
+ 
+ const isIsoDate = (v: unknown): v is string =>
+@@ -41,10 +43,12 @@ function tokenOk(supplied: unknown, expected: string): boolean {
+ }
+ 
+ export function createBundleRouter(deps: ApiDeps): Router {
+   const router = Router();
+   const runs = new Map<string, RunEntry>();
++  let inFlight = 0;
++  const maxInFlight = deps.maxInFlight ?? 5;
+   const knownFamilies = new Set<string>(SEED_FAMILY_IDS);
+ 
+   const runLimiter = rateLimit({
+     windowMs: deps.runLimit?.windowMs ?? WINDOW_MS, limit: deps.runLimit?.limit ?? 10,
+     standardHeaders: true, legacyHeaders: false,
+@@ -85,24 +89,27 @@ export function createBundleRouter(deps: ApiDeps): Router {
+     const runId = newRunId(family.id);
+     knownFamilies.add(family.id);
+     const entry: RunEntry = { runId, familyId: family.id, status: 'running', startedAt: new Date().toISOString(), logsDir: base.logsDir };
+     runs.set(runId, entry);
+     while (runs.size > MAX_REGISTRY) runs.delete(runs.keys().next().value as string);
++    inFlight++;
+     const done = runBundle(family.id, { ...base, runId, loadFamily: async () => family })
+       .then((result) => { entry.result = result; entry.status = 'done'; })
+       .catch((e) => {
+         entry.status = 'failed';
+         entry.error = 'The run did not finish. Please try again.';
+         console.error('Bundle run failed:', runId, (e as Error)?.message);
+-      });
++      })
++      .finally(() => { inFlight--; });
+     return { entry, done };
+   }
+ 
+   router.post('/api/run', runLimiter, async (req: Request, res: Response) => {
+     try {
+       const { family, error } = await resolveFamily(req.body);
+       if (!family) return res.status(400).json({ error });
++      if (inFlight >= maxInFlight) return res.status(503).json({ error: 'Bundle is busy right now. Please try again in a minute.' });
+       const { entry, done } = startRun(family);
+       if (req.query.wait === 'true') {
+         await done;
+         if (entry.status === 'done') return res.json(entry.result);
+         return res.status(500).json({ error: entry.error, runId: entry.runId });
+@@ -141,11 +148,11 @@ export function createBundleRouter(deps: ApiDeps): Router {
+       const saved = await deps.store.addFeedback({ familyId, cardId, kind, note: (note ?? '').slice(0, 500) });
+       let proposals: unknown[] = [];
+       try {
+         const existing = await deps.store.listProposals();
+         const covered = new Set(existing.flatMap((p) => p.sourceFeedbackIds));
+-        const fresh = (await deps.store.listFeedback()).filter((r) => !covered.has(String(r.id)));
++        const fresh = (await deps.store.listRecentIssues(MAX_ISSUES)).filter((r) => !covered.has(String(r.id)));
+         proposals = await deps.store.saveProposals(await proposeRules(fresh, deps.llm));
+       } catch (e) {
+         console.error('Coach failed:', (e as Error)?.message); // feedback is saved either way
+       }
+       return res.json({ ok: true, feedbackId: saved.id, proposals });

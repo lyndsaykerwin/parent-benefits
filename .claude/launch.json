@@ -1,0 +1,14 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "bundle-sample",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": [
+        "-c",
+        "cd /Users/lyndsay/Documents/hackathon/bundle && SAMPLE_MODE=true PORT=5060 HOST=127.0.0.1 ZETARIS_API_KEY= MODEL_API_KEY= npm run dev"
+      ],
+      "port": 5060
+    }
+  ]
+}

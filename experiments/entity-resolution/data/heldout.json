@@ -1,0 +1,20 @@
+{
+  "_note": "HELD-OUT set, written AFTER strategy B's rules were frozen (Oct 24, 2026), using recalls B was never tuned on. All purchases FAKE. should_alert = hand label.",
+  "purchases": [
+    {"id": "H01", "format": "order_item", "source": "amazon", "date": "2025-10-03", "text": "Papablic 3-in-1 Bedside Sleeper Bassinet & Play Yard, Stars and Moon, PAPA03001AI", "should_alert": ["cpsc-11024"]},
+    {"id": "H02", "format": "order_item", "source": "amazon", "date": "2025-10-03", "text": "Papablic Baby Bottle Warmer, 5-in-1 Fast Formula Milk Warmer", "should_alert": []},
+    {"id": "H03", "format": "order_item", "source": "amazon", "date": "2026-02-11", "text": "AMASKY Nursing Pillow for Breastfeeding, C-Shaped, Crocodile Print", "should_alert": ["cpsc-10846"]},
+    {"id": "H04", "format": "order_item", "source": "target", "date": "2026-02-01", "text": "Boppy Original Support Nursing Pillow, Gray Scattered Leaves", "should_alert": []},
+    {"id": "H05", "format": "order_item", "source": "target", "date": "2025-03-14", "text": "Saro Baby Braided Crib Bumper Pad, Mint (Ref. 1374)", "should_alert": ["cpsc-10543"]},
+    {"id": "H06", "format": "order_item", "source": "walmart", "date": "2025-05-20", "text": "Hoovy Cooling Gel Car Seat Liner Pad for Strollers, Black", "should_alert": ["cpsc-10412"]},
+    {"id": "H07", "format": "order_item", "source": "amazon", "date": "2025-07-08", "text": "Schwinn Ovation Rear Bike Child Carrier Seat with Rack", "should_alert": ["cpsc-10526"]},
+    {"id": "H08", "format": "order_item", "source": "amazon", "date": "2025-07-08", "text": "Schwinn Kids Classic Bike Helmet, Toddler", "should_alert": []},
+    {"id": "H09", "format": "order_item", "source": "amazon", "date": "2025-01-15", "text": "ZHORANGE Portable Bassinet Foldable Travel Crib, Gray Polka Dot", "should_alert": ["cpsc-10295"]},
+    {"id": "H10", "format": "order_item", "source": "amazon", "date": "2025-01-15", "text": "Halo BassiNest Swivel Sleeper Essentia Series", "should_alert": []},
+    {"id": "H11", "format": "order_item", "source": "target", "date": "2026-06-12", "text": "Kmaier Baby Walker with Wheels, 9 Height Adjustable, Pink", "should_alert": ["cpsc-10959"]},
+    {"id": "H12", "format": "order_item", "source": "amazon", "date": "2026-04-20", "text": "ONTHEWEI Baby Bath Seat with Suction Cups, Mist Green", "should_alert": ["cpsc-11014"]},
+    {"id": "H13", "format": "order_item", "source": "amazon", "date": "2026-04-20", "text": "Munchkin Sit & Soak Baby Bath Seat", "should_alert": []},
+    {"id": "H14", "format": "order_item", "source": "amazon", "date": "2025-08-02", "text": "ONTHEWEI Baby Bath Seat, Pink", "should_alert": [], "why": "Notice: sold April 2026, made Jan 2026; cannot be a 2025 purchase."},
+    {"id": "H15", "format": "plaid", "source": "plaid", "date": "2026-09-18", "text": "Target", "merchant": "Target", "should_alert": []}
+  ]
+}

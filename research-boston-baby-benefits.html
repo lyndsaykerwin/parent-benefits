@@ -1,0 +1,872 @@
+<title>Boston Baby Benefits</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=IBM+Plex+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: a single readable column styled like a savings ledger — summary receipt first, then deadlines, spending categories, the full benefit ledger, and sources. */
+:root {
+  --bg: #f5f7f8;
+  --paper: #ffffff;
+  --ink: #1d2638;
+  --muted: #5b6577;
+  --line: #dde3e8;
+  --accent: #2c7a6b;
+  --accent-soft: #e3f1ed;
+  --fed: #3b5ba9;
+  --state: #2c7a6b;
+  --city: #b5651d;
+  --brand: #7a4fa0;
+  --ok: #2e7d4f;
+  --ok-bg: #e5f3ea;
+  --warn: #9a6a00;
+  --warn-bg: #fbf1d9;
+  --no: #a23b3b;
+  --no-bg: #f8e6e6;
+  --display: "Bricolage Grotesque", "Avenir Next", system-ui, sans-serif;
+  --body: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #12161f; --paper: #1a2030; --ink: #e6eaf2; --muted: #9aa4b6; --line: #2c3446;
+    --accent: #5fbfa9; --accent-soft: #1d3330;
+    --fed: #8aa6ee; --state: #5fbfa9; --city: #e39a57; --brand: #b994dd;
+    --ok: #79c795; --ok-bg: #1c3226; --warn: #e2b84f; --warn-bg: #352c14; --no: #e58b8b; --no-bg: #3a1f22;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #12161f; --paper: #1a2030; --ink: #e6eaf2; --muted: #9aa4b6; --line: #2c3446;
+  --accent: #5fbfa9; --accent-soft: #1d3330;
+  --fed: #8aa6ee; --state: #5fbfa9; --city: #e39a57; --brand: #b994dd;
+  --ok: #79c795; --ok-bg: #1c3226; --warn: #e2b84f; --warn-bg: #352c14; --no: #e58b8b; --no-bg: #3a1f22;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 16px; line-height: 1.55; }
+.wrap { max-width: 980px; margin: 0 auto; padding-block: 40px 80px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: flex; flex-direction: column; gap: 56px; }
+h1, h2, h3 { font-family: var(--display); text-wrap: balance; margin: 0; line-height: 1.15; }
+h1 { font-size: clamp(2.2rem, 5vw, 3.4rem); font-weight: 700; letter-spacing: -0.02em; }
+h2 { font-size: 1.7rem; font-weight: 700; }
+h3 { font-size: 1.15rem; font-weight: 700; }
+p { margin: 0; max-width: 68ch; }
+a { color: var(--accent); text-underline-offset: 2px; }
+a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 2px; }
+.eyebrow { font-family: var(--mono); font-size: 0.75rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+section { display: flex; flex-direction: column; gap: 20px; }
+.lede { color: var(--muted); font-size: 1.1rem; }
+
+/* header */
+header { display: flex; flex-direction: column; gap: 14px; }
+.assume { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { font-size: 0.82rem; padding: 4px 10px; border: 1px solid var(--line); border-radius: 999px; background: var(--paper); color: var(--muted); }
+
+/* receipt */
+.receipt { background: var(--paper); border: 1px solid var(--line); border-radius: 6px; padding: 28px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: 32px; }
+@media (max-width: 760px) { .receipt { grid-template-columns: minmax(0, 1fr); padding: 20px; } }
+.big { font-family: var(--display); font-size: clamp(3rem, 8vw, 4.6rem); font-weight: 700; color: var(--accent); line-height: 1; letter-spacing: -0.02em; }
+.big-sub { display: flex; flex-direction: column; gap: 10px; }
+.plus { border-top: 1px dashed var(--line); padding-top: 12px; display: flex; flex-direction: column; gap: 4px; }
+.plus strong { font-family: var(--display); font-size: 1.6rem; }
+.ledger { width: 100%; border-collapse: collapse; font-size: 0.95rem; }
+.ledger td { padding: 8px 0; border-bottom: 1px dotted var(--line); vertical-align: top; }
+.ledger td:last-child { text-align: right; white-space: nowrap; padding-left: 12px; }
+.ledger tr.total td { border-bottom: none; border-top: 2px solid var(--ink); font-weight: 700; padding-top: 10px; }
+.dot { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 8px; vertical-align: 0; }
+.bar { display: flex; height: 14px; border-radius: 3px; overflow: hidden; }
+.bar span { display: block; height: 100%; }
+.compare { font-size: 0.92rem; color: var(--muted); }
+
+/* top actions */
+.top5 { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 12px; }
+.act { background: var(--paper); border: 1px solid var(--line); border-radius: 6px; padding: 16px; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.act .val { font-family: var(--mono); font-weight: 600; color: var(--accent); }
+
+/* timeline */
+.timeline { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.timeline li { display: grid; grid-template-columns: 170px minmax(0, 1fr); gap: 20px; padding: 14px 0; border-top: 1px solid var(--line); }
+.timeline li:last-child { border-bottom: 1px solid var(--line); }
+.when { font-family: var(--mono); font-size: 0.85rem; font-weight: 600; color: var(--accent); }
+.timeline ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; }
+@media (max-width: 600px) { .timeline li { grid-template-columns: minmax(0, 1fr); gap: 6px; } }
+.urgent { display: inline-block; font-family: var(--mono); font-size: 0.7rem; padding: 1px 6px; border-radius: 3px; background: var(--no-bg); color: var(--no); margin-left: 6px; vertical-align: 1px; }
+
+/* tables */
+.tbl-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 6px; background: var(--paper); }
+table.cat { width: 100%; border-collapse: collapse; min-width: 680px; font-size: 0.93rem; }
+table.cat th { text-align: left; font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); font-weight: 600; padding: 12px 14px; border-bottom: 1px solid var(--line); }
+table.cat td { padding: 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+table.cat tr:last-child td { border-bottom: none; }
+table.cat td.n { font-family: var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+table.cat ul { margin: 0; padding-left: 16px; }
+
+/* benefit ledger */
+.group { display: flex; flex-direction: column; gap: 0; }
+.group-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding-bottom: 10px; border-bottom: 3px solid var(--c); }
+.group-head h3 { font-size: 1.35rem; color: var(--c); }
+.item { display: grid; grid-template-columns: minmax(0, 1fr) 150px; gap: 8px 20px; padding: 16px 0; border-bottom: 1px solid var(--line); }
+.item h4 { margin: 0; font-family: var(--body); font-size: 1.02rem; font-weight: 700; }
+.item .desc { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.item .meta { font-size: 0.88rem; color: var(--muted); }
+.item .meta b { color: var(--ink); font-weight: 700; }
+.item .amt { text-align: right; display: flex; flex-direction: column; gap: 6px; align-items: flex-end; }
+.item .amt .num { font-weight: 600; font-size: 1rem; }
+.item .src { font-size: 0.82rem; }
+@media (max-width: 600px) { .item { grid-template-columns: minmax(0, 1fr); } .item .amt { align-items: flex-start; text-align: left; flex-direction: row; gap: 10px; flex-wrap: wrap; } }
+.badge { font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.04em; text-transform: uppercase; padding: 2px 7px; border-radius: 3px; white-space: nowrap; }
+.b-ok { background: var(--ok-bg); color: var(--ok); }
+.b-part { background: var(--warn-bg); color: var(--warn); }
+.b-no { background: var(--no-bg); color: var(--no); }
+.tag-inc { font-family: var(--mono); font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); border: 1px solid var(--line); padding: 1px 6px; border-radius: 3px; }
+
+.callout { background: var(--accent-soft); border-radius: 6px; padding: 18px 20px; display: flex; flex-direction: column; gap: 8px; }
+.ruled { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 10px; }
+.ruled div { background: var(--paper); border: 1px solid var(--line); border-radius: 6px; padding: 12px 14px; font-size: 0.92rem; min-width: 0; }
+.ruled b { display: block; margin-bottom: 2px; }
+.sources { columns: 2 320px; column-gap: 32px; font-size: 0.85rem; }
+.sources h4 { font-family: var(--mono); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin: 14px 0 6px; break-after: avoid; }
+.sources ul { margin: 0; padding-left: 16px; }
+.sources li { margin-bottom: 4px; overflow-wrap: anywhere; }
+footer { font-size: 0.85rem; color: var(--muted); border-top: 1px solid var(--line); padding-top: 16px; }
+</style>
+
+<div class="wrap">
+
+<header>
+  <span class="eyebrow">Prototype report · Prepared Oct 20, 2026</span>
+  <h1>Boston Baby Benefits</h1>
+  <p class="lede">Everything a new mom in Boston can claim right now: government money, tax breaks, free city services, and store deals for the things you'll actually buy. Each item lists what to do, the deadline, and the source.</p>
+  <div class="assume">
+    <span class="chip">Baby born October 2026</span>
+    <span class="chip">Boston, MA 02116</span>
+    <span class="chip">Married, ~$130k household income</span>
+    <span class="chip">Mom works for a MA employer (~$65k)</span>
+    <span class="chip">Health insurance through work</span>
+    <span class="chip">Plans to use daycare in 2027</span>
+  </div>
+</header>
+
+<!-- SUMMARY -->
+<section aria-labelledby="sum">
+  <h2 id="sum" class="eyebrow" style="font-size:.8rem">What this family could get in year one</h2>
+  <div class="receipt">
+    <div class="big-sub">
+      <div class="big num">$9,210</div>
+      <p><b>in cash, tax savings, discounts, and free services</b> for the typical family above. That's about <b>45%</b> of the roughly $20,400 a baby's first year costs (BabyCenter survey of 1,399 moms).</p>
+      <div class="plus">
+        <span class="eyebrow">Plus paid leave</span>
+        <strong class="num">+ ~$17,350</strong>
+        <span class="compare">Massachusetts Paid Family &amp; Medical Leave (PFML): about $913/week for 19 paid weeks (8 weeks recovering from birth, 12 bonding, minus a 1-week unpaid wait). That's replacement pay, so it's shown separately. If work already pays maternity leave, less of this is new money; <a href="#pfml-work">see how they combine</a>. <a href="https://www.mass.gov/info-details/how-pfml-weekly-benefit-amounts-are-calculated-andor-changed">Formula source</a>.</span>
+      </div>
+      <div class="plus">
+        <span class="eyebrow">If the family's income is lower</span>
+        <strong class="num">+ $5,000 to $25,000+</strong>
+        <span class="compare">Free food (WIC, SNAP), free health insurance (MassHealth), the working-family tax credit (EITC), free baby gear (Room to Grow), and childcare help. See "If your income qualifies" below.</span>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:14px;min-width:0">
+      <div class="bar" role="img" aria-label="Share of savings: federal 63%, Massachusetts 8%, Boston 11%, brands and stores 18%">
+        <span style="width:63%;background:var(--fed)"></span>
+        <span style="width:8%;background:var(--state)"></span>
+        <span style="width:11%;background:var(--city)"></span>
+        <span style="width:18%;background:var(--brand)"></span>
+      </div>
+      <table class="ledger">
+        <tr><td><span class="dot" style="background:var(--fed)"></span>Federal: Trump Account, child tax credit, childcare tax account, free pump</td><td class="num">$5,800</td></tr>
+        <tr><td><span class="dot" style="background:var(--state)"></span>Massachusetts: state tax credit, $50 college seed, tax-free diapers &amp; clothes</td><td class="num">$705</td></tr>
+        <tr><td><span class="dot" style="background:var(--city)"></span>Boston: nurse home visit, museum passes, baby classes, breastfeeding help</td><td class="num">$1,025</td></tr>
+        <tr><td><span class="dot" style="background:var(--brand)"></span>Brands &amp; stores: registry boxes &amp; discounts, diaper &amp; formula deals, used gear</td><td class="num">$1,680</td></tr>
+        <tr class="total"><td>Total (not counting paid leave)</td><td class="num">$9,210</td></tr>
+      </table>
+      <p class="compare">These are estimates. Tax items arrive when you file in early 2027. Free services are valued at what you'd pay for the same thing privately.</p>
+    </div>
+  </div>
+</section>
+
+<!-- TOP 5 -->
+<section aria-labelledby="top">
+  <h2 id="top">Do these five things first</h2>
+  <div class="top5">
+    <div class="act"><span class="eyebrow">Biggest &amp; easiest to miss</span><h3>Claim the Trump Account</h3><p>The government set up an account for your baby on Oct 1, but <b>the $1,000 only arrives if you claim it</b> and opt in. Do it as soon as the baby's Social Security number arrives.</p><span class="val">$1,000</span><span class="src"><a href="https://www.irs.gov/trumpaccounts">IRS: Trump Accounts</a> · <a href="https://www.irs.gov/instructions/i4547">Form 4547</a> · <a href="https://www.wbtv.com/2026/10/05/millions-automatically-enrolled-trump-accounts-heres-how-you-can-claim-it-your-child/">WBTV: how to claim (Oct 2026)</a></span></div>
+    <div class="act"><span class="eyebrow">Biggest dollars</span><h3>File for paid leave (PFML)</h3><p>Apply at paidleave.mass.gov. You have 90 days from when leave starts, but apply now so payments aren't delayed. Have paid maternity leave from work? <a href="#pfml-work">See below</a>.</p><span class="val">~$17,350</span><span class="src"><a href="https://www.mass.gov/how-to/how-to-apply-for-paid-family-and-medical-leave-pfml">mass.gov: how to apply</a> · <a href="https://www.mass.gov/doc/pfml-new-and-expectant-parents-overview/download">New parents overview (PDF)</a></span></div>
+    <div class="act"><span class="eyebrow">Free with insurance</span><h3>Order your breast pump</h3><p>Your insurance must cover one at no cost. A supplier like Aeroflow handles the paperwork and sends free replacement parts every ~90 days.</p><span class="val">~$300</span><span class="src"><a href="https://www.healthcare.gov/coverage/breast-feeding-benefits/">healthcare.gov</a> · <a href="https://aeroflowbreastpumps.com/blog/breast-pump-replacement-parts">Aeroflow parts</a></span></div>
+    <div class="act"><span class="eyebrow">Before 8 weeks old</span><h3>Book the free nurse visit</h3><p>Boston's Welcome Family program sends a nurse to your home for up to 90 minutes, plus a free bag of supplies. Call 617-534-5832.</p><span class="val">~$250</span><span class="src"><a href="https://www.boston.gov/government/cabinets/boston-public-health-commission/childrens-and-newborn-health/new-and-expecting-parents">boston.gov: Welcome Family</a></span></div>
+    <div class="act"><span class="eyebrow">Deadline ~mid-Jan 2027</span><h3>Use your registry discounts</h3><p>Amazon and Babylist give 15% off what's left on your registry, but only until ~90 days after your due date. Buy the big items (car seat, stroller) now.</p><span class="val">~$375</span><span class="src"><a href="https://www.amazon.com/gp/help/customer/display.html?nodeId=GV4FFW94JAGFL4RH">Amazon terms</a> · <a href="https://help.babylist.com/hc/en-us/articles/115006102688-How-do-I-use-my-Babylist-registry-discount">Babylist terms</a></span></div>
+  </div>
+</section>
+
+<!-- PFML + WORK LEAVE -->
+<section id="pfml-work" aria-labelledby="pfmlh">
+  <h2 id="pfmlh">Already have paid maternity leave from work?</h2>
+  <div class="callout">
+    <p><b>Short answer: yes, she can still get state paid leave (PFML).</b> Massachusetts lets the two work together. The catch: her total weekly pay can't go above her normal pay, and the weeks usually run <i>at the same time</i>, not back to back. How it plays out depends on which of three setups her employer uses.</p>
+  </div>
+  <div class="top5">
+    <div class="act"><span class="eyebrow">Most common</span><h3>Work pays maternity leave or disability</h3><p>She still applies to the state. The state only cuts its check if her combined pay from both would go over her normal weekly pay. Many employers "coordinate": the state pays its part, and the employer pays the difference so she gets 100%. The employer's leave usually counts toward the same 26-week limit.</p><span class="src"><a href="https://www.mass.gov/info-details/how-other-leave-and-benefits-can-affect-your-paid-family-and-medical-leave">mass.gov: how other leave affects PFML</a> · <a href="https://www.mass.gov/doc/other-leave-or-income-to-report-when-applying-for-pfml/download">what to report (PDF)</a></span></div>
+    <div class="act"><span class="eyebrow">Some large employers</span><h3>Work has its own "private plan"</h3><p>Some employers get state approval to run their own leave plan instead of the state's. If so, she applies through her employer or its insurance company, not the state. A state application would be denied. The plan must be at least as generous as the state's.</p><span class="src"><a href="https://www.mass.gov/info-details/benefit-requirements-for-private-paid-leave-plan-exemptions">mass.gov: private plan rules</a> · <a href="https://www.mass.gov/info-details/paid-family-and-medical-leave-exemption-application-process">exemption process</a></span></div>
+    <div class="act"><span class="eyebrow">Vacation &amp; sick days</span><h3>"Topping up" with PTO</h3><p>Since November 2023 she can use vacation or sick days on top of state leave pay, up to 100% of her normal pay. It's her choice; her employer can't force it, but its PTO rules decide which kinds of time count. She can also use PTO to get paid during the unpaid first week.</p><span class="src"><a href="https://www.mass.gov/info-details/faqs-for-employees-about-topping-off-pfml-benefits">mass.gov: topping off FAQ</a> · <a href="https://www.mass.gov/info-details/pfml-frequently-asked-questions-for-employees">employee FAQ</a></span></div>
+  </div>
+  <div class="callout">
+    <p><b>What it means for the ~$17,350 estimate:</b> If work already pays her full salary for 12 weeks, PFML mostly changes <i>who</i> pays for those weeks; it doesn't add money. The new money comes from weeks work doesn't cover. Example: work pays 100% for 12 weeks and she takes 20 weeks in total. Weeks 13–20 are paid only by the state: about 8 × $913 ≈ <b>$7,300</b> she wouldn't get otherwise.</p>
+    <p><b>Four questions to ask HR:</b></p>
+    <ol style="margin:0;padding-left:20px">
+      <li>Do we use the state PFML program or our own private plan?</li>
+      <li>Does our maternity leave pay the difference on top of PFML, or does it get reduced by it?</li>
+      <li>Does our leave run at the same time as PFML, or after it?</li>
+      <li>Which kinds of PTO can I use to top up?</li>
+    </ol>
+    <p class="src">More reading: <a href="https://www.fisherphillips.com/en/news-insights/massachusetts-employers-should-prepare-for-2026-paid-family-and-medical-leave-updates.html">Fisher Phillips: 2026 PFML updates</a> · <a href="https://www.umassp.edu/paid-family-medical-leave">UMass: how PFML runs alongside other leave</a> · <a href="https://www.mass.gov/doc/2026-pfml-mandatory-workplace-poster-english/download">2026 PFML workplace poster (PDF)</a> · <a href="https://www.mass.gov/important-changes/important-legislative-changes-to-the-massachusetts-paid-family-and-medical-leave-program">mass.gov: 2023 law changes</a></p>
+  </div>
+</section>
+
+<!-- TIMELINE -->
+<section aria-labelledby="tl">
+  <h2 id="tl">Your deadline calendar</h2>
+  <p class="lede">Ordered by when you need to act. Dates assume the baby was born this month.</p>
+  <ol class="timeline">
+    <li><span class="when">At the hospital</span><ul>
+      <li>Check the box on the birth form to request the baby's <b>Social Security number</b>. You need it for almost everything below.<span class="urgent">DON'T SKIP</span> <span class="src"><a href="https://www.ssa.gov/faqs/en/questions/KA-10041.html">SSA</a> · <a href="https://www.ssa.gov/faqs/en/questions/KA-01969.html">SSA timing</a></span></li>
+      <li>Get the car seat checked for free before you leave. Boston Medical Center: 617-414-4444. <span class="src"><a href="https://www.bmc.org/programs/child-passenger-safety">BMC</a></span></li>
+      <li>Ask the nurses for extra diapers, wipes, and supplies to take home. <span class="src"><a href="https://www.babylist.com/hello-baby/free-stuff-from-hospital-after-birth">Babylist</a></span></li>
+    </ul></li>
+    <li><span class="when">First 2 weeks</span><ul>
+      <li>Order the breast pump through insurance (Aeroflow, Byram, or Edgepark). <span class="src"><a href="https://aeroflowbreastpumps.com/upgrade-breast-pumps">Aeroflow</a> · <a href="https://osuhealthplan.com/sites/default/files/2025-12/breast_pump_flyer_updated_120425_da.pdf">Edgepark/Byram flyer</a></span></li>
+      <li>Call Welcome Family (617-534-5832) for the free nurse visit. Must be before 8 weeks old. <span class="src"><a href="https://www.boston.gov/government/cabinets/boston-public-health-commission/childrens-and-newborn-health/new-and-expecting-parents">boston.gov</a></span></li>
+      <li>Sign up for formula rewards (Enfamil Family Beginnings, MySimilac) and the Pampers or Huggies app. <span class="src"><a href="https://www.enfamil.com/enfamil-family-beginnings">Enfamil</a> · <a href="https://www.similac.com/products/360-total-care-powder.html">Similac</a> · <a href="https://support.pampers.com/hc/en-us/articles/21653669474461-What-is-Pampers-Rewards">Pampers</a></span></li>
+    </ul></li>
+    <li><span class="when">Within 30 days</span><ul>
+      <li><b>Add the baby to your health insurance.</b> A birth lets you change your plan, but usually only within 30 days. MassHealth members: the baby must be in a plan within 14 days.<span class="urgent">HARD DEADLINE</span> <span class="src"><a href="https://www.healthcare.gov/glossary/special-enrollment-period/">healthcare.gov: special enrollment</a> · <a href="https://www.mass.gov/doc/notification-of-birth-form-nob-1-1/download">MassHealth birth form</a></span></li>
+      <li>Sign up for a <b>Dependent Care FSA</b> (a work account where you pay for daycare with pre-tax money) if your employer offers one. Having a baby lets you enroll mid-year. <span class="src"><a href="https://www.irs.gov/credits-deductions/individuals/child-and-dependent-care-credit-information">IRS</a></span></li>
+    </ul></li>
+    <li><span class="when">When the SSN card arrives (~2–4 weeks)</span><ul>
+      <li>Claim the <b>Trump Account</b> and opt in to the $1,000: use the Trump Accounts app, or your IRS online account (Form 4547). <span class="src"><a href="https://www.irs.gov/trumpaccounts">IRS</a> · <a href="https://www.irs.gov/instructions/i4547">Form 4547</a> · <a href="https://247wallst.com/personal-finance/2026/10/02/the-irs-just-changed-the-rules-for-trump-accounts-heres-what-60-million-parents-need-to-know/">24/7 Wall St (Oct 2026)</a></span></li>
+      <li>Open a free MEFA U.Fund college account to get the state's <b>$50 BabySteps deposit</b>. <span class="src"><a href="https://www.mefa.org/article/babysteps/">MEFA</a> · <a href="https://www.mass.gov/info-details/babysteps">mass.gov</a></span></li>
+    </ul></li>
+    <li><span class="when">Nov – Dec 2026</span><ul>
+      <li>Work open enrollment: choose the Dependent Care FSA for 2027. The limit is now $7,500. <span class="src"><a href="https://www.irs.gov/credits-deductions/individuals/child-and-dependent-care-credit-information">IRS</a></span></li>
+      <li>Put up to $2,000 into the U.Fund by <b>Dec 31</b> to get a Massachusetts tax deduction. <span class="src"><a href="https://www.savingforcollege.com/article/tax-benefits-of-massachusetts-529-plans">Savingforcollege.com</a></span></li>
+      <li>If you're income-eligible, join the state childcare waitlist now. It's about 31,000 kids long. <span class="src"><a href="https://www.mass.gov/child-care-financial-assistance">mass.gov</a> · <a href="https://www.wbur.org/news/2026/09/04/massachusetts-childcare-families-income-financial-help-waitlist">WBUR</a></span></li>
+    </ul></li>
+    <li><span class="when">~Mid-January 2027</span><ul>
+      <li>Last chance for Amazon and Babylist 15% registry discounts (90 days after due date). Pottery Barn Kids runs 180 days. <span class="src"><a href="https://www.amazon.com/gp/help/customer/display.html?nodeId=GV4FFW94JAGFL4RH">Amazon</a> · <a href="https://help.babylist.com/hc/en-us/articles/115006102688-How-do-I-use-my-Babylist-registry-discount">Babylist</a> · <a href="https://www.potterybarnkids.com/m/pages/registry/registry-completion">PBK</a></span></li>
+      <li>Within 90 days of starting leave: the late deadline for your PFML application.<span class="urgent">HARD DEADLINE</span> <span class="src"><a href="https://www.mass.gov/info-details/paid-family-and-medical-leave-pfml-application-approval-timeline">mass.gov timeline</a></span></li>
+    </ul></li>
+    <li><span class="when">By April 15, 2027</span><ul>
+      <li>File taxes to collect the federal <b>Child Tax Credit ($2,200)</b>, the Massachusetts <b>Child &amp; Family Tax Credit ($440)</b>, and any childcare credit. <span class="src"><a href="https://www.irs.gov/credits-deductions/individuals/child-tax-credit">IRS CTC</a> · <a href="https://mass.gov/info-details/massachusetts-child-and-family-tax-credit">mass.gov CFTC</a></span></li>
+    </ul></li>
+    <li><span class="when">~April 2027</span><ul>
+      <li>Target's next car seat trade-in event, expected based on past years. Bring any old seat and get 20% off a new car seat or stroller. That's good timing for the bigger "convertible" seat babies move into later. Last fall Target also ran baby deals during the event, like a $20 gift card for spending $80 on diapers. <span class="src"><a href="https://corporate.target.com/press/fact-sheet/2026/09/target-car-seat-trade-in-fall-2026">Target (fall 2026 event)</a> · <a href="https://www.safeintheseat.com/post/target-car-seat-trade-in-event">event history</a></span></li>
+    </ul></li>
+    <li><span class="when">Before 1st birthday</span><ul>
+      <li>Final deadline for BabySteps. Finish any PFML bonding leave (yours or your partner's). <span class="src"><a href="https://www.mass.gov/doc/babysteps-frequently-asked-questions/download">BabySteps FAQ</a> · <a href="https://www.mass.gov/info-details/pfml-about-family-leave-to-bond-with-a-child">PFML bonding</a></span></li>
+    </ul></li>
+  </ol>
+</section>
+
+<!-- CATEGORIES -->
+<section aria-labelledby="cat">
+  <h2 id="cat">Savings by what you'll be buying</h2>
+  <p class="lede">Typical first-year cost, the best ways to cut it, and what this family could realistically save.</p>
+  <div class="tbl-wrap">
+  <table class="cat">
+    <thead><tr><th>Category</th><th>Typical cost</th><th>Best moves</th><th>Est. saved</th></tr></thead>
+    <tbody>
+      <tr><td><b>Diapers &amp; wipes</b></td><td class="n">~$1,030/yr</td><td><ul>
+        <li>Costco Kirkland diapers (~$0.17 each vs $0.25–0.35 name brand) or Amazon Subscribe &amp; Save</li>
+        <li>Massachusetts charges no sales tax on diapers (automatic)</li>
+        <li>Pampers Rewards app: $10 back for every 10 packs scanned</li></ul><span class="src" style="display:block;margin-top:6px">Sources: <a href="https://thekrazycouponlady.com/2026/07/20/kirkland-signature-diapers-boxes-as-low-as-24-99-per-box-at-costco">Costco pricing</a> · <a href="https://www.amazon.com/b?ie=UTF8&amp;node=15283820011">Amazon Subscribe &amp; Save</a> · <a href="https://www.mass.gov/guides/sales-and-use-tax">MA sales tax</a> · <a href="https://support.pampers.com/hc/en-us/articles/21653669474461-What-is-Pampers-Rewards">Pampers</a> · <a href="https://www.fox6now.com/news/heres-what-moms-spending-babies-first-year">cost survey</a></span></td><td class="n">~$415</td></tr>
+      <tr><td><b>Breast pump &amp; feeding</b></td><td class="n">Pump $150–230<br>Formula ~$2,660/yr if fully formula-fed</td><td><ul>
+        <li>Free pump through insurance (federal law)</li>
+        <li>Free replacement parts and milk bags through the pump supplier</li>
+        <li>Enfamil or Similac rewards: up to $400 each in coupons</li>
+        <li>Free breastfeeding help: BMC Baby Café, BIDMC groups, Boston Breastfeeding Coalition warmline</li></ul><span class="src" style="display:block;margin-top:6px">Sources: <a href="https://www.healthcare.gov/coverage/breast-feeding-benefits/">healthcare.gov</a> · <a href="https://aeroflowbreastpumps.com/breast-milk-storage-bags-through-insurance">Aeroflow bags</a> · <a href="https://www.enfamil.com/enfamil-family-beginnings">Enfamil</a> · <a href="https://www.similac.com/products/360-total-care-powder.html">Similac</a> · <a href="https://bmc.org/programs/lactation-services">BMC Baby Café</a> · <a href="https://bidmc.org/services/breastfeeding">BIDMC</a> · <a href="https://bostonbreastfeeding.weebly.com/virtual-support-groups.html">Breastfeeding Coalition</a> · <a href="https://frontdeskreview.com/gear/breast-pumps/spectra-s1-plus-vs-medela-pump-in-style-maxflow/">pump prices</a> · <a href="https://cradlewise.com/en-US/how-much-does-a-baby-cost">formula costs</a></span></td><td class="n">~$450</td></tr>
+      <tr><td><b>Nursery</b><br><span class="compare">crib, mattress, dresser, monitor</span></td><td class="n">~$1,000–2,000</td><td><ul>
+        <li>Pottery Barn Kids or Crate &amp; Kids registry: 15% off furniture</li>
+        <li>Macy's registry: 10% off brands like Nanit (baby monitor)</li>
+        <li>Dresser, glider, and changing table from Boston Buy Nothing groups (free neighborhood giveaways)</li></ul><span class="src" style="display:block;margin-top:6px">Sources: <a href="https://www.potterybarnkids.com/m/pages/registry/registry-completion">PBK</a> · <a href="https://www.crateandbarrel.com/gift-registry/GrContentPages/RegistryTermsAndConditions">Crate &amp; Kids</a> · <a href="https://www.macys.com/s/promotional-details/baby-registry-completion/">Macy's</a> · <a href="https://buynothingproject.org">Buy Nothing Project</a> · <a href="https://www.boston.gov/safe-sleep">Cribs for Kids</a></span></td><td class="n">~$450</td></tr>
+      <tr><td><b>Car seat &amp; stroller</b></td><td class="n">~$956 in gear</td><td><ul>
+        <li>Amazon, Babylist, or Target registry: 15% off</li>
+        <li>Free welcome boxes from Amazon, Target, Babylist, and Walmart registries</li>
+        <li>Open-box strollers from Good Buy Gear. Always buy the car seat new.</li>
+        <li>Target car seat trade-in (next one ~April 2027)</li></ul><span class="src" style="display:block;margin-top:6px">Sources: <a href="https://www.amazon.com/gp/help/customer/display.html?nodeId=GV4FFW94JAGFL4RH">Amazon</a> · <a href="https://www.babylist.com/registry-discount">Babylist</a> · <a href="https://www.target.com/help/article/000062588">Target</a> · <a href="https://www.babylist.com/hello-baby/good-buy-gear-used-baby-products">Good Buy Gear</a> · <a href="https://corporate.target.com/press/fact-sheet/2026/09/target-car-seat-trade-in-fall-2026">Target trade-in</a> · <a href="https://cradlewise.com/en-US/how-much-does-a-baby-cost">gear costs</a></span></td><td class="n">~$440</td></tr>
+      <tr><td><b>Clothing</b></td><td class="n">~$816/yr</td><td><ul>
+        <li>No Massachusetts sales tax on clothing items under $175 (automatic)</li>
+        <li>Hand-me-downs from Buy Nothing groups; used clothes on Kidizen</li>
+        <li>Target Circle baby coupons from your registry</li></ul><span class="src" style="display:block;margin-top:6px">Sources: <a href="https://www.mass.gov/guides/sales-and-use-tax">MA sales tax</a> · <a href="https://www.kidizen.com">Kidizen</a> · <a href="https://www.target.com/gift-registry/baby-registry">Target registry</a></span></td><td class="n">~$200</td></tr>
+      <tr><td><b>Everything else</b></td><td class="n">—</td><td><ul><li>Rakuten cash back (1–2.5%) when you shop through its link</li></ul><span class="src" style="display:block;margin-top:6px">Sources: <a href="https://www.rakuten.com/store/albeebaby">Rakuten</a></span></td><td class="n">~$40</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p class="compare">Costs: BabyCenter 2025 survey of 1,399 moms; pump prices from retailer listings, 2026. Car seats typically run $100–400 and strollers $70–1,000+.</p>
+</section>
+
+<!-- FULL LEDGER -->
+<section aria-labelledby="all">
+  <h2 id="all">Every benefit we found</h2>
+  <p class="lede">The labels show how sure we are. <span class="badge b-ok">Confirmed</span> means we checked an official page that's live in 2026. <span class="badge b-part">Partly confirmed</span> means the program exists, but some details are dated. <span class="badge b-no">Unconfirmed</span> means check before relying on it. <span class="tag-inc">Income limit</span> marks programs that only lower-income families can use.</p>
+
+  <!-- FEDERAL -->
+  <div class="group" style="--c:var(--fed)">
+    <div class="group-head"><h3>Federal</h3><span class="eyebrow">.gov programs &amp; tax breaks</span></div>
+
+    <div class="item"><div class="desc"><h4>Trump Account ($1,000 Treasury deposit)</h4>
+      <p>A government investment account for every US-citizen baby born 2025–2028, with a one-time $1,000 deposit. The money is locked until the child turns 18. Family can add up to $5,000 a year, and employers can add up to $2,500 of that tax-free.</p>
+      <p class="meta"><b>Who:</b> US citizen child with an SSN. <b>Action:</b> Accounts were auto-created Oct 1, 2026, but you must claim it and opt in to the $1,000 through the Trump Accounts app or IRS Form 4547. <b>Note:</b> Dell's $250 gift covers kids born 2016–2024, not 2026 babies.</p>
+      <span class="src"><a href="https://www.irs.gov/trumpaccounts">irs.gov/trumpaccounts</a> · <a href="https://www.irs.gov/instructions/i4547">Form 4547</a></span></div>
+      <div class="amt"><span class="num">$1,000</span><span class="badge b-part">Partly confirmed</span></div></div>
+
+    <div class="item"><div class="desc"><h4>Child Tax Credit</h4>
+      <p>Takes up to $2,200 per child off your federal taxes. Up to $1,700 of it is paid to you even if you owe no tax.</p>
+      <p class="meta"><b>Who:</b> Child under 17 with an SSN, and the parent needs a work-eligible SSN. Shrinks above $400k income (married). <b>Action:</b> Claim on your 2026 tax return (Schedule 8812), due April 15, 2027.</p>
+      <span class="src"><a href="https://www.irs.gov/credits-deductions/individuals/child-tax-credit">IRS Child Tax Credit</a> · <a href="https://www.irs.gov/pub/irs-drop/rp-25-32.pdf">Rev. Proc. 2025-32</a></span></div>
+      <div class="amt"><span class="num">$2,200</span><span class="badge b-ok">Confirmed</span></div></div>
+
+    <div class="item"><div class="desc"><h4>Dependent Care FSA (pre-tax daycare account)</h4>
+      <p>An account through work where you pay daycare costs with money taxes haven't touched. The limit rose to $7,500 per household in 2026.</p>
+      <p class="meta"><b>Who:</b> Only if your employer offers it. <b>Action:</b> Enroll within ~30 days of birth or at open enrollment. <b>Est.:</b> $7,500 × ~35% combined federal, payroll, and state tax ≈ $2,600; we count $2,400 to be safe. You can't use the same dollars for the childcare tax credit too.</p>
+      <span class="src"><a href="https://www.irs.gov/credits-deductions/individuals/child-and-dependent-care-credit-information">IRS childcare credit info</a></span></div>
+      <div class="amt"><span class="num">~$2,400</span><span class="badge b-ok">Confirmed</span></div></div>
+
+    <div class="item"><div class="desc"><h4>Free breast pump &amp; breastfeeding help (Affordable Care Act)</h4>
+      <p>Most health plans must cover a breast pump and breastfeeding counseling with no copay. HSA/FSA health accounts can also pay for extra pump supplies.</p>
+      <p class="meta"><b>Who:</b> Nearly everyone with insurance; older "grandfathered" plans are the exception. <b>Action:</b> Order through an in-network supplier such as Aeroflow.</p>
+      <span class="src"><a href="https://www.healthcare.gov/coverage/breast-feeding-benefits/">healthcare.gov</a> · <a href="https://www.irs.gov/publications/p502">IRS Pub 502</a> · <a href="https://www.babylist.com/hello-baby/free-breast-pump-through-health-insurance">Babylist: free pump guide &amp; eligibility check</a></span></div>
+      <div class="amt"><span class="num">~$200</span><span class="badge b-ok">Confirmed</span></div></div>
+
+    <div class="item"><div class="desc"><h4>Child &amp; Dependent Care Credit</h4>
+      <p>A tax credit for part of your daycare costs, worth up to $1,500 for one child in 2026 (it was more generous before 2026). Use this or the FSA, whichever saves more. For most two-income families, that's the FSA.</p>
+      <p class="meta"><b>Action:</b> Form 2441 on your tax return. Keep daycare receipts and the provider's tax ID.</p>
+      <span class="src"><a href="https://www.irs.gov/credits-deductions/individuals/child-and-dependent-care-credit-information">IRS</a></span></div>
+      <div class="amt"><span class="num">$600–1,500</span><span class="badge b-ok">Confirmed</span><span class="tag-inc">Alt. to FSA</span></div></div>
+
+    <div class="item"><div class="desc"><h4>529 college account → Roth IRA rollover</h4>
+      <p>A 529 is a college savings account where growth is tax-free. Open it at birth: after 15 years, up to $35,000 of unused money can move into your child's own Roth IRA (a tax-free retirement account).</p>
+      <p class="meta"><b>Action:</b> Open the Massachusetts U.Fund (this also unlocks the $50 BabySteps deposit and a state tax deduction).</p>
+      <span class="src"><a href="https://www.savingforcollege.com/article/roll-over-529-plan-funds-to-a-roth-ira">Savingforcollege.com</a></span></div>
+      <div class="amt"><span class="num">Long-term</span><span class="badge b-part">Partly confirmed</span></div></div>
+
+    <div class="item"><div class="desc"><h4>FMLA job protection</h4>
+      <p>A federal law that protects your job and health insurance for up to 12 weeks off. It's unpaid; the Massachusetts PFML program is what pays you.</p>
+      <p class="meta"><b>Who:</b> Employers with 50+ workers, and you've worked there 12+ months.</p>
+      <span class="src"><a href="https://www.dol.gov/agencies/whd/fact-sheets/28-fmla">US Dept. of Labor</a></span></div>
+      <div class="amt"><span class="num">$0 cash</span><span class="badge b-ok">Confirmed</span></div></div>
+  </div>
+
+  <!-- STATE -->
+  <div class="group" style="--c:var(--state)">
+    <div class="group-head"><h3>Massachusetts</h3><span class="eyebrow">mass.gov programs</span></div>
+
+    <div class="item"><div class="desc"><h4>Paid Family &amp; Medical Leave (PFML)</h4>
+      <p>The state pays you while you're out: up to 20 weeks to recover from birth and 12 weeks to bond, 26 weeks combined. The 2026 maximum is $1,230/week. Your partner can take their own 12 bonding weeks too.</p>
+      <p class="meta"><b>Est.:</b> On a $65k salary, ≈ $913/week × 19 paid weeks. <b>Action:</b> Apply at paidleave.mass.gov, up to 60 days before leave or within 90 days after it starts. Bonding leave must end before the baby's 1st birthday. <b>Paid leave from work too?</b> <a href="#pfml-work">How the two combine</a>.</p>
+      <span class="src"><a href="https://www.mass.gov/info-details/pfml-about-family-leave-to-bond-with-a-child">mass.gov PFML</a> · <a href="https://www.seyfarth.com/news-insights/2026-massachusetts-paid-family-and-medical-leave-updates-benefit-amount-contribution-rates-and-taxability-of-benefit-payments.html">2026 rates</a></span></div>
+      <div class="amt"><span class="num">~$17,350</span><span class="badge b-ok">Confirmed</span></div></div>
+
+    <div class="item"><div class="desc"><h4>Child &amp; Family Tax Credit</h4>
+      <p>A flat $440 per child under 13, paid even if you owe no state tax. No income limit.</p>
+      <p class="meta"><b>Action:</b> Claim on Massachusetts Form 1, due April 15, 2027.</p>
+      <span class="src"><a href="https://mass.gov/info-details/massachusetts-child-and-family-tax-credit">mass.gov CFTC</a></span></div>
+      <div class="amt"><span class="num">$440</span><span class="badge b-ok">Confirmed</span></div></div>
+
+    <div class="item"><div class="desc"><h4>BabySteps $50 college deposit</h4>
+      <p>The state puts a free $50 into a MEFA U.Fund college account for every Massachusetts baby. You don't have to deposit anything.</p>
+      <p class="meta"><b>Deadline:</b> Open before the 1st birthday. If you miss it, the new NextSteps program gives a $50 match for ages 1–3. <b>Action:</b> mefa.org/babysteps</p>
+      <span class="src"><a href="https://www.mefa.org/article/babysteps/">MEFA BabySteps</a> · <a href="https://www.mefa.org/article/the-nextsteps-program">NextSteps</a></span></div>
+      <div class="amt"><span class="num">$50</span><span class="badge b-ok">Confirmed</span></div></div>
+
+    <div class="item"><div class="desc"><h4>529 state tax deduction</h4>
+      <p>Subtract up to $2,000 (married) or $1,000 (single) of U.Fund deposits from your state taxable income.</p>
+      <p class="meta"><b>Deadline:</b> Deposit by Dec 31. <b>Est.:</b> $2,000 × 5% state tax.</p>
+      <span class="src"><a href="https://www.savingforcollege.com/article/tax-benefits-of-massachusetts-529-plans">Savingforcollege.com</a></span></div>
+      <div class="amt"><span class="num">$100</span><span class="badge b-part">Partly confirmed</span></div></div>
+
+    <div class="item"><div class="desc"><h4>No sales tax on diapers or clothing</h4>
+      <p>Diapers are exempt from the 6.25% sales tax, and so is any clothing item under $175. It's automatic at checkout. Wipes, cribs, and strollers are still taxed.</p>
+      <span class="src"><a href="https://www.mass.gov/guides/sales-and-use-tax">mass.gov sales tax guide</a></span></div>
+      <div class="amt"><span class="num">~$115</span><span class="badge b-ok">Confirmed</span></div></div>
+
+    <div class="item"><div class="desc"><h4>Insurance must cover donor breast milk</h4>
+      <p>Since Nov 2024, state-regulated plans must cover donor breast milk when a doctor orders it. The same law covers postpartum depression screening. Many large employers' plans aren't state-regulated, so check yours.</p>
+      <span class="src"><a href="https://www.mass.gov/info-details/massachusetts-chapter-186-of-the-acts-of-2024-maternal-health-laws">mass.gov Ch. 186</a></span></div>
+      <div class="amt"><span class="num">If needed</span><span class="badge b-ok">Confirmed</span></div></div>
+
+    <div class="item"><div class="desc"><h4>Early Intervention</h4>
+      <p>Free in-home therapy for babies under 3 who show developmental delays. Anyone can make a referral.</p>
+      <p class="meta"><b>Action:</b> Ask your pediatrician or call Mass Family TIES, 800-905-8437.</p>
+      <span class="src"><a href="https://www.mass.gov/info-details/about-massachusetts-early-intervention-ei">mass.gov EI</a></span></div>
+      <div class="amt"><span class="num">If needed</span><span class="badge b-ok">Confirmed</span></div></div>
+
+    <div class="item"><div class="desc"><h4>Family Resource Centers</h4>
+      <p>Free walk-in centers with parent groups, playgroups, and help finding services. No income test.</p>
+      <span class="src"><a href="https://www.frcma.org">frcma.org</a></span></div>
+      <div class="amt"><span class="num">Free</span><span class="badge b-part">Partly confirmed</span></div></div>
+  </div>
+
+  <!-- CITY -->
+  <div class="group" style="--c:var(--city)">
+    <div class="group-head"><h3>City of Boston &amp; local</h3><span class="eyebrow">boston.gov, hospitals, nonprofits</span></div>
+
+    <div class="item"><div class="desc"><h4>Welcome Family nurse home visit</h4>
+      <p>A city nurse visits within the first weeks to check on mom and baby, plus a free bag of supplies and follow-up calls. No income limit.</p>
+      <p class="meta"><b>Deadline:</b> Baby must be 8 weeks or younger. <b>Action:</b> 617-534-5832 or hbhc@bphc.org.</p>
+      <span class="src"><a href="https://www.boston.gov/government/cabinets/boston-public-health-commission/childrens-and-newborn-health/new-and-expecting-parents">boston.gov</a></span></div>
+      <div class="amt"><span class="num">~$250</span><span class="badge b-ok">Confirmed</span></div></div>
+
+    <div class="item"><div class="desc"><h4>Healthy Baby Healthy Child</h4>
+      <p>Ongoing free home visits from nurses and social workers until age 5. They help with breastfeeding and development, and connect you to other benefits. No income limit listed.</p>
+      <p class="meta"><b>Action:</b> 617-534-5832 or the online form.</p>
+      <span class="src"><a href="https://www.boston.gov/government/cabinets/boston-public-health-commission/childrens-and-newborn-health/healthy-baby-healthy-child">boston.gov HBHC</a></span></div>
+      <div class="amt"><span class="num">Free</span><span class="badge b-ok">Confirmed</span></div></div>
+
+    <div class="item"><div class="desc"><h4>Boston Public Library museum passes</h4>
+      <p>Free or discounted tickets you reserve with a library card. The Museum of Science is free for 4. Franklin Park Zoo is 40% off. The Children's Museum is $12 per person, and babies under 1 get in free. The MFA is $15 per adult, and kids get in free.</p>
+      <p class="meta"><b>Action:</b> Get a physical BPL card (free with ID), then book at bpl.libcal.com/passes. Limit: one pass per museum every 30 days.</p>
+      <span class="src"><a href="https://www.bpl.org/museum-passes/">bpl.org museum passes</a></span></div>
+      <div class="amt"><span class="num">~$300</span><span class="badge b-ok">Confirmed</span></div></div>
+
+    <div class="item"><div class="desc"><h4>Free baby storytimes ("lapsits")</h4>
+      <p>Weekly songs and rhymes for babies 0–18 months at library branches, like Adams Street on Tuesdays at 10:30. A free stand-in for paid baby music classes.</p>
+      <span class="src"><a href="https://bpl.bibliocommons.com/events">BPL events</a></span></div>
+      <div class="amt"><span class="num">~$200</span><span class="badge b-part">Partly confirmed</span></div></div>
+
+    <div class="item"><div class="desc"><h4>Free breastfeeding support</h4>
+      <p>BMC Baby Café: drop in Mondays 4:30–6pm, 725 Albany St. BIDMC also runs free groups, and you don't have to have delivered there (617-667-BABY). The Boston Breastfeeding Coalition runs a free warmline 7 days a week: 857-301-8259.</p>
+      <span class="src"><a href="https://bmc.org/programs/lactation-services">BMC</a> · <a href="https://bidmc.org/services/breastfeeding">BIDMC</a> · <a href="https://www.mass.gov/info-details/breastfeeding-resources">mass.gov</a></span></div>
+      <div class="amt"><span class="num">~$200</span><span class="badge b-part">Partly confirmed</span></div></div>
+
+    <div class="item"><div class="desc"><h4>Free car seat installation check</h4>
+      <p>Certified technicians install and check your car seat. Boston Medical Center: 617-414-4444. Boston Children's: 617-355-7332.</p>
+      <span class="src"><a href="https://www.bmc.org/programs/child-passenger-safety">BMC</a> · <a href="https://www.mass.gov/info-details/find-a-car-seat-inspection-site">mass.gov site list</a></span></div>
+      <div class="amt"><span class="num">~$75</span><span class="badge b-ok">Confirmed</span></div></div>
+
+    <div class="item"><div class="desc"><h4>Postpartum mental health support</h4>
+      <p>JF&amp;CS runs free Zoom groups for postpartum depression and anxiety: 781-693-1200. The PSI Massachusetts warmline calls you back within 24 hours: 866-472-1897. The national helpline is 1-800-944-4773. Your OB can also call MCPAP for Moms (a free psychiatry consult line for doctors) for treatment advice.</p>
+      <span class="src"><a href="https://www.jfcsboston.org/events/this-isnt-what-i-expected-navigating-postpartum-depression-anxiety-and-other-emotional-complications-2">JF&amp;CS</a> · <a href="https://www.mass.gov/perinatal-mood-and-anxiety-disorder-pmad-initiative">mass.gov PMAD</a></span></div>
+      <div class="amt"><span class="num">Free</span><span class="badge b-ok">Confirmed</span></div></div>
+
+    <div class="item"><div class="desc"><h4>Free family days</h4>
+      <p>The ICA is free on Thursdays 5–9pm. The Boston Children's Museum is $1 on Sundays 1–4pm with a reservation. Babies ride the T free.</p>
+      <span class="src"><a href="https://annualreports.bostonchildrensmuseum.org/annual-report-2025/access-programs/">Children's Museum</a> · <a href="https://www.mbta.com/fares_and_passes/reduced_fare_programs/">MBTA</a></span></div>
+      <div class="amt"><span class="num">Free</span><span class="badge b-part">Partly confirmed</span></div></div>
+  </div>
+
+  <!-- BRANDS -->
+  <div class="group" style="--c:var(--brand)">
+    <div class="group-head"><h3>Brands &amp; stores</h3><span class="eyebrow">registries, rewards, resale</span></div>
+
+    <div class="item"><div class="desc"><h4>Registry welcome boxes</h4>
+      <p>Free sample boxes for starting a baby registry:</p>
+      <ul>
+        <li><b>Amazon:</b> needs Prime, 10 items, and $10+ bought from the registry. About $35 of value.</li>
+        <li><b>Target:</b> about $100 in samples and coupons.</li>
+        <li><b>Babylist Hello Baby box:</b> about $100 of value, but you pay $8.95 shipping.</li>
+        <li><b>Walmart:</b> 6+ samples plus coupons. Needs 20 items and $25+ bought. Free shipping, but it often sells out.</li>
+        <li><b>Macy's:</b> about $35 of baby and parent items. Needs $50+ bought from the registry, plus $6.50 shipping. <span class="badge b-part">Conflicting</span> One of our researchers found it ended in Feb 2026, but Babylist (July 2026) and Macy's help page still list it. Check before counting on it.</li>
+      </ul>
+      <p class="meta"><b>Note:</b> Babylist's box needs the baby to be under 4 weeks old. <a href="https://www.babylist.com/hello-baby/free-baby-stuff-while-pregnant">Babylist's full freebies list</a> (updated Jul 16, 2026).</p>
+      <span class="src"><a href="https://www.amazon.com/gp/help/customer/display.html?nodeId=GBLXVKVYG5SBG8HF">Amazon</a> · <a href="https://www.target.com/help/article/000062588">Target</a> · <a href="https://help.babylist.com/hc/en-us/articles/360054057353-How-do-I-get-a-Hello-Baby-Box">Babylist</a> · <a href="https://www.walmart.com/cp/baby-registry/1229485">Walmart</a> · <a href="https://www.macys.com/s/baby-registry/welcome-box/">Macy's box</a> · <a href="https://www.macys.com/customer-service/articles/general-gift-registry-information">Macy's registry help</a></span></div>
+      <div class="amt"><span class="num">~$215</span><span class="badge b-ok">Confirmed</span></div></div>
+
+    <div class="item"><div class="desc"><h4>Registry completion discounts</h4>
+      <p>Discounts on whatever's left on your registry:</p>
+      <ul>
+        <li><b>Amazon:</b> 15% off, up to $300 saved.</li>
+        <li><b>Babylist:</b> 15% off its own items, up to $600 saved.</li>
+        <li><b>Target:</b> 15% off storewide, usable twice.</li>
+        <li><b>Pottery Barn Kids and Crate &amp; Kids:</b> 15% off furniture.</li>
+        <li><b>Macy's:</b> 10% off select brands.</li>
+      </ul>
+      <p class="meta"><b>Est.:</b> 15% on ~$2,500 of remaining gear. Amazon and Babylist end ~90 days after the due date.</p>
+      <span class="src"><a href="https://www.amazon.com/gp/help/customer/display.html?nodeId=GV4FFW94JAGFL4RH">Amazon</a> · <a href="https://www.babylist.com/registry-discount">Babylist</a> · <a href="https://www.potterybarnkids.com/m/pages/registry/registry-completion">PBK</a> · <a href="https://www.crateandbarrel.com/gift-registry/GrContentPages/RegistryTermsAndConditions">Crate &amp; Kids</a> · <a href="https://www.macys.com/s/promotional-details/baby-registry-completion/">Macy's</a></span></div>
+      <div class="amt"><span class="num">~$375</span><span class="badge b-ok">Confirmed</span></div></div>
+
+    <div class="item"><div class="desc"><h4>Pump parts &amp; milk bags through insurance</h4>
+      <p>Aeroflow emails you when you're due for free replacement valves, tubing, and flanges (about every 90 days), and offers a monthly milk-storage-bag program. A small copay may apply.</p>
+      <span class="src"><a href="https://aeroflowbreastpumps.com/blog/breast-pump-replacement-parts">Aeroflow</a></span></div>
+      <div class="amt"><span class="num">~$100</span><span class="badge b-ok">Confirmed</span></div></div>
+
+    <div class="item"><div class="desc"><h4>Cheaper diapers + diaper rewards</h4>
+      <p>Costco Kirkland diapers run about $0.17 each, against $0.25–0.35 for name brands (the membership is about $65 a year). Amazon Subscribe &amp; Save takes up to 15% off. The Pampers Rewards app pays $10 for every 10 packs; Huggies Rewards works through the Fetch app.</p>
+      <span class="src"><a href="https://thekrazycouponlady.com/2026/07/20/kirkland-signature-diapers-boxes-as-low-as-24-99-per-box-at-costco">Costco pricing (Jul 2026)</a> · <a href="https://support.pampers.com/hc/en-us/articles/21653669474461-What-is-Pampers-Rewards">Pampers</a></span></div>
+      <div class="amt"><span class="num">~$350</span><span class="badge b-ok">Confirmed</span></div></div>
+
+    <div class="item"><div class="desc"><h4>Free diaper &amp; wipe samples</h4>
+      <p>Try brands before buying in bulk. You mostly pay shipping only:</p>
+      <ul>
+        <li><b>Coterie trial pack:</b> 10 diapers in two sizes, $9 shipping.</li>
+        <li><b>Dyper sample pack:</b> $5 shipping, and you get a $5 coupon back.</li>
+        <li><b>Terra:</b> free 2-pack of plant-based diapers plus a wipes sample, $5 shipping.</li>
+        <li><b>Rascals:</b> free samples now and then; watch its Instagram.</li>
+      </ul>
+      <p>Your OB or pediatrician's office may also have samples, and brands sometimes send trial packs if you email customer service.</p>
+      <span class="src"><a href="https://www.coterie.com/products/trial-pack-diaper">Coterie</a> · <a href="https://dyper.com/products/samples">Dyper</a> · <a href="https://www.terragentle.com/products/free-terra-diaper-sample-2-pack">Terra diapers</a> · <a href="https://www.terragentle.com/products/bamboo-baby-wipes-pure-nz-water-sample-pack">Terra wipes</a> · <a href="https://www.instagram.com/rascalsbaby/">Rascals Instagram</a> · <a href="https://www.rascalsbaby.com/en-us/products/premium-diapers">Rascals</a> · <a href="https://www.pampers.com/en-us/rewards">Pampers Club</a></span></div>
+      <div class="amt"><span class="num">~$10–20</span><span class="badge b-ok">Confirmed</span><span class="tag-inc">Not in total</span></div></div>
+
+    <div class="item"><div class="desc"><h4>Free sample boxes</h4>
+      <ul>
+        <li><b>Hey, Milestone pregnancy box:</b> shipping only. Diaper and wipe samples, nipple cream, stretch mark lotion, prenatal vitamins, bottles.</li>
+        <li><b>Hey, Milestone newborn box:</b> shipping only. Pacifiers, diaper and wipe samples, lactation cookies, baby shampoo, vitamin D drops.</li>
+        <li><b>Kiinde breast milk starter pack (~$50 value):</b> pump adapters, a bottle, a nipple, and 20 milk storage pouches. You have to sign up for a subscription; cancel within 14 days to avoid being charged.</li>
+      </ul>
+      <span class="src"><a href="https://www.heymilestone.com/products/noobie-box-pregnancy-edition">Milestone pregnancy box</a> · <a href="https://www.heymilestone.com/collections/sample-boxes/products/newborn-sample-box-1">Milestone newborn box</a> · <a href="https://kiinde.com/kiinde-free-breastfeeding-starter-pack-3/">Kiinde starter pack</a></span></div>
+      <div class="amt"><span class="num">~$50–100</span><span class="badge b-part">Partly confirmed</span><span class="tag-inc">Not in total</span></div></div>
+
+    <div class="item"><div class="desc"><h4>Free products for testing</h4>
+      <p>Apply to test products for free. You aren't guaranteed to be picked. Munchkin sends free products in exchange for a review on Target.com or Walmart.com. Kolcraft's free "Mom Matters" program looks for testers of crib mattresses, sheets, strollers, and more.</p>
+      <span class="src"><a href="https://docs.google.com/forms/d/e/1FAIpQLSfTOMU_YmudiQX2FolaNhQw6TTjLAFwSSgiQmfNNL1kolIvqg/viewform">Munchkin tester application</a> · <a href="https://www.kolcraft.com/welcome-to-mom-matters/">Kolcraft Mom Matters</a></span></div>
+      <div class="amt"><span class="num">Varies</span><span class="badge b-ok">Confirmed</span><span class="tag-inc">Not in total</span></div></div>
+
+    <div class="item"><div class="desc"><h4>Free hospital supplies</h4>
+      <p>Hospitals usually send you home with newborn diapers, wipes, formula samples, and swaddles, plus postpartum pads, disposable underwear, and breastfeeding supplies. Ask the nurses for extras before you leave.</p>
+      <span class="src"><a href="https://www.babylist.com/hello-baby/free-stuff-from-hospital-after-birth">Babylist: free stuff from the hospital</a></span></div>
+      <div class="amt"><span class="num">~$10–30</span><span class="badge b-part">Partly confirmed</span><span class="tag-inc">Not in total</span></div></div>
+
+    <div class="item"><div class="desc"><h4>Formula rewards</h4>
+      <p>Enfamil Family Beginnings and MySimilac each advertise up to $400 in samples and coupons. Similac's welcome kit can also include a free Shutterfly photo book. Sign up for both and stick with the one that matches the formula you use. You can also ask your pediatrician, OB, or hospital for free formula samples, or email a brand's customer service.</p>
+      <span class="src"><a href="https://www.enfamil.com/enfamil-family-beginnings">Enfamil</a> · <a href="https://enfamil.com/baby-formula-coupons-samples/">Enfamil samples</a> · <a href="https://www.similac.com/rewards.html">MySimilac Rewards</a> · <a href="https://www.babylist.com/hello-baby/ways-to-save-money-on-baby-formula">Babylist: saving on formula</a></span></div>
+      <div class="amt"><span class="num">~$150</span><span class="badge b-ok">Confirmed</span></div></div>
+
+    <div class="item"><div class="desc"><h4>Free &amp; used gear and clothes</h4>
+      <p>Boston has 20+ neighborhood Buy Nothing groups (free giveaways between neighbors); many renamed in 2025, so the official app is an option too. Good Buy Gear sells inspected open-box strollers ($10 off your first order over $50). Kidizen is an app for used kids' clothes.</p>
+      <span class="src"><a href="https://buynothingproject.org">Buy Nothing Project (find your group)</a> · <a href="https://www.babylist.com/hello-baby/good-buy-gear-used-baby-products">Good Buy Gear</a></span></div>
+      <div class="amt"><span class="num">~$450</span><span class="badge b-ok">Confirmed</span></div></div>
+
+    <div class="item"><div class="desc"><h4>Target car seat trade-in</h4>
+      <p>Bring any old car seat and get 20% off a new car seat, stroller, or select gear. The fall 2026 event ran Sept 20 – Oct 3, so you just missed it. The next one is expected around April 2027.</p>
+      <span class="src"><a href="https://corporate.target.com/press/fact-sheet/2026/09/target-car-seat-trade-in-fall-2026">Target press release</a> · <a href="https://www.target.com/c/car-seat-trade-in-event/-/N-v41nu">Target trade-in event page</a></span></div>
+      <div class="amt"><span class="num">$40–200 later</span><span class="badge b-ok">Confirmed</span></div></div>
+
+    <div class="item"><div class="desc"><h4>Target baby sale during the trade-in (fall 2026, ended)</h4>
+      <p>Target ran these deals alongside the fall trade-in. They've all ended, but this is what to expect around the next event (~April 2027):</p>
+      <ul>
+        <li><b>Week 4 of September:</b> a $20 Target gift card when you spend $80 on diapers and wipes; buy one, get one 50% off select on-the-go accessories; buy one, get one 25% off Little Spoon baby food; 25% off Aveeno and Johnson's baby toiletries; buy one, get one 30% off bottles and pacifiers; buy one, get one 50% off baby and toddler clothing.</li>
+        <li><b>Week 5 of September:</b> up to 30% off select baby toys; 30% off Carter's Just One You and Little Planet clothing.</li>
+      </ul>
+      <p class="meta"><b>Also on the page (no discount):</b> new Target-only baby products, including Olivia Culpo's Picolette baby line, up&amp;up Organic formula, Once Upon a Farm Rainbow Melts, Good &amp; Gather organic protein pouches, new Cloud Island diaper bags, and UPPAbaby and Mockingbird home gear. The diaper gift-card deal is the most valuable one to watch for: $20 back on $80 is 25% off.</p>
+      <span class="src"><a href="https://corporate.target.com/press/fact-sheet/2026/09/target-car-seat-trade-in-fall-2026">Target fact sheet (Sept 9, 2026)</a> · <a href="https://www.target.com/b/picolette-by-olivia-culpo/-/N-q643leco71e">Picolette line</a></span></div>
+      <div class="amt"><span class="num">Expired</span><span class="badge b-ok">Confirmed</span><span class="tag-inc">Not in total</span></div></div>
+
+    <div class="item"><div class="desc"><h4>Cash back</h4>
+      <p>Rakuten pays you back 1–2.5% at Target, Albee Baby, BabyBjörn, and other stores when you shop through its link. New members get a $10 bonus.</p>
+      <span class="src"><a href="https://www.rakuten.com/store/albeebaby">Rakuten</a></span></div>
+      <div class="amt"><span class="num">~$40</span><span class="badge b-part">Partly confirmed</span></div></div>
+  </div>
+</section>
+
+<!-- INCOME-ELIGIBLE -->
+<section aria-labelledby="inc">
+  <h2 id="inc">If your income qualifies</h2>
+  <p class="lede">These don't apply to the $130k example family, but they're often the biggest money for families earning less. For example, a family of 3 earning $45,000 could qualify for most of them.</p>
+  <div class="group" style="--c:var(--accent)">
+    <div class="item"><div class="desc"><h4>WIC (free formula &amp; food)</h4><p>Free formula (up to ~9–10 cans a month), healthy food for mom, breastfeeding help, and pumps. Income under 185% of the poverty line ($50,542 for a family of 3). You qualify automatically if you're on MassHealth or SNAP.</p><p class="meta"><b>Action:</b> mass.gov/forms/apply-for-wic-online or 1-800-942-1007.</p><span class="src"><a href="https://www.mass.gov/info-details/check-eligibility-for-wic">mass.gov WIC</a> · <a href="https://www.fns.usda.gov/wic/food-packages/maximum-monthly-allowances">USDA</a></span></div><div class="amt"><span class="num">$1,500–2,500</span><span class="badge b-ok">Confirmed</span></div></div>
+    <div class="item"><div class="desc"><h4>MassHealth (free health insurance)</h4><p>Covers mom through pregnancy and 12 months after birth, and the baby automatically for a year. Income limit: 200% of the poverty line for pregnancy coverage, up to 300% for kids.</p><p class="meta"><b>Action:</b> mahealthconnector.org or 800-841-2900.</p><span class="src"><a href="https://www.mass.gov/doc/130-cmr-505000-masshealth-coverage-types-5/download">MassHealth rules</a></span></div><div class="amt"><span class="num">$1,000s</span><span class="badge b-ok">Confirmed</span></div></div>
+    <div class="item"><div class="desc"><h4>Earned Income Tax Credit (federal + state)</h4><p>A tax refund for working families: up to $4,427 federal with one child, plus 40% more from Massachusetts (up to ~$1,771). Example: a married couple earning $45k gets about $2,215 federal + $886 state.</p><span class="src"><a href="https://www.irs.gov/pub/irs-drop/rp-25-32.pdf">IRS</a> · <a href="https://www.mass.gov/info-details/massachusetts-earned-income-tax-credit-eitc">mass.gov</a></span></div><div class="amt"><span class="num">$0–6,200</span><span class="badge b-ok">Confirmed</span></div></div>
+    <div class="item"><div class="desc"><h4>SNAP (grocery money)</h4><p>Monthly grocery money on an EBT card (works like a debit card). The maximum for a family of 3 is $808/month, though most families get less. Parents of kids under 14 don't have to meet the work requirement.</p><p class="meta"><b>Action:</b> DTAConnect.com.</p><span class="src"><a href="https://www.fns.usda.gov/snap/allotment/COLA">USDA</a></span></div><div class="amt"><span class="num">$0–9,700</span><span class="badge b-ok">Confirmed</span></div></div>
+    <div class="item"><div class="desc"><h4>Free diapers from diaper banks</h4><p>Diaper banks give free diapers through local programs; income rules vary by area. Near Boston: South Boston Neighborhood House is a National Diaper Bank Network member. Waltham Diaper Depot (Christ Church Episcopal) gives out diapers the third Saturday of each month, 10–11:30am. Diaper Circle has drop-off sites in Boston, Brookline, Cambridge, and Somerville. You can also call 211 to find current diaper help.</p><span class="src"><a href="https://nationaldiaperbanknetwork.org/member-directory/">National Diaper Bank Network directory</a> · <a href="https://www.childrenshospital.org/sites/default/files/2026-02/family-education-diaper-assistance.pdf">Boston Children's diaper help list (Feb 2026, PDF)</a> · <a href="https://bostonmoms.com/curated-resources/extra-diapers-get-a-second-chance-with-local-diaper-banks/">Boston Moms: local diaper banks</a> · <a href="https://mass211.org">Mass 211</a></span></div><div class="amt"><span class="num">$300–900</span><span class="badge b-part">Partly confirmed</span></div></div>
+    <div class="item"><div class="desc"><h4>Room to Grow &amp; Cradles to Crayons</h4><p>Free new and nearly-new clothes, gear, books, and toys. Room to Grow gives them every 3 months until age 3; apply while pregnant if you can. Cradles to Crayons works through your caseworker.</p><span class="src"><a href="https://www.roomtogrow.org/apply-now">Room to Grow</a> · <a href="https://www.cradlestocrayons.org/boston/family-assistance/">Cradles to Crayons</a></span></div><div class="amt"><span class="num">$1,000–3,000</span><span class="badge b-ok">Confirmed</span></div></div>
+    <div class="item"><div class="desc"><h4>Childcare help</h4><p>State childcare vouchers are now open to families earning up to 85% of the state's median income (~$141k for a family of 4), but there's a ~31,000-child waitlist. Early Head Start offers free infant care for the lowest incomes.</p><span class="src"><a href="https://www.wbur.org/news/2026/09/04/massachusetts-childcare-families-income-financial-help-waitlist">WBUR, Sept 2026</a> · <a href="https://headstart.gov/how-apply">headstart.gov</a></span></div><div class="amt"><span class="num">$20,000+ if placed</span><span class="badge b-ok">Confirmed</span></div></div>
+    <div class="item"><div class="desc"><h4>Smaller extras</h4><p>EBT Card to Culture: Franklin Park Zoo is $7 per person and the Children's Museum $3. TAFDC, the state's cash-assistance program, pays a one-time $300 for a new baby plus a yearly children's clothing allowance. Lifeline takes up to $9.25/month off phone or internet. Free cribs are available through a pediatrician's referral (Cribs for Kids).</p><span class="src"><a href="https://www.mass.gov/service-details/ebt-card-to-culture-organizations">mass.gov</a> · <a href="https://www.lifelinesupport.org/how-to-qualify/">Lifeline</a> · <a href="https://www.boston.gov/safe-sleep">boston.gov safe sleep</a></span></div><div class="amt"><span class="num">$300–1,000</span><span class="badge b-part">Partly confirmed</span></div></div>
+  </div>
+</section>
+
+<!-- RULED OUT -->
+<section aria-labelledby="out">
+  <h2 id="out">Checked, but not available to this family</h2>
+  <div class="ruled">
+    <div><b>Boston Saves $50 account</b>Starts in kindergarten, not at birth. BabySteps covers newborns instead. <span class="src"><a href="https://www.boston.gov/boston-saves">boston.gov</a></span></div>
+    <div><b>Dolly Parton Imagination Library</b>No Boston program. Massachusetts only has it in South Hadley, Springfield, and a few western towns. <span class="src"><a href="https://imaginationlibrary.com/usa/affiliate/MASOUTHHADLEY/">affiliate page</a> · <a href="https://malegislature.gov/Bills/GetAmendmentContent/193/H4789/12/House/Content">statewide amendment</a></span></div>
+    <div><b>Dell $250 Trump Account gift</b>Only for kids born 2016–2024. <span class="src"><a href="https://www.babylist.com/hello-baby/dell-donations-to-trump-accounts">Babylist</a></span></div>
+    <div><b>"Baby bonds" / a Massachusetts baby bonus</b>Bills were filed but never passed. No cash-per-baby program exists. <span class="src"><a href="https://malegislature.gov/Bills/194/H48">H.48</a> · <a href="https://malegislature.gov/Bills/194/H3429">H.3429</a></span></div>
+    <div><b>A state diaper program</b>Bills are still pending, and the earlier pilot ended. Diapers are tax-free, though. <span class="src"><a href="https://malegislature.gov/Bills/194/S151.Html">S.151</a> · <a href="https://masscap.org/?p=4246">MASSCAP pilot</a></span></div>
+    <div><b>Statewide newborn nurse visits</b>Proposed, not funded yet. Boston already offers the visit (see Welcome Family). <span class="src"><a href="https://www.wbur.org/news/2026/09/28/massachusetts-maura-healey-nurse-visit-newborn-social-media">WBUR</a> · <a href="https://www.mass.gov/news/governor-healey-announces-new-actions-to-strengthen-maternal-mental-health-and-postpartum-care">mass.gov</a></span></div>
+    <div><b>Walmart car seat trade-in</b>Not held since 2019. <span class="src"><a href="https://abc7news.com/post/walmart-collecting-old-car-seats-in-exchange-for-gift-cards/5542841/">ABC7 (2019)</a></span></div>
+    <div><b>buybuy BABY registry</b>Now online-only, with no registry perks or welcome box. <span class="src"><a href="https://www.babylist.com/hello-baby/is-buybuybaby-closing">Babylist</a></span></div>
+    <div><b>Target fall car seat trade-in</b>Ended Oct 3, 2026. Next one ~April 2027. <span class="src"><a href="https://corporate.target.com/press/fact-sheet/2026/09/target-car-seat-trade-in-fall-2026">Target</a></span></div>
+    <div><b>BPHC doula program</b>Needs sign-up by 32 weeks pregnant, so it's too late after birth. <span class="src"><a href="https://www.boston.gov/government/cabinets/boston-public-health-commission/doula-services">boston.gov</a></span></div>
+  </div>
+</section>
+
+<!-- METHOD -->
+<section aria-labelledby="how">
+  <h2 id="how">How we estimated</h2>
+  <div class="callout">
+    <p><b>The family:</b> Married, filing taxes jointly, about $130,000 combined income. Mom earns about $65,000 at a Massachusetts employer with health insurance through work. Baby born October 2026, partly formula-fed, starting daycare in 2027.</p>
+    <p><b>Cash and tax items</b> use the official 2026 amounts (<a href="https://www.irs.gov/pub/irs-drop/rp-25-32.pdf">IRS Rev. Proc. 2025-32</a>). <b>Paid leave</b> uses the 2026 state formula: 80% of pay up to $961/week, plus 50% above that (<a href="https://www.mass.gov/info-details/how-pfml-weekly-benefit-amounts-are-calculated-andor-changed">mass.gov</a>, <a href="https://www.foley.com/insights/publications/2026/01/new-year-new-massachusetts-paid-family-and-medical-leave/">Foley, Jan 2026</a>). <b>The FSA</b> assumes ~35% combined federal, payroll, and state tax on $7,500. <b>First-year cost</b> of ~$20,400 is from a <a href="https://www.fox6now.com/news/heres-what-moms-spending-babies-first-year">BabyCenter survey</a>; Massachusetts is the priciest state to raise a child (<a href="https://www.creditkarma.com/cash-flow/i/how-much-does-it-cost-to-raise-a-child">SmartAsset via Credit Karma</a>). <b>Store deals</b> use the low-to-middle end of each range, assuming a typical family uses some but not all of them. <b>Free services</b> are valued at roughly what the private version costs.</p>
+    <p><b>Not counted:</b> small freebies like sample boxes, diaper samples, and product testing (listed, but marked "Not in total"), income-limited programs, your partner's paid leave, and anything you'd only use if a problem comes up (Early Intervention, donor milk).</p>
+    <p><b>Caveats:</b> The Trump Account's final rules aren't out yet, and we couldn't independently confirm that the $1,000 deposits are arriving; only the White House has said so. A few store offers (Amazon diaper discounts, Nordstrom registry perks) couldn't be confirmed, so they're left out of the total. This report isn't tax or financial advice; check the specifics with a tax preparer.</p>
+  </div>
+</section>
+
+<!-- SOURCES -->
+<section aria-labelledby="src">
+  <h2 id="src">All sources</h2>
+  <p class="lede">Every link behind this report: 246 in all, including ones our researchers read but didn't cite above. Government pages first in each group where possible. Some sites (mass.gov, Amazon, Walmart) block automated checks but open fine in a normal browser.</p>
+  <div class="sources">
+    <h4>Federal (taxes, Trump Account, health, food) · 35</h4>
+    <ul>
+      <li><a href="https://www.congress.gov/crs-product/R48910">Congressional Research Service: Trump Accounts (R48910)</a></li>
+      <li><a href="https://www.ecfr.gov/current/title-42/chapter-IV/subchapter-C/part-435/subpart-B">eCFR: Medicaid newborn coverage (42 CFR 435)</a></li>
+      <li><a href="https://www.fcc.gov/lifeline-consumers">FCC: Lifeline for consumers</a></li>
+      <li><a href="https://headstart.gov/policy/45-cfr-chap-xiii/1302-12-determining-verifying-documenting-eligibility">Head Start: Eligibility rules</a></li>
+      <li><a href="https://headstart.gov/how-apply">Head Start: How to apply</a></li>
+      <li><a href="https://headstart.gov/policy/im/acf-im-hs-22-03">Head Start: Income eligibility memo</a></li>
+      <li><a href="https://www.healthcare.gov/coverage/breast-feeding-benefits/">HealthCare.gov: Breast pump &amp; breastfeeding coverage</a></li>
+      <li><a href="https://www.healthcare.gov/glossary/special-enrollment-period/">healthcare.gov: special enrollment</a></li>
+      <li><a href="https://www.hrsa.gov/womensguidelines/">HRSA: Women's preventive services guidelines (pumps &amp; lactation)</a></li>
+      <li><a href="https://www.irs.gov/publications/p502">IRS Publication 502: Medical expenses (pumps &amp; HSA/FSA)</a></li>
+      <li><a href="https://www.irs.gov/pub/irs-drop/rp-25-32.pdf">IRS Rev. Proc. 2025-32: 2026 tax amounts (PDF)</a></li>
+      <li><a href="https://www.irs.gov/credits-deductions/individuals/child-and-dependent-care-credit-information">IRS: Child &amp; Dependent Care Credit and Dependent Care FSA</a></li>
+      <li><a href="https://www.irs.gov/credits-deductions/individuals/child-tax-credit">IRS: Child Tax Credit</a></li>
+      <li><a href="https://www.irs.gov/instructions/i4547">IRS: Form 4547 (Trump Account election) instructions</a></li>
+      <li><a href="https://www.irs.gov/newsroom/treasury-irs-issue-proposed-regulations-on-how-to-open-initial-trump-accounts-under-the-one-big-beautiful-bill">IRS: Proposed Trump Account regulations</a></li>
+      <li><a href="https://www.irs.gov/trumpaccounts">IRS: Trump Accounts</a></li>
+      <li><a href="https://www.irs.gov/newsroom/working-families-tax-cuts-individuals-and-workers">IRS: Working Families Tax Cuts overview</a></li>
+      <li><a href="https://www.medicaid.gov/medicaid/benefits/downloads/2024-maternal-health-at-a-glance.pdf">Medicaid.gov: Maternal health at a glance (PDF)</a></li>
+      <li><a href="https://www.ssa.gov/faqs/en/questions/KA-10041.html">SSA: Getting a Social Security number for your baby</a></li>
+      <li><a href="https://www.ssa.gov/faqs/en/questions/KA-01969.html">SSA: How long a baby's SSN card takes</a></li>
+      <li><a href="https://www.dol.gov/agencies/whd/fact-sheets/28-fmla">US Dept. of Labor: FMLA fact sheet</a></li>
+      <li><a href="https://www.dol.gov/agencies/whd/fact-sheets/28q-taking-leave-for-birth-placement-child">US DOL: FMLA leave for birth</a></li>
+      <li><a href="https://www.fns.usda.gov/snap/allotment/COLA">USDA: SNAP maximum benefits</a></li>
+      <li><a href="https://www.usda.gov/sites/default/files/guidance-documents/wic-ieg2026-2027.pdf">USDA: WIC income guidelines 2026–27 (PDF)</a></li>
+      <li><a href="https://www.fns.usda.gov/wic/food-packages/maximum-monthly-allowances">USDA: WIC monthly formula &amp; food amounts</a></li>
+      <li><a href="https://www.whitehouse.gov/releases/2026/10/a-financial-stake-in-the-future-for-nearly-70-million-american-children-trump-accounts-made-it-possible/">White House: Trump Accounts (Oct 2026)</a></li>
+      <li><a href="https://247wallst.com/personal-finance/2026/10/02/the-irs-just-changed-the-rules-for-trump-accounts-heres-what-60-million-parents-need-to-know/">24/7 Wall St: Trump Account rule changes (Oct 2026)</a></li>
+      <li><a href="https://www.currentfederaltaxdevelopments.com/blog/2025/10/9/2026-inflation-adjustments-for-tax-professionals-revenue-procedure-2025-32-analysis">Current Federal Tax Developments: 2026 EITC phaseouts</a></li>
+      <li><a href="https://www.jpmorgan.com/insights/wealth-planning/education-planning/new-529-plan-rules-2026">J.P. Morgan: New 529 rules for 2026</a></li>
+      <li><a href="https://www.lifelinesupport.org/how-to-qualify/">Lifeline: How to qualify</a></li>
+      <li><a href="https://healthlaw.org/wp-content/uploads/2026/02/2026-02-09-FAQ-OBBA-pregnancy-care.pdf">National Health Law Program: OBBBA &amp; pregnancy care FAQ (PDF)</a></li>
+      <li><a href="https://www.savingforcollege.com/article/roll-over-529-plan-funds-to-a-roth-ira">Savingforcollege.com: 529 to Roth IRA rollover</a></li>
+      <li><a href="https://usafacts.org/explainers/what-is-the-wic-program/">USAFacts: What is WIC</a></li>
+      <li><a href="https://www.wbtv.com/2026/10/05/millions-automatically-enrolled-trump-accounts-heres-how-you-can-claim-it-your-child/">WBTV: how to claim (Oct 2026)</a></li>
+      <li><a href="https://www.babylist.com/hello-baby/free-breast-pump-through-health-insurance">Babylist: Free breast pump through insurance</a></li>
+    </ul>
+    <h4>Massachusetts paid leave (PFML) · 21</h4>
+    <ul>
+      <li><a href="https://www.mass.gov/doc/2026-pfml-mandatory-workplace-poster-english/download">2026 PFML workplace poster (PDF)</a></li>
+      <li><a href="https://www.mass.gov/important-changes/important-legislative-changes-to-the-massachusetts-paid-family-and-medical-leave-program">mass.gov: 2023 law changes</a></li>
+      <li><a href="https://www.mass.gov/info-details/how-other-leave-and-benefits-can-affect-your-paid-family-and-medical-leave">mass.gov: how other leave affects PFML</a></li>
+      <li><a href="https://www.mass.gov/info-details/how-pfml-weekly-benefit-amounts-are-calculated-andor-changed">mass.gov: How PFML weekly pay is calculated</a></li>
+      <li><a href="https://www.mass.gov/how-to/how-to-apply-for-paid-family-and-medical-leave-pfml">mass.gov: how to apply</a></li>
+      <li><a href="https://www.mass.gov/doc/other-leave-or-income-to-report-when-applying-for-pfml/download">mass.gov: Other leave or income to report for PFML (PDF)</a></li>
+      <li><a href="https://www.mass.gov/info-details/paid-family-and-medical-leave-pfml-application-approval-timeline">mass.gov: PFML application timeline</a></li>
+      <li><a href="https://www.mass.gov/info-details/pfml-about-family-leave-to-bond-with-a-child">mass.gov: PFML bonding leave</a></li>
+      <li><a href="https://www.mass.gov/info-details/pfml-frequently-asked-questions-for-employers">mass.gov: PFML employer FAQ</a></li>
+      <li><a href="https://www.mass.gov/info-details/pfml-frequently-asked-questions-for-employees">mass.gov: PFML FAQ for employees</a></li>
+      <li><a href="https://www.mass.gov/doc/pfml-new-and-expectant-parents-overview/download">mass.gov: PFML new parents overview (PDF)</a></li>
+      <li><a href="https://www.mass.gov/info-details/paid-family-and-medical-leave-pfml-overview-and-benefits">mass.gov: PFML overview</a></li>
+      <li><a href="https://www.mass.gov/info-details/taxes-on-paid-family-and-medical-leave-pfml-benefits">mass.gov: PFML taxes</a></li>
+      <li><a href="https://www.mass.gov/info-details/paid-family-and-medical-leave-exemption-application-process">mass.gov: Private plan exemption process</a></li>
+      <li><a href="https://www.mass.gov/info-details/benefit-requirements-for-private-paid-leave-plan-exemptions">mass.gov: private plan rules</a></li>
+      <li><a href="https://www.mass.gov/info-details/faqs-for-employees-about-topping-off-pfml-benefits">mass.gov: topping off FAQ</a></li>
+      <li><a href="https://www.mass.gov/info-details/faqs-for-employers-about-topping-off-pfml-benefits">mass.gov: Topping off FAQ for employers</a></li>
+      <li><a href="https://www.fisherphillips.com/en/news-insights/massachusetts-employers-should-prepare-for-2026-paid-family-and-medical-leave-updates.html">Fisher Phillips: 2026 PFML updates</a></li>
+      <li><a href="https://www.foley.com/insights/publications/2026/01/new-year-new-massachusetts-paid-family-and-medical-leave/">Foley: 2026 PFML changes (Jan 2026)</a></li>
+      <li><a href="https://www.seyfarth.com/news-insights/2026-massachusetts-paid-family-and-medical-leave-updates-benefit-amount-contribution-rates-and-taxability-of-benefit-payments.html">Seyfarth: 2026 PFML amounts &amp; taxes</a></li>
+      <li><a href="https://www.umassp.edu/paid-family-medical-leave">UMass: how PFML runs alongside other leave</a></li>
+    </ul>
+    <h4>Massachusetts (taxes, health, savings, childcare) · 60</h4>
+    <ul>
+      <li><a href="https://www.mass.gov/doc/eecccfa-26-01interim-income-eligible-ccfa-policyadvisory/download">EEC: 2026 childcare aid policy (PDF)</a></li>
+      <li><a href="https://www.mass.gov/doc/attachment-351-income-eligibility-levels-parent-copayment-schedule/download">EEC: Income limits &amp; copay chart (PDF)</a></li>
+      <li><a href="https://budget.digital.mass.gov/govbudget/fy25/tax-expenditure-budget/sales-tax/exempt-products-services/3-103/">MA budget: Clothing sales tax exemption</a></li>
+      <li><a href="https://www.mass.gov/info-details/mass-general-laws-c118e-ss-10t">MA law: Donor milk coverage (c.118E §10T)</a></li>
+      <li><a href="https://malegislature.gov/Laws/GeneralLaws/PartI/TitleXVII/Chapter118E/Section10A%201~2">MA law: Postpartum MassHealth coverage (c.118E §10A½)</a></li>
+      <li><a href="https://malegislature.gov/Bills/194/H3429">MA Legislature: Baby bonds bill H.3429</a></li>
+      <li><a href="https://malegislature.gov/Bills/194/H48">MA Legislature: Baby bonds bill H.48</a></li>
+      <li><a href="https://malegislature.gov/Bills/194/S151.Html">MA Legislature: Diaper benefits bill S.151</a></li>
+      <li><a href="https://malegislature.gov/Bills/194/H1317.Html">MA Legislature: Pump parts coverage bill H.1317</a></li>
+      <li><a href="https://malegislature.gov/Bills/GetAmendmentContent/193/H4789/12/House/Content">MA Legislature: Statewide Imagination Library amendment</a></li>
+      <li><a href="https://www.mass.gov/info-details/massachusetts-chapter-186-of-the-acts-of-2024-maternal-health-laws">mass.gov: 2024 maternal health law (Ch. 186)</a></li>
+      <li><a href="https://www.mass.gov/forms/apply-for-wic-online">mass.gov: Apply for WIC</a></li>
+      <li><a href="https://www.mass.gov/info-details/babysteps">mass.gov: BabySteps $50 deposit</a></li>
+      <li><a href="https://www.mass.gov/doc/babysteps-frequently-asked-questions/download">mass.gov: BabySteps FAQ (PDF)</a></li>
+      <li><a href="https://www.mass.gov/info-details/breastfeeding-resources">mass.gov: Breastfeeding resources</a></li>
+      <li><a href="https://www.mass.gov/doc/2024-car-seat-distribution-program-referral-form/download">mass.gov: Car seat distribution referral form (PDF)</a></li>
+      <li><a href="https://www.mass.gov/info-details/find-a-car-seat-inspection-site">mass.gov: Car seat inspection sites</a></li>
+      <li><a href="https://mass.gov/info-details/massachusetts-child-and-family-tax-credit">mass.gov: Child &amp; Family Tax Credit</a></li>
+      <li><a href="https://www.mass.gov/doc/child-family-tax-credit-flyer/download">mass.gov: Child &amp; Family Tax Credit flyer (PDF)</a></li>
+      <li><a href="https://www.mass.gov/news/board-of-early-education-and-care-vote-improves-access-to-child-care-financial-assistance">mass.gov: Childcare aid income limit raised</a></li>
+      <li><a href="https://www.mass.gov/child-care-financial-assistance">mass.gov: Childcare financial assistance</a></li>
+      <li><a href="https://www.mass.gov/service-details/commonwealth-cares-for-children-child-care-stabilization-grants">mass.gov: Commonwealth Cares for Children (C3)</a></li>
+      <li><a href="https://www.mass.gov/info-details/about-massachusetts-early-intervention-ei">mass.gov: Early Intervention</a></li>
+      <li><a href="https://www.mass.gov/doc/memo-use-of-public-benefits-or-insurance-or-private-insurance/download">mass.gov: Early Intervention no-cost memo (PDF)</a></li>
+      <li><a href="https://www.mass.gov/doc/frc-flyer-for-parents/download">mass.gov: Family Resource Centers flyer (PDF)</a></li>
+      <li><a href="https://www.mass.gov/news/governor-healey-announces-new-actions-to-strengthen-maternal-mental-health-and-postpartum-care">mass.gov: Governor's postpartum care plan (Mar 2026)</a></li>
+      <li><a href="https://www.mass.gov/info-details/massachusetts-earned-income-tax-credit-eitc">mass.gov: Massachusetts EITC</a></li>
+      <li><a href="https://www.mass.gov/info-details/about-the-doula-initiative">mass.gov: MassHealth doula initiative</a></li>
+      <li><a href="https://www.mass.gov/doc/qa-chapter-186-of-the-acts-2024-maternity-benefits/download">mass.gov: Q&amp;A on 2024 maternity benefits law (PDF)</a></li>
+      <li><a href="https://www.mass.gov/guides/sales-and-use-tax">mass.gov: Sales tax guide (diapers, clothing)</a></li>
+      <li><a href="https://www.mass.gov/how-to/supplemental-nutrition-assistance-program-snap-formerly-known-as-food-stamps">mass.gov: SNAP</a></li>
+      <li><a href="https://www.mass.gov/how-to/transitional-aid-to-families-with-dependent-children-tafdc">mass.gov: TAFDC cash assistance</a></li>
+      <li><a href="https://www.mass.gov/TaxCuts">mass.gov: Tax cuts overview</a></li>
+      <li><a href="https://mass.gov/info-details/get-wic-breastfeeding-support-services">mass.gov: WIC breastfeeding support</a></li>
+      <li><a href="https://www.mass.gov/info-details/check-eligibility-for-wic">mass.gov: WIC eligibility</a></li>
+      <li><a href="https://www.mass.gov/doc/eom-22-12-extension-of-postpartum-coverage-for-eligible-individuals-revised-eligibility-criteria/download">MassHealth: 12-month postpartum coverage memo (PDF)</a></li>
+      <li><a href="https://www.mass.gov/doc/eom-25-18-increase-in-premium-billing-amounts-for-2026-and-future-annual-premium-billing-amount-changes-beginning-in-2027-0/download">MassHealth: 2026 premium amounts (PDF)</a></li>
+      <li><a href="https://www.mass.gov/doc/130-cmr-505000-masshealth-coverage-types-5/download">MassHealth: Coverage rules (130 CMR 505, PDF)</a></li>
+      <li><a href="https://www.mass.gov/doc/masshealth-doula-provider-information-sheet/download">MassHealth: Doula info sheet (PDF)</a></li>
+      <li><a href="https://www.mass.gov/doc/notification-of-birth-form-nob-1-1/download">MassHealth: Notification of Birth form (PDF)</a></li>
+      <li><a href="https://www.reproductivefacts.org/patient-advocacy/state-and-territory-infertility-insurance-laws/massachusetts/">ASRM: Massachusetts infertility coverage law</a></li>
+      <li><a href="https://bowditch.com/estateandtaxplanningblog/2016/08/12/massachusetts-lawmakers-provide-tax-deduction-for-contributors-to-529-plans">Bowditch: MA 529 deduction background</a></li>
+      <li><a href="https://childrenstrustma.org/hfma/">Children's Trust: Healthy Families Massachusetts</a></li>
+      <li><a href="https://www.frcma.org">Family Resource Centers of Massachusetts</a></li>
+      <li><a href="https://www.fidelity.com/massachusetts-529/">Fidelity: MEFA U.Fund</a></li>
+      <li><a href="https://www.wgbh.org/news/health/2026-09-15/healey-announces-push-to-expand-maternal-mental-healthcare-screening">GBH: Maternal mental health push (Sept 2026)</a></li>
+      <li><a href="https://www.jfcsboston.org">JF&amp;CS Boston (diaper pantry, family services)</a></li>
+      <li><a href="https://jfcsboston.org/Our-Services/Center-for-Early-Relationship-Support/Healthy-Families">JF&amp;CS: Healthy Families</a></li>
+      <li><a href="https://www.mahealthconnector.org">MA Health Connector (apply for MassHealth)</a></li>
+      <li><a href="https://www.masslegalservices.org/content/helping-families-get-tafdc-childrens-clothing-allowance">Mass Legal Services: TAFDC clothing allowance</a></li>
+      <li><a href="https://masstaxpayers.org/sites/default/files/publications/2026-03/FY%202027%20Early%20Education%20and%20Care%20Governor%27s%20Budget%20Deep%20Dive.pdf">Mass Taxpayers Foundation: FY27 early ed budget (PDF)</a></li>
+      <li><a href="https://masscap.org/?p=4246">MASSCAP: Diaper pilot</a></li>
+      <li><a href="https://www.mefa.org/article/babysteps/">MEFA: BabySteps</a></li>
+      <li><a href="https://www.mefa.org/article/the-nextsteps-program">MEFA: NextSteps $50 match</a></li>
+      <li><a href="https://www.mspcc.org/healthyfamilies/">MSPCC: Healthy Families</a></li>
+      <li><a href="https://www.nfp.com/insights/massachusetts-mandates-coverage-for-fertility-preservation/">NFP: MA fertility preservation mandate</a></li>
+      <li><a href="https://www.savingforcollege.com/article/tax-benefits-of-massachusetts-529-plans">Savingforcollege.com: Massachusetts 529 tax benefits</a></li>
+      <li><a href="https://taxpolicycenter.org/sites/default/files/2026-07/state_eitc_rates.pdf">Tax Policy Center: State EITC rates (PDF)</a></li>
+      <li><a href="https://www.wbur.org/news/2026/09/04/massachusetts-childcare-families-income-financial-help-waitlist">WBUR: Childcare aid waitlist (Sept 2026)</a></li>
+      <li><a href="https://www.wbur.org/news/2026/09/28/massachusetts-maura-healey-nurse-visit-newborn-social-media">WBUR: Statewide newborn nurse visit proposal (Sept 2026)</a></li>
+    </ul>
+    <h4>Boston &amp; local · 49</h4>
+    <ul>
+      <li><a href="https://www.boston.gov/government/cabinets/boston-public-health-commission/childrens-and-newborn-health/healthy-start-initiative">boston.gov: Boston Healthy Start Initiative</a></li>
+      <li><a href="https://www.boston.gov/boston-saves">boston.gov: Boston Saves</a></li>
+      <li><a href="https://www.boston.gov/government/cabinets/boston-public-health-commission/doula-services">boston.gov: BPHC doula services</a></li>
+      <li><a href="https://www.bostonglobe.com/2023/03/19/business/welcome-buy-nothing-revolution/">Boston Globe: Buy Nothing groups in Boston</a></li>
+      <li><a href="https://www.boston.gov/government/cabinets/boston-public-health-commission/childrens-and-newborn-health/healthy-baby-healthy-child">boston.gov: Healthy Baby Healthy Child</a></li>
+      <li><a href="https://www.boston.gov/sites/default/files/file/2025/05/Office%20of%20Early%20Childhood%20Presentation%20.pdf">boston.gov: Office of Early Childhood (PDF)</a></li>
+      <li><a href="https://www.boston.gov/safe-sleep">boston.gov: Safe sleep &amp; Cribs for Kids</a></li>
+      <li><a href="https://www.bostonpublicschools.org/enroll">Boston Public Schools: Enrollment (Universal Pre-K)</a></li>
+      <li><a href="https://www.boston.gov/departments/early-childhood">boston.gov: Office of Early Childhood</a></li>
+      <li><a href="https://www.boston.gov/government/cabinets/boston-public-health-commission/childrens-and-newborn-health/new-and-expecting-parents">boston.gov: Welcome Family</a></li>
+      <li><a href="https://www.boston.gov/node/14774451">boston.gov: Welcome Family</a></li>
+      <li><a href="https://www.mass.gov/service-details/ebt-card-to-culture-organizations">mass.gov: EBT Card to Culture</a></li>
+      <li><a href="https://www.mass.gov/perinatal-mood-and-anxiety-disorder-pmad-initiative">mass.gov: Postpartum mood support (PSI warmline, MCPAP)</a></li>
+      <li><a href="https://www.axios.com/local/boston/2023/11/14/boston-doula-services">Axios Boston: City doula program</a></li>
+      <li><a href="https://bidmc.org/services/breastfeeding">BIDMC: Breastfeeding support groups</a></li>
+      <li><a href="https://www.bmc.org/programs/child-passenger-safety">BMC: Free car seat checks</a></li>
+      <li><a href="https://www.bmc.org/departments/grow-clinic-children/treatments-and-services">BMC: Grow Clinic</a></li>
+      <li><a href="https://bmc.org/pediatrics/philanthropy/kids-fund">BMC: Kids Fund</a></li>
+      <li><a href="https://bmc.org/programs/lactation-services">BMC: Lactation services &amp; Baby Café</a></li>
+      <li><a href="https://bostonbreastfeeding.weebly.com/virtual-support-groups.html">Boston Breastfeeding Coalition: Support groups</a></li>
+      <li><a href="https://www.thebostoncalendar.com/events/free-thursdays-at-the-ica--677">Boston Calendar: ICA free Thursdays</a></li>
+      <li><a href="https://annualreports.bostonchildrensmuseum.org/annual-report-2025/access-programs/">Boston Children's Museum: $1 Sundays &amp; EBT access</a></li>
+      <li><a href="https://www.childrenshospital.org/sites/default/files/2026-02/family-education-diaper-assistance.pdf">Boston Children's: Diaper assistance handout (Feb 2026, PDF)</a></li>
+      <li><a href="https://bostonhousing.org">Boston Housing Authority (car seat checks: 617-988-5303)</a></li>
+      <li><a href="https://bostonmoms.com/curated-resources/extra-diapers-get-a-second-chance-with-local-diaper-banks/">Boston Moms: Local diaper banks</a></li>
+      <li><a href="https://bpl.bibliocommons.com/events/69a6ff318966a226aae0ba33">BPL: Adams Street baby lapsit</a></li>
+      <li><a href="https://bpl.bibliocommons.com/events">BPL: Events calendar (storytimes)</a></li>
+      <li><a href="https://www.bpl.org/museum-passes/">BPL: Museum passes</a></li>
+      <li><a href="https://bpl.libcal.com/passes">BPL: Reserve museum passes</a></li>
+      <li><a href="https://www.brighamandwomens.org/obgyn/multiples-center/resources-for-families-of-multiples">Brigham: Lactation &amp; family resources</a></li>
+      <li><a href="https://ccab.org/news/catholic-charities-boston-and-united-way-host-community-baby-shower-at-yawkey-center">Catholic Charities Boston: Community baby shower</a></li>
+      <li><a href="https://www.cradlestocrayons.org/boston/family-assistance/">Cradles to Crayons: Family assistance</a></li>
+      <li><a href="https://familynurturing.org/about/">Family Nurturing Center</a></li>
+      <li><a href="https://imaginationlibrary.com/usa/affiliate/MASOUTHHADLEY/">Imagination Library: South Hadley, MA affiliate</a></li>
+      <li><a href="https://www.jfcsboston.org/events/this-isnt-what-i-expected-navigating-postpartum-depression-anxiety-and-other-emotional-complications-2">JF&amp;CS: Postpartum depression &amp; anxiety groups</a></li>
+      <li><a href="https://brooklinelibrary.libcal.com/event/17191408">La Leche League meeting (Brookline Library)</a></li>
+      <li><a href="https://massculturalcouncil.org">Mass Cultural Council (EBT Card to Culture)</a></li>
+      <li><a href="https://www.massbio.org/members/mothers-milk-bank-northeast/">MassBio: Mothers' Milk Bank profile</a></li>
+      <li><a href="https://www.mbta.com/fares_and_passes/reduced_fare_programs/">MBTA: Reduced fares (kids free)</a></li>
+      <li><a href="https://www.mfa.org/visit/visiting-with-kids-and-family">MFA: Visiting with kids</a></li>
+      <li><a href="https://womensmentalhealth.org/posts/mcpap-moms-exploring-new-strategies-providing-care-women-perinatal-depression/">MGH Women's Mental Health: MCPAP for Moms</a></li>
+      <li><a href="https://www.massgeneral.org/obgyn/patient-resources/pregnancy-and-parenting/new-parent-support-groups">MGH: New parent support groups</a></li>
+      <li><a href="https://milkbankne.org">Mothers' Milk Bank Northeast</a></li>
+      <li><a href="https://www.roomtogrow.org/apply-now">Room to Grow: Apply</a></li>
+      <li><a href="https://thebasicsboston.org">The Basics Boston</a></li>
+      <li><a href="https://www.thebasics.org/basics-insights">The Basics: Basics Insights texts</a></li>
+      <li><a href="https://www.zoonewengland.org/franklin-park-zoo/buy-tickets/">Zoo New England: Tickets &amp; EBT discount</a></li>
+      <li><a href="https://nationaldiaperbanknetwork.org/member-directory/">National Diaper Bank Network: Member directory</a></li>
+      <li><a href="https://mass211.org">Mass 211 (find diaper help &amp; services)</a></li>
+    </ul>
+    <h4>Brands, stores &amp; costs · 81</h4>
+    <ul>
+      <li><a href="https://www.10news.com/target-giving-away-5-gift-cards-diaper-purchases/">10News: Target diaper gift card deals</a></li>
+      <li><a href="https://abc7news.com/post/walmart-collecting-old-car-seats-in-exchange-for-gift-cards/5542841/">ABC7: Walmart car seat event (2019)</a></li>
+      <li><a href="https://aeroflowbreastpumps.com/upgrade-breast-pumps">Aeroflow: Insurance breast pumps &amp; upgrades</a></li>
+      <li><a href="https://aeroflowbreastpumps.com/breast-milk-storage-bags-through-insurance">Aeroflow: Milk storage bags through insurance</a></li>
+      <li><a href="https://aeroflowbreastpumps.com/blog/breast-pump-replacement-parts">Aeroflow: Replacement parts through insurance</a></li>
+      <li><a href="https://www.albeebaby.com/collections/uppababy-james-collection">Albee Baby: UPPAbaby rewards</a></li>
+      <li><a href="https://www.amazon.com/baby-reg/benefits/summary">Amazon: Registry benefits</a></li>
+      <li><a href="https://www.amazon.com/gp/help/customer/display.html?nodeId=GV4FFW94JAGFL4RH">Amazon: Registry completion discount terms</a></li>
+      <li><a href="https://www.amazon.com/gp/help/customer/display.html?nodeId=GBLXVKVYG5SBG8HF">Amazon: Registry welcome box terms</a></li>
+      <li><a href="https://www.amazon.com/b?ie=UTF8&amp;node=19290386011">Amazon: Subscribe &amp; Save</a></li>
+      <li><a href="https://www.amazon.com/b?ie=UTF8&amp;node=15283820011">Amazon: Subscribe &amp; Save diapers</a></li>
+      <li><a href="https://www.fox6now.com/news/heres-what-moms-spending-babies-first-year">BabyCenter first-year cost survey (via Fox6, Feb 2025)</a></li>
+      <li><a href="https://www.babylist.com/hello-baby/is-buybuybaby-closing">Babylist: buybuy BABY status (Mar 2026)</a></li>
+      <li><a href="https://www.babylist.com/hello-baby/dell-donations-to-trump-accounts">Babylist: Dell Trump Account gifts (Oct 2026)</a></li>
+      <li><a href="https://www.babylist.com/hello-baby/free-stuff-from-hospital-after-birth">Babylist: Free stuff from the hospital</a></li>
+      <li><a href="https://www.babylist.com/hello-baby/good-buy-gear-used-baby-products">Babylist: Good Buy Gear review</a></li>
+      <li><a href="https://help.babylist.com/hc/en-us/articles/360054057353-How-do-I-get-a-Hello-Baby-Box">Babylist: Hello Baby Box terms</a></li>
+      <li><a href="https://help.babylist.com/hc/en-us/articles/115006102688-How-do-I-use-my-Babylist-registry-discount">Babylist: How to use the completion discount</a></li>
+      <li><a href="https://www.babylist.com/registry-discount">Babylist: Registry completion discount</a></li>
+      <li><a href="https://www.babylist.com/hello-baby/sales-registry-hacks">Babylist: Registry discount roundup</a></li>
+      <li><a href="https://support.babyquip.com/help_center/what-is-babyquip">BabyQuip: Gear rentals</a></li>
+      <li><a href="https://help.buynothingproject.org/collection/11-getting-started">Buy Nothing Project: Getting started</a></li>
+      <li><a href="https://www.kidizen.com">Kidizen: Used kids' clothes app</a></li>
+      <li><a href="https://www.coupons.com/coupon-codes/similac">Coupons.com: Similac</a></li>
+      <li><a href="https://cradlewise.com/en-US/how-much-does-a-baby-cost">Cradlewise: Baby cost breakdown</a></li>
+      <li><a href="https://www.crateandbarrel.com/gift-registry/GrContentPages/RegistryTermsAndConditions">Crate &amp; Barrel: Registry terms (Crate &amp; Kids)</a></li>
+      <li><a href="https://crateandbarrel.com/baby-registry/">Crate &amp; Kids: Baby registry</a></li>
+      <li><a href="https://www.creditkarma.com/cash-flow/i/how-much-does-it-cost-to-raise-a-child">Credit Karma: Cost to raise a child by state</a></li>
+      <li><a href="https://dealhack.com/coupons/owlet">DealHack: Owlet codes</a></li>
+      <li><a href="https://www.enfamil.com/enfamil-family-beginnings">Enfamil Family Beginnings</a></li>
+      <li><a href="https://enfamil.com/baby-formula-coupons-samples/">Enfamil: Coupons &amp; samples</a></li>
+      <li><a href="https://frontdeskreview.com/gear/breast-pumps/spectra-s1-plus-vs-medela-pump-in-style-maxflow/">Front Desk Review: Breast pump prices</a></li>
+      <li><a href="https://goodbuygear.com/pages/sell-by-mail">Good Buy Gear: Sell by mail</a></li>
+      <li><a href="https://www.honest.com">Honest Company: Diaper bundles</a></li>
+      <li><a href="https://cm.huggieshealthcare.com/en-us/nurse-toolkit/family/rewards">Huggies Rewards</a></li>
+      <li><a href="https://www.kctv5.com/2026/09/09/target-announces-dates-annual-car-seat-trade-in-event/">KCTV5: Target trade-in dates (Sept 2026)</a></li>
+      <li><a href="https://thekrazycouponlady.com/2026/07/20/kirkland-signature-diapers-boxes-as-low-as-24-99-per-box-at-costco">Krazy Coupon Lady: Costco Kirkland diaper prices (Jul 2026)</a></li>
+      <li><a href="https://www.macys.com/registry/baby">Macy's: Baby registry</a></li>
+      <li><a href="https://www.macys.com/s/promotional-details/baby-registry-completion/">Macy's: Registry completion discount</a></li>
+      <li><a href="https://money.com/target-return-policy-one-year/">Money: Target registry returns</a></li>
+      <li><a href="https://mother.ly/our-partners/insurance-covered-breast-pumps-edgepark/">Motherly: Edgepark insurance pumps</a></li>
+      <li><a href="https://www.mysubscriptionaddiction.com/best-diaper-subscriptions">My Subscription Addiction: Diaper subscriptions</a></li>
+      <li><a href="https://www.similac.com/products/360-total-care-powder.html">MySimilac Rewards</a></li>
+      <li><a href="https://osuhealthplan.com/sites/default/files/2025-12/breast_pump_flyer_updated_120425_da.pdf">OSU Health Plan: Edgepark &amp; Byram pump flyer (PDF)</a></li>
+      <li><a href="https://support.pampers.com/hc/en-us/articles/21653669474461-What-is-Pampers-Rewards">Pampers Rewards (US)</a></li>
+      <li><a href="https://www.potterybarnkids.com/m/pages/registry/registry-completion">Pottery Barn Kids: Registry completion discount</a></li>
+      <li><a href="https://www.promocodes.com/nanit-coupons">PromoCodes: Nanit codes</a></li>
+      <li><a href="https://www.rakuten.com/store/albeebaby">Rakuten: Albee Baby cash back</a></li>
+      <li><a href="https://www.rakuten.com/store/babybjorn">Rakuten: BabyBjörn</a></li>
+      <li><a href="https://reebelo.com/collections/uppababy">Reebelo: Refurbished UPPAbaby</a></li>
+      <li><a href="https://northshore.rhealana.com/">Rhea Lana's North Shore consignment</a></li>
+      <li><a href="https://www.safeintheseat.com/post/target-car-seat-trade-in-event">Safe in the Seat: Target trade-in history</a></li>
+      <li><a href="https://www.target.com/gift-registry/baby-registry">Target: Baby registry</a></li>
+      <li><a href="https://corporate.target.com/press/fact-sheet/2026/09/target-car-seat-trade-in-fall-2026">Target: Fall 2026 car seat trade-in</a></li>
+      <li><a href="https://www.target.com/help/article/000062588">Target: Registry welcome kit &amp; completion coupon</a></li>
+      <li><a href="https://www.walmart.com/cp/baby-registry/1229485">Walmart: Baby registry</a></li>
+      <li><a href="https://www.walmart.com/ip/307441158">Walmart: Medela Pump In Style price</a></li>
+      <li><a href="https://corporate.walmart.com/news/2025/03/06/special-delivery-walmarts-baby-days-bring-big-deals-for-little-ones">Walmart: Registry returns (Mar 2025)</a></li>
+      <li><a href="https://www.walmart.com/help/article/baby-registry-welcome-box-offer-terms-of-use/ab7999bd49bd4745abd355cfbf41d3e8">Walmart: Welcome box terms</a></li>
+      <li><a href="https://app.warehouserunner.com/costco/1805970-kirkland-signature-diapers-size-3-222ct">Warehouse Runner: Kirkland diaper prices</a></li>
+      <li><a href="https://webbabyshower.com/guides/amazon-baby-registry-discount/">WebBabyShower: Amazon registry discounts</a></li>
+      <li><a href="https://www.babylist.com/hello-baby/free-baby-stuff-while-pregnant">Babylist: Free baby stuff while pregnant (Jul 2026)</a></li>
+      <li><a href="https://www.macys.com/s/baby-registry/welcome-box/">Macy's: Baby registry welcome box</a></li>
+      <li><a href="https://www.macys.com/customer-service/articles/general-gift-registry-information">Macy's: Registry help (lists welcome box)</a></li>
+      <li><a href="https://www.similac.com/rewards.html">MySimilac Rewards sign-up</a></li>
+      <li><a href="https://www.babylist.com/hello-baby/ways-to-save-money-on-baby-formula">Babylist: Ways to save on formula</a></li>
+      <li><a href="https://www.coterie.com/products/trial-pack-diaper">Coterie: Diaper trial pack</a></li>
+      <li><a href="https://dyper.com/products/samples">Dyper: Sample pack</a></li>
+      <li><a href="https://www.terragentle.com/products/free-terra-diaper-sample-2-pack">Terra: Free diaper sample 2-pack</a></li>
+      <li><a href="https://www.terragentle.com/products/bamboo-baby-wipes-pure-nz-water-sample-pack">Terra: Wipes sample pack</a></li>
+      <li><a href="https://www.instagram.com/rascalsbaby/">Rascals: Instagram (sample drops)</a></li>
+      <li><a href="https://www.rascalsbaby.com/en-us/products/premium-diapers">Rascals: Diapers</a></li>
+      <li><a href="https://www.pampers.com/en-us/rewards">Pampers Club rewards</a></li>
+      <li><a href="https://www.heymilestone.com/products/noobie-box-pregnancy-edition">Hey, Milestone: Pregnancy sample box</a></li>
+      <li><a href="https://www.heymilestone.com/collections/sample-boxes/products/newborn-sample-box-1">Hey, Milestone: Newborn sample box</a></li>
+      <li><a href="https://kiinde.com/kiinde-free-breastfeeding-starter-pack-3/">Kiinde: Free breastfeeding starter pack</a></li>
+      <li><a href="https://docs.google.com/forms/d/e/1FAIpQLSfTOMU_YmudiQX2FolaNhQw6TTjLAFwSSgiQmfNNL1kolIvqg/viewform">Munchkin: Product tester application</a></li>
+      <li><a href="https://www.kolcraft.com/welcome-to-mom-matters/">Kolcraft: Mom Matters product testing</a></li>
+      <li><a href="https://buynothingproject.org">Buy Nothing Project (find your neighborhood group)</a></li>
+      <li><a href="https://www.target.com/c/car-seat-trade-in-event/-/N-v41nu">Target: Car seat trade-in event page</a></li>
+      <li><a href="https://www.target.com/b/picolette-by-olivia-culpo/-/N-q643leco71e">Target: Picolette by Olivia Culpo baby line</a></li>
+    </ul>
+  </div>
+</section>
+
+<footer>Prototype for the Baby Benefits app idea · Researched October 20–21, 2026. Programs and store offers change; check each source before acting. This isn't tax, legal, or financial advice.</footer>
+</div>

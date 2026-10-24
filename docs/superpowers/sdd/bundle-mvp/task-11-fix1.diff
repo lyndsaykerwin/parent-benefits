@@ -1,0 +1,103 @@
+diff --git a/server/__tests__/ingest.test.ts b/server/__tests__/ingest.test.ts
+index 94558f7..530716e 100644
+--- a/server/__tests__/ingest.test.ts
++++ b/server/__tests__/ingest.test.ts
+@@ -29,10 +29,27 @@ describe('parseAmazonCsv', () => {
+     const [r] = parseAmazonCsv(csv, 'x');
+     expect(r).toMatchObject({ title: 'Diapers, size 1', asin: 'B0DIAPER01', priceCents: 2450, orderDate: '2026-10-01' });
+   });
+ });
+ 
++describe('id uniqueness and guards', () => {
++  it('gives unique ids to lines sharing an Order ID', () => {
++    const csv = 'Order ID,Order Date,Product Name,ASIN,Unit Price\nA1,2026-10-01,Wipes,B01,5.00\nA1,2026-10-01,Diapers,B02,20.00\n';
++    const rows = parseAmazonCsv(csv, 'x');
++    expect(rows.length).toBe(2);
++    expect(new Set(rows.map((r) => r.id)).size).toBe(2);
++  });
++  it('gives unique fallback ids to identical Plaid lines without ids', () => {
++    const t = { amount: 5, merchant_name: 'Target', date: '2026-10-10' };
++    expect(mapPlaidTxn(t, 'x', 0).id).not.toBe(mapPlaidTxn(t, 'x', 1).id);
++  });
++  it('throws on an empty familyId', () => {
++    expect(() => parseAmazonCsv(CSV, '')).toThrow();
++    expect(() => mapPlaidTxn({ amount: 1, date: '2026-10-10' }, '')).toThrow();
++  });
++});
++
+ describe('mapPlaidTxn', () => {
+   it('maps dollars to integer cents and prefers merchant_name', () => {
+     const t = mapPlaidTxn({ amount: 28.99, merchant_name: 'Target', date: '2026-10-10' }, 'maya');
+     expect(t.amountCents).toBe(2899);
+     expect(t.merchant).toBe('Target');
+diff --git a/server/ingest/amazonCsv.ts b/server/ingest/amazonCsv.ts
+index aeab015..4e01d3f 100644
+--- a/server/ingest/amazonCsv.ts
++++ b/server/ingest/amazonCsv.ts
+@@ -29,10 +29,11 @@ function splitLine(line: string): string[] {
+ }
+ 
+ const ISO = /^\d{4}-\d{2}-\d{2}/;
+ 
+ export function parseAmazonCsvWithStats(csv: string, familyId: string): { rows: AmazonOrderRow[]; skipped: number } {
++  if (!familyId || !familyId.trim()) throw new Error('familyId is required');
+   const lines = csv.trim().split(/\r?\n/).filter((l) => l.trim() !== '');
+   if (lines.length === 0) return { rows: [], skipped: 0 };
+   const header = splitLine(lines[0]).map((h) => h.trim().toLowerCase());
+   const idx = (k: string) => header.findIndex((h) => ALIASES[k].includes(h));
+   const [iId, iDate, iTitle, iAsin, iUpc, iPrice] = ['id', 'orderDate', 'title', 'asin', 'upc', 'price'].map(idx);
+@@ -49,11 +50,12 @@ export function parseAmazonCsvWithStats(csv: string, familyId: string): { rows:
+     if (!ISO.test(date) || Number.isNaN(Date.parse(`${date.slice(0, 10)}T00:00:00Z`)) || !title || Number.isNaN(price)) {
+       skipped++;
+       return;
+     }
+     rows.push({
+-      id: (iId >= 0 && c[iId]?.trim()) || `${familyId}-amz-${n + 1}`,
++      // Unique even if an export repeats an Order ID (one order, several items): order id + line number.
++      id: `${(iId >= 0 && c[iId]?.trim()) || `${familyId}-amz`}-L${n + 1}`,
+       familyId,
+       orderDate: date.slice(0, 10),
+       title,
+       asin: (iAsin >= 0 && c[iAsin]?.trim()) || null,
+       upc: (iUpc >= 0 && c[iUpc]?.trim()) || null,
+diff --git a/server/ingest/plaid.ts b/server/ingest/plaid.ts
+index 16d71d6..6d6a5b4 100644
+--- a/server/ingest/plaid.ts
++++ b/server/ingest/plaid.ts
+@@ -1,8 +1,9 @@
+ // Maps Plaid-shaped transactions into Bundle's transactions table shape.
+ // Live Plaid is "coming soon"; today the sample fixture uses the same mapper.
+ import fs from 'fs';
++import { createHash } from 'crypto';
+ import path from 'path';
+ import type * as s from '../../shared/schema';
+ 
+ export type TransactionRow = typeof s.transactions.$inferInsert;
+ 
+@@ -15,14 +16,15 @@ export interface PlaidTxn {
+   /** Dollars. Plaid's positive amount means money going out. */
+   amount: number;
+   personal_finance_category?: { primary?: string; detailed?: string } | null;
+ }
+ 
+-export function mapPlaidTxn(t: PlaidTxn, familyId: string): TransactionRow {
++export function mapPlaidTxn(t: PlaidTxn, familyId: string, index = 0): TransactionRow {
++  if (!familyId || !familyId.trim()) throw new Error('familyId is required');
+   const amountCents = Math.round(t.amount * 100);
+   return {
+-    id: t.transaction_id ?? `${familyId}-${t.date}-${amountCents}`,
++    id: t.transaction_id ?? `${familyId}-tx-${createHash('sha1').update(`${t.date}|${t.merchant_name || t.name || ''}|${amountCents}|${index}`).digest('hex').slice(0, 12)}`,
+     familyId,
+     date: t.date,
+     merchant: t.merchant_name || t.name || 'Unknown',
+     amountCents,
+     category: t.personal_finance_category?.detailed ?? '',
+@@ -31,7 +33,7 @@ export function mapPlaidTxn(t: PlaidTxn, familyId: string): TransactionRow {
+ }
+ 
+ /** Reads the sample Plaid-format file (run from the repo root, as npm scripts and jest do). */
+ export function loadPlaidFixture(dir = path.resolve(process.cwd(), 'data/sample')): TransactionRow[] {
+   const raw: PlaidTxn[] = JSON.parse(fs.readFileSync(path.join(dir, 'plaid-transactions.json'), 'utf8'));
+-  return raw.map((p) => mapPlaidTxn(p, p.family_id ?? ''));
++  return raw.map((p, i) => mapPlaidTxn(p, p.family_id ?? '', i));
+ }

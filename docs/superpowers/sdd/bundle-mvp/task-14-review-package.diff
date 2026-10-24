@@ -1,0 +1,793 @@
+e3bd70a docs: readme, data notes, metadata, examples; SAMPLE_MODE runs with no secrets
+ server/__tests__/sampleMode.test.ts |  41 ++++++++
+ server/adapters/memory.ts           |   7 ++
+ server/adapters/zetaris.ts          |   5 +
+ server/agents/orchestrator.ts       |   5 +-
+ server/bundleDeps.ts                |  17 +++-
+ server/index.ts                     |   5 +-
+ server/sampleZips.ts                |  17 ++++
+ 28 files changed, 710 insertions(+), 37 deletions(-)
+diff --git a/.env.example b/.env.example
+index 007fa11..0ae3a1f 100644
+--- a/.env.example
++++ b/.env.example
+@@ -1,28 +1,40 @@
+-# Copy to .env.local (or keep real values in ../.secrets/bundle.env.local).
+-# Placeholders only. Never commit real values.
++# Copy to .env (cp .env.example .env). Placeholders only. Never commit real values.
++# With SAMPLE_MODE=true nothing below needs a real value: the app runs from saved sample data.
+ 
+-DATABASE_URL="postgresql://user:password@ep-xxxxx.region.aws.neon.tech/dbname?sslmode=require"
++# Run with no keys: families from data/sample/families.json, Zetaris answered from
++# data/sample/zetaris-cache (saved real responses), offline text when MODEL_API_KEY is empty.
++SAMPLE_MODE=true
+ 
++PORT=5050
++
++# --- Live mode only (SAMPLE_MODE=false) ---
++# Neon Postgres (where families, offers and benefit rules live)
++# DATABASE_URL="postgresql://user:password@ep-xxxxx.region.aws.neon.tech/dbname?sslmode=require"
++
++# Zetaris (the SQL "data door")
+ ZETARIS_BASE_URL=""
+ ZETARIS_ORG_ID=""
+ ZETARIS_API_KEY=""
+ 
++# AI model (NVIDIA-hosted, OpenAI-compatible). Empty = the app uses offline fallback text.
+ MODEL_API_KEY=""
+ MODEL_BASE_URL=https://integrate.api.nvidia.com/v1
++# Model ids: pick on build.nvidia.com. Left empty on purpose; the app still runs.
+ MODEL_REASONING=""
+ MODEL_FAST=""
+ 
+-SAMPLE_MODE=false
+ SOURCE_TIMEOUT_SECONDS=20
+ MAX_RETRIES=2
++
++# Reviewer mode token (lets a judge approve a proposed rule). Empty = Reviewer mode off.
+ REVIEWER_MODE_TOKEN=""
++
++# Demo date for the sample families (defaults to 2026-10-23)
+ TODAY=""
+ 
+-PORT=5000
++# Set to 1 when hosted behind a proxy
++TRUST_PROXY=""
+ 
+ # Optional (payments, not used right now)
+ # STRIPE_SECRET_KEY=""
+ # STRIPE_WEBHOOK_SECRET=""
+-
+-# Model ids: to confirm on build.nvidia.com (leave empty until chosen; the app still runs, AI calls fall back).
+-# MODEL_REASONING / MODEL_FAST above are placeholders on purpose.
+diff --git a/.gitignore b/.gitignore
+index 267420c..b9e4f24 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -10,11 +10,12 @@ coverage
+ .env
+ .env.*
+ !.env.example
+ 
+ # Bundle runtime files
+ logs/*.jsonl
++!logs/sample/*.jsonl
+ vendor/hmem/node_modules
+ data/hmem/
+ 
+ # Claude Code local config
+ .mcp.json
+diff --git a/LICENSE b/LICENSE
+new file mode 100644
+index 0000000..ce7c9f7
+--- /dev/null
++++ b/LICENSE
+@@ -0,0 +1,31 @@
++MIT License
++
++Copyright (c) 2026 Bundle contributors
++
++Permission is hereby granted, free of charge, to any person obtaining a copy
++of this software and associated documentation files (the "Software"), to deal
++in the Software without restriction, including without limitation the rights
++to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
++copies of the Software, and to permit persons to whom the Software is
++furnished to do so, subject to the following conditions:
++
++The above copyright notice and this permission notice shall be included in all
++copies or substantial portions of the Software.
++
++THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
++IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
++FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
++AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
++LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
++OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
++SOFTWARE.
++
++---
++
++Pre-existing components included in this repository, each under its own licence:
++
++- Starter template: "VibeCode Template" by Colin Matthews (MIT, as declared in its
++  package.json), imported unchanged in commit b2bc3be (upstream commit 6af369a),
++  then trimmed. Its auth, payments and chat code was removed.
++- vendor/hmem: Meterless H-MEM reference implementation (Apache License 2.0).
++  See vendor/hmem/NOTICE.
+diff --git a/README.md b/README.md
+index 22d3868..3532416 100644
+--- a/README.md
++++ b/README.md
+@@ -1,14 +1,185 @@
+ # Bundle
+ 
+-Helps new parents find, check and match benefits and deals. Guest-only (no sign-in).
++> **Track:** Track 1: Solving Fragmented Intelligence
++> **Sponsor technology:** Zetaris (SQL data door), Meterless H-MEM (memory), NVIDIA-hosted models (optional), built in Cursor
++> **Run with no keys:** `cp .env.example .env && npm ci && npm run dev`, then `POST /api/run` on port 5050
+ 
+-Started from the MIT-licensed VibeCode template (commit 6af369a); see the first git commit.
++## 1. Problem
+ 
++New parents are owed money, benefits and safety information that is scattered across a dozen places: a tax credit on
++one government site, a leave programme on another, a refund window buried in a store's help page, a crib-mattress
++recall on a federal safety feed. Nobody has the time to line these up, and many "free" baby offers hide a paid
++membership in the fine print.
++
++Bundle's agents **find, check and prepare** these for one family, show where each answer came from, and learn from
++parent feedback. (Bundle prepares; it does not give advice. Wording is "likely eligible", never "eligible".)
++
++Example year-one value for a Boston family is in `research-boston-baby-benefits.html` (project research, not part of the app).
++
++## 2. Agents
++
++| Agent | Responsibility | Can block or retry? |
++|---|---|---|
++| Orchestrator | Runs the agents side by side; one failing never stops the rest; builds a never-empty feed | Yes (keeps going, shows a banner) |
++| Clawback Hunter | Finds money that can come back: FSA/HSA-eligible spend, store price-adjustment refunds, daycare for a Dependent Care FSA | Revises when sent back |
++| Recall Checker | Checks purchases against live government recall feeds through Zetaris | Revises when sent back |
++| Benefits Planner | Likely benefits and deadlines from birth or due date | Revises when sent back |
++| Fine Print Court | Deal hunter proposes, fine-print lawyer attacks, judge rules (max 5 offers per run) | **Yes: rejects offers** |
++| Fact-Checker | Every card needs a source link, correct dollars and dates | **Yes: sends back up to 2 times, then drops the card and logs it** |
++| Coach | Turns "report an issue" feedback into proposed rules; a reviewer approves them into memory | Proposes only |
++| Scout (script) | Reads 3 saved pages and proposes benefit rows; rows not written on the page are rejected | Fact-Checker rejects |
++
++What makes this more than a chain: the agents share one memory (learned rules), the Fact-Checker can send work back
++or drop it, the Court can block an offer, sources can fail and the run still finishes, and a rule learned in run 1
++changes the outcome of run 2. Diagram: [`docs/architecture.md`](docs/architecture.md).
++
++## 3. Tech stack
++
++| Part | Technology |
++|---|---|
++| Server | Node 24, Express, TypeScript |
++| App | React, Vite, Tailwind (mobile first, 375px) |
++| Data door | **Zetaris**: one SQL layer over a Neon Postgres database and live public recall feeds |
++| Memory | **Meterless H-MEM** reference implementation (vendored in `vendor/hmem`, Apache-2.0) |
++| Models | NVIDIA-hosted models through an OpenAI-compatible endpoint (optional) |
++| Database | Neon Postgres via Drizzle (live mode only) |
++| Built in | Cursor |
++| Logging | One JSON line per event in `logs/run-<id>.jsonl` |
++
++## 4. Setup
++
++Needs Node 24 or newer. No GPU. No keys for the sample run.
++
++```bash
++cp .env.example .env     # SAMPLE_MODE=true is already set
++npm ci
++npm run dev              # http://localhost:5050
+ ```
+-npm install
+-npm run dev      # http://localhost:5000, API health at /api/health
+-npm test
++
++Starts in a few seconds. Open http://localhost:5050 for the app, or call the API below.
++
++Other commands:
++
++```bash
++npm test         # unit tests
+ npm run check    # type check
++npm run eval     # the evals (answer key) and prints the scoreboard
++npm run build && npm start   # production build
++```
++
++## 5. Usage
++
++```bash
++curl -s -XPOST 'localhost:5050/api/run?wait=true' \
++  -H 'content-type: application/json' \
++  -d @input_examples/leo.json
+ ```
+ 
+-Settings are read from `../.secrets/bundle.env.local`, then `.env.local` and `.env`. See `.env.example`.
++Request (a sample family, or type your own: `{"zip":"02446","birthDate":"2026-10-10"}`):
++
++```json
++{ "familyId": "leo" }
++```
++
++Response (abridged; full files in `output_examples/`):
++
++```json
++{
++  "runId": "leo-34c1e1b4-...",
++  "cards": [
++    { "kind": "benefit", "title": "Federal Child Tax Credit", "amountCents": 220000, "verdict": "likely",
++      "sources": [{ "label": "Federal Child Tax Credit", "url": "https://www.irs.gov/credits-deductions/individuals/child-tax-credit" }] }
++  ],
++  "receipt": { "moneyBackCents": 0, "likelyBenefitsCents": 364000, "deadlineCount": 2, "nextDeadline": "2027-01-06", "itemsChecked": 0 }
++}
++```
++
++Without `?wait=true` the call returns `202 {runId}` right away; poll `GET /api/runs/:runId`, and read the agents' trace
++at `GET /api/runs/:runId/trace`. Other routes: `GET /api/scoreboard`, `POST /api/feedback`, `GET /api/case-law`.
++Money is integer cents, computed in code, never by the model.
++
++## 6. Sample mode (honest version)
++
++`SAMPLE_MODE=true` (the default in `.env.example`) lets you run with **no keys and no database**:
++
++- The three families come from `data/sample/families.json` (made up).
++- **Zetaris is answered from saved real responses** (`data/sample/zetaris-cache/`, 113 files, captured 2026-10-23 by running the agents live against Zetaris). Nothing is pre-written: the agents still run their queries, the fact-checks and the court. See `data/README.md`.
++- **Without `MODEL_API_KEY`, the model-written parts fall back to deterministic text.** The Fine Print Court uses a plain screen (rejects offers matching a learned rule's keywords or an explicit shipping/handling fee over $5; trace status `fallback`). Explanations use fixed text.
++- Memory is H-MEM running locally (folder `data/hmem`, created on first run).
++- The sample families run on a fixed **demo date, 2026-10-23**, so their deadlines make sense. Change it with `TODAY=YYYY-MM-DD`. A family you type in uses the real date.
++- A family you type in asks new SQL that isn't in the cache, so you will see the banner "Some sources didn't respond" and a safe, never-empty feed (`output_examples/custom-family.json`). That is the failure handling working, and it is also a limit of sample mode. Add Zetaris keys and the same code queries live.
++
++Live mode: set `SAMPLE_MODE=false`, `DATABASE_URL`, the `ZETARIS_*` values and `MODEL_*` values, then `npm run seed`.
++Secrets go only in `.env` (git-ignored). `.env.example` holds placeholders.
++
++## 7. How failures are handled
++
++| What fails | What happens |
++|---|---|
++| A Zetaris query errors or times out | Retry once; if a saved response exists it is used (logged as `fallback`); otherwise that agent is skipped, the others finish, and the feed shows a banner |
++| An agent throws | The orchestrator logs `agent_failed` and continues |
++| The model is unavailable | Deterministic text and a plain court screen; logged as `fallback` |
++| A claim has no source, or a wrong amount or date | Fact-Checker sends it back (max 2), then drops it and logs the drop |
++| Too little to show | The feed is never empty: fixed minimums of benefits, one recall card, discounts, and two "coming soon" tiles |
++| Abuse | Rate limit of 10 runs per IP per 10 minutes; typed-in families are never saved |
++
++## 8. Proof: logs and the scoreboard
++
++- Every Zetaris query, memory call and agent step is one JSON line (fields: `timestamp, trace_id, agent_name, action, input_summary, output_summary, target_agent, confidence, retry_count, status`). Saved runs: `logs/sample/` (maya, leo, ava, custom-family). Live runs write `logs/run-<id>.jsonl`.
++- `npm run eval` prints the scoreboard and saves `logs/scoreboard.json`. Latest saved result (demo date 2026-10-23):
++
++| Measure | Result |
++|---|---|
++| Planted traps caught | **6 of 6** (auto-renew offer, wrong-amount Scout row, recalled crib mattress, refund, duplicate purchase, out-of-state family) |
++| False alarms | **0** |
++| Cards with a source | **100%** |
++| Learning demo | Run 1 approves the "free trial that auto-renews" offer; a reviewer-approved rule is stored in memory; run 2 **blocks** it and cites that rule (`mem-1`) |
++
++  This saved scoreboard was produced with the offline fallbacks (`llmMode: "offline-fallback"`, Scout `fake-llm`), not a live model. The learning traces are in `output_examples/learning/`.
++
++## 9. Folder map
++
++| Hackathon suggestion | Here |
++|---|---|
++| `app/agents/` | `server/agents/` |
++| `app/orchestration/` | `server/agents/orchestrator.ts`, `server/bundleDeps.ts` |
++| `app/adapters/` | `server/adapters/` (`zetaris.ts`, `memory.ts`, `llm.ts`), sample data in `data/sample/` |
++| `input_examples/` | `input_examples/` (4 requests) |
++| `output_examples/` | `output_examples/` (4 saved SAMPLE_MODE runs + learning traces) |
++| `logs/` | `logs/` (`logs/sample/` committed) |
++| UI | `client/` |
++
++`output_examples/` are real saved responses from `SAMPLE_MODE=true` runs (replayed Zetaris, offline fallbacks), not live results.
++
++## 10. Data and licences
++
++See [`data/README.md`](data/README.md): each source, licence, record count, how to rebuild it, and limits. All families
++and purchases are made up. No real personal data and no income in logs.
++
++## 11. Limitations
++
++- Sample mode replays saved Zetaris answers, so only the three sample families run fully offline.
++- The saved scoreboard used offline fallbacks; model quality is not measured there.
++- Benefit amounts and windows are hand-checked as of 2026-10-23 and can go stale. Poverty-guideline figures were not independently re-verified.
++- Offers are one hand-checked snapshot; the Scout demo reads only 3 saved, hand-written page excerpts.
++- No real bank or retailer connections; the Plaid-shaped data is a fixture. The Amazon upload is optional.
++- "Likely eligible" is a screening, not a determination.
++- Zetaris data-quality rules were not set up; the Fact-Checker's "no source" rule is the enforced backstop.
++
++## 12. Pre-existing components (not built during Oct 22-27)
++
++- **VibeCode starter template** by Colin Matthews (MIT), upstream commit 6af369a (the task notes cite a9542c2, the Firebase-era commit; we used the later guest-only HEAD). Imported in commit `b2bc3be`, then trimmed (auth, payments and chat removed). It provides the Express/React/Drizzle skeleton.
++- **Meterless H-MEM reference implementation** (Apache-2.0), vendored unchanged in `vendor/hmem` (see its NOTICE).
++- **Zetaris getting-started** patterns (query client shape, REST table recipe).
++- **Pre-Oct-22 research and planning** (benefit research, plans).
++
++Everything else (agents, orchestrator, Fact-Checker, court, Coach, Scout, evals, UI, seed data, sample cache) was built in the hackathon window.
++
++## 13. Sponsor tech
++
++- **Zetaris:** the one door for all data. Agents never talk to Postgres or the recall sites directly; they send SQL to Zetaris (`server/adapters/zetaris.ts`). The key trick: **one query joins a private purchase list with a live government recall feed** (`bundle_pg` x `bundle_live.cpsc_recalls`). Registered objects: `scripts/zetaris/register.ts`. Every query is a trace line.
++- **Meterless H-MEM:** stores rules learned from parent feedback (long-term memory with confidence and an append-only ledger); the Fine Print Court recalls them. `server/adapters/memory.ts`.
++- **NVIDIA:** optional hosted models for explanations and court reasoning (`server/adapters/llm.ts`); everything degrades to offline text.
++- **Cursor:** the build tool.
++
++Licence: MIT (see `LICENSE`).
+diff --git a/data/README.md b/data/README.md
+new file mode 100644
+index 0000000..95c7cc2
+--- /dev/null
++++ b/data/README.md
+@@ -0,0 +1,53 @@
++# Data notes
++
++Plain-English summary: **every family and purchase in this project is made up.** The recalls, benefit rules
++and store policies are real public facts, entered or fetched by hand and kept small on purpose.
++
++## What is real and what is made up
++
++| Kind | Real or made up |
++|---|---|
++| Families (maya, leo, ava), bank-style transactions, Amazon orders | Made up. Income figures are invented and never appear in logs. |
++| Recalls (CPSC, FDA) | Real, from the government feeds below. |
++| Benefit rules, FSA categories, store return/price policies, offers | Real public programmes and policies, summarised by hand with a source link each. |
++| One offer ("Free newborn diaper box", Cuddle & Co) | **Made up on purpose** as a trap: it quietly turns into a paid membership. Its URL is a placeholder. |
++| Saved Scout pages in `data/sample/saved-pages/` | **Hand-written short excerpts** (not copies) of public pages, with the source URL in each file and the capture date 2026-10-23. The live sites blocked automated download. |
++| Zetaris replay cache in `data/sample/zetaris-cache/` | **Saved real Zetaris responses** (113 files) over the made-up family data and the real recall feeds. Captured 2026-10-23 between about 10:18 and 14:18 (US Eastern) by running the agents live. |
++
++## Sources
++
++| Source | Link | Licence / terms | What we used | Records | Rebuild | Limits |
++|---|---|---|---|---|---|---|
++| CPSC recalls (US Consumer Product Safety Commission) | https://www.saferproducts.gov/RestWebServices/Recall?format=json | US government data, free to use | Recalls since 2025-06-01, read live through Zetaris table `bundle_live.cpsc_recalls` | 739 when captured (2026-10-23) | `npx tsx scripts/zetaris/register.ts` (creates the Zetaris table; needs Zetaris keys) | A recall is matched to a purchase by brand and model words, then confirmed by a second check. Titles on real receipts are messy, so a miss is possible. |
++| openFDA food enforcement (infant formula) | https://api.fda.gov/food/enforcement.json | openFDA data is public domain (CC0) | First 100 results for "infant formula", through `bundle_live.fda_food_recalls` | 42 matches when captured | Same script as above | Capped at 100 results. Dates arrive as numbers and are normalised in the Recall Checker. |
++| Benefit rules | Each rule links its own page (IRS, healthcare.gov, mass.gov, USDA, trumpaccounts.gov) | Public government pages, summarised by hand | 7 rules in `scripts/seed.ts` (`BENEFIT_RULES`), also `data/sample/fallback-rules.json` | 7 | `npm run seed` (needs DATABASE_URL) | Amounts and windows are as of 2026-10-23 and can change. The Fact-Checker needs a source link on every card. |
++| Offers (registry gifts, rewards, trap) | The store page linked on each offer | Public marketing pages, summarised by hand | `OFFERS` in `scripts/seed.ts`, also `data/sample/fallback-offers.json` | 16 (15 real programmes, 1 planted trap) | `npm run seed` | Offer terms change often. Only one hand-checked snapshot; the Scout reads 3 saved pages as a demo of auto-refresh. |
++| FSA/HSA categories | fsastore.com and IRS Publications 502/503 | Public pages, summarised by hand | 12 keyword rules (`FSA_CATEGORIES`) | 12 | `npm run seed` | Keyword matching, so unusual product names can be missed. |
++| Store price-adjustment policies | Each store's help page | Public pages, summarised by hand | Target 14 days, Best Buy 15, Costco 30 | 3 | `npm run seed` | Policies change. Prices in `price_observations` are made-up saved observations. |
++| Poverty guidelines 2026 | https://aspe.hhs.gov/topics/poverty-economic-mobility/poverty-guidelines | US government data | WIC screening income check | 8 household sizes | `npm run seed` | Figures were not independently re-verified. |
++| ZIP prefix to state | Hand-written | n/a | MA, OH, NY, CA, TX, NH prefixes only (`server/sampleZips.ts`) | 164 prefixes | Edit the file | Other states are rejected with "Enter a valid US ZIP code". |
++
++## Sample inputs (made up)
++
++- `data/sample/families.json`: 3 families. `maya` (MA, baby born 2026-10-03), `leo` (MA, due 2026-12-07, no data connected), `ava` (OH, born 2026-08-24).
++- `data/sample/plaid-transactions.json`: 15 bank-style transactions (Plaid's field shape).
++- `data/sample/amazon-orders.csv`: 3 orders, for maya.
++- Planted test cases and what a correct run does with each: see `data/sample/README.md`.
++
++## Demo date
++
++The sample families only make sense around 2026-10-23 (a price-adjustment window, a 30-day insurance window).
++They therefore run at that **demo date** unless the `TODAY` setting overrides it, and the app labels it.
++A family you type in uses the real date.
++
++## Why a cache, and what it means for SAMPLE_MODE
++
++Zetaris answers are saved by the exact SQL text. With `SAMPLE_MODE=true` and no Zetaris keys, the three sample
++families replay these saved real responses, so a judge can run everything with no keys. A new family you type in
++asks different SQL, misses the cache, and the app shows its "some sources didn't respond" banner with a safe,
++never-empty feed (see `output_examples/custom-family.json`). With real keys the same code queries Zetaris live.
++
++## Re-capturing the cache
++
++With Zetaris keys in `.env`: `npx tsx scripts/run-family.ts maya` (and `leo`, `ava`). Every live query is written to
++`data/sample/zetaris-cache/`.
+diff --git a/docs/architecture.md b/docs/architecture.md
+new file mode 100644
+index 0000000..2a7c6e4
+--- /dev/null
++++ b/docs/architecture.md
+@@ -0,0 +1,67 @@
++# Architecture
++
++Bundle is a small team of agents. Each one is a separate step in `server/agents/`, and the Fact-Checker can send work
++back or drop it. Everything the agents read goes through one SQL door (Zetaris).
++
++```mermaid
++flowchart TD
++    UI[Parent opens the app<br/>or calls POST /api/run] --> API[Express API<br/>server/routes/bundleRoutes.ts]
++    API --> ORC[Orchestrator<br/>server/agents/orchestrator.ts]
++    ORC --> TR[(logs/run-ID.jsonl<br/>one JSON line per event)]
++
++    ORC --> CH[Clawback Hunter<br/>money already spent that can come back]
++    ORC --> RC[Recall Checker<br/>purchases vs live recall feeds]
++    ORC --> BP[Benefits Planner<br/>programmes and deadlines]
++    ORC --> FPC[Fine Print Court<br/>deal hunter, lawyer, judge]
++
++    CH --> ZET
++    RC --> ZET
++    BP --> ZET
++    FPC --> ZET
++    ZET{{Zetaris: one SQL layer}} --> PG[(Neon Postgres<br/>families, offers, rules)]
++    ZET --> CPSC[(Live CPSC recalls)]
++    ZET --> FDA[(Live openFDA recalls)]
++    ZET -. SAMPLE_MODE .-> CACHE[(data/sample/zetaris-cache<br/>saved real responses)]
++
++    FPC <--> MEM[(Meterless H-MEM<br/>learned rules)]
++
++    CH --> FACT
++    RC --> FACT
++    BP --> FACT
++    FPC --> FACT
++    FACT[Fact-Checker<br/>needs a source, right dollars and dates] -- send back, max 2 retries --> CH
++    FACT -- send back --> RC
++    FACT -- send back --> BP
++    FACT -- send back --> FPC
++    FACT -- verified cards only --> FEED[Never-empty feed + Receipt]
++    FEED --> API
++
++    UI -- got it / report an issue --> COACH[Coach<br/>turns issues into proposed rules]
++    COACH --> REV[Reviewer approves a rule]
++    REV --> MEM
++```
++
++## Agents and who can block whom
++
++| Agent | File | Job | Can block or retry? |
++|---|---|---|---|
++| Orchestrator | `server/agents/orchestrator.ts` | Runs the agents side by side, survives any one failing, builds the feed | Yes: keeps going and shows a banner when a source fails |
++| Clawback Hunter | `clawback.ts` | Finds FSA/HSA-eligible spend, price-adjustment refunds, daycare for the Dependent Care FSA | Revises when the Fact-Checker sends it back |
++| Recall Checker | `recall.ts` | Joins purchases to recall feeds through Zetaris, then confirms the match | Revises when sent back |
++| Benefits Planner | `benefits.ts` | Likely benefits and deadlines from the child's birth or due date | Revises when sent back |
++| Fine Print Court | `finePrintCourt.ts` | Deal hunter proposes, lawyer attacks fine print, judge rules (max 5 offers per run) | **Yes: rejects offers**, including those matching a learned rule |
++| Fact-Checker | `factChecker.ts` | Every card needs a source, correct amount and date | **Yes: sends back (max 2 retries), then drops the card and logs the drop** |
++| Coach | `coach.ts` | Turns parent issue reports into proposed rules | Proposes only; a reviewer approves |
++| Scout (script) | `scripts/scout.ts` | Reads 3 saved pages and proposes benefit rows; wrong rows are rejected | Fact-Checker rejects rows not on the page |
++
++## Folder map (to the hackathon's suggested layout)
++
++| Suggested | Here |
++|---|---|
++| `app/agents/` | `server/agents/` |
++| `app/orchestration/` | `server/agents/orchestrator.ts`, `server/bundleDeps.ts` |
++| `app/adapters/` (zetaris, meterless, sample data) | `server/adapters/zetaris.ts`, `server/adapters/memory.ts`, `server/adapters/llm.ts`, `data/sample/` |
++| `data/sample/` | `data/sample/` |
++| `input_examples/` | `input_examples/` |
++| `output_examples/` | `output_examples/` |
++| `logs/` | `logs/` (live runs are git-ignored; saved examples are in `logs/sample/`) |
+diff --git a/input_examples/ava.json b/input_examples/ava.json
+new file mode 100644
+index 0000000..a6655ba
+--- /dev/null
++++ b/input_examples/ava.json
+@@ -0,0 +1 @@
++{"familyId":"ava"}
+diff --git a/input_examples/custom-family.json b/input_examples/custom-family.json
+new file mode 100644
+index 0000000..3394a99
+--- /dev/null
++++ b/input_examples/custom-family.json
+@@ -0,0 +1 @@
++{"zip":"02446","birthDate":"2026-10-10","employer":"Example Co"}
+diff --git a/input_examples/leo.json b/input_examples/leo.json
+new file mode 100644
+index 0000000..6e28b8f
+--- /dev/null
++++ b/input_examples/leo.json
+@@ -0,0 +1 @@
++{"familyId":"leo"}
+diff --git a/input_examples/maya.json b/input_examples/maya.json
+new file mode 100644
+index 0000000..ea116fc
+--- /dev/null
++++ b/input_examples/maya.json
+@@ -0,0 +1 @@
++{"familyId":"maya"}
+diff --git a/metadata.json b/metadata.json
+new file mode 100644
+index 0000000..af29db7
+--- /dev/null
++++ b/metadata.json
+@@ -0,0 +1,37 @@
++{
++  "_note": "The HackOS metadata format was not published when this was written. Fields below are a sensible guess: check them against the HackOS submission form and rename or reshape as needed.",
++  "project_name": "Bundle",
++  "tagline": "AI agents that find, check and prepare new-parent benefits, refunds and deals, and learn from parent feedback.",
++  "hackathon": "Open Agent Hackathon 2026",
++  "track": "Track 1: Solving Fragmented Intelligence",
++  "team": [{ "name": "Lyndsay Kerwin", "role": "Solo builder" }],
++  "repository": "https://github.com/REPLACE-ME/bundle",
++  "demo_video": "https://REPLACE-ME/demo-video",
++  "slide_deck": "https://REPLACE-ME/slide-deck",
++  "live_demo": "https://REPLACE-ME/live-demo",
++  "license": "MIT",
++  "run": {
++    "install": "npm ci",
++    "start": "cp .env.example .env && npm run dev",
++    "port": 5050,
++    "api_example": "curl -XPOST localhost:5050/api/run?wait=true -H 'content-type: application/json' -d @input_examples/leo.json",
++    "sample_mode": true,
++    "requires_gpu": false,
++    "requires_secrets_in_sample_mode": false
++  },
++  "sponsor_tech": {
++    "zetaris": "One SQL layer over a private Postgres database (bundle_pg) and live public recall feeds (bundle_live.cpsc_recalls, fda_food_recalls). Every agent reads through it. server/adapters/zetaris.ts, scripts/zetaris/",
++    "meterless": "H-MEM reference memory (vendored, Apache-2.0) stores the rules Bundle learns from parent feedback; the Fine Print Court recalls them. server/adapters/memory.ts, vendor/hmem/",
++    "nvidia": "Optional: NVIDIA-hosted models through an OpenAI-compatible endpoint (MODEL_BASE_URL) write short explanations and judge offers. Without a key, offline fallbacks run. server/adapters/llm.ts",
++    "cursor": "Built in Cursor."
++  },
++  "pre_existing_components": [
++    "VibeCode starter template by Colin Matthews (MIT), upstream commit 6af369a, imported in commit b2bc3be",
++    "Meterless H-MEM reference implementation (Apache-2.0), vendored in vendor/hmem",
++    "Zetaris getting-started patterns (zetaris-getting-started repo)",
++    "Pre-Oct-22 research and planning documents"
++  ],
++  "scoreboard": "logs/scoreboard.json",
++  "sample_traces": "logs/sample/",
++  "data_notes": "data/README.md"
++}
+diff --git a/package.json b/package.json
+index 4452f82..d68e421 100644
+--- a/package.json
++++ b/package.json
+@@ -10,13 +10,15 @@
+     "dev": "tsx server/index.ts",
+     "test": "NODE_ENV=test npx jest --maxWorkers=1",
+     "build": "vite build && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist",
+     "start": "NODE_ENV=production node dist/index.js",
+     "check": "tsc",
+     "db:push": "drizzle-kit push",
+-    "db:studio": "drizzle-kit studio"
++    "db:studio": "drizzle-kit studio",
++    "eval": "tsx scripts/eval.ts",
++    "seed": "tsx scripts/seed.ts"
+   },
+   "dependencies": {
+     "@hookform/resolvers": "^3.9.1",
+     "@jridgewell/trace-mapping": "^0.3.25",
+     "@neondatabase/serverless": "^0.10.4",
+     "@radix-ui/react-accordion": "^1.2.1",
+diff --git a/scripts/seed.ts b/scripts/seed.ts
+index eb1241e..98ae8c0 100644
+--- a/scripts/seed.ts
++++ b/scripts/seed.ts
+@@ -1,10 +1,11 @@
+ // Seed script: fills Bundle's own tables with fake sample families and curated
+ // public rules/offers. Safe to run repeatedly. It only ever touches Bundle's
+ // tables (never other tables in the shared Neon database).
+ import fs from 'fs';
++import { zipRows } from '../server/sampleZips';
+ import path from 'path';
+ import { inArray } from 'drizzle-orm';
+ import { loadEnv } from '../server/env';
+ import * as s from '../shared/schema';
+ import type { Family } from '../shared/bundle';
+ import { loadPlaidFixture } from '../server/ingest/plaid';
+@@ -106,27 +107,12 @@ export const PRICE_OBSERVATIONS: (typeof s.priceObservations.$inferInsert)[] = [
+ 
+ // Fixed 2026 HHS poverty guidelines, 48 contiguous states and DC (verified at
+ // aspe.hhs.gov on 2026-10-23). Amounts in dollars; stored as cents.
+ const POVERTY_2026: Record<number, number> = { 1: 15960, 2: 21640, 3: 27320, 4: 33000, 5: 38680, 6: 44360, 7: 50040, 8: 55720 };
+ const POVERTY_URL = 'https://aspe.hhs.gov/topics/poverty-economic-mobility/poverty-guidelines';
+ 
+-function zipRows(): { zip3: string; state: string }[] {
+-  const rows: { zip3: string; state: string }[] = [];
+-  const range = (from: number, to: number, state: string) => {
+-    for (let n = from; n <= to; n++) rows.push({ zip3: String(n).padStart(3, '0'), state });
+-  };
+-  range(10, 27, 'MA');
+-  range(430, 459, 'OH');
+-  range(100, 119, 'NY');
+-  range(900, 935, 'CA');
+-  range(750, 799, 'TX');
+-  range(30, 38, 'NH');
+-  rows.push({ zip3: '000', state: 'US' }); // default: unknown prefix
+-  return rows;
+-}
+-
+ function parseCsv(text: string): Record<string, string>[] {
+   const lines = text.trim().split(/\r?\n/);
+   const split = (line: string) => {
+     const out: string[] = []; let cur = ''; let q = false;
+     for (const ch of line) {
+       if (ch === '"') q = !q;
+diff --git a/server/__tests__/sampleMode.test.ts b/server/__tests__/sampleMode.test.ts
+new file mode 100644
+index 0000000..3080e87
+--- /dev/null
++++ b/server/__tests__/sampleMode.test.ts
+@@ -0,0 +1,41 @@
++import os from 'os';
++import fs from 'fs';
++import path from 'path';
++import express from 'express';
++import request from 'supertest';
++import { createBundleRouter } from '../routes/bundleRoutes';
++import { createDefaultApiDeps } from '../bundleDeps';
++import { bodyParsers } from '../middleware/bodyLimit';
++
++// SAMPLE_MODE must work with no keys and no database.
++describe('SAMPLE_MODE with no secrets', () => {
++  const saved = { ...process.env };
++  afterEach(() => { process.env = { ...saved }; });
++
++  it('runs a sample family end to end and traces Zetaris calls', async () => {
++    for (const k of ['DATABASE_URL', 'ZETARIS_BASE_URL', 'ZETARIS_ORG_ID', 'ZETARIS_API_KEY', 'MODEL_API_KEY']) delete process.env[k];
++    process.env.SAMPLE_MODE = 'true';
++    const logsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sample-'));
++    const deps = createDefaultApiDeps();
++    const base = deps.makeRunDeps;
++    deps.makeRunDeps = (f) => ({ ...base(f), logsDir });
++    const app = express();
++    app.use(...bodyParsers());
++    app.use(createBundleRouter(deps));
++
++    const res = await request(app).post('/api/run?wait=true').send({ familyId: 'leo' });
++    expect(res.status).toBe(200);
++    expect(res.body.cards.length).toBeGreaterThanOrEqual(9);
++
++    const file = fs.readdirSync(logsDir).find((f) => f.startsWith('run-leo'))!;
++    const lines = fs.readFileSync(path.join(logsDir, file), 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l));
++    expect(lines.some((l) => l.agent_name === 'zetaris' && l.action === 'query_cached')).toBe(true);
++  });
++
++  it('accepts a typed-in ZIP without a database', async () => {
++    delete process.env.DATABASE_URL;
++    process.env.SAMPLE_MODE = 'true';
++    const deps = createDefaultApiDeps();
++    expect(await deps.store.zipState('021')).toBe('MA');
++  });
++});
+diff --git a/server/adapters/memory.ts b/server/adapters/memory.ts
+index 3aead92..42c02f7 100644
+--- a/server/adapters/memory.ts
++++ b/server/adapters/memory.ts
+@@ -10,12 +10,19 @@ export class BundleMemory {
+   private hmem: HMEM;
+ 
+   constructor(private persistDir: string, private trace?: TraceLogger) {
+     this.hmem = new HMEM({ persistDir, actor: 'bundle' });
+   }
+ 
++  /** A view of the same memory that writes every call to the given run trace. */
++  withTrace(trace: TraceLogger): BundleMemory {
++    const view = Object.create(this) as BundleMemory;
++    (view as any).trace = trace;
++    return view;
++  }
++
+   private log(action: string, input: string, output: string, confidence: number | null = null): void {
+     this.trace?.log({
+       agent_name: 'memory', action, input_summary: input.slice(0, 200), output_summary: output.slice(0, 200),
+       target_agent: null, confidence, retry_count: 0, status: 'ok',
+     });
+   }
+diff --git a/server/adapters/zetaris.ts b/server/adapters/zetaris.ts
+index 053971c..9e3dddc 100644
+--- a/server/adapters/zetaris.ts
++++ b/server/adapters/zetaris.ts
+@@ -44,12 +44,17 @@ export class ZetarisClient {
+   private fetchFn: typeof fetch;
+ 
+   constructor(private opts: ZetarisOptions) {
+     this.fetchFn = opts.fetchFn ?? fetch;
+   }
+ 
++  /** A copy of this client that writes every query to the given run trace. */
++  withTrace(trace: TraceLogger): ZetarisClient {
++    return new ZetarisClient({ ...this.opts, trace, fetchFn: this.fetchFn });
++  }
++
+   private cachePath(sql: string): string {
+     const key = crypto.createHash('sha256').update(sql).digest('hex');
+     return path.join(this.opts.cacheDir, `${key}.json`);
+   }
+ 
+   private readCache(sql: string): QueryResult | null {
+diff --git a/server/agents/orchestrator.ts b/server/agents/orchestrator.ts
+index 3d28d31..c7c8e84 100644
+--- a/server/agents/orchestrator.ts
++++ b/server/agents/orchestrator.ts
+@@ -178,13 +178,16 @@ export function newRunId(familyId: string): string {
+ }
+ 
+ export async function runBundle(familyId: string, deps: RunDeps): Promise<BundleResult> {
+   const family = await deps.loadFamily(familyId);
+   const runId = deps.runId ?? newRunId(familyId);
+   const trace = new TraceLogger(runId, deps.logsDir);
+-  const ctx: AgentContext = { runId, family, z: deps.z, llm: deps.llm, memory: deps.memory, trace, today: deps.today };
++  // Every Zetaris query and memory call lands in this run's trace (test fakes without withTrace are used as-is).
++  const z = typeof deps.z.withTrace === 'function' ? deps.z.withTrace(trace) : deps.z;
++  const memory = typeof deps.memory.withTrace === 'function' ? deps.memory.withTrace(trace) : deps.memory;
++  const ctx: AgentContext = { runId, family, z, llm: deps.llm, memory, trace, today: deps.today };
+   const maxRetries = /^\d+$/.test(process.env.MAX_RETRIES ?? '') ? Number(process.env.MAX_RETRIES) : 2;
+   let banner: string | null = null;
+   const log = (action: string, input: string, output: string, status: 'ok' | 'retry' | 'blocked' | 'error' | 'fallback', retry = 0) =>
+     trace.log({ agent_name: 'orchestrator', action, input_summary: input.slice(0, 250), output_summary: output.slice(0, 250), target_agent: null, confidence: null, retry_count: retry, status });
+   const noteFailure = (who: string, e: unknown) => {
+     banner = BANNER;
+diff --git a/server/bundleDeps.ts b/server/bundleDeps.ts
+index 792f6a9..c2e8f82 100644
+--- a/server/bundleDeps.ts
++++ b/server/bundleDeps.ts
+@@ -1,34 +1,41 @@
+ import path from 'path';
+ import { ZetarisClient } from './adapters/zetaris';
+ import { createGenerator } from './adapters/llm';
+ import { BundleMemory } from './adapters/memory';
+ import { defaultLoadFamily, type RunDeps } from './agents/orchestrator';
+-import { DrizzleStore } from './bundleStore';
++import { DrizzleStore, MemoryStore } from './bundleStore';
++import { zipStateMap } from './sampleZips';
+ import type { ApiDeps } from './routes/bundleRoutes';
+ import type { Family } from '../shared/bundle';
+ import { resolveToday } from './demoDate';
+ 
++export const isSampleMode = (): boolean => process.env.SAMPLE_MODE === 'true';
++
+ /** Real Zetaris + model + memory for one run. Shared by the API and scripts/run-family.ts. */
+ export function makeRealRunDeps(memory: BundleMemory, familyId?: string): Omit<RunDeps, 'loadFamily' | 'runId'> {
++  const sample = isSampleMode();
+   const missing = ['ZETARIS_BASE_URL', 'ZETARIS_ORG_ID', 'ZETARIS_API_KEY'].filter((k) => !process.env[k]);
+-  if (missing.length) throw new Error(`Missing settings: ${missing.join(', ')}`);
++  // SAMPLE_MODE needs no keys: Zetaris answers come from the saved responses in data/sample/zetaris-cache.
++  if (missing.length && !sample) throw new Error(`Missing settings: ${missing.join(', ')}`);
+   const z = new ZetarisClient({
+-    baseUrl: process.env.ZETARIS_BASE_URL!, orgId: process.env.ZETARIS_ORG_ID!, apiKey: process.env.ZETARIS_API_KEY!,
+-    timeoutMs: (Number(process.env.SOURCE_TIMEOUT_SECONDS) || 20) * 1000 * 4, sampleMode: false,
++    baseUrl: process.env.ZETARIS_BASE_URL || 'http://sample-mode.invalid', orgId: process.env.ZETARIS_ORG_ID || 'sample',
++    apiKey: process.env.ZETARIS_API_KEY || 'sample',
++    timeoutMs: (Number(process.env.SOURCE_TIMEOUT_SECONDS) || 20) * 1000 * 4, sampleMode: sample && missing.length > 0,
+     cacheDir: path.resolve('data/sample/zetaris-cache'),
+   });
+   return { z, llm: createGenerator(), memory, logsDir: path.resolve('logs'), today: familyId ? resolveToday(familyId).today : (process.env.TODAY || resolveToday('maya').today) };
+ }
+ 
+ export function createDefaultApiDeps(): ApiDeps {
+   const memory = new BundleMemory(path.resolve('data/hmem'));
+   const llm = createGenerator();
+   return {
+     makeRunDeps: (family: Family) => ({ ...makeRealRunDeps(memory, family.id), llm }),
+     loadSeedFamily: defaultLoadFamily,
+-    store: new DrizzleStore(),
++    // SAMPLE_MODE keeps everything in memory (no database); otherwise Neon through Drizzle.
++    store: isSampleMode() ? new MemoryStore(zipStateMap()) : new DrizzleStore(),
+     memory,
+     llm,
+     reviewerToken: () => process.env.REVIEWER_MODE_TOKEN ?? '',
+   };
+ }
+diff --git a/server/index.ts b/server/index.ts
+index 4294c49..a8ca1eb 100644
+--- a/server/index.ts
++++ b/server/index.ts
+@@ -9,15 +9,18 @@ import cors from 'cors';
+ import { registerRoutes } from "./routes";
+ import { setupVite, serveStatic, log } from "./vite";
+ import { bodyParsers } from './middleware/bodyLimit';
+ import { sanitizeInputs } from './middleware/sanitize';
+ 
+ const app = express();
+-const PORT = parseInt(process.env.PORT || '5000', 10);
++const PORT = parseInt(process.env.PORT || '5050', 10);
+ const isProd = process.env.NODE_ENV === 'production';
+ 
++// Behind a hosting proxy (Render, Fly, etc.) set TRUST_PROXY=1 so rate limits see the real visitor address.
++if (process.env.TRUST_PROXY === '1') app.set('trust proxy', 1);
++
+ (async () => {
+   app.use(helmet({
+     contentSecurityPolicy: {
+       directives: {
+         defaultSrc: ["'self'"],
+         styleSrc: isProd
+diff --git a/server/sampleZips.ts b/server/sampleZips.ts
+new file mode 100644
+index 0000000..eddbb29
+--- /dev/null
++++ b/server/sampleZips.ts
+@@ -0,0 +1,17 @@
++/** ZIP prefix (first 3 digits) to state. Seeded into Neon by scripts/seed.ts and used directly in SAMPLE_MODE. */
++export function zipRows(): { zip3: string; state: string }[] {
++  const rows: { zip3: string; state: string }[] = [];
++  const range = (from: number, to: number, state: string) => {
++    for (let n = from; n <= to; n++) rows.push({ zip3: String(n).padStart(3, '0'), state });
++  };
++  range(10, 27, 'MA');
++  range(430, 459, 'OH');
++  range(100, 119, 'NY');
++  range(900, 935, 'CA');
++  range(750, 799, 'TX');
++  range(30, 38, 'NH');
++  rows.push({ zip3: '000', state: 'US' }); // default: unknown prefix
++  return rows;
++}
++
++export const zipStateMap = (): Record<string, string> => Object.fromEntries(zipRows().map((r) => [r.zip3, r.state]));

@@ -1,0 +1,512 @@
+77222af feat: court reads v_judge_offers with trigger_keyword; trap offer ranks in for diaper buyers
+a08dab5 feat: fine print court
+ ...09ddce34185bdbd0d37739cc72e70feb86fd2d9f8b.json |   1 +
+ scripts/seed.ts                                    |   4 +-
+ scripts/zetaris/court-live.ts                      |  44 +++++
+ scripts/zetaris/register.ts                        |  10 +-
+ server/__tests__/finePrintCourt.test.ts            | 126 ++++++++++++++
+ server/__tests__/seed.test.ts                      |   5 +-
+ server/agents/finePrintCourt.ts                    | 182 +++++++++++++++++++++
+ 24 files changed, 384 insertions(+), 5 deletions(-)
+diff --git a/scripts/seed.ts b/scripts/seed.ts
+index 3398a17..7893a4b 100644
+--- a/scripts/seed.ts
++++ b/scripts/seed.ts
+@@ -53,22 +53,22 @@ const GENERAL = { triggerKeyword: '', minAgeDays: -280, maxAgeDays: 365 };
+ 
+ export const OFFERS: (typeof s.offers.$inferInsert)[] = [
+   // General offers: no purchase needed, open to unborn and newborn families.
+   { ...GENERAL, title: 'Free baby registry welcome box', store: 'Amazon', valueCents: 3500, finePrint: 'Requires Prime and a registry with at least one item; limited to one per household.', sourceUrl: OFFER_SRC.amazon },
+   { ...GENERAL, title: '15% registry completion discount', store: 'Target', valueCents: null, finePrint: 'One-time coupon valid for 60 days after registry creation; excludes some brands.', sourceUrl: OFFER_SRC.target },
+   { ...GENERAL, title: 'Free welcome gift bag', store: 'Walmart', valueCents: 2500, finePrint: 'Registry must be created online; in-store pickup only while supplies last.', sourceUrl: OFFER_SRC.walmart },
+   { ...GENERAL, title: 'Pampers Club rewards sign-up bonus', store: 'Pampers', valueCents: 500, finePrint: 'Points added after scanning your first diaper pack code.', sourceUrl: OFFER_SRC.pampers },
+   { ...GENERAL, title: 'Babylist registry welcome box', store: 'Babylist', valueCents: 2000, finePrint: 'Box ships after you add 10 items; shipping fee may apply.', sourceUrl: OFFER_SRC.babylist },
+   // PLANTED TEST CASE (trap offer). This looks free but auto-enrolls into a paid
+   // membership. Fine Print Court is expected to REJECT it. Cuddle & Co is a made-up store.
+-  { ...GENERAL, title: 'Free newborn diaper box', store: 'Cuddle & Co', valueCents: 4000,
+-    finePrint: 'Free box requires a card on file. After a 30-day trial you are automatically enrolled in a paid membership at $29.99/month until you cancel. Shipping and handling $7.95.',
++  { ...GENERAL, triggerKeyword: 'diaper', title: 'Free newborn diaper box', store: 'Cuddle & Co', valueCents: 4000,
++    finePrint: 'Free box requires a card on file. After a 30-day trial you are automatically enrolled in a paid membership at $29.99/month until you cancel.',
+     sourceUrl: 'https://example.com/cuddle-and-co/free-diaper-box' },
+   // Triggered offers: shown when a matching purchase or situation appears.
+   { title: 'Bonus diaper rewards on newborn sizes', store: 'Pampers', minAgeDays: 0, maxAgeDays: 120, triggerKeyword: 'diaper', valueCents: 1000, finePrint: 'Newborn and size 1 packs only.', sourceUrl: OFFER_SRC.pampers },
+   { title: 'Huggies Rewards points on diapers and wipes', store: 'Huggies', minAgeDays: 0, maxAgeDays: 365, triggerKeyword: 'huggies', valueCents: 800, finePrint: 'Points expire after 12 months.', sourceUrl: OFFER_SRC.huggies },
+   { title: 'Free formula sample and coupons', store: 'Enfamil', minAgeDays: -60, maxAgeDays: 180, triggerKeyword: 'formula', valueCents: 3000, finePrint: 'Coupons are for Enfamil brand products only.', sourceUrl: OFFER_SRC.enfamil },
+   { title: 'StrongMoms formula savings', store: 'Similac', minAgeDays: -60, maxAgeDays: 180, triggerKeyword: 'similac', valueCents: 2500, finePrint: 'Coupon books mailed within 4 to 6 weeks.', sourceUrl: OFFER_SRC.similac },
+   { title: 'Car seat trade-in event discount', store: 'Target', minAgeDays: -90, maxAgeDays: 365, triggerKeyword: 'car seat', valueCents: 3000, finePrint: 'Bring in an old car seat; event dates are limited.', sourceUrl: 'https://www.target.com/c/car-seat-trade-in/-/N-4tfr8' },
+   { title: 'Registry completion discount on big-ticket gear', store: 'Buy Buy Baby', minAgeDays: -280, maxAgeDays: 120, triggerKeyword: 'stroller', valueCents: 2000, finePrint: 'Applies to registry items only.', sourceUrl: OFFER_SRC.buybuy },
+   { title: 'Honest Company baby bundle discount', store: 'Honest', minAgeDays: 0, maxAgeDays: 240, triggerKeyword: 'wipes', valueCents: 1500, finePrint: 'First bundle only; subscription is optional and can be skipped.', sourceUrl: OFFER_SRC.honest },
+   { title: 'Costco baby member coupon book items', store: 'Costco', minAgeDays: 0, maxAgeDays: 365, triggerKeyword: 'costco', valueCents: 1200, finePrint: 'Costco membership required.', sourceUrl: OFFER_SRC.costco },
+diff --git a/scripts/zetaris/court-live.ts b/scripts/zetaris/court-live.ts
+new file mode 100644
+index 0000000..4a90d0a
+--- /dev/null
++++ b/scripts/zetaris/court-live.ts
+@@ -0,0 +1,44 @@
++/**
++ * Runs the Fine Print Court LIVE against Zetaris for the sample families (read-only SELECTs).
++ * Without a model key every ruling comes from the offline screen. Results are cached in data/sample/zetaris-cache/.
++ *   npx tsx scripts/zetaris/court-live.ts
++ */
++import fs from 'fs';
++import os from 'os';
++import path from 'path';
++import { loadEnv } from '../../server/env';
++import { ZetarisClient } from '../../server/adapters/zetaris';
++import { createGenerator } from '../../server/adapters/llm';
++import { BundleMemory } from '../../server/adapters/memory';
++import { TraceLogger } from '../../server/agents/trace';
++import { judgeOffers, babyAgeDays } from '../../server/agents/finePrintCourt';
++import { verify } from '../../server/agents/factChecker';
++import type { AgentContext } from '../../server/agents/types';
++import type { Family } from '../../shared/bundle';
++
++loadEnv();
++process.env.TODAY = process.env.TODAY || '2026-10-23';
++
++async function main() {
++  const families: Family[] = JSON.parse(fs.readFileSync(path.resolve('data/sample/families.json'), 'utf8'));
++  const logDir = fs.mkdtempSync(path.join(os.tmpdir(), 'bundle-court-live-'));
++  for (const family of families.filter((f) => ['maya', 'leo'].includes(f.id))) {
++    const trace = new TraceLogger(`court-${family.id}`, logDir);
++    const z = new ZetarisClient({
++      baseUrl: process.env.ZETARIS_BASE_URL!, orgId: process.env.ZETARIS_ORG_ID!, apiKey: process.env.ZETARIS_API_KEY!,
++      timeoutMs: 90_000, sampleMode: false, cacheDir: path.resolve('data/sample/zetaris-cache'), trace,
++    });
++    const memory = new BundleMemory(fs.mkdtempSync(path.join(os.tmpdir(), 'court-mem-')), trace);
++    const ctx: AgentContext = { runId: `court-${family.id}`, family, z, llm: createGenerator(), memory, trace };
++    const ageDays = babyAgeDays(ctx);
++    console.log(`\n=== ${family.id} (age ${ageDays} days) ===`);
++    const out = await judgeOffers(ctx, { ageDays, purchaseKeywords: ['diaper', 'formula'], includeGeneral: true });
++    console.log(`approved: ${out.length}`);
++    for (const c of out) {
++      const v = await verify(c, ctx);
++      console.log(`  - ${c.title} amount=${c.amountCents} deadline=${c.deadline} verify=${v.ok ? 'OK' : 'FAIL ' + v.reason}`);
++    }
++    for (const l of trace.lines().filter((l) => l.agent_name === 'judge')) console.log(`  judge [${l.status}] ${l.input_summary}: ${l.output_summary}`);
++  }
++}
++main().catch((e) => { console.error(String(e.message ?? e)); process.exit(1); });
+diff --git a/scripts/zetaris/register.ts b/scripts/zetaris/register.ts
+index 4c94b9d..31d1821 100644
+--- a/scripts/zetaris/register.ts
++++ b/scripts/zetaris/register.ts
+@@ -1,38 +1,44 @@
+ /**
+  * Registers Bundle's sources in Zetaris (the SQL "data door").
+  *
+  *   npx tsx scripts/zetaris/register.ts           -> dry run: prints the SQL, changes nothing
+  *   npx tsx scripts/zetaris/register.ts --apply   -> runs it, one statement per call
++ *   npx tsx scripts/zetaris/register.ts --replace=v_judge_offers [--apply]  -> also re-create the named views (replaces a changed definition)
+  *
+  * Safe to re-run: it asks Zetaris what already exists (SHOW ...) and skips those
+  * objects, so the Spike 0 objects (bundle_pg, bundle_live.cpsc_recalls) are reused,
+  * never recreated. It never drops or alters anything.
+  */
+ import os from 'os';
+ import path from 'path';
+ import { loadEnv } from '../../server/env';
+ import { ZetarisClient } from '../../server/adapters/zetaris';
+ import { BUNDLE_TABLE_NAMES } from '../../shared/schema';
+ 
+ loadEnv();
+ const apply = process.argv.includes('--apply');
++// --replace=v_judge_offers,... : re-run CREATE DATASOURCE VIEW for those views even though they exist,
++// so a changed definition replaces the old one. Only views named here are touched.
++const replaceViews = new Set(
++  (process.argv.find((a) => a.startsWith('--replace='))?.slice('--replace='.length) ?? '').split(',').filter(Boolean),
++);
+ 
+ interface Step { label: string; sql: string; redacted: string; exists: boolean }
+ 
+ const DS = 'bundle_pg';
+ const LIVE = 'bundle_live';
+ 
+ const VIEWS: Record<string, string> = {
+   // Judge: offers only, no family columns.
+   v_judge_offers:
+-    'SELECT id, title, store, min_age_days, max_age_days, value_cents, fine_print, source_url FROM offers',
++    'SELECT id, title, store, min_age_days, max_age_days, trigger_keyword, value_cents, fine_print, source_url FROM offers',
+   // Planner: family profile, including income (only this view carries it).
+   v_planner_family:
+     'SELECT id, name, birth_date, due_date, zip, state, employer, household_size, annual_income_cents, dcfsa_offered, data_connected FROM families',
+   // Clawback: card transactions keyed by family id, no income.
+   v_clawback_tx:
+     'SELECT id, family_id, date, merchant, amount_cents, category FROM transactions',
+   // Recall checker: everything a family bought, from Amazon orders and card transactions, no income.
+   v_recall_orders:
+     "SELECT family_id, order_date AS purchased_on, title AS item_text, 'amazon' AS source, price_cents FROM amazon_orders " +
+     "UNION ALL SELECT family_id, date AS purchased_on, merchant AS item_text, 'card' AS source, amount_cents AS price_cents FROM transactions",
+@@ -79,21 +85,21 @@ async function main() {
+   const dsSql = (pwText: string) =>
+     `CREATE DATASOURCE ${DS} DESCRIBE BY "Bundle Neon" OPTIONS (jdbcdriver "org.postgresql.Driver", jdbcurl "${jdbcUrl}", username "${user}", password "${pwText}")`;
+   steps.push({ label: 'datasource', sql: dsSql(pw), redacted: dsSql('***'), exists: dsExisting.has(DS) });
+ 
+   for (const t of BUNDLE_TABLE_NAMES) {
+     const sql = `REGISTER DATASOURCE TABLE '${t}' FROM ${DS}`;
+     steps.push({ label: `table ${t}`, sql, redacted: sql, exists: dsTables.has(t) });
+   }
+   for (const [v, select] of Object.entries(VIEWS)) {
+     const sql = `CREATE DATASOURCE VIEW ${v} FROM ${DS} AS ${select}`;
+-    steps.push({ label: `view ${v}`, sql, redacted: sql, exists: dsViews.has(v) || dsViews.has(`${DS}.${v}`) || dsTables.has(v) });
++    steps.push({ label: `view ${v}`, sql, redacted: sql, exists: !replaceViews.has(v) && (dsViews.has(v) || dsViews.has(`${DS}.${v}`) || dsTables.has(v)) });
+   }
+   const liveDb = `CREATE LIGHTNING DATABASE ${LIVE} DESCRIBE BY "Live recall feeds"`;
+   steps.push({ label: 'lightning database', sql: liveDb, redacted: liveDb, exists: liveDbs.has(LIVE) });
+   // cpsc_recalls already exists from Spike 0 (window starts 2025-06-01); reused as is.
+   const cpsc = `CREATE LIGHTNING REST TABLE cpsc_recalls FROM ${LIVE} REQUEST (endpoint "https://www.saferproducts.gov/RestWebServices/Recall?format=json&RecallDateStart=2025-06-01", method "get", response_type "json", http_encoding "URLENCODED") HEADER () BODY ()`;
+   steps.push({ label: 'rest cpsc_recalls', sql: cpsc, redacted: cpsc, exists: liveTables.has('cpsc_recalls') });
+   const fda = `CREATE LIGHTNING REST TABLE fda_food_recalls FROM ${LIVE} REQUEST (endpoint "${OPENFDA}", method "get", response_type "json", http_encoding "URLENCODED") HEADER () BODY ()`;
+   steps.push({ label: 'rest fda_food_recalls', sql: fda, redacted: fda, exists: liveTables.has('fda_food_recalls') });
+ 
+   console.log(apply ? '=== APPLY ===' : '=== DRY RUN (nothing will be changed; pass --apply to run) ===');
+diff --git a/server/__tests__/finePrintCourt.test.ts b/server/__tests__/finePrintCourt.test.ts
+new file mode 100644
+index 0000000..3e18824
+--- /dev/null
++++ b/server/__tests__/finePrintCourt.test.ts
+@@ -0,0 +1,126 @@
++import os from 'os';
++import fs from 'fs';
++import path from 'path';
++import { judgeOffers, revise } from '../agents/finePrintCourt';
++import { TraceLogger } from '../agents/trace';
++import { FakeGenerator, UnavailableGenerator } from '../adapters/llm';
++import { BundleMemory } from '../adapters/memory';
++import type { AgentContext } from '../agents/types';
++
++const maya = {
++  id: 'maya', userId: null, isGuest: true, name: 'Maya', birthDate: '2026-10-03', dueDate: null,
++  zip: '02139', state: 'MA', employer: 'Northwind', householdSize: 3, annualIncomeCents: 14500000,
++  dcfsaOffered: true, dataConnected: true,
++};
++const offer = (id: number, over: any = {}) => ({
++  id, title: `Offer ${id}`, store: 'Store', min_age_days: -280, max_age_days: 365, trigger_keyword: '',
++  value_cents: 1000, fine_print: 'Registry required.', source_url: 'https://x.test', ...over,
++});
++// The trap's auto-renew wording (without the shipping sentence, which the offline fee check would catch).
++const TRAP_PRINT = 'Free box requires a card on file. After a 30-day trial you are automatically enrolled in a paid membership at $29.99/month until you cancel.';
++const trap = offer(50, { title: 'Free newborn diaper box', store: 'Cuddle & Co', fine_print: TRAP_PRINT });
++const REJECT = '{"verdict":"reject","citedRuleIds":[],"reason":"hidden paid membership"}';
++const APPROVE = '{"verdict":"approve","citedRuleIds":[],"reason":"fine"}';
++
++function setup(rows: any[], llm: any, memory?: BundleMemory) {
++  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'fpc-'));
++  const trace = new TraceLogger('t', dir);
++  const runQuery = jest.fn(async (_sql: string) => ({ headers: [], rows, ms: 1 }));
++  const mem = memory ?? new BundleMemory(fs.mkdtempSync(path.join(os.tmpdir(), 'mem-')));
++  const ctx = { runId: 't', family: maya, z: { runQuery } as any, llm, memory: mem, trace } as AgentContext;
++  return { ctx, trace, runQuery, mem };
++}
++const IN = { ageDays: 20, purchaseKeywords: [] as string[], includeGeneral: true };
++
++describe('fine print court', () => {
++  beforeEach(() => { process.env.TODAY = '2026-10-23'; });
++
++  it('rejects the trap when the Judge says reject, and traces it as blocked', async () => {
++    const llm = new FakeGenerator(['Great free box!', 'Auto-renews into $40 shipping subscription.', REJECT]);
++    const { ctx, trace } = setup([trap], llm);
++    expect(await judgeOffers(ctx, IN)).toEqual([]);
++    expect(trace.lines().find((l) => l.agent_name === 'judge')!.status).toBe('blocked');
++  });
++
++  it('puts recalled case-law text and ids in the Judge prompt', async () => {
++    const llm = new FakeGenerator(['pro', 'con', REJECT]);
++    const { ctx, mem } = setup([trap], llm);
++    const id = mem.addRule('free trials that auto-renew into paid memberships are not free', 'test', 0.8, []);
++    await judgeOffers(ctx, IN);
++    const judgePrompt = llm.prompts[2];
++    expect(judgePrompt).toContain('free trials that auto-renew into paid memberships are not free');
++    expect(judgePrompt).toContain(id);
++  });
++
++  it('makes exactly 3 LLM calls and 3 trace lines per offer', async () => {
++    const llm = new FakeGenerator(['pro', 'con', APPROVE]);
++    const { ctx, trace } = setup([offer(1), offer(2)], llm);
++    const out = await judgeOffers(ctx, IN);
++    expect(llm.calls).toBe(6);
++    const court = trace.lines().filter((l) => ['deal_hunter', 'fine_print_lawyer', 'judge'].includes(l.agent_name));
++    expect(court.map((l) => l.agent_name)).toEqual(['deal_hunter', 'fine_print_lawyer', 'judge', 'deal_hunter', 'fine_print_lawyer', 'judge']);
++    expect(out).toHaveLength(2);
++    expect(out[0]).toMatchObject({ kind: 'discount', verdict: 'likely', claim: { type: 'offer', offerId: 1 }, amountCents: 1000, deadline: '2027-10-03' });
++  });
++
++  it('judges at most 5 offers, triggered ones first', async () => {
++    const rows = [1, 2, 3, 4, 5, 6].map((i) => offer(i)).concat([offer(7, { trigger_keyword: 'diaper' })]);
++    const llm = new FakeGenerator(['pro', 'con', APPROVE]);
++    const { ctx } = setup(rows, llm);
++    const out = await judgeOffers(ctx, { ...IN, purchaseKeywords: ['pampers diapers size 1'] });
++    expect(llm.calls).toBe(15);
++    expect(out).toHaveLength(5);
++    expect(out[0].claim.offerId).toBe(7);
++  });
++
++  it('includeGeneral adds general offers; without it only triggered offers go to court', async () => {
++    const rows = [offer(1), offer(2, { trigger_keyword: 'stroller' })];
++    const a = setup(rows, new FakeGenerator(['p', 'c', APPROVE]));
++    expect((await judgeOffers(a.ctx, { ...IN, includeGeneral: false, purchaseKeywords: ['Baby Jogger stroller'] })).map((c) => c.claim.offerId)).toEqual([2]);
++    const b = setup(rows, new FakeGenerator(['p', 'c', APPROVE]));
++    expect((await judgeOffers(b.ctx, { ...IN, purchaseKeywords: ['stroller'] })).map((c) => c.claim.offerId)).toEqual([2, 1]);
++    const c = setup(rows, new FakeGenerator(['p', 'c', APPROVE]));
++    expect(await judgeOffers(c.ctx, { ...IN, includeGeneral: false, purchaseKeywords: [] })).toEqual([]);
++  });
++
++  describe('model unavailable: deterministic screen', () => {
++    const off = () => new UnavailableGenerator('no key');
++    it('(a) no case law: trap approved as likely, traced as fallback', async () => {
++      const { ctx, trace } = setup([trap], off());
++      const out = await judgeOffers(ctx, IN);
++      expect(out).toHaveLength(1);
++      expect(out[0].verdict).toBe('likely');
++      expect(trace.lines().find((l) => l.agent_name === 'judge')!.status).toBe('fallback');
++    });
++    it('(b) case law on auto-renew rejects the trap and cites the rule', async () => {
++      const { ctx, mem, trace } = setup([trap], off());
++      const id = mem.addRule('free trials that auto-renew into paid memberships are not free', 'test', 0.8, []);
++      expect(await judgeOffers(ctx, IN)).toEqual([]);
++      const j = trace.lines().find((l) => l.agent_name === 'judge')!;
++      expect(j.status).toBe('blocked');
++      expect(j.output_summary).toContain(id);
++    });
++    it('(b2) an unrelated rule does not reject a harmless offer', async () => {
++      const { ctx, mem } = setup([offer(1, { fine_print: 'Registry required. One per household.' })], off());
++      mem.addRule('free trials that auto-renew into paid memberships are not free', 'test', 0.8, []);
++      expect(await judgeOffers(ctx, IN)).toHaveLength(1);
++    });
++    it('(c) an explicit $7.99 shipping fee is rejected, $3.99 is not', async () => {
++      const bad = setup([offer(1, { fine_print: 'Free box. $7.99 shipping applies.' })], off());
++      expect(await judgeOffers(bad.ctx, IN)).toEqual([]);
++      const ok = setup([offer(2, { fine_print: 'Free box. $3.99 shipping applies.' })], off());
++      expect(await judgeOffers(ok.ctx, IN)).toHaveLength(1);
++    });
++  });
++
++  it('revise re-judges one offer with the reason in the prompts', async () => {
++    const llm = new FakeGenerator(['pro', 'con', APPROVE]);
++    const { ctx, runQuery } = setup([offer(1)], llm);
++    const c = (await judgeOffers(ctx, IN))[0];
++    runQuery.mockClear();
++    const r = await revise(c, 'amount mismatch', ctx);
++    expect(r?.retryCount).toBe(1);
++    expect(llm.prompts[5]).toContain('amount mismatch');
++    expect(runQuery.mock.calls[0][0]).toContain('WHERE id = 1');
++  });
++});
+diff --git a/server/__tests__/seed.test.ts b/server/__tests__/seed.test.ts
+index d3f08f5..b52a878 100644
+--- a/server/__tests__/seed.test.ts
++++ b/server/__tests__/seed.test.ts
+@@ -43,21 +43,24 @@ describe('seed()', () => {
+     }
+   });
+ 
+   it('has enough offers, general offers and a trap offer', async () => {
+     const rows = await db.select().from(s.offers);
+     expect(rows.length).toBeGreaterThanOrEqual(15);
+     const general = rows.filter(
+       (r: any) => r.triggerKeyword === '' && r.minAgeDays === -280 && r.maxAgeDays === 365,
+     );
+     expect(general.length).toBeGreaterThanOrEqual(4);
+-    expect(rows.some((r: any) => /\$29\.99\/month/.test(r.finePrint))).toBe(true);
++    const trap = rows.find((r: any) => /\$29\.99\/month/.test(r.finePrint)) as any;
++    expect(trap).toBeDefined();
++    expect(trap.triggerKeyword).toBe('diaper'); // so it ranks into the court's top 5 for a family that buys diapers
++    expect(trap.finePrint).not.toMatch(/shipping/i); // the fee must not decide it offline; case law should
+   });
+ 
+   it('seeds fixtures for maya, ava but not leo', async () => {
+     const tx = await db.select().from(s.transactions);
+     const by = (id: string) => tx.filter((t: any) => t.familyId === id);
+     expect(by('maya').length).toBeGreaterThan(0);
+     expect(by('ava').length).toBeGreaterThan(0);
+     expect(by('leo').length).toBe(0);
+     expect(by('maya').some((t: any) => t.amountCents === 2899 && /thermometer/i.test(t.category + t.merchant))).toBe(true);
+     expect(by('maya').some((t: any) => t.amountCents < 0)).toBe(true);
+diff --git a/server/agents/finePrintCourt.ts b/server/agents/finePrintCourt.ts
+new file mode 100644
+index 0000000..d401111
+--- /dev/null
++++ b/server/agents/finePrintCourt.ts
+@@ -0,0 +1,182 @@
++import { askJson } from '../adapters/llm';
++import { col, quoteInt, InvalidId, addDays, today, fmtUsd } from './sql';
++import type { AgentContext, Candidate, CourtRuling } from './types';
++
++const AGENT = 'fine_print_court';
++const MAX_OFFERS = 5;
++/** A shipping or handling fee above this (in dollars) makes a "free" offer not free. */
++const FEE_LIMIT_DOLLARS = 5;
++
++type Row = Record<string, string | number | null>;
++const s = (r: Row, k: string) => String(col(r, k) ?? '');
++
++interface Offer {
++  id: number; title: string; store: string; trigger: string; valueCents: number | null;
++  finePrint: string; sourceUrl: string; maxAgeDays: number;
++}
++type Rule = { id: string; text: string; confidence: number };
++
++function toOffer(r: Row): Offer {
++  const v = col(r, 'value_cents');
++  return {
++    id: Number(col(r, 'id')), title: s(r, 'title'), store: s(r, 'store'), trigger: s(r, 'trigger_keyword').trim().toLowerCase(),
++    valueCents: v === null || v === undefined ? null : Number(v), finePrint: s(r, 'fine_print'),
++    sourceUrl: s(r, 'source_url'), maxAgeDays: Number(col(r, 'max_age_days')),
++  };
++}
++
++function log(ctx: AgentContext, agent: string, action: string, input: string, output: string,
++  status: 'ok' | 'retry' | 'blocked' | 'error' | 'fallback' = 'ok', retry = 0): string {
++  return ctx.trace.log({ agent_name: agent, action, input_summary: input.slice(0, 200), output_summary: output.slice(0, 200),
++    target_agent: null, confidence: null, retry_count: retry, status });
++}
++
++/** Whole days from the baby's birth to today; negative while the baby is still due. */
++export function babyAgeDays(ctx: AgentContext): number {
++  const anchor = ctx.family.birthDate ?? ctx.family.dueDate;
++  if (!anchor) return 0;
++  return Math.round((Date.parse(`${today()}T00:00:00Z`) - Date.parse(`${anchor}T00:00:00Z`)) / 86_400_000);
++}
++
++// ---- deterministic screen (used only when the model is unavailable) ----
++const GENERIC = new Set(['free', 'that', 'into', 'are', 'not', 'the', 'and', 'for', 'with', 'this', 'your', 'you', 'have', 'will', 'from', 'than', 'more', 'only', 'after', 'until', 'when']);
++const stem = (w: string) => w.replace(/(ing|ed|es|s)$/, '');
++function keywords(text: string): Set<string> {
++  return new Set((text.toLowerCase().match(/[a-z]{4,}/g) ?? []).filter((w) => !GENERIC.has(w)).map(stem).filter((w) => w.length >= 3));
++}
++/** Does the fine print share at least two keywords (or all of them, if the rule has fewer) with a case-law rule? */
++function ruleMatches(finePrint: string, rule: Rule): boolean {
++  const rk = keywords(rule.text);
++  const fk = keywords(finePrint);
++  const shared = [...rk].filter((w) => fk.has(w)).length;
++  return shared >= Math.min(2, rk.size) && shared > 0;
++}
++/** An explicit shipping or handling fee over $5 stated in the fine print. */
++function bigFee(finePrint: string): number | null {
++  for (const sentence of finePrint.split(/(?<=[.!?])\s+/)) {
++    if (!/\b(shipping|handling|postage)\b/i.test(sentence)) continue;
++    for (const m of sentence.matchAll(/\$\s?(\d[\d,]*(?:\.\d+)?)/g)) {
++      const n = Number(m[1].replace(/,/g, ''));
++      if (n > FEE_LIMIT_DOLLARS) return n;
++    }
++  }
++  return null;
++}
++function screen(offer: Offer, rules: Rule[]): CourtRuling {
++  const hit = rules.find((r) => ruleMatches(offer.finePrint, r));
++  if (hit) return { verdict: 'reject', citedRuleIds: [hit.id], reason: `Court was offline; case law applies: ${hit.text}` };
++  const fee = bigFee(offer.finePrint);
++  if (fee !== null) return { verdict: 'reject', citedRuleIds: [], reason: `Court was offline; the fine print states a $${fee} shipping or handling fee, which is over $${FEE_LIMIT_DOLLARS}` };
++  return { verdict: 'approve', citedRuleIds: [], reason: 'Court was offline; screened against case law and fees, nothing found' };
++}
++
++function caseLawText(rules: Rule[]): string {
++  return rules.length
++    ? rules.map((r) => `- [${r.id}] (confidence ${r.confidence.toFixed(2)}) ${r.text}`).join('\n')
++    : '(no case law on file for this fine print)';
++}
++
++async function argue(ctx: AgentContext, who: 'deal_hunter' | 'fine_print_lawyer', offer: Offer, extra: string): Promise<{ text: string; ok: boolean }> {
++  const task = who === 'deal_hunter'
++    ? 'You are the Deal Hunter. In 2 to 3 plain-English sentences, argue why this offer is a good deal for a new parent.'
++    : 'You are the Fine Print Lawyer. In 2 to 3 plain-English sentences, argue what is wrong or costly in the fine print (hidden fees, trials that turn into paid plans, lock-ins). If nothing is wrong, say so.';
++  const prompt = `${task}\n\nOffer: ${offer.title} at ${offer.store}\nFine print: ${offer.finePrint || '(none)'}${extra}`;
++  try {
++    const text = (await ctx.llm.generate(prompt, undefined, 'fast')).trim().slice(0, 600);
++    log(ctx, who, 'argue', `offer ${offer.id}`, text, 'ok');
++    return { text, ok: true };
++  } catch {
++    log(ctx, who, 'argue', `offer ${offer.id}`, 'model unavailable', 'fallback');
++    return { text: '(no argument: model unavailable)', ok: false };
++  }
++}
++
++async function judgeOne(ctx: AgentContext, offer: Offer, note: string): Promise<{ ruling: CourtRuling; usedFallback: boolean }> {
++  const rules: Rule[] = ctx.memory.recallRules(offer.finePrint).map((r) => ({ id: r.id, text: r.text, confidence: r.confidence }));
++  const extra = note ? `\nSend-back reason: ${note}` : '';
++  const hunter = await argue(ctx, 'deal_hunter', offer, extra);
++  const lawyer = await argue(ctx, 'fine_print_lawyer', offer, extra);
++  const prompt =
++    'You are the Judge in a Fine Print Court for a new-parent offer. Decide whether to approve or reject it. ' +
++    'Reject offers that are not really free or cost the parent more than they save (hidden fees, trials that auto-renew into paid plans). ' +
++    'Binding case law (cite the ids you rely on):\n' + caseLawText(rules) +
++    `\n\nOffer: ${offer.title} at ${offer.store}\nFine print: ${offer.finePrint || '(none)'}${extra}` +
++    `\n\nDeal Hunter argues: ${hunter.text}\nFine Print Lawyer argues: ${lawyer.text}` +
++    '\n\nReply as JSON: {"verdict":"approve"|"reject","citedRuleIds":["..."],"reason":"one plain sentence"}';
++  const known = new Set(rules.map((r) => r.id));
++  const fallback: CourtRuling = screen(offer, rules);
++  const { value, usedFallback } = await askJson<CourtRuling>(
++    ctx.llm, prompt,
++    (x): x is CourtRuling => {
++      const v = x as any;
++      return (v?.verdict === 'approve' || v?.verdict === 'reject') && Array.isArray(v?.citedRuleIds) &&
++        v.citedRuleIds.every((i: unknown) => typeof i === 'string') && typeof v?.reason === 'string';
++    },
++    fallback,
++  );
++  const ruling: CourtRuling = usedFallback
++    ? value
++    : { verdict: value.verdict, citedRuleIds: value.citedRuleIds.filter((i) => known.has(i)), reason: value.reason.trim().slice(0, 300) };
++  const status = ruling.verdict === 'reject' ? 'blocked' : usedFallback ? 'fallback' : 'ok';
++  log(ctx, 'judge', usedFallback ? 'rule_by_screen' : 'rule', `offer ${offer.id}`,
++    `${ruling.verdict}: ${ruling.reason}${ruling.citedRuleIds.length ? ` [cited ${ruling.citedRuleIds.join(', ')}]` : ''}`, status);
++  return { ruling, usedFallback };
++}
++
++function toCandidate(ctx: AgentContext, offer: Offer, ruling: CourtRuling, retry: number, sql: string): Candidate {
++  const anchor = ctx.family.birthDate ?? ctx.family.dueDate;
++  const worth = offer.valueCents !== null ? ` worth about ${fmtUsd(offer.valueCents)}` : '';
++  const traceId = ctx.trace.lines().filter((l) => l.agent_name === 'judge' && l.input_summary === `offer ${offer.id}`).pop()?.trace_id ?? '';
++  return {
++    id: `discount-${offer.id}`, kind: 'discount', title: offer.title,
++    body: `${offer.store} has an offer${worth}. Our fine-print check found nothing that makes it costly. Likely a good deal.`,
++    amountCents: offer.valueCents, deadline: anchor ? addDays(anchor, offer.maxAgeDays) : null,
++    verdict: 'likely', sources: [{ label: `${offer.store} offer page`, url: offer.sourceUrl }], traceId,
++    agent: AGENT, claim: { type: 'offer', offerId: offer.id }, evidenceSql: sql, retryCount: retry,
++  };
++}
++
++const OFFER_COLS = 'id, title, store, min_age_days, max_age_days, trigger_keyword, value_cents, fine_print, source_url';
++
++/**
++ * Offers go to court: Deal Hunter argues for, Fine Print Lawyer against, Judge rules with recalled case law.
++ * Reads bundle_pg.v_judge_offers (offer columns only, no family data).
++ */
++export async function judgeOffers(
++  ctx: AgentContext,
++  input: { ageDays: number; purchaseKeywords: string[]; includeGeneral: boolean },
++): Promise<Candidate[]> {
++  const age = quoteInt(input.ageDays);
++  const sql = `SELECT ${OFFER_COLS} FROM bundle_pg.v_judge_offers WHERE min_age_days <= ${age} AND max_age_days >= ${age} ORDER BY id`;
++  const { rows } = await ctx.z.runQuery(sql);
++  const kws = input.purchaseKeywords.map((k) => k.toLowerCase().trim()).filter(Boolean);
++  const offers = rows.map(toOffer);
++  const triggered = offers.filter((o) => o.trigger && kws.some((k) => k.includes(o.trigger) || (k.length >= 3 && o.trigger.includes(k))));
++  const general = input.includeGeneral ? offers.filter((o) => !o.trigger) : [];
++  const picked = [...triggered, ...general].slice(0, MAX_OFFERS);
++  log(ctx, AGENT, 'select_offers', `age ${input.ageDays}d, ${kws.length} keyword(s)`, `${picked.length} offer(s) go to court (cap ${MAX_OFFERS})`);
++
++  const out: Candidate[] = [];
++  for (const offer of picked) {
++    const { ruling } = await judgeOne(ctx, offer, '');
++    if (ruling.verdict === 'approve') out.push(toCandidate(ctx, offer, ruling, 0, sql));
++  }
++  return out;
++}
++
++/** Re-judge one offer after the Fact-Checker sent it back, with the reason added. null = give up. */
++export async function revise(c: Candidate, reason: string, ctx: AgentContext): Promise<Candidate | null> {
++  try {
++    const id = quoteInt(c.claim.offerId);
++    const sql = `SELECT ${OFFER_COLS} FROM bundle_pg.v_judge_offers WHERE id = ${id}`;
++    const { rows } = await ctx.z.runQuery(sql);
++    log(ctx, AGENT, 'revise', `offer ${id}: ${reason}`, 're-judging with the reason', 'retry', c.retryCount + 1);
++    if (!rows.length) return null;
++    const offer = toOffer(rows[0]);
++    const { ruling } = await judgeOne(ctx, offer, reason);
++    return ruling.verdict === 'approve' ? toCandidate(ctx, offer, ruling, c.retryCount + 1, sql) : null;
++  } catch (e) {
++    if (e instanceof InvalidId) return null;
++    throw e;
++  }
++}
