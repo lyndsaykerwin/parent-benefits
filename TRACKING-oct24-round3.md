@@ -11,7 +11,7 @@ Lyndsay's asks:
 
 ## Phase 1 (parallel)
 - [x] R1 (done: forwarding address via Agentmail for hackathon; Gmail connect later) Email receipts: how to get them (Gmail connect vs forwarding address vs Agentmail inbox), privacy, Google approval rules, fake-data demo, how matching improves → `research-email-receipts.md`
-- [ ] R2 Nightshift + NVIDIA: setup steps on the Mac, how the app talks to it, code changes needed, where Nemotron fits, test plan → `research-nightshift-setup.md`
+- [x] R2 (done; llm.ts claims spot-checked) Nightshift + NVIDIA: setup steps on the Mac, how the app talks to it, code changes needed, where Nemotron fits, test plan → `research-nightshift-setup.md`
 
 ## Phase 2 (after Phase 1)
 - [ ] W1 Update bundle-plan-v3.md (email + Nightshift + open decisions list); freeze copy in plan-history/ first
