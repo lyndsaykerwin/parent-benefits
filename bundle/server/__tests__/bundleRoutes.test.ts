@@ -15,7 +15,7 @@ import * as recall from '../agents/recall';
 import * as court from '../agents/finePrintCourt';
 import * as benefits from '../agents/benefits';
 import * as fc from '../agents/factChecker';
-import { createBundleRouter, type ApiDeps } from '../routes/bundleRoutes';
+import { createBundleRouter, parentResult, type ApiDeps } from '../routes/bundleRoutes';
 import { bodyParsers } from '../middleware/bodyLimit';
 import { MemoryStore } from '../bundleStore';
 import { FakeGenerator } from '../adapters/llm';
@@ -248,9 +248,23 @@ describe('UI helpers (Task 12)', () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sb-'));
     const file = path.join(dir, 'scoreboard.json');
     const { app } = build({ scoreboardFile: () => file });
-    expect((await request(app).get('/api/scoreboard')).body).toEqual({ scoreboard: null });
+    const owner = () => request(app).get('/api/scoreboard').set('x-reviewer-token', 'sekret');
+    expect((await owner()).body).toEqual({ scoreboard: null });
     fs.writeFileSync(file, JSON.stringify({ trapsCaught: 6, trapsTotal: 6 }));
-    expect((await request(app).get('/api/scoreboard')).body).toEqual({ scoreboard: { trapsCaught: 6, trapsTotal: 6 } });
+    expect((await owner()).body).toEqual({ scoreboard: { trapsCaught: 6, trapsTotal: 6 } });
+  });
+
+  it('GET /api/scoreboard without the reviewer token is a 403 that leaks no rule text, memory ids, storage or model mode', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sb-'));
+    const file = path.join(dir, 'scoreboard.json');
+    fs.writeFileSync(file, JSON.stringify({ trapsCaught: 6, trapsTotal: 6, llmMode: 'live', learningDetail: { ruleText: 'Reject offers with shipping fees.', memoryIds: ['mem-42'], storedIn: 'meterless' } }));
+    const { app } = build({ scoreboardFile: () => file });
+    for (const res of [await request(app).get('/api/scoreboard'), await request(app).get('/api/scoreboard').set('x-reviewer-token', 'wrong')]) {
+      expect(res.status).toBe(403);
+      expect(JSON.stringify(res.body)).not.toMatch(/shipping|mem-42|meterless|llmMode|live/);
+    }
+    const full = await request(app).get('/api/scoreboard').set('x-reviewer-token', 'sekret');
+    expect(full.body.scoreboard.learningDetail.ruleText).toBe('Reject offers with shipping fees.');
   });
 });
 
@@ -309,6 +323,23 @@ describe('W1-OWNER: owner view split (parent response trimmed on the server)', (
     const { runId } = full.body;
     expect((await request(app).get(`/api/runs/${runId}`).set('x-reviewer-token', 'sekret')).body.owner).toBe(true);
     expect((await request(app).get(`/api/runs/${runId}/trace`).set('x-reviewer-token', 'wrong')).status).toBe(403);
+  });
+
+  it('parentResult copies only the five known receipt fields', () => {
+    const r: any = { familyId: 'leo', runId: 'r1', banner: null, cards: [],
+      receipt: { moneyBackCents: 1, likelyBenefitsCents: 2, deadlineCount: 3, nextDeadline: null, itemsChecked: 4, debugSql: 'SELECT * FROM v_x', memoryId: 'mem-9' } };
+    expect(parentResult(r).receipt).toEqual({ moneyBackCents: 1, likelyBenefitsCents: 2, deadlineCount: 3, nextDeadline: null, itemsChecked: 4 });
+  });
+
+  it('parents never see "Not reviewed by the AI court."; they get a plain sentence instead', async () => {
+    const { app } = build();
+    (court.judgeOffers as jest.Mock).mockResolvedValue([{ id: 'discount-9', kind: 'discount', title: 'Diaper deal', body: 'Store Y has an offer. Offline screen: no flagged terms found. Not reviewed by the AI court.', amountCents: 300, deadline: null, verdict: 'likely', sources: [], traceId: 't-1', agent: 'fine_print_court', claim: { type: 'offer', offerId: 9 }, evidenceSql: 'SELECT 1', retryCount: 0 }]);
+    const parent = await request(app).post('/api/run?wait=true').send({ familyId: 'leo' });
+    const card = parent.body.cards.find((c: any) => c.id === 'discount-9');
+    expect(card.body).toBe("Store Y has an offer. No flagged terms found. We couldn't fully check this offer's fine print.");
+    expect(JSON.stringify(parent.body)).not.toMatch(/AI court|Offline screen/);
+    const owner = await request(app).post('/api/run?wait=true').set('x-reviewer-token', 'sekret').send({ familyId: 'leo' });
+    expect(owner.body.cards.find((c: any) => c.id === 'discount-9').body).toMatch(/Not reviewed by the AI court\./);
   });
 
   it('GET /api/case-law hides rule text without the token, shows it with the token', async () => {

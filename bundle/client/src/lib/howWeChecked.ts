@@ -1,5 +1,5 @@
 import type { FeedCard } from '@shared/bundle';
-import { reviewerToken, type RunStatus, type TraceLine } from './bundle';
+import { reviewerToken, type Proposal, type RunStatus, type Scoreboard, type TraceLine } from './bundle';
 
 // ---------- owner view split (W1-OWNER) ----------
 // The server trims what parents get; these helpers send the reviewer code so the owner gets the full view.
@@ -11,7 +11,7 @@ export type OwnerRunStatus = RunStatus & { progress?: ParentStep[]; owner?: bool
 /** The reviewer code for this tab, or '' for a parent. */
 export const ownerToken = (): string => reviewerToken.get();
 
-async function ownerJson<T>(url: string, token: string): Promise<T> {
+export async function ownerJson<T>(url: string, token: string): Promise<T> {
   const res = await fetch(url, token ? { headers: { 'x-reviewer-token': token } } : undefined);
   const body = await res.json().catch(() => ({}));
   if (!res.ok) {
@@ -22,12 +22,19 @@ async function ownerJson<T>(url: string, token: string): Promise<T> {
   return body as T;
 }
 
+export interface CaseLaw { proposals: Proposal[]; approved: Proposal[]; proposedCount?: number; approvedCount?: number }
+
 /** Run status and trace calls. A parent's trace call never reaches the server (it is owner-only there). */
 export function ownerApi(token: string = ownerToken()) {
   return {
     run: (runId: string) => ownerJson<OwnerRunStatus>(`/api/runs/${encodeURIComponent(runId)}`, token),
     trace: (runId: string): Promise<TraceLine[]> =>
       token ? ownerJson<TraceLine[]>(`/api/runs/${encodeURIComponent(runId)}/trace`, token) : Promise.reject(new Error('owner only')),
+    /** Parents get counts only; the reviewer code adds rule text and proposals. */
+    caseLaw: () => ownerJson<CaseLaw>('/api/case-law', token),
+    /** Owner-only on the server (403 without the code), so a parent never asks. */
+    scoreboard: (): Promise<{ scoreboard: Scoreboard | null }> =>
+      token ? ownerJson<{ scoreboard: Scoreboard | null }>('/api/scoreboard', token) : Promise.reject(new Error('owner only')),
   };
 }
 

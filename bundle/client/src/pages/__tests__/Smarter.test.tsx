@@ -36,4 +36,11 @@ describe('Smarter owner view split (W1-OWNER)', () => {
     await waitFor(() => expect(screen.getByText(rule.text)).toBeTruthy());
     expect(screen.getByText('Approve rule')).toBeTruthy();
   });
+  it('the owner asks for the scoreboard with the reviewer code (the server refuses it without one)', async () => {
+    const f = mount(true);
+    await waitFor(() => expect(f.mock.calls.some(([u]) => String(u).includes('scoreboard'))).toBe(true));
+    for (const [u, init] of f.mock.calls) {
+      if (/scoreboard|case-law/.test(String(u))) expect((init?.headers as Record<string, string>)['x-reviewer-token']).toBe('sekret');
+    }
+  });
 });

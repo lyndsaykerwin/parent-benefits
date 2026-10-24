@@ -3,7 +3,7 @@ import path from 'path';
 import crypto from 'crypto';
 import { Router, type Request, type Response } from 'express';
 import rateLimit from 'express-rate-limit';
-import type { BundleResult, Family, FeedCard } from '../../shared/bundle';
+import type { BundleReceipt, BundleResult, Family, FeedCard } from '../../shared/bundle';
 import type { Generator } from '../adapters/llm';
 import type { BundleMemory } from '../adapters/memory';
 import { runBundle, newRunId, type RunDeps } from '../agents/orchestrator';
@@ -76,14 +76,30 @@ function parentCard(c: FeedCard, caught = false): ParentCard {
   const out = {} as Record<string, unknown>;
   for (const k of PARENT_CARD_KEYS) out[k] = (c as unknown as Record<string, unknown>)[k];
   out.sources = (c.sources ?? []).map((s) => ({ label: s.label, url: s.url }));
-  if (caught) out.body = parentCaughtReason(c.body);
+  out.body = caught ? parentCaughtReason(c.body) : parentBody(c.body);
   return out as ParentCard;
+}
+
+/** finePrintCourt's offline approval says "Not reviewed by the AI court." Parents get plain words instead. */
+export const PARENT_UNCHECKED_TEXT = "We couldn't fully check this offer's fine print.";
+export function parentBody(body: string): string {
+  return body
+    .replace(/Offline screen:\s*no flagged terms found\./gi, 'No flagged terms found.')
+    .replace(/Not reviewed by the AI court\./g, PARENT_UNCHECKED_TEXT);
+}
+
+/** Receipt fields copied one by one, so a field added later never reaches parents by accident. */
+function parentReceipt(r: BundleReceipt): BundleReceipt {
+  return {
+    moneyBackCents: r.moneyBackCents, likelyBenefitsCents: r.likelyBenefitsCents,
+    deadlineCount: r.deadlineCount, nextDeadline: r.nextDeadline, itemsChecked: r.itemsChecked,
+  };
 }
 
 /** The parent-safe copy of a run result. */
 export function parentResult(r: BundleResult): BundleResult {
   return {
-    familyId: r.familyId, runId: r.runId, receipt: r.receipt, banner: r.banner,
+    familyId: r.familyId, runId: r.runId, receipt: parentReceipt(r.receipt), banner: r.banner,
     cards: r.cards.map((c) => parentCard(c)) as FeedCard[],
     ...(r.blocked ? { blocked: r.blocked.map((c) => parentCard(c, true)) as FeedCard[] } : {}),
   };
@@ -251,7 +267,10 @@ export function createBundleRouter(deps: ApiDeps): Router {
     }
   });
 
-  router.get('/api/scoreboard', (_req, res) => {
+  // The scoreboard holds memory-rule text, memory ids, storage details and the model mode: owner-only.
+  // No parent screen shows it (Smarter.tsx asks only with the reviewer code), so parents get a 403.
+  router.get('/api/scoreboard', (req, res) => {
+    if (!isOwner(req)) return res.status(403).json({ error: 'The scoreboard is for the reviewer only.' });
     const file = deps.scoreboardFile?.() ?? path.resolve('logs', 'scoreboard.json');
     try {
       return res.json({ scoreboard: JSON.parse(fs.readFileSync(file, 'utf8')) });

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import AppShell from '@/components/AppShell';
 import { api, loadRun, reviewerToken, type Proposal, type Scoreboard } from '@/lib/bundle';
+import { ownerApi } from '@/lib/howWeChecked';
 import { cn } from '@/lib/utils';
 
 function Confidence({ value, dark = false }: { value: number; dark?: boolean }) {
@@ -39,10 +40,9 @@ export default function Smarter() {
 
   // Rule text, proposals and the scoreboard are owner-only: the server sends rule text only with the reviewer code.
   const refresh = useCallback(() => {
-    fetch('/api/case-law', token ? { headers: { 'x-reviewer-token': token } } : undefined)
-      .then(async (r) => { const b = await r.json().catch(() => ({})); if (!r.ok) throw new Error(b.error || `Something went wrong (${r.status}).`); return b; })
-      .then(setData).catch((e) => setLoadError((e as Error).message));
-    if (token) api.scoreboard().then((r) => setBoard(r.scoreboard)).catch(() => setBoard(null));
+    const owner = ownerApi(token);
+    owner.caseLaw().then(setData).catch((e) => setLoadError((e as Error).message));
+    if (token) owner.scoreboard().then((r) => setBoard(r.scoreboard)).catch(() => setBoard(null));
   }, [token]);
   useEffect(refresh, [refresh]);
 
