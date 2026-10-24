@@ -8,7 +8,8 @@ import type { Generator } from '../adapters/llm';
 import type { BundleMemory } from '../adapters/memory';
 import { runBundle, newRunId, type RunDeps } from '../agents/orchestrator';
 import { proposeRules, MAX_ISSUES } from '../agents/coach';
-import type { BundleStore } from '../bundleStore';
+import type { BundleStore, SavedRunRow } from '../bundleStore';
+import { agentTraceId } from '../../shared/agentLog';
 import type { TraceLine } from '../agents/trace';
 
 import { SEED_FAMILY_IDS, isSeedFamily } from '../demoDate';
@@ -130,6 +131,18 @@ function progressFor(e: RunEntry): ParentStep[] {
   }));
 }
 
+function savedRow(e: RunEntry, result: BundleResult): SavedRunRow {
+  return {
+    runId: e.runId, familyId: e.familyId, traceId: agentTraceId(e.runId), sampleMode: process.env.SAMPLE_MODE === 'true',
+    result, family: e.family, today: e.today, demoDate: e.demoDate, startedAt: e.startedAt,
+  };
+}
+
+/** A run read back from the results table (after a restart). Its trace file (if it is still on disk) is looked up in the default logs folder. */
+function restoredEntry(r: SavedRunRow): RunEntry {
+  return { runId: r.runId, familyId: r.familyId, status: 'done', startedAt: r.startedAt, result: r.result, logsDir: path.resolve('logs'), family: r.family, today: r.today, demoDate: r.demoDate };
+}
+
 export function createBundleRouter(deps: ApiDeps): Router {
   const router = Router();
   const runs = new Map<string, RunEntry>();
@@ -192,7 +205,14 @@ export function createBundleRouter(deps: ApiDeps): Router {
     inFlight++;
     inFlightByIp.set(ip, (inFlightByIp.get(ip) ?? 0) + 1);
     const done = runBundle(family.id, { ...base, runId, loadFamily: async () => family })
-      .then((result) => { entry.result = result; entry.status = 'done'; })
+      .then(async (result) => {
+        entry.result = result;
+        // Save before saying "done", so a finished run can always be read back after a restart.
+        // A failed save is logged but never fails the run (it is still served from memory).
+        try { await deps.store.saveRunResult(savedRow(entry, result)); }
+        catch (e) { console.error('Saving run result failed:', runId, (e as Error)?.message); }
+        entry.status = 'done';
+      })
       .catch((e) => {
         entry.status = 'failed';
         entry.error = 'The run did not finish. Please try again.';
@@ -226,20 +246,48 @@ export function createBundleRouter(deps: ApiDeps): Router {
     }
   });
 
-  router.get('/api/runs/:runId', (req, res) => {
-    const e = runs.get(req.params.runId);
-    if (!e) return res.status(404).json({ error: 'Run not found' });
-    return res.json({
-      runId: e.runId, familyId: e.familyId, status: e.status, startedAt: e.startedAt, family: e.family, today: e.today, demoDate: e.demoDate,
-      result: e.result ? view(req, e.result) : null, error: e.error ?? null, progress: progressFor(e), owner: isOwner(req),
-    });
+  /** A run still in memory, else one saved in the results table (so results survive a restart). */
+  async function findRun(runId: string): Promise<RunEntry | null> {
+    const live = runs.get(runId);
+    if (live) return live;
+    try {
+      const saved = await deps.store.getRunResult(runId);
+      return saved ? restoredEntry(saved) : null;
+    } catch (e) {
+      console.error('Reading saved run failed:', runId, (e as Error)?.message);
+      return null;
+    }
+  }
+
+  const runBody = (req: Request, e: RunEntry) => ({
+    runId: e.runId, familyId: e.familyId, status: e.status, startedAt: e.startedAt, family: e.family, today: e.today, demoDate: e.demoDate,
+    result: e.result ? view(req, e.result) : null, error: e.error ?? null, progress: progressFor(e), owner: isOwner(req),
   });
 
-  router.get('/api/runs/:runId/trace', (req, res) => {
-    const e = runs.get(req.params.runId);
+  router.get('/api/runs/:runId', async (req, res) => {
+    const e = await findRun(req.params.runId);
+    if (!e) return res.status(404).json({ error: 'Run not found' });
+    return res.json(runBody(req, e));
+  });
+
+  router.get('/api/runs/:runId/trace', async (req, res) => {
+    const e = await findRun(req.params.runId);
     if (!e) return res.status(404).json({ error: 'Run not found' });
     if (!isOwner(req)) return res.status(403).json({ error: 'The audit log is for the reviewer only.' });
     return res.json(readTrace(e));
+  });
+
+  /** The newest saved result for a family, for the instant feed. Same parent/owner split as a normal run. */
+  router.get('/api/families/:familyId/latest-run', async (req, res) => {
+    if (!knownFamilies.has(req.params.familyId)) return res.status(404).json({ error: 'No saved run for this family' });
+    try {
+      const saved = await deps.store.latestRunResult(req.params.familyId);
+      if (!saved) return res.status(404).json({ error: 'No saved run for this family' });
+      return res.json(runBody(req, restoredEntry(saved)));
+    } catch (e) {
+      console.error('GET latest-run failed:', (e as Error)?.message);
+      return res.status(500).json({ error: 'Could not load the saved run.' });
+    }
   });
 
   router.post('/api/feedback', feedbackLimiter, async (req, res) => {

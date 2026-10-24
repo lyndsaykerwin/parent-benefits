@@ -1,4 +1,5 @@
 import type { FeedbackRow, RuleProposal } from './agents/coach';
+import type { BundleResult } from '../shared/bundle';
 
 export interface ProposalRow {
   id: number;
@@ -7,6 +8,20 @@ export interface ProposalRow {
   sourceFeedbackIds: string[];
   status: 'proposed' | 'approved' | 'rejected';
   memoryId: string | null;
+}
+
+/** One finished run, as saved in the `run_results` table. `result` is the full owner copy; parents get the trimmed view at read time. */
+export interface SavedRunRow {
+  runId: string;
+  familyId: string;
+  traceId: string | null;
+  sampleMode: boolean;
+  result: BundleResult;
+  /** Display-only header fields (never income). */
+  family: { name: string; birthDate: string | null; dueDate: string | null };
+  today: string;
+  demoDate: boolean;
+  startedAt: string;
 }
 
 /** Everything the API reads or writes in Neon, behind one small interface so tests can use memory. */
@@ -19,13 +34,21 @@ export interface BundleStore {
   listProposals(): Promise<ProposalRow[]>;
   getProposal(id: number): Promise<ProposalRow | null>;
   markApproved(id: number, memoryId: string): Promise<void>;
+  /** Save (or replace) a finished run so it is still served after a restart. */
+  saveRunResult(row: SavedRunRow): Promise<void>;
+  getRunResult(runId: string): Promise<SavedRunRow | null>;
+  /** Newest saved run for a family, for the instant feed. */
+  latestRunResult(familyId: string): Promise<SavedRunRow | null>;
 }
+
+const copyRow = (r: SavedRunRow): SavedRunRow => JSON.parse(JSON.stringify(r));
 
 const norm = (t: string) => t.trim().toLowerCase();
 
 export class MemoryStore implements BundleStore {
   private fb: FeedbackRow[] = [];
   private props: ProposalRow[] = [];
+  private runs = new Map<string, SavedRunRow>();
   constructor(private zips: Record<string, string> = {}) {}
   async zipState(zip3: string) { return this.zips[zip3] ?? null; }
   async addFeedback(row: Omit<FeedbackRow, 'id' | 'createdAt'>) {
@@ -49,6 +72,18 @@ export class MemoryStore implements BundleStore {
   async markApproved(id: number, memoryId: string) {
     const p = this.props.find((e) => e.id === id);
     if (p) { p.status = 'approved'; p.memoryId = memoryId; }
+  }
+  async saveRunResult(row: SavedRunRow) {
+    this.runs.delete(row.runId); // re-saving moves it to "newest"
+    this.runs.set(row.runId, copyRow(row));
+  }
+  async getRunResult(runId: string) {
+    const r = this.runs.get(runId);
+    return r ? copyRow(r) : null;
+  }
+  async latestRunResult(familyId: string) {
+    const mine = [...this.runs.values()].filter((r) => r.familyId === familyId);
+    return mine.length ? copyRow(mine[mine.length - 1]) : null;
   }
 }
 
@@ -100,5 +135,31 @@ export class DrizzleStore implements BundleStore {
   async markApproved(id: number, memoryId: string) {
     const { db, s, o } = await this.d();
     await db.update(s.caseLawProposals).set({ status: 'approved', memoryId }).where(o.eq(s.caseLawProposals.id, id));
+  }
+  /** The `run_results.result` column holds the full result plus the display fields, so one row restores a whole run. */
+  private toRun(r: any): SavedRunRow {
+    const env = r.result ?? {};
+    return {
+      runId: r.runId, familyId: r.familyId, traceId: r.traceId ?? null, sampleMode: !!r.sampleMode,
+      result: env.result, family: env.family ?? { name: r.familyId, birthDate: null, dueDate: null },
+      today: env.today ?? '', demoDate: !!env.demoDate, startedAt: env.startedAt ?? new Date(r.createdAt).toISOString(),
+    };
+  }
+  async saveRunResult(row: SavedRunRow) {
+    const { db, s } = await this.d();
+    const result = { result: row.result, family: row.family, today: row.today, demoDate: row.demoDate, startedAt: row.startedAt };
+    await db.insert(s.runResults)
+      .values({ runId: row.runId, familyId: row.familyId, traceId: row.traceId, sampleMode: row.sampleMode, result, createdAt: new Date() }) // set here so every row uses the app's clock, not the database's
+      .onConflictDoUpdate({ target: s.runResults.runId, set: { familyId: row.familyId, traceId: row.traceId, sampleMode: row.sampleMode, result, createdAt: new Date() } });
+  }
+  async getRunResult(runId: string) {
+    const { db, s, o } = await this.d();
+    const rows = await db.select().from(s.runResults).where(o.eq(s.runResults.runId, runId)).limit(1);
+    return rows[0] ? this.toRun(rows[0]) : null;
+  }
+  async latestRunResult(familyId: string) {
+    const { db, s, o } = await this.d();
+    const rows = await db.select().from(s.runResults).where(o.eq(s.runResults.familyId, familyId)).orderBy(o.desc(s.runResults.createdAt)).limit(1);
+    return rows[0] ? this.toRun(rows[0]) : null;
   }
 }
