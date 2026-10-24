@@ -35,15 +35,15 @@ Steps:
 - [ ] A Matching test on Plaid-style bank data + order data vs live recalls → `entity-resolution-test.md`
 - [x] B Audit (done; MA claims spot-checked): non_ma_family / MA hardcoding, poverty/WIC usage, fine-print eval spec → `audit-ma-poverty-evals.md`
 - [x] C Plan update (done Oct 24; round-1 copy frozen at `plan-history/bundle-plan-v3-2026-10-24-round1.md`). Woven into `bundle-plan-v3.md`: Plaid back in; middle-class sources (Child Tax Credit, Dependent Care FSA, MA/NY/CA paid leave, work benefits, recalls) replace poverty/WIC; any-state rules + 5-family `state_agnostic` test + Ohio auto-renew fix; 12 fine-print tests + 3 controls + "approve, with a catch" + `offer_checks` key fields; brand audit view + read-only endpoint (MCP later); Nightshift → Nemotron (one fallback); re-ranked must/should/cut; mechanical submission items reduced to a timeline reminder. **Product matching is still PENDING** the step A results (`entity-resolution-test.md`); the plan's section 4 item 6 is marked pending and needs filling in when A finishes.
-- [ ] D Future-state grade (after C) → `plan-grade-future-state.md`
+- [x] D Future-state grade (after C) → `plan-grade-future-state.md` (done; 77/100, range 70–81)
 
 ## Paused Oct 24 (out of credits). Where things stand
 - Done: plan updated with round-2 decisions (bundle-plan-v3.md); audit-ma-poverty-evals.md; research-nightshift.md (incl. afternoon update).
 - Done: matching test (entity-resolution-test.md). Brand + product type + date rules found 7 of 8 matches on new test data; bank lines have no product names, so recalls need item data (Amazon orders, registry, receipts).
 ## Resumed Oct 24 in the cloud session (branch main-vwo411)
 - [x] E1 (done; numbers checked against the test file) Fill in the PENDING "Product matching" section of bundle-plan-v3.md from entity-resolution-test.md (mark step A done)
-- [ ] E2 Health check: install bundle app, run tests in SAMPLE_MODE=true, confirm it starts → `cloud-health-check.md` (runs alongside E1)
-- [ ] D Future-state grade (after E1) → `plan-grade-future-state.md`
+- [x] E2 (done; 268 pass / 8 skipped / 0 fail, typecheck clean, server starts and answers in SAMPLE_MODE → `cloud-health-check.md`)
+- [x] D Future-state grade (after E1) → `plan-grade-future-state.md` (done; 77/100, range 70–81)
 - [ ] Nightshift hookup: cannot install in the cloud box; stays for the next Mac session
 
 - Next when resuming (original note): 1) read entity-resolution-test.md and fill in the PENDING "Product matching" section of the plan; 2) run step D, the future-state grade (plan-grade-future-state.md), focused on hard-to-reverse choices, measured against the strong-submission examples; 3) connect the app to Nightshift once installed.
