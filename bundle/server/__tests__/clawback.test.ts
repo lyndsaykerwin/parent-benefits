@@ -86,6 +86,18 @@ describe('clawback hunter', () => {
     expect(await findClawbacks(ctx)).toEqual([]);
   });
 
+  it('a seller-only receipt (no store) still gets cards: the store falls back to the seller in every query', async () => {
+    const { ctx, runQuery } = ctxWith(maya, { fsa: FSA_ROWS, price: PRICE_ROWS });
+    await findClawbacks(ctx);
+    for (const [sql] of runQuery.mock.calls) {
+      expect(sql).toContain('COALESCE(p.store, p.seller)');
+      expect(String(sql).split('COALESCE(p.store, p.seller)').join('')).not.toMatch(/\bp\.store/);
+    }
+    const { fsaSql, priceSql } = await import('../agents/clawback');
+    expect(priceSql('maya')).toContain('lower(sp.store) = lower(COALESCE(p.store, p.seller))');
+    expect(fsaSql('maya')).toContain('COALESCE(p.store, p.seller) AS merchant');
+  });
+
   it('only prices lines that have a price (a line with no price cannot be money back)', async () => {
     const { ctx, runQuery } = ctxWith(maya, {});
     await findClawbacks(ctx);

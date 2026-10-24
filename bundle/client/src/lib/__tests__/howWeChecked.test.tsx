@@ -11,14 +11,14 @@ const z = (sql: string, action = 'query_cached', out = '1 rows (sample cache)') 
 
 describe('sourceNames', () => {
   it('maps tables to plain-English names', () => {
-    expect(sourceNames('SELECT x FROM bundle_pg.v_recall_orders WHERE family_id = 1')).toEqual(['Your purchases (private, Neon)']);
+    expect(sourceNames('SELECT x FROM bundle_pg.v_purchase_items WHERE family_id = 1')).toEqual(['Your purchases (private, Neon)']);
     expect(sourceNames('SELECT RecallID FROM bundle_live.cpsc_recalls')).toEqual(['CPSC recall list (live government feed)']);
     expect(sourceNames('FROM bundle_live.fda_food_recalls')).toEqual(['openFDA food recalls']);
     expect(sourceNames('FROM bundle_pg.benefit_rules')).toEqual(['Program rules']);
     expect(sourceNames('FROM bundle_pg.v_judge_offers')).toEqual(['Offers']);
   });
   it('lists several sources once each, and nothing for unknown tables', () => {
-    expect(sourceNames('FROM bundle_pg.v_recall_orders i JOIN bundle_live.cpsc_recalls r JOIN bundle_live.fda_food_recalls f')).toHaveLength(3);
+    expect(sourceNames('FROM bundle_pg.v_purchase_items i JOIN bundle_live.cpsc_recalls r JOIN bundle_live.fda_food_recalls f')).toHaveLength(3);
     expect(sourceNames('FROM mystery.table')).toEqual([]);
   });
 });
@@ -40,12 +40,12 @@ describe('redactSql numbers', () => {
 
 describe('zetarisForCard', () => {
   const lines = [
-    z("SELECT i.item_text FROM bundle_pg.v_recall_orders i JOIN bundle_live.cpsc_recalls r ON 1=1"),
+    z("SELECT i.item_text, i.lot_code FROM bundle_pg.v_purchase_items i JOIN bundle_live.cpsc_recalls r ON 1=1"),
     z('SELECT RecallID FROM bundle_live.cpsc_recalls WHERE RecallID = 10560'),
     z('SELECT RecallID FROM bundle_live.cpsc_recalls WHERE RecallID = 99999'),
     z('SELECT value_cents, max_age_days FROM bundle_pg.v_judge_offers WHERE id = 1191'),
     z('SELECT id, title FROM bundle_pg.v_judge_offers ORDER BY id'),
-    z("SELECT amount_cents FROM bundle_pg.v_clawback_tx WHERE id = 'maya-tx-01' AND family_id = 'maya'"),
+    z("SELECT amount_cents FROM bundle_pg.v_purchase_items WHERE id = 11 AND family_id = 'maya'"),
   ];
   it('ties a recall card to its own recall and the purchases query, not other recalls', () => {
     const v = zetarisForCard(card('recall-cpsc-10560', 'recall'), lines)!;
@@ -59,8 +59,8 @@ describe('zetarisForCard', () => {
     expect(v.sources).toEqual(['Offers']);
     expect(v.queries).toBe(2);
   });
-  it('ties a clawback card to its transaction, with literals redacted', () => {
-    const v = zetarisForCard(card('clawback-fsa-maya-tx-01', 'clawback'), lines)!;
+  it('ties a clawback card to its purchase item, with literals redacted', () => {
+    const v = zetarisForCard(card('clawback-fsa-11', 'clawback'), lines)!;
     expect(v.queries).toBe(1);
     expect(v.sql[0]).not.toContain('maya');
   });
@@ -70,7 +70,7 @@ describe('zetarisForCard', () => {
     expect(zetarisForCard(card('benefit-ma_pfml', 'benefit'), [{ ...z("SELECT 1 FROM bundle_pg.benefit_rules WHERE code = 'MA_PFML'", 'query', 'unavailable'), status: 'error' as const }])).toBeNull();
   });
   it('sums live timing and is not "saved" for live queries', () => {
-    const live = [z('SELECT RecallID FROM bundle_live.cpsc_recalls WHERE RecallID = 7', 'query', '1 rows in 120 ms'), z('SELECT x FROM bundle_pg.v_recall_orders', 'query', '3 rows in 30 ms')];
+    const live = [z('SELECT RecallID FROM bundle_live.cpsc_recalls WHERE RecallID = 7', 'query', '1 rows in 120 ms'), z('SELECT item_text FROM bundle_pg.v_purchase_items', 'query', '3 rows in 30 ms')];
     const v = zetarisForCard(card('recall-cpsc-7', 'recall'), live)!;
     expect(v).toMatchObject({ saved: false, ms: 150, queries: 2 });
   });

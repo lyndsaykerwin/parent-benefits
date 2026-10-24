@@ -41,7 +41,7 @@ export function ownerApi(token: string = ownerToken()) {
 /** Plain-English names for the tables Zetaris reads. Order = display order. */
 const SOURCE_NAMES: { re: RegExp; name: string }[] = [
   { re: /\bv_planner_family\b/i, name: 'Your family profile (private, Neon)' },
-  { re: /\bv_recall_orders\b|\bv_clawback_tx\b/i, name: 'Your purchases (private, Neon)' },
+  { re: /\bv_purchase_items\b|\bv_recall_orders\b|\bv_clawback_tx\b/i, name: 'Your purchases (private, Neon)' },
   { re: /\bcpsc_recalls\b/i, name: 'CPSC recall list (live government feed)' },
   { re: /\bfda_food_recalls\b/i, name: 'openFDA food recalls' },
   { re: /\bbenefit_rules\b/i, name: 'Program rules' },
@@ -74,14 +74,14 @@ function cardKeyPatterns(card: FeedCard): RegExp[] {
   if ((m = id.match(/^recall-cpsc-(\d+)$/))) return [new RegExp(`cpsc_recalls\\b[^;]*\\bRecallID\\s*=\\s*${m[1]}\\b`, 'i')];
   if ((m = id.match(/^(?:discount|blocked)-(\d+)$/))) return [new RegExp(`v_judge_offers\\s+WHERE\\s+id\\s*=\\s*${m[1]}\\b`, 'i')];
   if ((m = id.match(/^benefit-(.+)$/))) return [new RegExp(`benefit_rules\\s+WHERE\\s+code\\s*=\\s*'${esc(m[1])}'`, 'i')];
-  if ((m = id.match(/^clawback-(?:fsa|price)-(.+)$/))) return [new RegExp(`v_clawback_tx\\s+WHERE\\s+id\\s*=\\s*'${esc(m[1])}'`, 'i')];
+  if ((m = id.match(/^clawback-(?:fsa|price)-(.+)$/))) return [new RegExp(`v_purchase_items\\s+WHERE\\s+id\\s*=\\s*${esc(m[1])}\\b`, 'i')];
   return [];
 }
 
 /** Run-wide queries a whole kind of card is built from (looked up by table, never by position). */
 function kindOriginPatterns(card: FeedCard): RegExp[] {
   switch (card.kind) {
-    case 'recall': return [/\bv_recall_orders\b/i];
+    case 'recall': return [/\bitem_text\b[^]*\bv_purchase_items\b/i]; // recall queries name item_text; money-back queries name item
     case 'discount': return [/\bv_judge_offers\s+ORDER\s+BY\b/i];
     case 'benefit': return [/\bbenefit_rules\s+ORDER\s+BY\b/i];
     default: return [];

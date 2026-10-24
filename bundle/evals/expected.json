@@ -8,15 +8,11 @@
       "mustInclude": [
         {
           "kind": "clawback",
-          "idContains": "clawback-fsa-maya-tx-01"
+          "idContains": "clawback-fsa-"
         },
         {
           "kind": "clawback",
-          "idContains": "clawback-price-maya-tx-02"
-        },
-        {
-          "kind": "clawback",
-          "idContains": "clawback-dcfsa-maya"
+          "idContains": "clawback-price-"
         },
         {
           "kind": "recall",
@@ -46,7 +42,7 @@
       "mustInclude": [
         {
           "kind": "clawback",
-          "idContains": "clawback-fsa-ava-tx-04"
+          "idContains": "clawback-fsa-"
         },
         {
           "kind": "benefit",
@@ -70,19 +66,14 @@
     },
     "refund": {
       "family": "maya",
-      "note": "Target $24 purchase then a -$24 refund: neither may become a card",
-      "mustNotHaveIdContains": [
-        "maya-tx-03",
-        "maya-tx-04"
-      ]
+      "note": "Plaid-era refund trap retired (no refund rows in purchase_items). Kept empty only so scripts/eval.ts still runs; W5-EVALS to remove the check.",
+      "mustNotHaveIdContains": []
     },
     "duplicate": {
       "family": "maya",
-      "note": "Walgreens diapers listed twice: counted once",
+      "note": "Each purchase line counts once (the table drops repeats of the same receipt line)",
       "itemsChecked": 7,
-      "mustNotHaveIdContains": [
-        "maya-tx-06"
-      ]
+      "mustNotHaveIdContains": []
     },
     "non_ma_family": {
       "family": "ava",

@@ -20,7 +20,7 @@ const KEYWORD_MATCH = "lower(p.product_name) LIKE concat('%', lower(c.keyword), 
 
 export function fsaSql(familyId: string): string {
   return (
-    'SELECT DISTINCT p.id AS item_id, p.store AS merchant, p.purchased_on AS date, p.price_cents AS amount_cents, ' +
+    'SELECT DISTINCT p.id AS item_id, COALESCE(p.store, p.seller) AS merchant, p.purchased_on AS date, p.price_cents AS amount_cents, ' +
     'p.product_name AS item, c.keyword AS keyword, c.category AS fsa_category, c.account AS account, c.source_url AS source_url ' +
     `FROM ${ITEMS} ` +
     `JOIN bundle_pg.fsa_eligible_categories c ON c.account IN ('FSA', 'HSA') AND ${KEYWORD_MATCH} ` +
@@ -30,11 +30,11 @@ export function fsaSql(familyId: string): string {
 
 export function priceSql(familyId: string): string {
   return (
-    'SELECT p.id AS item_id, p.store AS merchant, p.purchased_on AS date, p.price_cents AS amount_cents, p.product_name AS item, ' +
+    'SELECT p.id AS item_id, COALESCE(p.store, p.seller) AS merchant, p.purchased_on AS date, p.price_cents AS amount_cents, p.product_name AS item, ' +
     'sp.adjustment_window_days AS window_days, po.price_cents AS observed_price_cents, po.observed_at AS observed_at, ' +
     'sp.source_url AS store_source_url, po.source_url AS price_source_url ' +
     `FROM ${ITEMS} ` +
-    'JOIN bundle_pg.store_policies sp ON lower(sp.store) = lower(p.store) ' +
+    'JOIN bundle_pg.store_policies sp ON lower(sp.store) = lower(COALESCE(p.store, p.seller)) ' +
     'JOIN bundle_pg.price_observations po ON lower(po.store) = lower(sp.store) ' +
     "AND lower(p.product_name) LIKE concat('%', lower(po.keyword), '%') " +
     `WHERE p.family_id = ${quoteId(familyId)} AND p.price_cents > 0 ` +

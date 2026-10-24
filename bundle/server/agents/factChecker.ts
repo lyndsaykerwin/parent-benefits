@@ -125,7 +125,7 @@ async function check(c: Candidate, ctx: AgentContext): Promise<VerifyResult> {
       'SELECT p.price_cents AS amount_cents, p.purchased_on AS tx_date, sp.adjustment_window_days AS window_days, ' +
       'po.price_cents AS price_cents, po.observed_at AS observed_at ' +
       'FROM bundle_pg.v_purchase_items p ' +
-      'JOIN bundle_pg.store_policies sp ON lower(sp.store) = lower(p.store) ' +
+      'JOIN bundle_pg.store_policies sp ON lower(sp.store) = lower(COALESCE(p.store, p.seller)) ' +
       'JOIN bundle_pg.price_observations po ON lower(po.store) = lower(sp.store) ' +
       "AND lower(p.product_name) LIKE concat('%', lower(po.keyword), '%') " +
       `WHERE p.id = ${quoteInt(claim.itemId)} AND p.family_id = ${q(ctx.family.id)}`;
