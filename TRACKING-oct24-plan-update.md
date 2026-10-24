@@ -41,7 +41,7 @@ Steps:
 - Done: plan updated with round-2 decisions (bundle-plan-v3.md); audit-ma-poverty-evals.md; research-nightshift.md (incl. afternoon update).
 - Done: matching test (entity-resolution-test.md). Brand + product type + date rules found 7 of 8 matches on new test data; bank lines have no product names, so recalls need item data (Amazon orders, registry, receipts).
 ## Resumed Oct 24 in the cloud session (branch main-vwo411)
-- [ ] E1 Fill in the PENDING "Product matching" section of bundle-plan-v3.md from entity-resolution-test.md (mark step A done)
+- [x] E1 (done; numbers checked against the test file) Fill in the PENDING "Product matching" section of bundle-plan-v3.md from entity-resolution-test.md (mark step A done)
 - [ ] E2 Health check: install bundle app, run tests in SAMPLE_MODE=true, confirm it starts → `cloud-health-check.md` (runs alongside E1)
 - [ ] D Future-state grade (after E1) → `plan-grade-future-state.md`
 - [ ] Nightshift hookup: cannot install in the cloud box; stays for the next Mac session
