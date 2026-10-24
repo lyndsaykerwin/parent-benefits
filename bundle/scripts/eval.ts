@@ -16,7 +16,7 @@ import path from 'path';
 import type { BundleResult, Family } from '../shared/bundle';
 import { loadEnv } from '../server/env';
 import { ZetarisClient } from '../server/adapters/zetaris';
-import { createGenerator, FakeGenerator, NvidiaGenerator, UnavailableGenerator, type Generator } from '../server/adapters/llm';
+import { ChainGenerator, createGenerator, FakeGenerator, NvidiaGenerator, UnavailableGenerator, type Generator } from '../server/adapters/llm';
 import { BundleMemory } from '../server/adapters/memory';
 import { runBundle } from '../server/agents/orchestrator';
 import { TraceLogger } from '../server/agents/trace';
@@ -77,7 +77,7 @@ const loadFamily = async (id: string): Promise<Family> => {
 };
 
 export function llmCallsOf(llm: Generator): { ok: number; failed: number } | null {
-  return llm instanceof NvidiaGenerator ? { ...llm.stats } : null;
+  return llm instanceof NvidiaGenerator || llm instanceof ChainGenerator ? { ...llm.stats } : null;
 }
 
 /** Before a real-model eval: needs a key and model ids, and one tiny call to each model must work. Returns an error message, or null if fine. */
@@ -87,7 +87,7 @@ export async function preflightModel(llm: Generator): Promise<string | null> {
     try { await llm.generate('Reply with one word: ok', undefined, which); }
     catch (e) { return `Pre-flight call to the ${which} model failed: ${(e as Error).message}. Nothing was changed.`; }
   }
-  if (llm instanceof NvidiaGenerator) llm.resetStats();
+  if (llm instanceof NvidiaGenerator || llm instanceof ChainGenerator) llm.resetStats();
   return null;
 }
 
@@ -96,7 +96,7 @@ export function llmModeOf(llm: Generator): LlmMode {
   if (llm instanceof FakeGenerator) return 'fake-llm';
   // A real NVIDIA model: record exactly which ids were behind the numbers.
   // Only claim a real model if calls actually succeeded; any failed call (offline text used instead) makes it "partial".
-  if (llm instanceof NvidiaGenerator) {
+  if (llm instanceof NvidiaGenerator || llm instanceof ChainGenerator) {
     const ids = `${llm.models.reasoning}+${llm.models.fast}`;
     const { ok, failed } = llm.stats;
     if (ok === 0) return 'offline-fallback';
