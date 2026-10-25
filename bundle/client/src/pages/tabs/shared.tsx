@@ -43,7 +43,8 @@ export function CardStack({ cards, props, deadlineLabels }: { cards: FeedCard[];
           card={c}
           today={props.run.today}
           detailHref={props.href(c.id)}
-          deadlineLabel={deadlineLabels?.[c.id]}
+          // An expecting family has no countdown yet: every benefit deadline counts from the birth.
+          deadlineLabel={deadlineLabels?.[c.id] ?? (props.stage === 'expecting' && c.kind === 'benefit' && c.deadline ? 'Starts at birth' : undefined)}
           claim={ids.has(c.id) ? { checked: !!props.claims[c.id], onToggle: () => props.toggleClaim(c.id) } : undefined}
         />
       ))}

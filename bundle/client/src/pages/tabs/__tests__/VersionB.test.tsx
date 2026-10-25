@@ -122,6 +122,16 @@ describe('Version B tabs, expecting (Leo)', () => {
     expect(document.body.textContent).not.toMatch(/days left/);
   });
 
+  it('every benefit deadline says "Starts at birth", including the year-long paid-leave card', () => {
+    show('leo');
+    fireEvent.click(tab('Insurance'));
+    const leave = screen.getByRole('article', { name: /Paid Family and Medical Leave/ });
+    expect(within(leave).getByText('Starts at birth')).toBeTruthy();
+    expect(document.body.textContent).not.toMatch(/days left|By Dec 7|Ends /);
+    fireEvent.click(tab('Taxes'));
+    expect(document.body.textContent).not.toMatch(/days left/);
+  });
+
   it('Insurance says deadlines start at birth, with no badge', () => {
     show('leo');
     expect(within(tab('Insurance')).queryByLabelText(/deadline/)).toBeNull();

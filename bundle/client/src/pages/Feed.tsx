@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'wouter';
 import AppShell from '@/components/AppShell';
 import VersionB from '@/pages/tabs/VersionB';
+import AgentWorkspace from '@/pages/AgentWorkspace';
 import { describeLine, familyChip, loadRun, saveRun, type SavedRun, type TraceLine } from '@/lib/bundle';
 import { pollRun } from '@/lib/poll';
 import { ownerApi, ownerToken, type OwnerRunStatus, type ParentStep } from '@/lib/howWeChecked';
@@ -181,9 +182,7 @@ export default function Feed() {
       run={run}
       owner={owner}
       lines={doneLines}
-      // W3-PANEL SLOT (owner only): pass the panel here once it is merged, for example
-      //   ownerPanel={<AgentWorkspace runId={runId} />}   with   import AgentWorkspace from '@/pages/AgentWorkspace';
-      ownerPanel={null}
+      ownerPanel={<AgentWorkspace runId={runId} cards={[...run.result.cards, ...(run.result.blocked ?? [])].map((c) => ({ id: c.id, title: c.title }))} />}
     />
   );
 }

@@ -58,7 +58,7 @@ export default function HomeTab(props: TabProps) {
         </p>
         <div className="mt-3 flex flex-wrap gap-2 text-[12.5px] font-bold">
           {!expecting && urgent.length > 0 && <span className="rounded-full bg-coral-tint px-2.5 py-1 text-coral-deep">{plural(urgent.length, 'deadline', 'deadlines')} coming up</span>}
-          <span className="rounded-full bg-[#E3F3EA] px-2.5 py-1 text-[#17643F]">Every amount checked against its source</span>
+          <span className="rounded-full bg-[#E3F3EA] px-2.5 py-1 text-[#17643F]">Every amount traced to its source</span>
         </div>
         <HowWeGotThisNumber totals={totals} href={props.href} />
 
