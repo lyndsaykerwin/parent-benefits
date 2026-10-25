@@ -1,21 +1,40 @@
 # Bundle
 
 > **Track:** Track 1: Solving Fragmented Intelligence
-> **Sponsor technology:** Zetaris (SQL data door), Meterless H-MEM (memory), NVIDIA-hosted models (supported, not exercised in the saved results)
+> **Sponsor technology:** Zetaris (SQL data door), Meterless (H-MEM memory engine; Nightshift as the AI switchboard on the Mac), NVIDIA-hosted models (supported; not in the saved results)
 > **How it was built:** Built with Claude Code. Cursor was optional for this hackathon and was not used.
 > **Run with no keys:** `cp .env.example .env && npm ci && npm run dev`, then `POST /api/run` on port 5050
 
-## 1. Problem
+## 1. What Bundle does (in plain English)
 
 New parents are owed money, benefits and safety information that is scattered across a dozen places: a tax credit on
 one government site, a leave programme on another, a refund window buried in a store's help page, a crib-mattress
-recall on a federal safety feed. Nobody has the time to line these up, and many "free" baby offers hide a paid
+recall on a federal safety feed. Nobody has time to line these up, and many "free" baby offers hide a paid
 membership in the fine print.
 
-Bundle's agents **find, check and prepare** these for one family, show where each answer came from, and learn from
-parent feedback. (Bundle prepares; it does not give advice. Wording is "likely eligible", never "eligible".)
+Bundle is a small team of AI helpers ("agents": programs that each do one job and hand work to the next) that, for one
+family, **find, check and prepare** these things, show where every answer came from, and learn from parent feedback.
+It prepares; it does not give advice. Wording is "likely eligible", never "eligible".
 
-Example year-one value for a Boston family is in `research-boston-baby-benefits.html` (project research, not part of the app).
+- A **Benefits Planner** lists likely benefits and deadlines from the baby's birth or due date.
+- A **Clawback Hunter** finds money that can come back (a price drop inside a store's adjustment window, spending that a flexible-spending account could have covered).
+- A **Recall Checker** compares what the family bought with government recall lists.
+- A **Fine Print Court** argues over "free" offers and rejects the ones with hidden catches.
+- A **Fact-Checker** sends back, or drops, any card with no source or a wrong dollar amount or date.
+- When parents report a problem, a **Coach** proposes a rule, a reviewer approves it, and the next run changes because of it.
+
+**Year-one money figure.** Our research file estimates the first year's value for a middle-class Boston family at about
+$9,210, not counting paid leave. Say it as: **"estimated from our research; about $6,040 independently source-checked."**
+The checked rows (federal Child Tax Credit, Massachusetts Child and Family Tax Credit, the Trump Account deposit and
+Dependent Care FSA tax savings) and their sources are in [`docs/year-one-table.md`](docs/year-one-table.md); the rest
+comes from `../research-boston-baby-benefits.html`, which cites its own sources. Amounts are estimates, not promises.
+
+**Every family, purchase and card in the sample data is fictional.** The recalls, benefit rules and store policies
+are real public facts; see [`data/README.md`](data/README.md).
+
+The approved one-line summary of who does what: *Zetaris finds candidate matches across private and public data in
+one question. Code rules make the safety decisions and show their evidence. The AI argues over fine print,
+explains, and fills gaps the rules can't, and code can overrule it.*
 
 ## 2. Agents
 
@@ -41,15 +60,20 @@ changes the outcome of run 2. Diagram: [`docs/architecture.md`](docs/architectur
 | Server | Node 24, Express, TypeScript |
 | App | React, Vite, Tailwind (mobile first, 375px) |
 | Data door | **Zetaris**: one SQL layer over a Neon Postgres database and live public recall feeds |
-| Memory | **Meterless H-MEM** reference implementation (vendored in `vendor/hmem`, Apache-2.0) |
-| Models | NVIDIA-hosted models (supported, not exercised in the saved results), via an OpenAI-compatible endpoint |
+| Memory | **Meterless H-MEM** (Meterless's open-source memory engine, copied into `vendor/hmem` under Apache-2.0 and run inside our own server) |
+| AI switchboard | **Meterless Nightshift** (a Mac app; first choice for AI calls when it is running; see section 14) |
+| Models | NVIDIA Nemotron models, reached through Nightshift or directly (an "OpenAI-compatible endpoint" is a standard web address AI services share). Not exercised in the saved results |
 | Database | Neon Postgres via Drizzle (live mode only) |
 | Built with | Claude Code (AI coding assistant) |
 | Logging | One JSON line per event in `logs/run-<id>.jsonl` |
 
-## 4. Setup
+## 4. Quick start
 
-Needs Node 24 or newer. No GPU. No keys for the sample run.
+Needs Node 24 or newer. No GPU. **No keys for the sample run.**
+
+### Option A: sample mode, no keys
+
+`SAMPLE_MODE=true` (already set in `.env.example`) means the app runs from saved sample families and saved Zetaris answers, and never calls Zetaris or an AI model.
 
 ```bash
 cp .env.example .env     # SAMPLE_MODE=true is already set
@@ -68,6 +92,19 @@ npm run eval     # the evals (answer key) and prints the scoreboard
 npm run build && npm start   # production build
 ```
 
+### Option B: real keys (live mode)
+
+Everything the app can be told is listed, with plain-English comments and safe placeholders, in
+[`.env.example`](.env.example). Copy it to `.env` (git-ignored) and fill in only what you have:
+
+1. `SAMPLE_MODE=false`.
+2. Database: `DATABASE_URL` (a Neon Postgres address), then `npm run seed` to fill the benefit rules and offers.
+3. Zetaris: `ZETARIS_BASE_URL`, `ZETARIS_ORG_ID`, `ZETARIS_API_KEY`.
+4. AI, either or both: Nightshift on a Mac (`NIGHTSHIFT_TOKEN_FILE`, plus the model names in `.env.example`), and/or NVIDIA direct (`MODEL_API_KEY`, `MODEL_REASONING`, `MODEL_FAST`). `MODEL_PROVIDER` picks the order (`auto` is Nightshift, then NVIDIA, then offline text).
+
+Never commit `.env`. Do not run `npm run db:push`: database changes here are applied as reviewed SQL, by hand, with the
+owner's OK. Mac-only steps (Nightshift, recording new Zetaris answers) are in [`docs/mac-flip-on-checklist.md`](docs/mac-flip-on-checklist.md).
+
 ### Running the live-database test (opt-in)
 
 `server/__tests__/seed.test.ts` clears and refills Bundle's own tables in Neon, so it never runs by accident. A normal `npm test` prints "Skipping seed.test.ts..." and moves on. To run it on purpose (needs `DATABASE_URL`):
@@ -76,9 +113,9 @@ npm run build && npm start   # production build
 RUN_DB_TESTS=1 npm test -- seed
 ```
 
-### When you have an NVIDIA key
+### When you have an AI key (Nightshift or NVIDIA)
 
-Put the key in `../.secrets/bundle.env.local` as `MODEL_API_KEY=...` (never commit it), then run these three commands in order:
+Put the key in `.env` (or the private settings file the server also reads; never commit it), then run these three commands in order:
 
 ```bash
 npm run model:check -- --write   # 1. asks NVIDIA which Nemotron models your key can use, saves MODEL_REASONING and MODEL_FAST, sends one tiny test message to each and prints how long it took
@@ -179,14 +216,17 @@ Secrets go only in `.env` (git-ignored). `.env.example` holds placeholders.
 ## 8. Proof: logs and the scoreboard
 
 - Every Zetaris query, memory call and agent step is one JSON line (fields: `timestamp, trace_id, agent_name, action, input_summary, output_summary, target_agent, confidence, retry_count, status`). Saved runs: `logs/sample/` (maya, leo, ava, custom-family). Live runs write `logs/run-<id>.jsonl`.
-- `npm run eval` prints the scoreboard and saves `logs/scoreboard.json`. Latest saved result (demo date 2026-10-23):
+- `npm run eval` prints the scoreboard and saves `logs/scoreboard.json`. Result of `SAMPLE_MODE=true npm run eval` on 2026-10-25 (demo date 2026-10-23; it exits 0). <!-- TODO W6: refresh these numbers after W5-EVALS adds fields and W6 regenerates the evidence -->
 
 | Measure | Result |
 |---|---|
 | Planted traps caught | **6 of 6** (auto-renew offer, wrong-amount Scout row, recalled crib mattress, refund, duplicate purchase, out-of-state family) |
 | False alarms | **0** |
 | Cards with a source | **100%** |
+| Stable across 3 sample runs | yes |
+| Money back found | Maya $48.99, Leo $0.00, Ava $14.58 |
 | Learning demo | Run 1 approves the "free trial that auto-renews" offer; a reviewer-approved rule is stored in memory; run 2 **blocks** it and cites that rule (`mem-1`) |
+| Who answered | `llmMode: "offline-fallback"`, Scout `fake-llm` (no real AI model) |
 
   **Every saved run here is offline** (`llmMode: "offline-fallback"`, Scout `fake-llm`): no real AI model was used for the scoreboard, the examples or the traces. Offline, the Fine Print Court's debate lines are "model unavailable" and the Coach picks from two pre-written rule sentences once 2 or more reports share a theme (see the Coach row in §2), so the learning demo shows the *mechanism* (feedback, then memory, then a changed outcome), not AI-written rules. A real-model run can be added with `npm run eval:live-model` once a model key is available (see "When you have an NVIDIA key" in section 4). The learning traces are in `output_examples/learning/`: `run1.jsonl`, `approve.jsonl` (the reviewer's approval: the `memory add_rule` call) and `run2.jsonl` (`memory recall_rules` returns the rule, then the judge blocks the offer and cites it).
 
@@ -229,11 +269,37 @@ and purchases are made up. No real personal data and no income in logs.
 
 Everything else (agents, orchestrator, Fact-Checker, court, Coach, Scout, evals, UI, seed data, sample cache) was built in the hackathon window.
 
-## 13. Sponsor tech
+## 13. Sponsor tech: what each one really does
 
-- **Zetaris:** the one door for all data. Agents read all their data through Zetaris and never touch Postgres or the recall sites directly (`server/adapters/zetaris.ts`); only the app shell loads a saved family profile and stores feedback, through Drizzle, in live mode. The key trick: **one query joins a private purchase list with a live government recall feed** (`bundle_pg` x `bundle_live.cpsc_recalls`). Registered objects: `scripts/zetaris/register.ts`. Every query is a trace line.
-- **Meterless H-MEM:** stores rules learned from parent feedback (long-term memory with confidence and an append-only ledger); the Fine Print Court recalls them. `server/adapters/memory.ts`.
-- **NVIDIA:** NVIDIA-hosted models (supported, not exercised in the saved results) for explanations and court reasoning (`server/adapters/llm.ts`); everything degrades to offline text. No live model run is included in the saved scoreboard or examples.
+- **Zetaris (a SQL "data door": one place to ask questions that span several scattered data sources).** Agents read their data through Zetaris and not straight from Postgres or the recall sites (`server/adapters/zetaris.ts`); the app shell loads a saved family profile and stores feedback through Drizzle (our database toolkit) in live mode, and the court's finished grades are saved to our own database by `server/agents/offerChecks.ts` (we do not write through Zetaris). The real cross-source join: **one question joins a family's private purchase list with live government recall feeds** (our Postgres `bundle_pg` x `bundle_live.cpsc_recalls` and `bundle_live.fda_food_recalls`), written in `pairsSql` in `server/agents/recall.ts`; fixed matching rules in `recallMatch.ts` then decide which pairs are real. Other reads go through registered views (`v_purchase_items`, `v_judge_offers`, `v_offer_verdicts`, `v_clawback_tx`, `v_recall_orders` and others). The objects are defined in `scripts/zetaris/register.ts` and every query is a trace line. In sample mode answers come from saved real Zetaris responses (`data/sample/zetaris-cache/`), replayed by the exact SQL text.
+- **Meterless H-MEM (Meterless's open-source memory engine).** Stores the rules parents teach Bundle (with a confidence number and an append-only history log, "the ledger"); the Fine Print Court recalls them and must cite them (`server/adapters/memory.ts`, `server/agents/finePrintCourt.ts`; the engine is `vendor/hmem/`). The run also exports the ledger to `logs/ledger-<runId>.jsonl` (`server/agents/orchestrator.ts`). Built and unit-tested, with the tie-in to a run covered in section 14: a shared "workspace" where agents leave notes for each other (`server/agents/workspace.ts`) and grading "lessons" the court reuses (`server/agents/newsroom.ts`). <!-- TODO W5: confirm after W4-ORCH wires workspace + newsroom lessons into the run, then reword "built and unit-tested" -->
+- **Meterless Nightshift (a Meterless Mac app we use as the AI switchboard).** First choice for every AI question when it is running on the same Mac (`server/adapters/llm.ts`, setting `MODEL_PROVIDER`). It passes the hard questions to NVIDIA Nemotron using a key kept inside Nightshift. Details and fallbacks: section 14.
+- **NVIDIA:** Nemotron models, reached through Nightshift or directly with `MODEL_API_KEY` (`server/adapters/llm.ts`); everything degrades to offline text. No live model run is included in the saved scoreboard or examples.
 - **Claude Code:** the AI coding assistant this project was built with. Cursor was optional for this hackathon and was not used.
+
+## 14. Meterless honesty note
+
+What actually runs through Meterless, and what does not. "Fallback" means the app keeps working with a plainer substitute and says so in its trace.
+
+**Meterless H-MEM: runs in every mode, offline too.** It is a library copied into this repo and run inside our server (no Meterless service is called). It does real work today: approved rules from parent feedback are stored in it and recalled by the Fine Print Court (the `recall_hmem` trace lines), and the learning demo (`npm run eval -- --learning`) shows a rule changing the next run. Engines used: **H-MEM only**, for case law, plus the workspace notes and newsroom-loop lessons described below. **Not used: Meterless's Markovian and World Model engines.** Our AI steps are short, and Zetaris plus our saved-grades table already hold the shared facts. H-MEM's AI-based extraction and "dreaming" are also not used in a run.
+
+**Workspace and newsroom lessons: built and tested, join-up in progress.** The shared workspace (agents post `claim`, `question`, `answer`, `correction` and `verdict` notes into H-MEM) and the newsroom loop (the court reads earlier saved grades through Zetaris and past lessons from H-MEM, and skips the AI when a wording is unchanged) exist as code with tests. Which of these a given run uses depends on the orchestrator wiring; check a run's trace (`GET /api/runs/:runId/trace`, or the Agent Workspace panel in the app) for `recall_hmem` and workspace lines rather than assuming. <!-- TODO W5: confirm after W4-ORCH; replace this paragraph with the final wording -->
+
+**Meterless Nightshift: runs only on Lyndsay's Mac.** Nightshift listens at `http://127.0.0.1:8088/v1` on that computer, so a cloud server, a hosted demo or a judge's machine cannot reach it. With `MODEL_PROVIDER=auto` the order is:
+
+| Situation | Who answers AI questions |
+|---|---|
+| Mac, Nightshift running, token file readable (`NIGHTSHIFT_TOKEN_FILE`) | **Nightshift**, which forwards to NVIDIA Nemotron. Each call is traced with the provider and model that answered. |
+| Nightshift missing or a call to it fails, and `MODEL_API_KEY`, `MODEL_REASONING` and `MODEL_FAST` are set | **NVIDIA direct** (`integrate.api.nvidia.com`). |
+| Neither is available, `MODEL_PROVIDER=offline`, `SAMPLE_MODE=true` (unless `LIVE_MODEL=true`), or the 300-second run limit has passed | **Offline deterministic text**: fixed sentences, and a plain rule-based screen instead of the AI court ("Offline screen: ... Not reviewed by the AI court"). |
+
+What the saved evidence shows: the committed scoreboard, `output_examples/` and `logs/sample/` were all produced **offline** (`llmMode: "offline-fallback"`); none of it passed through Nightshift or NVIDIA. Zetaris replays were recorded with the AI off on purpose. A Mac check on Oct 24 reached Nemotron through Nightshift (see `../HANDOFF-cloud.md`), and the full-AI scoreboard run is a Mac step (`npm run eval:live-model`, see `docs/mac-flip-on-checklist.md`). Until that is run and its output saved, do not read any saved result here as showing a live model. <!-- TODO W6: update this paragraph if a live Nightshift run is saved -->
+
+Even with a live model, money amounts and recall decisions are computed by code rules, not by the AI, and code can overrule the AI.
+
+## 15. Streaming and the saved feed
+
+The app is designed to show a saved feed instantly and then update it as the agents finish, with status pills for each agent. <!-- TODO W5: confirm after W4-STREAM-SRV (streaming route, server-sent events) -->
+Until a run finishes, `GET /api/runs/:runId/trace` can be polled to watch the agents' steps.
 
 Licence: MIT (see `LICENSE`).
