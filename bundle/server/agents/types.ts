@@ -87,6 +87,8 @@ export interface AgentContext {
   offerChecks?: OfferCheckWriter;
   /** Set by the Benefits Planner: false = no program rows on file for the family's state (federal only); true = covered; unset = not known. */
   stateCovered?: boolean;
+  /** Set by the Fine Print Court: how many saved offers it looked through (before the baby's age narrowed them down). */
+  offersOnFile?: number;
 }
 
 export interface Candidate extends FeedCard {

@@ -3,6 +3,7 @@ import { Link } from 'wouter';
 import type { FeedCard } from '@shared/bundle';
 import { KIND_META, VERDICT_LABEL, amountCaption, cardDeadline, fmtUsd, isCheckWithJob, safeSources } from '@/lib/bundle';
 import { plainCardBody, valueScoreLines } from '@/lib/tabs';
+import { ageLine, factLines } from '@/lib/offers';
 import { minutesOf } from '@shared/cardMeta';
 import { cn } from '@/lib/utils';
 
@@ -46,10 +47,14 @@ export default function FeedCardView({ card, today, pinned = false, detailHref, 
   const due = deadlineLabel ? { text: deadlineLabel, urgent: false } : card.deadline ? cardDeadline(card.kind, card.deadline, today) : null;
   const checkWithJob = isCheckWithJob(card);
   const minutes = card.kind === 'discount' ? undefined : minutesOf(card); // deals already say their effort in the Value and time lines
-  const scoreLines = card.valueScore ? valueScoreLines(card.valueScore) : [];
+  // A deal graded by the Fine Print Court says what the court found (verdict, minutes, true value, the baby's age) instead of a sentence.
+  const facts = card.kind === 'discount' ? card.offerFacts : undefined;
+  const scoreLines = card.valueScore && !facts ? valueScoreLines(card.valueScore) : [];
   // Coming-soon tiles already say "Coming soon" in the eyebrow, so drop the repeat from the body.
   const body = plainCardBody(soon ? card.body.replace(/^coming soon:\s*/i, '') : card.body);
-  const eyebrow = pinned ? 'Pinned · Deadline' : card.deadline && card.kind === 'benefit' ? 'Benefit · Deadline' : meta.label;
+  // A graded deal is labelled with the store that offers it (from its source link's label), like the mockup.
+  const store = facts ? card.sources[0]?.label.replace(/\s+offer page$/i, '').trim() : '';
+  const eyebrow = pinned ? 'Pinned · Deadline' : card.deadline && card.kind === 'benefit' ? 'Benefit · Deadline' : store || meta.label;
 
   return (
     <article
@@ -64,10 +69,19 @@ export default function FeedCardView({ card, today, pinned = false, detailHref, 
         </p>
         {!soon && (
           <span className={cn('shrink-0 rounded-full px-2 py-0.5 text-[12px] font-bold', verdictStyle[card.verdict])}>
-            {checkWithJob ? 'Check with your job' : /^benefit-childcare_tax_credit$/.test(card.id) ? 'Ask your tax preparer' : VERDICT_LABEL[card.verdict]}
+            {checkWithJob ? 'Check with your job' : /^benefit-childcare_tax_credit$/.test(card.id) ? 'Ask your tax preparer' : facts && card.verdict === 'likely' ? 'Graded by Bundle' : VERDICT_LABEL[card.verdict]}
           </span>
         )}
       </div>
+      {card.isNew && (
+        <p className="mt-2 flex flex-wrap items-center gap-2">
+          <span className="rounded-full bg-coral-tint px-2.5 py-1 text-[12.5px] font-bold text-coral-deep">New · found today</span>
+          {card.paidLink && <span data-testid="paid-link-label" className="rounded-full border border-line px-2.5 py-1 text-[12.5px] font-bold text-ink-2">{card.paidLink.label}</span>}
+        </p>
+      )}
+      {!card.isNew && card.paidLink && (
+        <p className="mt-2"><span data-testid="paid-link-label" className="rounded-full border border-line px-2.5 py-1 text-[12.5px] font-bold text-ink-2">{card.paidLink.label}</span></p>
+      )}
 
       {minutes !== undefined && actions && (
         <p className="mt-2">
@@ -75,7 +89,23 @@ export default function FeedCardView({ card, today, pinned = false, detailHref, 
         </p>
       )}
       <h3 className="mt-2 text-[17px] font-extrabold leading-snug tracking-[-0.01em] text-ink">{card.title}</h3>
-      <p className="mt-1 text-[15px] leading-relaxed text-ink-2">{body.charAt(0).toUpperCase() + body.slice(1)}</p>
+      {!facts && <p className="mt-1 text-[15px] leading-relaxed text-ink-2">{body.charAt(0).toUpperCase() + body.slice(1)}</p>}
+      {facts && (
+        <div className="mt-2" data-testid="offer-facts">
+          <ul className="space-y-1 text-[14px] font-semibold" aria-label="What the Fine Print Court found">
+            {factLines(facts).map((l, i) => (
+              <li key={i} className="flex items-start gap-1.5">
+                <span aria-hidden="true">{l.icon}</span>
+                <span className={cn('min-w-0', l.tone === 'good' && 'text-[#17643F]', l.tone === 'catch' && 'text-[#7A5410]', l.tone === 'blocked' && 'text-[#9E2A21]', l.tone === 'plain' && 'text-ink')}>
+                  {l.text}
+                  {l.note && <span className="mt-0.5 block text-[12.5px] font-medium text-ink-2">{l.note}</span>}
+                </span>
+              </li>
+            ))}
+          </ul>
+          {ageLine(facts) && <p className="mt-2 text-[14px] leading-snug text-ink-2">{ageLine(facts)}</p>}
+        </div>
+      )}
 
       {extra}
 
@@ -85,9 +115,9 @@ export default function FeedCardView({ card, today, pinned = false, detailHref, 
         </ul>
       )}
 
-      {(card.amountCents !== null || card.deadline) && (
+      {((card.amountCents !== null && !facts) || card.deadline) && (
         <div className="mt-3 flex flex-wrap items-baseline gap-x-4 gap-y-1">
-          {card.amountCents !== null && (
+          {card.amountCents !== null && !facts && (
             <p className="flex items-baseline gap-1.5">
               <span data-testid="card-amount" className={cn('tabular text-[20px] font-extrabold', card.kind === 'clawback' ? 'text-kind-clawback' : 'text-ink')}>
                 {fmtUsd(card.amountCents)}

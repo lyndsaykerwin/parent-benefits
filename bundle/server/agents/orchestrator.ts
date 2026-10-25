@@ -137,6 +137,7 @@ const toCard = (c: Candidate): FeedCard => withMeta({
   id: c.id, kind: c.kind, title: c.title, body: c.body, amountCents: c.amountCents, deadline: c.deadline,
   verdict: c.verdict, sources: c.sources, traceId: c.traceId,
   ...(c.valueScore ? { valueScore: c.valueScore } : {}),
+  ...(c.offerFacts ? { offerFacts: c.offerFacts } : {}),
 });
 const infoCard = (id: string, kind: FeedCard['kind'], title: string, body: string, verdict: FeedCard['verdict'], traceId: string): FeedCard => withMeta({
   id, kind, title, body, amountCents: null, deadline: null, verdict, sources: [], traceId,
@@ -420,5 +421,6 @@ async function runBundleInner(familyId: string, runId: string, events: RunEventH
   }
   // Only a planner that actually read the rules can say the state is not covered; a failed planner says nothing.
   const uncovered = ctxs.benefits.stateCovered === false;
-  return { familyId, runId, receipt, cards, banner, blocked, ...(uncovered ? { stateNote: UNCOVERED_STATE_NOTE } : {}) };
+  const offersOnFile = ctxs.fine_print_court.offersOnFile;
+  return { familyId, runId, receipt, cards, banner, blocked, ...(uncovered ? { stateNote: UNCOVERED_STATE_NOTE } : {}), ...(offersOnFile !== undefined ? { offersOnFile } : {}) };
 }

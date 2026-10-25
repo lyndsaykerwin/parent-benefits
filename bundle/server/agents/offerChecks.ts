@@ -25,8 +25,10 @@ export function buildOfferCheckRow(
   ruleCitations: string[],
   status: 'agreed',
   model: string | null = null,
+  source: 'court' | 'user_audit' = 'court',
 ): InsertOfferCheck {
   return {
+    ...(source === 'user_audit' ? { source } : {}), // 'court' is the column's default, so court rows stay exactly as before
     offerId: String(offer.id), store: offer.store, sourceUrl: offer.sourceUrl || null,
     finePrintHash: check.finePrintHash, agent: COURT_AGENT, model,
     faceValueCents: check.faceValueCents, hiddenCostCents: check.hiddenCostCents, trueValueCents: check.trueValueCents,

@@ -1,6 +1,7 @@
 import { askJson } from '../adapters/llm';
-import { col, quoteInt, InvalidId, today, fmtUsd, eligibilityText } from './sql';
-import type { FeedCard } from '../../shared/bundle';
+import { col, quoteInt, InvalidId, today, fmtUsd } from './sql';
+import { buildOfferFacts } from './offerFacts';
+import type { FeedCard, OfferFacts } from '../../shared/bundle';
 import type { AgentContext, Candidate, CourtRuling } from './types';
 import { offlineProblem } from './offerScreen';
 import { checkFinePrint, effortLevelFor, finalVerdict, fingerprint } from './finePrintRules';
@@ -95,7 +96,7 @@ async function argue(
 }
 
 type Standing = 'agreed' | 'disputed' | 'fallback';
-interface Judged {
+export interface Judged {
   ruling: CourtRuling;
   usedFallback: boolean;
   check: FinePrintCheck;
@@ -103,6 +104,8 @@ interface Judged {
   verdict: 'approve' | 'approve_with_catch' | 'reject';
   standing: Standing;
   rounds: number;
+  /** What each side argued in the first round (the placeholder text when the model was unavailable). */
+  arguments: { hunter: string; lawyer: string };
 }
 
 /**
@@ -193,13 +196,32 @@ async function judgeOne(ctx: AgentContext, offer: Offer, note: string, nr: Newsr
   log(ctx, AGENT, 'court_debate', `offer ${offer.id} outcome`, `${verdict}, ${standing}${rounds ? ` after ${rounds} rebuttal round` : ', no rebuttal needed'}`,
     verdict === 'reject' ? 'blocked' : 'ok', rounds);
   post(ctx, 'judge', 'fact_checker', 'verdict', offer, `${verdict} (${standing}): ${ruling.reason}`, rounds);
-  return { ruling, usedFallback, check, verdict, standing, rounds };
+  return { ruling, usedFallback, check, verdict, standing, rounds, arguments: { hunter: hunter.text, lawyer: lawyer.text } };
 }
 
 /** Leave a note in the shared workspace when there is one. A workspace problem never stops the court. */
 function post(ctx: AgentContext, from: string, to: string, type: 'claim' | 'question' | 'answer' | 'verdict', offer: Offer, body: string, round: number): void {
   if (!ctx.workspace) return;
   try { ctx.workspace.post({ from_agent: from, to_agent: to, type, about: `offer ${offer.id}`, body: body || '(empty)', evidence_sql: '', round }); } catch { /* notes are a courtesy */ }
+}
+
+/** An offer that is only text: a parent's audit or a page found by the live search. It goes to the same court as the saved offers. */
+export interface TextOffer { store: string; title: string; finePrint: string; sourceUrl?: string; valueCents?: number | null }
+
+/**
+ * Judge one text offer with the same Deal Hunter, Fine Print Lawyer and Judge as the saved offers. Nothing is saved here: the caller decides
+ * (a parent's audit saves only when both sides agreed). Give each offer its own context, so its trace lines stay its own.
+ */
+export async function judgeText(ctx: AgentContext, o: TextOffer): Promise<Judged> {
+  const offer: Offer = {
+    id: 0, title: o.title, store: o.store, trigger: '', valueCents: o.valueCents ?? null,
+    finePrint: o.finePrint, sourceUrl: o.sourceUrl ?? '', minAgeDays: 0, maxAgeDays: 365,
+  };
+  const nr = newsroomFor(ctx, (agent, action, input, output, status) => log(ctx, agent, action, input, output, status));
+  const j = await judgeOne(ctx, offer, '', nr);
+  // With the AI off, the court's offline ruling only knows a few simple problems. A parent pasting a deal still deserves everything the
+  // code rules found (an auto-renewing trial, a fee), so the stricter of the code's answer and the offline ruling stands.
+  return j.usedFallback ? { ...j, verdict: finalVerdict(j.check.verdict, j.verdict) } : j;
 }
 
 function toCandidate(ctx: AgentContext, offer: Offer, j: Judged, retry: number, sql: string): Candidate {
@@ -210,17 +232,22 @@ function toCandidate(ctx: AgentContext, offer: Offer, j: Judged, retry: number, 
     ? (j.check.trueValueCents ?? (offer.valueCents !== null ? Math.max(0, offer.valueCents - j.check.hiddenCostCents) : null))
     : offer.valueCents;
   const worth = amountCents !== null ? ` worth about ${fmtUsd(amountCents)}` : '';
+  // The card shows the court's findings (verdict, traps, fees, minutes, true value, age) from `offerFacts`; this sentence only says what the offer is.
   const body = j.usedFallback
-    ? `${offer.store} has an offer${worth}. ${j.ruling.reason} ${eligibilityText(offer.maxAgeDays)}`
+    ? `${offer.store} has an offer${worth}. ${j.ruling.reason}`
     : withCatch
-      ? `${offer.store} has an offer${worth} after the catch. Approved with a catch: ${j.check.reasons.join('; ')}. Only the true value is counted. ${eligibilityText(offer.maxAgeDays)}`
-      : `${offer.store} has an offer${worth}. Our fine-print check found nothing that makes it costly. Likely a good deal. ${eligibilityText(offer.maxAgeDays)}`;
+      ? `${offer.store} has an offer${worth} after the catch. Approved with a catch: ${j.check.reasons.join('; ')}. Only the true value is counted.`
+      : `${offer.store} has an offer${worth}. Our fine-print check found nothing that makes it costly.`;
   return {
     id: `discount-${offer.id}`, kind: 'discount', title: offer.title, body,
     // The offers data has no end date (max_age_days is the oldest baby age it fits), so there is no deadline to show.
     amountCents, deadline: null,
     verdict: 'likely', sources: [{ label: `${offer.store} offer page`, url: offer.sourceUrl }], traceId,
     valueScore: valueScore(j.check, worthSettings()),
+    offerFacts: buildOfferFacts({
+      check: j.check, verdict: j.verdict, faceCents: offer.valueCents, ruleCheckOnly: j.usedFallback,
+      ageDays: babyAgeDays(ctx), minAgeDays: offer.minAgeDays, maxAgeDays: offer.maxAgeDays,
+    }),
     agent: AGENT, claim: { type: 'offer', offerId: offer.id }, evidenceSql: sql, retryCount: retry,
     ...(withCatch ? { courtVerdict: 'approve_with_catch' as const } : {}),
   };
@@ -256,6 +283,7 @@ export async function judgeOffers(
   // One query for every offer (it holds no family data, so it is the same for everyone and can be saved for replay); the age window is applied here.
   const sql = `SELECT ${OFFER_COLS} FROM bundle_pg.v_judge_offers ORDER BY id`;
   const { rows } = await ctx.z.runQuery(sql);
+  ctx.offersOnFile = rows.length; // the screen says "Checking N saved offers", with this real N
   const kws = input.purchaseKeywords.map((k) => k.toLowerCase().trim()).filter(Boolean);
   const offers = rows.map(toOffer).filter((o) => o.minAgeDays <= input.ageDays && o.maxAgeDays >= input.ageDays);
   const triggered = offers.filter((o) => o.trigger && kws.some((k) => wholeWord(o.trigger, k) || (k.length >= 3 && wholeWord(k, o.trigger))));
@@ -318,6 +346,23 @@ function savedValueScore(ctx: AgentContext, offer: Offer, saved: SavedVerdict, a
   return { valueScore: valueScore(check, worthSettings()) };
 }
 
+/**
+ * The card facts for a reused saved grade. The saved row keeps the verdict, true value and minutes; the traps and hidden fees are
+ * re-read from the offer's own (unchanged) wording with the same code rules, so the numbers on the card are never typed by hand.
+ */
+function savedOfferFacts(ctx: AgentContext, offer: Offer, saved: SavedVerdict, amountCents: number | null): OfferFacts {
+  const check = checkFinePrint(offer.finePrint, { today: ctx.today ?? today() });
+  const facts = buildOfferFacts({
+    check, verdict: saved.verdict === 'approve_with_catch' ? 'approve_with_catch' : 'approve', faceCents: offer.valueCents,
+    ageDays: babyAgeDays(ctx), minAgeDays: offer.minAgeDays, maxAgeDays: offer.maxAgeDays,
+  });
+  return {
+    ...facts,
+    trueValueCents: saved.trueValueCents ?? facts.trueValueCents ?? amountCents,
+    minutes: saved.effortMinutesEstimate ?? facts.minutes,
+  };
+}
+
 /** An approved offer rebuilt from a saved grade. Counts the saved true value when there is one. */
 function savedCandidate(ctx: AgentContext, offer: Offer, saved: SavedVerdict, sql: string): Candidate {
   const traceId = ctx.trace.lines().filter((l) => l.agent_name === 'judge' && l.input_summary === `offer ${offer.id}`).pop()?.trace_id ?? '';
@@ -327,11 +372,12 @@ function savedCandidate(ctx: AgentContext, offer: Offer, saved: SavedVerdict, sq
   return {
     id: `discount-${offer.id}`, kind: 'discount', title: offer.title,
     body: withCatch
-      ? `${offer.store} has an offer${worth} after the catch. An earlier check of this same wording approved it with a catch. Only the true value is counted. ${eligibilityText(offer.maxAgeDays)}`
-      : `${offer.store} has an offer${worth}. An earlier check of this same wording found nothing that makes it costly. Likely a good deal. ${eligibilityText(offer.maxAgeDays)}`,
+      ? `${offer.store} has an offer${worth} after the catch. An earlier check of this same wording approved it with a catch. Only the true value is counted.`
+      : `${offer.store} has an offer${worth}. An earlier check of this same wording found nothing that makes it costly.`,
     amountCents, deadline: null, // no end date in the offers data
     verdict: 'likely', sources: [{ label: `${offer.store} offer page`, url: offer.sourceUrl }], traceId,
     ...savedValueScore(ctx, offer, saved, amountCents),
+    offerFacts: savedOfferFacts(ctx, offer, saved, amountCents),
     agent: AGENT, claim: { type: 'offer', offerId: offer.id }, evidenceSql: sql, retryCount: 0,
     ...(withCatch ? { courtVerdict: 'approve_with_catch' as const } : {}),
   };

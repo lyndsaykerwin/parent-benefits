@@ -42,7 +42,10 @@ describe('fine print court', () => {
     const out = await judgeOffers(ctx, IN);
     expect(out).toHaveLength(1);
     expect(out[0].deadline).toBeNull(); // used to be due/birth date + 365 days = "Ends Oct 3, 2027"
-    expect(out[0].body).toContain('Fits babies up to 12 months old.');
+    // R5: the card says what the court found, not "Likely a good deal." or a "Fits babies up to..." sentence.
+    expect(out[0].body).not.toMatch(/Likely a good deal|Fits babies up to/);
+    expect(out[0].offerFacts).toEqual(expect.objectContaining({ court: 'approve', subscriptionTraps: 0, hiddenFeeCents: 0, ageDays: 20, minAgeDays: -280, maxAgeDays: 365, ruleCheckOnly: false }));
+    expect(out[0].offerFacts!.minutes).toBeGreaterThan(0);
   });
 
   it('an approved offer card carries a Value Score built from the same check (true value, effort, wait)', async () => {

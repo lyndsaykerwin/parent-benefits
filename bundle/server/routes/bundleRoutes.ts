@@ -3,7 +3,7 @@ import path from 'path';
 import crypto from 'crypto';
 import { Router, type Request, type Response } from 'express';
 import rateLimit from 'express-rate-limit';
-import type { BundleReceipt, BundleResult, Family, FeedCard, Household, InsuranceType, ValueScore, WorkStatus } from '../../shared/bundle';
+import type { BundleReceipt, BundleResult, Family, FeedCard, Household, InsuranceType, OfferFacts, ValueScore, WorkStatus } from '../../shared/bundle';
 import type { Generator } from '../adapters/llm';
 import type { BundleMemory } from '../adapters/memory';
 import { runBundle, newRunId, type RunDeps } from '../agents/orchestrator';
@@ -94,7 +94,7 @@ export function tokenOk(supplied: unknown, expected: string): boolean {
 // no trace ids, agent names, SQL, debate text or memory-rule text. The reviewer token unlocks the full result.
 
 const PARENT_CARD_KEYS = ['id', 'kind', 'title', 'body', 'amountCents', 'deadline', 'verdict', 'sources'] as const;
-type ParentCard = Pick<FeedCard, (typeof PARENT_CARD_KEYS)[number] | 'valueScore' | 'category' | 'minutes'>;
+type ParentCard = Pick<FeedCard, (typeof PARENT_CARD_KEYS)[number] | 'valueScore' | 'category' | 'minutes' | 'offerFacts'>;
 export const CAUGHT_BY_PARENT_REPORTS = 'Other parents reported a catch like this one, so we left it out.';
 const CAUGHT_GENERIC = 'We found a catch in the fine print, so we left it out.';
 const OWNER_ONLY_TEXT = /zetaris|\bv_[a-z_]+\b|\bselect\b|\bcited\b|case law|court|memory|mem-[\w-]+/i;
@@ -120,11 +120,21 @@ function parentValueScore(v: ValueScore): ValueScore {
   };
 }
 
+/** What the court found about an offer (R5), copied one by one: plain facts only. */
+function parentOfferFacts(f: OfferFacts): OfferFacts {
+  return {
+    court: f.court, catches: [...f.catches], subscriptionTraps: f.subscriptionTraps, hiddenFeeCents: f.hiddenFeeCents,
+    ruleCheckOnly: f.ruleCheckOnly, trueValueCents: f.trueValueCents, minutes: f.minutes,
+    ageDays: f.ageDays, minAgeDays: f.minAgeDays, maxAgeDays: f.maxAgeDays,
+  };
+}
+
 /** The parent-safe copy of one card (also used by the live-updates route). */
 export function parentCard(c: FeedCard, caught = false): ParentCard {
   const out = {} as Record<string, unknown>;
   for (const k of PARENT_CARD_KEYS) out[k] = (c as unknown as Record<string, unknown>)[k];
   if (c.valueScore) out.valueScore = parentValueScore(c.valueScore);
+  if (c.offerFacts) out.offerFacts = parentOfferFacts(c.offerFacts);
   // The Home bucket and the minutes estimate are plain facts for the parent's screen (set only when the card has them).
   if (c.category) out.category = c.category;
   if (c.minutes !== undefined) out.minutes = c.minutes;
@@ -147,6 +157,7 @@ export function parentResult(r: BundleResult): BundleResult {
     familyId: r.familyId, runId: r.runId, receipt: parentReceipt(r.receipt), banner: r.banner,
     cards: r.cards.map((c) => parentCard(c)) as FeedCard[],
     ...(r.blocked ? { blocked: r.blocked.map((c) => parentCard(c, true)) as FeedCard[] } : {}),
+    ...(typeof r.offersOnFile === 'number' ? { offersOnFile: r.offersOnFile } : {}),
   };
 }
 

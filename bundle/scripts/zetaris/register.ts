@@ -71,6 +71,11 @@ export const VIEWS: Record<string, string> = {
     "ROUND(SUM(CASE WHEN verdict <> 'approve' THEN 1 ELSE 0 END) * 1.0 / COUNT(*), 3) AS catch_rate, " +
     'ROUND(AVG(face_value_cents)) AS avg_face_value_cents, ROUND(AVG(true_value_cents)) AS avg_true_value_cents, ROUND(AVG(effort_minutes_estimate)) AS avg_effort_minutes ' +
     `FROM ${LATEST_CHECKS} WHERE rn = 1 GROUP BY store`,
+  // V2 report card: the same per-store totals split by where the grade came from ('court' = our scans, 'user_audit' = a parent). NO family data.
+  v_audit_by_source:
+    "SELECT store, source, COUNT(*) AS offers_checked, SUM(CASE WHEN verdict <> 'approve' THEN 1 ELSE 0 END) AS offers_caught " +
+    'FROM (SELECT offer_id, store, verdict, source, ROW_NUMBER() OVER (PARTITION BY offer_id ORDER BY checked_at DESC, id DESC) AS rn FROM offer_checks) AS latest_by_source ' +
+    'WHERE rn = 1 GROUP BY store, source',
   // Rerouted reads (item 14): the family profile in live mode (no user id) and the Coach's reports (issues only).
   v_family_profile:
     'SELECT id, is_guest, name, birth_date, due_date, zip, state, employer, household_size, annual_income_cents, dcfsa_offered, data_connected FROM families',

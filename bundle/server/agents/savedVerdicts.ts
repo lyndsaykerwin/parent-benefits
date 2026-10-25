@@ -52,6 +52,15 @@ export function offerAuditSql(store?: string): string {
   return `${base} WHERE store = '${store.replace(/['’]/g, "''")}'`;
 }
 
+/**
+ * NEW question (V2 offer report card): checked and caught offers per store and per source, so the screen can say how many came from a
+ * parent ('user_audit') and how many from our own scans ('court'). Reads the view v_audit_by_source. Added beside, not instead of,
+ * the questions above: their text is unchanged, so every saved sample answer still replays.
+ */
+export function offerAuditBySourceSql(): string {
+  return 'SELECT store, source, offers_checked, offers_caught FROM bundle_pg.v_audit_by_source ORDER BY store, source';
+}
+
 export interface SavedVerdict {
   offerId: string;
   store: string;

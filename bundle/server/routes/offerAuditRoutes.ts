@@ -38,7 +38,7 @@ export interface OfferAuditResponse {
   message?: string;
 }
 
-type Asker = { runQuery(sql: string): Promise<Pick<QueryResult, 'rows'>> };
+export type Asker = { runQuery(sql: string): Promise<Pick<QueryResult, 'rows'>> };
 
 export interface OfferAuditDeps {
   /** A Zetaris client (or a fake in tests), made fresh per request so settings are read at call time. */
@@ -49,7 +49,7 @@ export interface OfferAuditDeps {
 const WINDOW_MS = 10 * 60 * 1000;
 const num = (v: unknown): number | null => (v === null || v === undefined || v === '' || Number.isNaN(Number(v)) ? null : Number(v));
 
-function toBrand(r: Record<string, string | number | null>): BrandAudit {
+export function toBrand(r: Record<string, string | number | null>): BrandAudit {
   const store = col(r, 'store');
   return {
     store: store === null || store === undefined ? '' : String(store),

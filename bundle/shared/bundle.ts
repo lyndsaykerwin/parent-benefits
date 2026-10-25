@@ -15,6 +15,38 @@ export interface FeedCard {
   minutes?: number;
   /** Discount cards only: the value-and-time grade, computed by code from the quoted fine print. */
   valueScore?: ValueScore;
+  /** Discount cards only: what the Fine Print Court found, in the numbers the card shows. Absent on older saved runs. */
+  offerFacts?: OfferFacts;
+  /** Live-search offers only: the ISO day the offer was found, and that it was not in the saved list. */
+  foundOn?: string;
+  isNew?: boolean;
+  /**
+   * RESERVED for affiliate links (switched off). A link is attached only AFTER the court has graded the offer, the list is
+   * never sorted by it, and a card with one must show the label. Nothing sets this today.
+   */
+  paidLink?: { label: 'Paid link'; url: string };
+}
+
+/** What the Fine Print Court found about one offer: the facts a card shows (plans/v2-build-plan.md, R5). */
+export interface OfferFacts {
+  /** The court's final answer. 'reject' only appears on blocked offers. */
+  court: FinePrintVerdict;
+  /** Plain-English catches ("signs you up for a paid plan"), for "Approved with a catch" and "Blocked". */
+  catches: string[];
+  /** Auto-renewing trials and required memberships found in the fine print. */
+  subscriptionTraps: number;
+  /** Fees the fine print makes you pay (shipping, handling), in cents. */
+  hiddenFeeCents: number;
+  /** true = the AI court was off, so only the code rules read the fine print. Said on the card. */
+  ruleCheckOnly: boolean;
+  /** Face value minus hidden fees; null when no dollar figure is known. */
+  trueValueCents: number | null;
+  /** The cautious (upper) minutes estimate. */
+  minutes: number;
+  /** Whole days old the baby is on the run's date (negative while the baby is still due), and the ages the offer fits. */
+  ageDays: number | null;
+  minAgeDays: number | null;
+  maxAgeDays: number | null;
 }
 
 /** The fine-print verdict: clean, worth it but the parent sees the catch, or not worth it / misleading. */
@@ -59,6 +91,8 @@ export interface BundleResult {
    * `family.state` and a `coming-soon-state` card.)
    */
   stateNote?: string | null;
+  /** How many saved offers the court looked through for this family (before the baby's age narrowed them). Absent on older saved runs. */
+  offersOnFile?: number;
 }
 export interface Family {
   id: string; userId: string | null; isGuest: boolean; name: string;
