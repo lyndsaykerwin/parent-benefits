@@ -3,6 +3,8 @@ import os from 'os';
 import path from 'path';
 import { runEval, makeEvalZetaris, mergeLearning, ISSUE_FIXTURES } from '../../scripts/eval';
 import { scout } from '../../scripts/scout';
+import { loopsOf, type LoopKind } from '@shared/agentLoops';
+import type { AgentLogLine } from '@shared/agentLog';
 import { FakeGenerator } from '../adapters/llm';
 
 const PAGES = path.resolve('data/sample/saved-pages');
@@ -93,7 +95,14 @@ describe('runEval (offline: no model key, replayed Zetaris, fake families)', () 
         const trace = fs.readFileSync(path.join(logsDir, `run-${r.runId}.jsonl`), 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l));
         expect(r.cardsApproved).toBe(trace.filter((l: { action: string }) => l.action === 'approve_card').length);
         expect(r.courtRulings).toBe(trace.filter((l: { agent_name: string }) => l.agent_name === 'judge').length);
-        expect(r.eligibilityQuestions).toBe(trace.filter((l: { action: string }) => l.action === 'eligibility_check').length);
+        // the loop rounds use the owner panel's rules (shared/agentLoops.ts) on the agent log, so the two never disagree
+        const agentLog = fs.readFileSync(path.join(logsDir, `run_bundle_${r.runId.replace(/[^A-Za-z0-9_-]/g, '_')}.jsonl`), 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l));
+        const rounds = (k: LoopKind) => agentLog.filter((l: AgentLogLine) => loopsOf(l).includes(k)).length;
+        expect(r.eligibilityQuestions).toBe(rounds('eligibility'));
+        expect(r.sendBacks).toBe(rounds('send_back'));
+        expect(r.rebuttals).toBe(rounds('rebuttal'));
+        expect(r.recallVerifications).toBe(rounds('recall_check'));
+        expect(r.eligibilityQuestions).toBeLessThanOrEqual(trace.filter((l: { action: string }) => l.action === 'eligibility_check').length);
       }
     }
     expect(sb.loops.maya[0].courtBlocks).toBeGreaterThan(0);

@@ -9,7 +9,7 @@ Strict walk of every numbered item in `bundle-plan-v3.md` against the code in th
 ## 0. Bottom line (what is left)
 
 **Not built (N):**
-1. Server push route `GET /api/runs/:runId/events` (server-sent events, the one-way live push). The run-event hub fills up (`server/agents/orchestrator.ts:230,310`) and the browser side is built (`client/src/lib/stream.ts:187-220`), but no route sends the events (`grep text/event-stream server` finds nothing). Until W4-STREAM-SRV lands, the screen quietly falls back to asking once a second, so streaming cards and status pills do not appear live.
+1. (Refreshed after merging W4-STREAM-SRV and W5-EVALS.) The server push route is now BUILT: `GET /api/runs/:runId/events` (`server/routes/streamRoutes.ts:60`, registered `server/routes/index.ts:18`, cards through the parent whitelist `streamRoutes.ts:23`, `streamRoutes.test.ts`). Only a real-browser end-to-end check of the live stream is untested (BU).
 2. `offer_checks.recall_status / recall_ids / recall_checked_at` are never filled in: columns exist (`shared/schema.ts:~205`) and `v_offer_verdicts` selects `recall_status` (`scripts/zetaris/register.ts:~66`), but `buildOfferCheckRow` (`server/agents/offerChecks.ts:21-40`) writes none of them, so every row says "none found".
 3. The plan's two cross-source Zetaris questions: "offers rated truly free whose product is not recalled" (`offer_checks` x CPSC/openFDA) and "which fine-print problems show up most in Report-issue clicks" (`offer_checks` x `feedback`). No SQL exists for either (`v_offer_audit` is per-brand totals only, `register.ts:69-74`; coach reads `v_coach_feedback` only).
 4. "Misses become tests" (newsroom loop step 4): nothing turns a Fact-Checker catch or a missed trap into a new test case (`data/sample/fine-print-cases/cases.json` is read only by `finePrintRules.test.ts`).
@@ -23,7 +23,7 @@ Strict walk of every numbered item in `bundle-plan-v3.md` against the code in th
 **Partial (P):**
 - Court speed (item 30): the Deal Hunter and Lawyer run side by side only in the rebuttal round (`finePrintCourt.ts:169-172`); the first round awaits them one after the other (`:127-128`), and offers are still judged one at a time (`:271`).
 - Family profile read through Zetaris (item 14 / section 6 item 11): the Coach half is done (`coach.ts:44`, `v_coach_feedback`). The live-mode family read is NOT: `defaultLoadFamily` still reads Neon directly (`server/agents/orchestrator.ts:59-67`); `familyProfileSql` (`savedVerdicts.ts:34`) is recorded by `zetaris:record` but nothing calls it. So "Zetaris is the only way agents read data" is not yet fully true.
-- Scoreboard (section 6 item 4 and 8): has 6 traps, false alarms, learning flip, provider/model label, but none of fine-print 12 + 3 controls found/total, field accuracy, photo metrics, recall right/caught, loop counts per run (`logs/scoreboard.json` keys; W5-EVALS). Learning demo is not yet on a "subtler trap".
+- Scoreboard: now BT after W5-EVALS (8/8 traps, fine-print catches/field accuracy, recall right/caught, photo "not measured offline", loop counts, subtler learning trap; `scripts/eval.ts`, `eval.test.ts`). Its loop counts now use the same rules as the owner panel (`shared/agentLoops.ts`; this commit), so the two cannot disagree. Remaining honest gap: real-AI scoreboard is a Mac step (`eval:live-model`).
 - Plaid out "everywhere": a parent-visible "Connect your bank (Plaid)" coming-soon tile is still rendered (`client/src/lib/bundle.ts:138-156`, `client/src/pages/tabs/SavingsTab.tsx:25`, `CardDetail.tsx:59`); legacy `transactions` table keeps a `plaid` enum value (`shared/schema.ts:41`). Needs Lyndsay's call: keep as a roadmap tile or remove.
 - Value Score "paid in 6-8 weeks" range and the saved-grade reuse can only be seen with fake data offline: the saved-verdict replay is recorded with zero rows (no real `offer_checks` rows exist yet), so a sample run always says "no saved grades yet" (`newsroom.ts:81-83`). Reuse and "past grades feed the next grading" are proven only with fakes (`newsroom.test.ts`, `loopsEndToEnd.test.ts`) until the Mac fills `offer_checks`.
 - Vision model defaults (item 4): receipts default to the same Omni model, not Nano 12B (`llm.ts:439-440`; Nano only if `MODEL_VISION_RECEIPT` is set on purpose, `photo.test.ts` "which vision model a receipt uses"). Deliberate and tested, but differs from the plan's wording.
@@ -101,10 +101,10 @@ Strict walk of every numbered item in `bundle-plan-v3.md` against the code in th
 | 8 | Recall verification | BT | see 41 |
 | 9 | Coach / learning loop | BT | `coach.ts`; `sampleMode.test.ts:50-100` |
 | | Instant saved feed | BT | `bundleRoutes.ts:286`; `Feed.tsx:181`; `Feed.test.tsx` |
-| | Fast-path swarm / progressive card streaming | P | events emitted (`orchestrator.ts:310`), client built, **server route missing** |
-| | Deep loops push by SSE | N | no route; polling fallback works (`poll.ts`, `stream.ts:187`) |
-| | Status pills | P | built client-side from events; live only once the route exists |
-| | Optimistic background checking | P | same dependency |
+| | Fast-path swarm / progressive card streaming | BT (browser E2E BU) | events emitted `orchestrator.ts:310`; route `streamRoutes.ts:60`; client `stream.ts:187`; `streamRoutes.test.ts`, `stream.test.tsx` |
+| | Deep loops push by SSE | BT | `streamRoutes.ts:60`; polling fallback kept (`poll.ts`) |
+| | Status pills | BT | `stream.ts` pillLines; `Feed.tsx:59`; `Feed.test.tsx` |
+| | Optimistic background checking | BT | saved cards first then streamed updates (`Feed.tsx:72` liveCards) |
 | | Round caps (2/1/1), `MAX_OFFERS` | BT | `factChecker.ts:253`; `newsroom.ts:20`; `finePrintCourt.ts:8` |
 | | Per-call time limit + one retry (`NIGHTSHIFT_TIMEOUT_SECONDS` 180, `MODEL_TIMEOUT_SECONDS` 90) | BT | `llm.ts:109,195,216,425,432`; `llm.test.ts` |
 | | 300-s run budget | BT | `orchestrator.ts:237`; `runBudget.test.ts` |
@@ -162,8 +162,8 @@ Strict walk of every numbered item in `bundle-plan-v3.md` against the code in th
 | 3 Any state, middle class | BT | `stateAgnostic.test.ts` (5 families, 3-digit ZIPs, swap test, no-state-in-code guard); `tax-parameters.json`, `state-programs.json`, `zip3-states.json` |
 | 3b Uncovered state note | BT | `benefits.ts:19,134-135`; `orchestrator.ts:358`; `orchestrator.test.ts:419` |
 | 4 Verdicts, 12 tests + 3 controls | BT | `cases.json`; `finePrintRules.test.ts:18-115` |
-| 4b Ohio fix + learning demo on subtler trap | P | learning trap unchanged (W5-EVALS) |
-| 4c Scoreboard additions | P | W5-EVALS |
+| 4b Ohio fix + learning demo on subtler trap | BT | W5-EVALS: subtler trap taught from existing offers (`scripts/eval.ts`); eval 8/8 |
+| 4c Scoreboard additions | BT | W5-EVALS; loops use shared rules |
 | 5 Recall safety, finished filter, matching, verification, formula lot line | BT | `recall.test.ts` |
 | 6 Data intake | P | photo built, offline sample photos missing |
 | 7 Onboarding + Version B | BT | `Onboarding.tsx`, `tabs/*`, tests; "+" on every tab `VersionB.tsx:57`; "I got this" `FeedCardView.tsx:115`; share bar `Extras.tsx:8`; "How we got this number" `Extras.tsx:46`; "savings and tax credits" `HomeTab.tsx:56` |
@@ -189,7 +189,7 @@ Strict walk of every numbered item in `bundle-plan-v3.md` against the code in th
 
 ## 10. Section 10 proposals (items 1-44)
 
-1 (answered: photo first) C. 2 email "Use sample receipts" C (after hackathon). 3 seller/quantity kept BT (`schema.ts:136-160`). 4 vision defaults P (see 0). 5 barcode C. 6 CPSC sample photos N (Mac). 7 matching upgrade BT. 8 BT. 9 BT. 10 C (done). 11 fallback order BT. 12 Monday go/no-go N (Mac). 13 Judge model BT (setting). 14 two reads P. 15 judges' line N (docs). 16 join wording N (docs). 17 open CPSC recalls per brand in `v_offer_audit` (should-do) N (`register.ts:69-74` has no recall column). 18 C. 19 cut order BU (recorded in tracker only). 20 BT. 21 labelled demo BT, real sign-in N. 22 BT. 23 BT. 24 C. 25 N (Mac webcam check). 26 BT (Judge fills role). 27 BT. 28 C. 29 BT. 30 P. 31 BT (streaming client) but server push N. 32 BT (`photo.ts:89`, `photo.test.ts:80-117`). 33 BT. 34 C (later). 35 BT (`eligibilityLawyer.test.ts` "never asks about work"). 36 BT (real CPSC/openFDA only). 37 BT. 38 BT. 39 BU. 40 BT. 41 BT. 42 BT. 43 N (should-do, S3-DREAM). 44 N (docs).
+1 (answered: photo first) C. 2 email "Use sample receipts" C (after hackathon). 3 seller/quantity kept BT (`schema.ts:136-160`). 4 vision defaults P (see 0). 5 barcode C. 6 CPSC sample photos N (Mac). 7 matching upgrade BT. 8 BT. 9 BT. 10 C (done). 11 fallback order BT. 12 Monday go/no-go N (Mac). 13 Judge model BT (setting). 14 two reads P. 15 judges' line N (docs). 16 join wording N (docs). 17 open CPSC recalls per brand in `v_offer_audit` (should-do) N (`register.ts:69-74` has no recall column). 18 C. 19 cut order BU (recorded in tracker only). 20 BT. 21 labelled demo BT, real sign-in N. 22 BT. 23 BT. 24 C. 25 N (Mac webcam check). 26 BT (Judge fills role). 27 BT. 28 C. 29 BT. 30 P. 31 BT (client and server push). 32 BT (`photo.ts:89`, `photo.test.ts:80-117`). 33 BT. 34 C (later). 35 BT (`eligibilityLawyer.test.ts` "never asks about work"). 36 BT (real CPSC/openFDA only). 37 BT. 38 BT. 39 BU. 40 BT. 41 BT. 42 BT. 43 N (should-do, S3-DREAM). 44 N (docs).
 
 ## 11. What this chunk changed (task 2: panel wording vs real log lines)
 
@@ -205,5 +205,7 @@ A sample run's real log lines (6 families, `agentLogCoverage.test.ts`) showed th
 | No kind for the eligibility loop or the safety kill | Both are real, built loops | Not shown |
 
 Fix: the rules moved to `shared/agentLoops.ts` (one place for the panel and the tests), each loop counted once per round on the line that really marks it, and two kinds added (eligibility questions, deals stopped for safety). Proven by `server/__tests__/loopsEndToEnd.test.ts` (19 tests, real agent code into the same function) and `agentLogCoverage.test.ts` (46 tests, a real sample run for maya, leo, ava, noor, cal, fern), plus the rewritten `client/src/pages/__tests__/AgentWorkspace.test.tsx`.
+
+**Scoreboard (refreshed):** scripts/eval.ts loopCountsOf used raw trace words (sendBacks counted the eligibility challenge, rebuttals counted hunter and lawyer lines, 2 per round). It now uses the shared rules on the run agent log (new fields photoRetries, savedGradesReused, safetyKills; corrections merged into sendBacks). eval.test.ts checks the scoreboard equals the panel rules.
 
 **Loops covered with a fake model (cannot occur in a keyless offline run):** Court rebuttal round, Fact-Checker send-back that re-judges an offer (Court re-argues), photo retry (scripted vision model). **Covered with made-up rows and no model:** eligibility loop, recall verification, safety kill, saved-grade reuse. **Not covered at all offline:** the rebuttal and send-back with a REAL model (Mac `eval:live-model`).
