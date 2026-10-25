@@ -8,6 +8,7 @@ import crypto from 'node:crypto';
 import type * as s from '../../shared/schema';
 import { ModelUnavailable, type Generator, type SeeRequest } from '../adapters/llm';
 import type { TraceLogger } from '../agents/trace';
+import { stripJpegMetadata } from './imageClean';
 
 export type PhotoKind = 'item' | 'receipt';
 export type PurchaseItemRow = typeof s.purchaseItems.$inferInsert;
@@ -17,6 +18,8 @@ const MIME_OK = new Set(['image/jpeg', 'image/png']);
 
 export const NEEDS_LIVE_MODEL_MESSAGE = 'Photo reading needs the live model, which is not switched on here. You can still add items another way.';
 export const CLEARER_PHOTO_MESSAGE = 'We could not read that photo clearly. Please send a clearer photo: a close-up with the label or receipt filling the frame, in good light, no people.';
+/** Gear photos: said exactly like this when the label could not be read. We never guess a model number. */
+export const NO_MODEL_MESSAGE = "We couldn't find a model number. Try the white label.";
 export const REJECTED_MESSAGE = 'That does not look like a product label or a receipt, so we did not keep anything from it. Please send a close-up of the item label or receipt only (no people or addresses).';
 
 // ---------------------------------------------------------------------------
@@ -190,21 +193,43 @@ function parseJson(raw: string): unknown {
 // Storage
 // ---------------------------------------------------------------------------
 
+export interface PhotoRecord {
+  id: number;
+  familyId: string;
+  kind: 'gear' | 'receipt';
+  /** A small picture (data address). Gear photos keep only this. */
+  thumbnail: string | null;
+  /** The receipt picture itself (data address), location data stripped. Receipts only. */
+  receiptImage: string | null;
+  createdAt?: Date | string | null;
+}
+export type SavedItemRow = PurchaseItemRow & { id?: number };
+
 export interface PhotoStore {
   /** Inserts rows; a row whose (family, input_hash, line_index) already exists is skipped. Returns how many were new. */
   insertItems(rows: PurchaseItemRow[]): Promise<number>;
-  /** "Forget my items": per the plan (section 3) deletes ALL of the family's purchase_items rows, whatever the source (email, barcode, photo). Returns how many. */
+  /** "Forget my items": per the plan (section 3) deletes ALL of the family's purchase_items rows, whatever the source (email, barcode, photo), and every saved photo. Returns how many items. */
   deleteForFamily(familyId: string): Promise<number>;
+  /** Saves a gear thumbnail or a receipt picture (item_photos). Returns its id. */
+  savePhoto(p: { familyId: string; kind: 'gear' | 'receipt'; thumbnail: string | null; receiptImage: string | null }): Promise<number>;
+  deletePhoto(id: number): Promise<void>;
+  /** This family's saved photos, newest first. */
+  listPhotos(familyId: string): Promise<PhotoRecord[]>;
+  /** This family's saved items (all sources), oldest first. */
+  listItems(familyId: string): Promise<SavedItemRow[]>;
 }
 
 export function createMemoryPhotoStore(): PhotoStore & { all(): Promise<PurchaseItemRow[]> } {
-  const rows: PurchaseItemRow[] = [];
+  const rows: SavedItemRow[] = [];
+  const photos: PhotoRecord[] = [];
+  let nextRow = 1;
+  let nextPhoto = 1;
   return {
     async insertItems(add) {
       let n = 0;
       for (const r of add) {
         if (rows.some((x) => x.familyId === r.familyId && x.inputHash === r.inputHash && (x.lineIndex ?? 0) === (r.lineIndex ?? 0))) continue;
-        rows.push({ ...r }); n++;
+        rows.push({ ...r, id: nextRow++ }); n++;
       }
       return n;
     },
@@ -212,11 +237,24 @@ export function createMemoryPhotoStore(): PhotoStore & { all(): Promise<Purchase
       const keep = rows.filter((r) => r.familyId !== familyId);
       const gone = rows.length - keep.length;
       rows.splice(0, rows.length, ...keep);
+      const keepPhotos = photos.filter((p) => p.familyId !== familyId);
+      photos.splice(0, photos.length, ...keepPhotos);
       return gone;
     },
+    async savePhoto(p) { const id = nextPhoto++; photos.push({ id, ...p, createdAt: new Date().toISOString() }); return id; },
+    async deletePhoto(id) { const i = photos.findIndex((p) => p.id === id); if (i >= 0) photos.splice(i, 1); },
+    async listPhotos(familyId) { return photos.filter((p) => p.familyId === familyId).map((p) => ({ ...p })).reverse(); },
+    async listItems(familyId) { return rows.filter((r) => r.familyId === familyId).map((r) => ({ ...r })); },
     async all() { return rows.map((r) => ({ ...r })); },
   };
 }
+
+/** One shared store: Neon when a database is set, otherwise memory (SAMPLE_MODE and local tries). Routes and agents both read it. */
+let sharedStore: PhotoStore | undefined;
+export const getSharedPhotoStore = (): PhotoStore =>
+  (sharedStore ??= process.env.DATABASE_URL && process.env.SAMPLE_MODE !== 'true' ? createDbPhotoStore() : createMemoryPhotoStore());
+/** Tests only: start from an empty shared store. */
+export const resetSharedPhotoStore = (): void => { sharedStore = undefined; };
 
 /** The real table (Neon, or the local test Postgres). The database module is loaded only when this is used. */
 export function createDbPhotoStore(): PhotoStore {
@@ -230,10 +268,36 @@ export function createDbPhotoStore(): PhotoStore {
     },
     async deleteForFamily(familyId) {
       const { db } = await import('../db');
-      const { purchaseItems } = await import('../../shared/schema');
+      const { purchaseItems, itemPhotos } = await import('../../shared/schema');
       const { eq } = await import('drizzle-orm');
       const out = await db.delete(purchaseItems).where(eq(purchaseItems.familyId, familyId)).returning({ id: purchaseItems.id });
+      await db.delete(itemPhotos).where(eq(itemPhotos.familyId, familyId));
       return out.length;
+    },
+    async savePhoto(p) {
+      const { db } = await import('../db');
+      const { itemPhotos } = await import('../../shared/schema');
+      const [row] = await db.insert(itemPhotos).values(p).returning({ id: itemPhotos.id });
+      return row.id;
+    },
+    async deletePhoto(id) {
+      const { db } = await import('../db');
+      const { itemPhotos } = await import('../../shared/schema');
+      const { eq } = await import('drizzle-orm');
+      await db.delete(itemPhotos).where(eq(itemPhotos.id, id));
+    },
+    async listPhotos(familyId) {
+      const { db } = await import('../db');
+      const { itemPhotos } = await import('../../shared/schema');
+      const { eq, desc } = await import('drizzle-orm');
+      const rows = await db.select().from(itemPhotos).where(eq(itemPhotos.familyId, familyId)).orderBy(desc(itemPhotos.id));
+      return rows.map((r) => ({ id: r.id, familyId: r.familyId, kind: r.kind === 'receipt' ? 'receipt' as const : 'gear' as const, thumbnail: r.thumbnail, receiptImage: r.receiptImage, createdAt: r.createdAt }));
+    },
+    async listItems(familyId) {
+      const { db } = await import('../db');
+      const { purchaseItems } = await import('../../shared/schema');
+      const { eq, asc } = await import('drizzle-orm');
+      return db.select().from(purchaseItems).where(eq(purchaseItems.familyId, familyId)).orderBy(asc(purchaseItems.id));
     },
   };
 }
@@ -255,10 +319,14 @@ export interface PhotoDeps {
   env?: NodeJS.ProcessEnv;
 }
 
-export interface PhotoInput { familyId: string; kind: PhotoKind; mimeType: string; bytes: Buffer }
+export interface PhotoInput {
+  familyId: string; kind: PhotoKind; mimeType: string; bytes: Buffer;
+  /** A small picture the phone made (data address, JPEG). Kept with gear and receipts. */
+  thumbnail?: string;
+}
 
 export type PhotoResult =
-  | { status: 'ok'; items: ReadItem[]; rounds: 1 | 2; stored: number }
+  | { status: 'ok'; items: ReadItem[]; rounds: 1 | 2; stored: number; photoId: number | null; thumbnail: string | null; sample: boolean }
   | { status: 'needs_clearer_photo'; message: string }
   | { status: 'rejected'; message: string }
   | { status: 'unavailable'; message: string }
@@ -276,6 +344,14 @@ function loadSaved(cacheDir: string, hash: string): SavedAnswers | null {
   } catch { return null; }
 }
 
+/** The made-up practice-mode answer for a kind of photo (data/sample/sample-photo-answers.json), or null when the file is gone. */
+export function loadSampleAnswer(kind: PhotoKind, cwd: string = process.cwd()): string | null {
+  try {
+    const v = JSON.parse(fs.readFileSync(path.resolve(cwd, 'data/sample/sample-photo-answers.json'), 'utf8')) as Record<string, unknown>;
+    return v[kind] ? JSON.stringify(v[kind]) : null;
+  } catch { return null; }
+}
+
 type Seer = (prompt: string) => Promise<string>;
 
 function log(d: PhotoDeps, ev: { action: string; input: string; output: string; status: 'ok' | 'retry' | 'blocked' | 'fallback' | 'error'; retry: number; confidence?: number | null }) {
@@ -285,7 +361,7 @@ function log(d: PhotoDeps, ev: { action: string; input: string; output: string; 
   });
 }
 
-async function runLoop(input: PhotoInput, d: PhotoDeps, hash: string, see: Seer, cached: boolean): Promise<PhotoResult> {
+async function runLoop(input: PhotoInput, d: PhotoDeps, hash: string, see: Seer, cached: boolean, sample = false): Promise<PhotoResult> {
   const { kind, familyId } = input;
   const what = kind === 'receipt' ? 'receipt photo' : 'item photo';
   const ask = async (prompt: string): Promise<Checked> => {
@@ -315,17 +391,40 @@ async function runLoop(input: PhotoInput, d: PhotoDeps, hash: string, see: Seer,
     return { status: 'needs_clearer_photo', message: CLEARER_PHOTO_MESSAGE };
   }
 
+  // A gear photo with no model number and no barcode cannot be checked against a recall list. Never guess: ask again.
+  if (kind === 'item' && !result.items.some((it) => it.modelNumber || it.upc)) {
+    log(d, { action: 'no_model_number', input: `${what}`, output: 'no model number or UPC could be read: asked for the white label', status: 'blocked', retry: rounds - 1 });
+    return { status: 'needs_clearer_photo', message: NO_MODEL_MESSAGE };
+  }
+
+  // Keep the picture only as a small thumbnail (gear) or the cleaned receipt picture (receipt). Location data is stripped here.
+  const thumbnail = cleanThumbnail(input.thumbnail);
+  let receiptImage: string | null = null;
+  if (kind === 'receipt' && input.mimeType === 'image/jpeg') {
+    try { receiptImage = `data:image/jpeg;base64,${stripJpegMetadata(input.bytes).toString('base64')}`; } catch { receiptImage = null; }
+  }
+  const photoId = await d.store.savePhoto({ familyId, kind: kind === 'receipt' ? 'receipt' : 'gear', thumbnail, receiptImage });
+
   const rows: PurchaseItemRow[] = result.items.map((it, i) => ({
     familyId,
     source: kind === 'receipt' ? 'photo_receipt' : 'photo_item',
     store: it.store, purchasedOn: it.purchasedOn, productName: it.productName, brand: it.brand,
     modelNumber: it.modelNumber, lotCode: it.lotCode, upc: it.upc, sizeText: it.sizeText,
     quantity: it.quantity, priceCents: it.priceCents, confidence: it.confidence,
-    extractor: cached ? 'sample-cache' : 'vision-model',
-    inputHash: hash, lineIndex: i,
+    extractor: sample ? 'sample-answer' : cached ? 'sample-cache' : 'vision-model',
+    inputHash: hash, lineIndex: i, photoId,
   }));
   const stored = await d.store.insertItems(rows);
-  return { status: 'ok', items: result.items, rounds, stored };
+  // Nothing new (we already had this photo): do not keep a second copy of the picture.
+  if (stored === 0) await d.store.deletePhoto(photoId);
+  return { status: 'ok', items: result.items, rounds, stored, photoId: stored === 0 ? null : photoId, thumbnail, sample };
+}
+
+const THUMB_RE = /^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/;
+/** The phone's small picture, only if it really is a small JPEG data address. Anything else is dropped. */
+export function cleanThumbnail(t: unknown): string | null {
+  if (typeof t !== 'string' || t.length > 80_000 || !THUMB_RE.test(t)) return null;
+  try { return `data:image/jpeg;base64,${stripJpegMetadata(Buffer.from(t.slice(t.indexOf(',') + 1), 'base64')).toString('base64')}`; } catch { return null; }
 }
 
 /** Reads one photo end to end. The upload buffer is wiped before this returns, whatever the outcome. */
@@ -337,9 +436,16 @@ export async function readPhoto(input: PhotoInput, d: PhotoDeps): Promise<PhotoR
 
     if (d.sampleMode) {
       const saved = loadSaved(d.cacheDir, hash);
-      if (!saved) return { status: 'unavailable', message: NEEDS_LIVE_MODEL_MESSAGE };
-      let i = 0;
-      return await runLoop(input, d, hash, async () => saved.answers[Math.min(i++, saved.answers.length - 1)], true);
+      if (saved) {
+        let i = 0;
+        return await runLoop(input, d, hash, async () => saved.answers[Math.min(i++, saved.answers.length - 1)], true);
+      }
+      // No recording yet (needs NVIDIA, on the Mac): answer with the clearly fictional practice answer, flagged as a sample.
+      const sampleAnswer = loadSampleAnswer(input.kind);
+      if (!sampleAnswer) return { status: 'unavailable', message: NEEDS_LIVE_MODEL_MESSAGE };
+      log(d, { action: 'sample_answer', input: `${input.kind} photo`, output: 'no saved vision answer for this photo: used the fictional practice answer', status: 'fallback', retry: 0 });
+      // One fixed fingerprint per kind: practising again never piles up copies of the same made-up item.
+      return await runLoop(input, d, `sample-answer-${input.kind}`, async () => sampleAnswer, true, true);
     }
 
     const imageBase64 = input.bytes.toString('base64');

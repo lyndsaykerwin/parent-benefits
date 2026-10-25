@@ -15,6 +15,7 @@ import type { TraceLine } from '../agents/trace';
 import { SEED_FAMILY_IDS, isSeedFamily } from '../demoDate';
 import { dateRangeError } from '../../shared/dateRange';
 import { isInlineFamily } from '../agents/sql';
+import { getSharedPhotoStore } from '../ingest/photo';
 export { SEED_FAMILY_IDS };
 export const ZIP_ERROR = 'Enter a valid US ZIP code';
 const WINDOW_MS = 10 * 60 * 1000;
@@ -36,6 +37,8 @@ export interface ApiDeps {
   maxInFlightPerIp?: number;
   /** The current date, for the date-range checks (tests pin it). */
   now?: () => Date;
+  /** Does this family have saved gear or receipts? Default: the photo store. Tests inject a fake. */
+  hasSavedItems?: (familyId: string) => Promise<boolean>;
   /** Where Task 13's eval writes its scoreboard (default logs/scoreboard.json). */
   scoreboardFile?: () => string;
 }
@@ -57,11 +60,12 @@ const INSURANCE: readonly string[] = ['job', 'marketplace', 'medicaid', 'tricare
 const ANSWER_ERROR = 'Choose one of the listed answers.';
 
 /** The display fields of a family that the screens need. Never income. */
-export function familyView(f: Family): FamilyView {
+export function familyView(f: Family, savedItems = false): FamilyView {
   return {
     name: f.name, birthDate: f.birthDate, dueDate: f.dueDate, state: f.state,
     household: f.household ?? null, parent1Work: f.parent1Work ?? null, parent2Work: f.parent2Work ?? null, insurance: f.insurance ?? null,
-    hasItems: !isInlineFamily(f) && f.dataConnected,
+    // A typed-in family has no connected data, but it does have items once it has saved gear or receipts.
+    hasItems: isInlineFamily(f) ? savedItems : f.dataConnected,
   };
 }
 
@@ -219,6 +223,13 @@ export function createBundleRouter(deps: ApiDeps): Router {
     message: { error: 'Too much feedback from this address. Please try again in a few minutes.' },
   });
 
+  /** Gear or receipts saved for a family. A failed lookup counts as none (the run still goes ahead). */
+  async function hasSaved(familyId: string): Promise<boolean> {
+    try {
+      return deps.hasSavedItems ? await deps.hasSavedItems(familyId) : (await getSharedPhotoStore().listItems(familyId)).length > 0;
+    } catch { return false; }
+  }
+
   /** Seed family id, or a new unsaved family built from the form. Returns an error message instead when invalid. */
   async function resolveFamily(body: any): Promise<{ family?: Family; error?: string }> {
     if (typeof body?.familyId === 'string') {
@@ -250,13 +261,13 @@ export function createBundleRouter(deps: ApiDeps): Router {
     };
   }
 
-  function startRun(family: Family, ip: string): { entry: RunEntry; done: Promise<void> } {
+  function startRun(family: Family, ip: string, savedItems = false): { entry: RunEntry; done: Promise<void> } {
     const base = deps.makeRunDeps(family);
     const runId = newRunId(family.id);
     knownFamilies.add(family.id);
     const entry: RunEntry = {
       runId, familyId: family.id, status: 'running', startedAt: new Date().toISOString(), logsDir: base.logsDir,
-      family: familyView(family), today: base.today, demoDate: isSeedFamily(family.id),
+      family: familyView(family, savedItems), today: base.today, demoDate: isSeedFamily(family.id),
     };
     runs.set(runId, entry);
     while (runs.size > MAX_REGISTRY) runs.delete(runs.keys().next().value as string);
@@ -291,7 +302,8 @@ export function createBundleRouter(deps: ApiDeps): Router {
       if (inFlight >= maxInFlight) return res.status(503).json({ error: 'Bundle is busy right now. Please try again in a minute.' });
       const ip = req.ip ?? 'unknown';
       if ((inFlightByIp.get(ip) ?? 0) >= maxPerIp) return res.status(429).json({ error: `You already have ${maxPerIp} runs going. Please wait for one to finish.` });
-      const { entry, done } = startRun(family, ip);
+      const savedItems = isInlineFamily(family) ? await hasSaved(family.id) : false;
+      const { entry, done } = startRun(family, ip, savedItems);
       // A family typed in on the onboarding screens is saved, and its id goes back to the browser so it can find the family again.
       // Saving never blocks the run: if it fails, no id is returned.
       let savedFamilyId: string | undefined;

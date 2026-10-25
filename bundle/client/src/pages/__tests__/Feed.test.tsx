@@ -55,7 +55,7 @@ describe('Feed hands a finished run to Version B (W3-VERSIONB)', () => {
     await openResults();
     expect(screen.getByRole('navigation', { name: 'Main' })).toBeTruthy();
     expect(screen.getByTestId('home-total-amount').textContent).toBe('$3,688.99');
-    expect(screen.getByRole('button', { name: /take a photo/i })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /^Scan$/ })).toBeTruthy();
     expect(screen.queryByTestId('owner-panel-slot')).toBeNull(); // a parent never gets the owner slot
     expect(screen.queryByText('How the agents worked together')).toBeNull();
     expect(((global as any).fetch as jest.Mock).mock.calls.some(([u]) => String(u).includes('/agent-log'))).toBe(false);

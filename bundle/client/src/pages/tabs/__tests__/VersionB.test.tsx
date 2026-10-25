@@ -16,7 +16,7 @@ function show(id: Parameters<typeof sampleRun>[0], opts: { owner?: boolean; with
   return run;
 }
 const tab = (name: string) => within(screen.getByRole('navigation', { name: 'Main' })).getByRole('button', { name: new RegExp(`^${name}`) });
-const plus = () => screen.getByRole('button', { name: /take a photo/i });
+const plus = () => screen.getByRole('button', { name: /^Scan$/ });
 
 describe('Version B tabs, baby is here (Maya)', () => {
   it('shows Home, Taxes, Savings, Insurance and Deals, starting on Home, with a "+" on every tab', () => {
@@ -31,11 +31,12 @@ describe('Version B tabs, baby is here (Maya)', () => {
     }
   });
 
-  it('the "+" opens "Take a photo"', () => {
+  it('the header "Scan" button opens "What are you scanning?" on every tab, and Gear leads to the photo picker', () => {
     show('maya');
     fireEvent.click(tab('Deals'));
     fireEvent.click(plus());
-    const dialog = screen.getByRole('dialog', { name: /take a photo/i });
+    const dialog = screen.getByRole('dialog', { name: /what are you scanning/i });
+    fireEvent.click(within(dialog).getByRole('button', { name: /^Gear/ }));
     expect(within(dialog).getByLabelText(/take or choose a photo/i)).toBeTruthy();
   });
 
@@ -140,11 +141,11 @@ describe('Version B tabs, expecting (Leo)', () => {
     expect(screen.getAllByText(/Starts at birth/).length).toBeGreaterThan(0);
   });
 
-  it('Savings shows two "Needs purchases" tiles and points to the + photo button (no purchases yet)', () => {
+  it('Savings shows two "Needs purchases" tiles and points to the Scan button (no purchases yet)', () => {
     show('leo');
     fireEvent.click(tab('Savings'));
     expect(screen.getAllByTestId('needs-purchases')).toHaveLength(2);
-    expect(screen.getByTestId('purchases-prompt').textContent).toMatch(/tap the \+/);
+    expect(screen.getByTestId('purchases-prompt').textContent).toMatch(/tap Scan/);
   });
 });
 

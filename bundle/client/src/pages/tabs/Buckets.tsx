@@ -4,6 +4,7 @@ import { fmtUsdShort } from '@/lib/bundle';
 import { taxYearFor } from '@/lib/insurance';
 import { claimableCards } from '@/lib/tabs';
 import type { TabProps } from './shared';
+import { useScan } from '@/components/scan/ScanContext';
 
 /** "(after birth)" is added to cards while a family is expecting; the bucket already says when, so drop it here. */
 const plainTitle = (t: string) => t.replace(/\s*\(after birth\)$/, '');
@@ -51,6 +52,7 @@ const box = (accent: string) => `bundle-card relative mt-3 overflow-hidden p-4 p
  */
 export default function Buckets(props: TabProps) {
   const { run, stage } = props;
+  const { openScan } = useScan();
   const live = props.cards.filter((c) => !props.dismissed[c.id]);
   const inBucket = (cat: ReturnType<typeof categoryOf>) => live.filter((c) => categoryOf(c) === cat && (cat === 'leave' || (c.amountCents ?? 0) > 0));
   const moneyBack = inBucket('money_back');
@@ -69,7 +71,7 @@ export default function Buckets(props: TabProps) {
         <p className="eyebrow text-ink-2">Money back now</p>
         <h3 className="mt-1 text-[19px] font-extrabold leading-snug tracking-[-0.01em]">Within weeks of filing a claim</h3>
         {moneyBack.length === 0 ? (
-          <button type="button" onClick={() => props.go('savings')} className="mt-3 flex min-h-[48px] w-full items-center gap-2 rounded-xl border border-dashed border-ink-3 px-3 text-left text-[15px] font-bold text-ink">
+          <button type="button" onClick={openScan} aria-haspopup="dialog" className="mt-3 flex min-h-[48px] w-full items-center gap-2 rounded-xl border border-dashed border-ink-3 px-3 text-left text-[15px] font-bold text-ink">
             <span aria-hidden="true" className="text-[20px] leading-none">+</span> Add a receipt to find money back
           </button>
         ) : (

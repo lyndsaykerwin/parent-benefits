@@ -1,0 +1,23 @@
+{
+  "note": "FICTIONAL practice-mode answers. SAMPLE_MODE has no vision key, and the real recordings (npm run record-vision, needs NVIDIA on the Mac) are not made yet, so a photo with no recording gets one of these instead. Brand, model number, UPC, store and prices are all made up. The server marks every reply that uses them as a sample answer. Delete this fallback's use once real recordings exist in vision-cache/.",
+  "item": {
+    "rejected": null,
+    "readText": "SAMPLE ONLY Model SAMPLE-1042 UPC 012345678905 Graco infant car seat",
+    "store": null,
+    "purchasedOn": null,
+    "items": [
+      { "productName": "Graco infant car seat (sample)", "brand": "Graco", "modelNumber": "SAMPLE-1042", "lotCode": null, "upc": "012345678905", "sizeText": null, "priceCents": null, "quantity": 1 }
+    ]
+  },
+  "receipt": {
+    "rejected": null,
+    "readText": "SAMPLE ONLY Made-up Baby Mart 2026-10-20 Infant digital thermometer 12.99 Nasal aspirator 8.49 Newborn diapers 84 count 24.99",
+    "store": "Made-up Baby Mart",
+    "purchasedOn": "2026-10-20",
+    "items": [
+      { "productName": "Infant digital thermometer", "brand": null, "modelNumber": null, "lotCode": null, "upc": null, "sizeText": null, "priceCents": 1299, "quantity": 1 },
+      { "productName": "Nasal aspirator", "brand": null, "modelNumber": null, "lotCode": null, "upc": null, "sizeText": null, "priceCents": 849, "quantity": 1 },
+      { "productName": "Newborn diapers, 84 count", "brand": null, "modelNumber": null, "lotCode": null, "upc": null, "sizeText": "84 count", "priceCents": 2499, "quantity": 1 }
+    ]
+  }
+}

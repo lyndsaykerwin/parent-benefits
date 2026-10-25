@@ -1,6 +1,8 @@
 import { fmtUsdShort } from '@/lib/bundle';
 import FeedCardView from '@/components/FeedCardView';
 import { categorySummary, tabForCard } from '@/lib/tabs';
+import { ScanCard } from '@/components/scan/ScanButtons';
+import { GearLockerCard } from '@/components/scan/GearLocker';
 import { CardStack, CategoryHeader, ClaimDrawers, SectionTitle, type TabProps } from './shared';
 
 const hasMoneyBack = (cards: TabProps['cards']) => cards.some((c) => c.kind === 'clawback' && /^clawback-(fsa|price)-/.test(c.id));
@@ -33,6 +35,7 @@ export default function SavingsTab(props: TabProps) {
         title={cents > 0 ? `${fmtUsdShort(cents)} in savings` : 'Savings'}
         sub="Government deposits for your baby, plus money back on baby gear you have already bought."
       />
+      <ScanCard />
       <CardStack cards={mine} props={props} />
       <ClaimDrawers cards={mine} props={props} />
       {needs && (
@@ -40,10 +43,11 @@ export default function SavingsTab(props: TabProps) {
           <NeedsPurchases title="Pay yourself back from an FSA or HSA" sub="Thermometers, pumps and more can come out of a pre-tax health account." />
           <NeedsPurchases title="Price dropped after you bought" sub="Many stores refund the difference if you ask in time." />
           <p className="rounded-2xl bg-coral-tint px-4 py-3 text-[15px] font-semibold text-coral-deep" data-testid="purchases-prompt">
-            Find money in what you have already bought: tap the + at the top and take a photo of an item or a receipt.
+            Find money in what you have already bought: tap Scan at the top and take a photo of an item or a receipt.
           </p>
         </div>
       )}
+      <GearLockerCard familyId={props.run.familyId} />
       <SectionTitle>Coming soon</SectionTitle>
       <div className="mt-2 grid gap-2">
         {soon.map((c) => <FeedCardView key={c.id} card={c} today={props.run.today} />)}

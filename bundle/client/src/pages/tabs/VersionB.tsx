@@ -1,6 +1,9 @@
 import { useCallback, useMemo, useState, type ReactNode } from 'react';
 import AppShell from '@/components/AppShell';
-import AddPurchaseButton from '@/components/AddPurchaseButton';
+import { ScanProvider, useScan } from '@/components/scan/ScanContext';
+import { ScanHeaderButton } from '@/components/scan/ScanButtons';
+import ScanSheet from '@/components/scan/ScanSheet';
+import { GearLockerView } from '@/components/scan/GearLocker';
 import { demoDateLabel, familyChip, type SavedRun, type TraceLine } from '@/lib/bundle';
 import { applyInsuranceAnswer } from '@/lib/insurance';
 import { applyDaycareAnswer } from '@/lib/daycare';
@@ -35,14 +38,20 @@ interface Props {
 }
 
 /** Version B: the five-tab app a parent lands on after the Checking screen. Every number comes from `run.result`. */
-export default function VersionB({ run, owner, lines = [], ownerPanel }: Props) {
+export default function VersionB(props: Props) {
+  return <ScanProvider><VersionBInner {...props} /></ScanProvider>;
+}
+
+function VersionBInner({ run, owner, lines = [], ownerPanel }: Props) {
+  const scan = useScan();
   const [tab, setTab] = useState<TabId>(() => loadTab(run.runId));
   const { claims, dismissed, bar, claim, dismiss, undo, closeBar } = useClaims(run.familyId);
   const stage = stageOf(run.family);
   const cards = useMemo(() => applyDaycareAnswer(applyInsuranceAnswer(run.result.cards, run.family), run.family), [run.result.cards, run.family]);
   const today = run.today ?? '';
 
-  const change = useCallback((t: TabId) => { setTab(t); saveTab(run.runId, t); window.scrollTo?.({ top: 0 }); }, [run.runId]);
+  const { closeLocker } = scan;
+  const change = useCallback((t: TabId) => { closeLocker(); setTab(t); saveTab(run.runId, t); window.scrollTo?.({ top: 0 }); }, [run.runId, closeLocker]);
   // The amount a "Not relevant" tap takes off: only what counts toward the headline (a card with no counted money takes off $0).
   const act = useMemo(() => ({
     claim,
@@ -66,17 +75,22 @@ export default function VersionB({ run, owner, lines = [], ownerPanel }: Props) 
   return (
     <AppShell
       chip={familyChip(run.family, run.today)}
-      action={<AddPurchaseButton familyId={run.familyId} />}
+      action={<ScanHeaderButton />}
       footer={<TabBar current={tab} onChange={change} badge={badgeCount(cards, today, stage, run.family)} />}
     >
       {demoLabel && <p data-testid="demo-date" className="mt-3 text-[13px] font-semibold text-ink-2">{demoLabel}. Sample families are checked as of this date so the demo stays the same.</p>}
       {run.result.banner && (
         <p role="status" className="mt-4 rounded-2xl border border-[#F5C4B0] bg-coral-tint px-4 py-3 text-[15px] font-semibold text-coral-deep">{run.result.banner}</p>
       )}
-      <div role="region" aria-label={TAB_NAMES[tab]} data-testid={`tab-${tab}`}>
-        <Screen {...props} />
-      </div>
-      {tab === 'home' && owner && (
+      {scan.lockerOpen ? (
+        <GearLockerView familyId={run.familyId} />
+      ) : (
+        <div role="region" aria-label={TAB_NAMES[tab]} data-testid={`tab-${tab}`}>
+          <Screen {...props} />
+        </div>
+      )}
+      <ScanSheet familyId={run.familyId} />
+      {tab === 'home' && !scan.lockerOpen && owner && (
         <div data-testid="owner-panel-slot" className="mt-6">{ownerPanel}</div>
       )}
  {bar && (
@@ -85,7 +99,7 @@ export default function VersionB({ run, owner, lines = [], ownerPanel }: Props) 
           <button type="button" onClick={() => { undo(bar.id); closeBar(); }} className="min-h-[44px] shrink-0 rounded-xl bg-paper px-4 text-[15px] font-bold text-ink">Undo</button>
         </div>
       )}
-      {tab === 'home' && (
+      {tab === 'home' && !scan.lockerOpen && (
         <Link href="/" className="mt-3 flex min-h-[48px] items-center justify-center text-[15px] font-bold text-ink-2 underline decoration-line decoration-2 underline-offset-4">
           Start over with your own details
         </Link>

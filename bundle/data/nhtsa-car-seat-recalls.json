@@ -1,0 +1,1179 @@
+{
+ "_about": "NHTSA child-seat recalls since 2010: the 69 campaigns marked recall type C (child seat) in NHTSA's public daily recall file FLAT_RCL_POST_2010 (https://static.nhtsa.gov/odi/ffdd/rcl/FLAT_RCL_POST_2010.zip), downloaded 2026-10-25. One row per campaign; brands and models are every make/model line NHTSA lists for it. Public government data, no family data.",
+ "source": "NHTSA",
+ "sourceUrl": "https://www.nhtsa.gov/recalls",
+ "downloadedOn": "2026-10-25",
+ "recalls": [
+  {
+   "campaignNumber": "26C006000",
+   "manufacturer": "Britax Child Safety, Inc.",
+   "brands": [
+    "Britax"
+   ],
+   "models": [
+    "B-SAFE GEN 2 FLEXFIT PLUS",
+    "B-SAFE GEN 2 FLEXFIT",
+    "B-SAFE GEN 2",
+    "ENDEAVOURS",
+    "B-SAFE ULTRA",
+    "B-SAFE 35"
+   ],
+   "components": [
+    "Critical Fasteners",
+    "Handle (Infant)"
+   ],
+   "recallDate": "2026-08-20",
+   "summary": "Britax Child Safety, Inc. (Britax) is recalling certain B-Safe Gen 2, B-Safe Gen 2 Flexfit, B-Safe Gen 2 Flexfit Plus, B-Safe 35, B-Safe Ultra, and Endeavours child seats. Please refer to Britax's recall report for the specific models. A sc\u2026"
+  },
+  {
+   "campaignNumber": "26C003000",
+   "manufacturer": "Graco Children's Products, Inc.",
+   "brands": [
+    "Graco"
+   ],
+   "models": [
+    "MODES NEST TRAVEL SYSTEM W/SNUGRIDE TURN&SLIDE",
+    "SNUGRIDE TURN & SLIDE"
+   ],
+   "components": [],
+   "recallDate": "2026-04-02",
+   "summary": "Graco Children's Products Inc. (Graco) is recalling certain SnugRide Turn & Slide and Modes Nest Travel Systems with Snugride Turn & Slide infant child seats. Please refer to Graco's recall report for specific model information. The infant \u2026"
+  },
+  {
+   "campaignNumber": "26C002000",
+   "manufacturer": "Evenflo Company, Inc.",
+   "brands": [
+    "Evenflo"
+   ],
+   "models": [
+    "LITEMAX"
+   ],
+   "components": [
+    "Other:Owners/Service/Other Manual "
+   ],
+   "recallDate": "2026-02-25",
+   "summary": "Evenflo Company, Inc. (Evenflo) is recalling certain LiteMax Factory Select child seats with model number CS100111198. The weight and height limitations are stated incorrectly in the Spanish language manual. As such, these child seats fail \u2026"
+  },
+  {
+   "campaignNumber": "26C001000",
+   "manufacturer": "Evenflo Company, Inc.",
+   "brands": [
+    "Evenflo"
+   ],
+   "models": [
+    "TITAN"
+   ],
+   "components": [
+    "Tether: Strap/Webbing"
+   ],
+   "recallDate": "2026-01-20",
+   "summary": "Evenflo Company, Inc. (Evenflo) is recalling certain Titan 65 child seats with model numbers CS200312198, CS200311198, 3712198, and 3711198. The child seats may have been manufactured without a tether strap."
+  },
+  {
+   "campaignNumber": "25C011000",
+   "manufacturer": "Evenflo Company, Inc.",
+   "brands": [
+    "Evenflo"
+   ],
+   "models": [
+    "ALL4ONE"
+   ],
+   "components": [
+    "Base:Recline Mechanism"
+   ],
+   "recallDate": "2025-12-24",
+   "summary": "Evenflo Company, Inc. (Evenflo) is recalling certain All4One child seats. Please refer to Evenflo's recall report for specific model numbers. In rear-facing mode, the adjustable recline mechanism may shift out of proper position. As such, t\u2026"
+  },
+  {
+   "campaignNumber": "25C010000",
+   "manufacturer": "Evenflo Company, Inc.",
+   "brands": [
+    "Evenflo"
+   ],
+   "models": [
+    "GOLD REVOLVE360 SLIM",
+    "REVOLVE360 SLIM"
+   ],
+   "components": [
+    "Shell:Headrest",
+    "Material/Padding "
+   ],
+   "recallDate": "2025-09-25",
+   "summary": "Evenflo Company, Inc. (Evenflo) is recalling certain Gold Revolve360 Slim and Revolve360 Slim child seats manufactured between December 1, 2022 and December 8, 2024. Please refer to Evenflo's recall report for specific model and color infor\u2026"
+  },
+  {
+   "campaignNumber": "25C008000",
+   "manufacturer": "Evenflo Company, Inc.",
+   "brands": [
+    "Evenflo"
+   ],
+   "models": [
+    "TITAN 65"
+   ],
+   "components": [
+    "Other:Owners/Service/Other Manual "
+   ],
+   "recallDate": "2025-06-18",
+   "summary": "Evenflo Company, Inc. (Evenflo) is recalling certain Titan 65 child seats with model number 3712198 manufactured between March 17, 2025 and May 1, 2025. The child seat may have been packaged with an incorrect instruction manual. As such, th\u2026"
+  },
+  {
+   "campaignNumber": "25C006000",
+   "manufacturer": "Dorel Juvenile Group",
+   "brands": [
+    "Safety 1St"
+   ],
+   "models": [
+    "GROW & GO SPRINT"
+   ],
+   "components": [
+    "Material/Padding "
+   ],
+   "recallDate": "2025-04-22",
+   "summary": "Dorel Juvenile Group (Dorel) is recalling certain Safety 1st Grow & Go Sprint child seats. The included model numbers are CC321GYU, CC321GYUD, CC321GYY, CC321GYYD, CC321HAO, and CC321HAR. The headrest foam pad is not adequately secured, whi\u2026"
+  },
+  {
+   "campaignNumber": "25C005000",
+   "manufacturer": "Chicco USA, Inc.",
+   "brands": [
+    "Chicco"
+   ],
+   "models": [
+    "MYFIT"
+   ],
+   "components": [],
+   "recallDate": "2025-04-09",
+   "summary": "Chicco USA, Inc. (Chicco) is recalling certain MyFit Zip Air Harness and Booster child restraint seats (CRS) with model numbers 07079561970070 and 04079561190070. In certain configurations, the child seat may allow excessive chest movement \u2026"
+  },
+  {
+   "campaignNumber": "25C003000",
+   "manufacturer": "Evenflo Company, Inc.",
+   "brands": [
+    "Evenflo"
+   ],
+   "models": [
+    "TRIBUTE",
+    "PIVOT EXPND TRAVEL SYSTEM",
+    "SIBBY TRAVEL SYSTEM",
+    "AMP HIGH BACK",
+    "SPECTRUM",
+    "SYMPHONY",
+    "SONUS",
+    "EVERYSTAGE",
+    "GOLD REVOLVE360 EXTEND",
+    "EVERYKID",
+    "GOTIME SPORT BOOSTER",
+    "BIG KID",
+    "EVERYFIT",
+    "LITEMAX",
+    "FOLIO3 TRAVEL SYSTEM",
+    "OMNI PLUS TRAVEL SYSTEM",
+    "PIVOT TRAVEL SYSTEM",
+    "GOLD SHYFT TRAVEL SYSTEM",
+    "GOLD PIVOT EXPD TRAVELSYS",
+    "MAESTRO"
+   ],
+   "components": [],
+   "recallDate": "2025-03-14",
+   "summary": "Evenflo Company, Inc. (Evenflo) is recalling certain child seats and travel systems. Please refer to Evenflo's recall report for specific model numbers. The child seats and travel systems are missing the USA recall registration card. As suc\u2026"
+  },
+  {
+   "campaignNumber": "25C004000",
+   "manufacturer": "Dorel Juvenile Group",
+   "brands": [
+    "Safety 1St",
+    "Disney Baby"
+   ],
+   "models": [
+    "BOOST & GO",
+    "MAGICSQUAD",
+    "BOOST & GO ESSENTIAL",
+    "COMFORT RIDE"
+   ],
+   "components": [
+    "Other:Labels"
+   ],
+   "recallDate": "2025-03-12",
+   "summary": "Dorel Juvenile Group (Dorel) is recalling certain Safety 1st Comfort Ride 3-in-1, Boost & Go 3-in-1, Boost & Go Essential 3-in-1, and MagicSquad 3-in-1 harness booster child seats. Please refer to Dorel's recall report for specific model nu\u2026"
+  },
+  {
+   "campaignNumber": "25C002000",
+   "manufacturer": "Columbus Trading-Partners USA, Inc.",
+   "brands": [
+    "Cybex"
+   ],
+   "models": [
+    "LIBELLE TRAVEL SYSTEM",
+    "BEEZY TRAVEL SYSTEM",
+    "ATON G",
+    "ATON G SWIVEL",
+    "EOS TRAVEL SYSTEM"
+   ],
+   "components": [
+    "Harness:Strap/Webbing",
+    "Tether: Connector/Clip"
+   ],
+   "recallDate": "2025-02-14",
+   "summary": "Columbus Trading-Partners USA, Inc. (CTP) is recalling certain Cybex Aton G, Aton G SensorSafe, Aton G Swivel, Aton G Swivel SensorSafe, Eos and Aton G Swivel Travel System, Eos and Aton G Travel System, Libelle and Aton G Travel System, an\u2026"
+  },
+  {
+   "campaignNumber": "24C002000",
+   "manufacturer": "Nuna Baby Essentials, Inc.",
+   "brands": [
+    "Nuna"
+   ],
+   "models": [
+    "RAVA"
+   ],
+   "components": [
+    "Harness:Front Adjuster Button/Release Mechanism"
+   ],
+   "recallDate": "2024-11-27",
+   "summary": "Nuna Baby Essentials, Inc. (Nuna) is recalling certain Rava child seats with a plastic harness adjuster button, manufactured between July 16, 2016 and October 25, 2023. Please see the recall report for a complete list of model numbers. Debr\u2026"
+  },
+  {
+   "campaignNumber": "24C001000",
+   "manufacturer": "Britax Child Safety, Inc.",
+   "brands": [
+    "Britax"
+   ],
+   "models": [
+    "ONE4LIFE SLIM"
+   ],
+   "components": [
+    "Other:Labels"
+   ],
+   "recallDate": "2024-11-19",
+   "summary": "Britax Child Safety, Inc. (Britax) is recalling certain One4Life Slim ClickTight All-in-One car seats with model numbers E1D197A, E1D197B, E1D197F, and E1D197G. The labels and user guide incorrectly state the maximum rear-facing lower ancho\u2026"
+  },
+  {
+   "campaignNumber": "23C005000",
+   "manufacturer": "Evenflo Company, Inc.",
+   "brands": [
+    "Evenflo"
+   ],
+   "models": [
+    "TITAN 65"
+   ],
+   "components": [
+    "Other:Labels"
+   ],
+   "recallDate": "2023-11-06",
+   "summary": "Evenflo Company, Inc. (Evenflo) is recalling one Titan 65 child seat. The child seat is missing the warning labels. As such, this child seat fails to comply with the requirements of Federal Motor Vehicle Safety Standard number 213, \"Child R\u2026"
+  },
+  {
+   "campaignNumber": "23C004000",
+   "manufacturer": "Baby Trend, Inc.",
+   "brands": [
+    "Baby Trend"
+   ],
+   "models": [
+    "HYBRID 3-IN-1"
+   ],
+   "components": [
+    "Latch Strap"
+   ],
+   "recallDate": "2023-05-04",
+   "summary": "Baby Trend, Inc. (Baby Trend) is recalling certain Hybrid 3-in-1 Combination Booster Seat-Desert Blue child seats. The latch assembly webbing that secures the child restraint system to the lower anchorages may fray, which can reduce the str\u2026"
+  },
+  {
+   "campaignNumber": "23C003000",
+   "manufacturer": "Dorel Juvenile Group",
+   "brands": [
+    "Maxi-Cosi"
+   ],
+   "models": [
+    "CORAL XP"
+   ],
+   "components": [],
+   "recallDate": "2023-03-14",
+   "summary": "Dorel Juvenile Group (Dorel) is recalling certain Maxi-Cosi Coral XP Rear-facing Infant Seats with model number IC313. The child seat inner carrier is not sufficient to restrain a child without the use of the outer carrier. As such, these c\u2026"
+  },
+  {
+   "campaignNumber": "23C002000",
+   "manufacturer": "Dorel Juvenile Group",
+   "brands": [
+    "Maxi-Cosi",
+    "Safety 1St"
+   ],
+   "models": [
+    "MICO XP MAX",
+    "INFANT BASE",
+    "MICO XP",
+    "ONBOARD 35 SECURETECH",
+    "CORAL XP",
+    "MICO LUXE+",
+    "SECURETECH INFANT BASE"
+   ],
+   "components": [],
+   "recallDate": "2023-03-03",
+   "summary": "Dorel Juvenile Group (Dorel) is recalling certain Safety 1st onBoard 35 Secure Tech, Safety 1st Secure Tech Infant Base, Maxi-Cosi Coral XP, Maxi-Cosi Mico XP Max, Maxi-Cosi Mico XP, Maxi-Cosi Mico Luxe+, and Maxi-Cosi Infant Base child sea\u2026"
+  },
+  {
+   "campaignNumber": "23C001000",
+   "manufacturer": "Columbus Trading-Partners USA, Inc.",
+   "brands": [
+    "Cybex"
+   ],
+   "models": [
+    "ATON M",
+    "CLOUD Q",
+    "ATON 2",
+    "ATON",
+    "ATON Q"
+   ],
+   "components": [
+    "Harness:Strap/Webbing",
+    "Harness:Front Adjuster "
+   ],
+   "recallDate": "2023-02-10",
+   "summary": "Columbus Trading-Partners USA, Inc. (CTP) is recalling certain Cybex models Aton, Aton Q, Aton M, Aton 2, and Cloud Q rear facing infant seats. Please refer to CTP's recall report for specific model details. The webbing for the front harnes\u2026"
+  },
+  {
+   "campaignNumber": "22C008000",
+   "manufacturer": "JD E-Commerce America Limited",
+   "brands": [
+    "Joybuy"
+   ],
+   "models": [
+    "PORTABLE BABY COVER SEAT",
+    "FOLD WATERPROOF CAR SEAT",
+    "QCTIME ANTI-SLIP CUSHION",
+    "TWOWOOD ANTI-SLIP CUSHION",
+    "PORTABLE INFANT SAFE SEAT",
+    "CARTOON STROLLER CUSHION",
+    "FARFI RUST-PROOF BOOSTER",
+    "THICK PORTABLE CAR SEAT",
+    "MARINBOW PORTABLE INFANT",
+    "PORTABLE BABY SAFETY SEAT",
+    "PRETTY COMY PORTABLE SEAT",
+    "PRETTY COMY CAR SEAT",
+    "YDX ANTI-SLIP CUSHION",
+    "TWOWOOD RUST-PROOF BOOSTE"
+   ],
+   "components": [
+    "Other:Labels"
+   ],
+   "recallDate": "2022-12-29",
+   "summary": "JD E-Commerce America Limited (Joybuy Express) is recalling all Marainbow Portable Infant Safe Seat and materially similar child seats. Please refer to Joybuy Express' affected products attachment for specific child seat model details. The \u2026"
+  },
+  {
+   "campaignNumber": "22C007000",
+   "manufacturer": "JD E-Commerce America Limited",
+   "brands": [
+    "Joybuy"
+   ],
+   "models": [
+    "PORTABLE INFANT SAFE SEAT"
+   ],
+   "components": [],
+   "recallDate": "2022-11-28",
+   "summary": "JD E-Commerce America Limited (JD E-Commerce) is recalling certain Marainbow Portable Infant Safe Seat child seats. The installation labels display incorrect instructions. The child seat's design also prohibits it from being installed prope\u2026"
+  },
+  {
+   "campaignNumber": "22C002000",
+   "manufacturer": "Clek, Inc.",
+   "brands": [
+    "Clek"
+   ],
+   "models": [
+    "OLLI",
+    "OZZI"
+   ],
+   "components": [],
+   "recallDate": "2022-06-07",
+   "summary": "Clek, Inc. (Clek) is recalling certain Olli booster seats, model number OL12U2 manufactured between January 20, 2020 and May 10, 2022, and Ozzi booster seats, model number OZ11U2, manufactured between March 1, 2020 and May 10, 2022. The ins\u2026"
+  },
+  {
+   "campaignNumber": "22C001000",
+   "manufacturer": "Columbus Trading-Partners USA, Inc.",
+   "brands": [
+    "Cybex"
+   ],
+   "models": [
+    "SIRONA M"
+   ],
+   "components": [
+    "Material/Padding "
+   ],
+   "recallDate": "2022-04-08",
+   "summary": "Columbus Trading-Partners USA, Inc. (CTP) is recalling certain CYBEX Sirona M Convertible Child Car Seat, model numbers 518000385, 518002153, 518000387, 518002145, 518002149, 518002151, and 519000211, manufactured between November 3, 2017 a\u2026"
+  },
+  {
+   "campaignNumber": "21C007000",
+   "manufacturer": "Clek, Inc.",
+   "brands": [
+    "Clek"
+   ],
+   "models": [
+    "LIINGO",
+    "LIING"
+   ],
+   "components": [
+    "Other:Labels"
+   ],
+   "recallDate": "2021-12-20",
+   "summary": "Clek, Inc. (Clek) is recalling certain Liing, model LG19U1, and Liingo, model number LGO20U1, infant child seats manufactured before February 22, 2021. The labels on the seat cover or infant insert may bubble up, allowing the labels to come\u2026"
+  },
+  {
+   "campaignNumber": "21C005000",
+   "manufacturer": "Clek, Inc.",
+   "brands": [
+    "Clek"
+   ],
+   "models": [
+    "FLLO",
+    "FOONF"
+   ],
+   "components": [],
+   "recallDate": "2021-12-01",
+   "summary": "Clek, Inc. (Clek) is recalling certain Foonf, model numbers FO12 through FO19, and Fllo, model numbers FL15 through FL19, convertible child seats manufactured prior to May 21, 2021. A child may pick pieces of foam from the foam cushion loca\u2026"
+  },
+  {
+   "campaignNumber": "21C006000",
+   "manufacturer": "Clek, Inc.",
+   "brands": [
+    "Clek"
+   ],
+   "models": [
+    "LIING",
+    "LIINGO"
+   ],
+   "components": [],
+   "recallDate": "2021-12-01",
+   "summary": "Clek, Inc. (Clek) is recalling certain Liing, model number LG19U1, and Liingo, model number LGO20U1, infant child seats manufactured before September 15, 2020. A small plastic portion of the child seat canopy support may break and detach fr\u2026"
+  },
+  {
+   "campaignNumber": "21C004000",
+   "manufacturer": "Dorel Juvenile Group",
+   "brands": [
+    "Maxi-Cosi"
+   ],
+   "models": [
+    "PRIA 70"
+   ],
+   "components": [
+    "Vehicle Tether Anchor"
+   ],
+   "recallDate": "2021-09-08",
+   "summary": "Dorel Juvenile Group (Dorel) is recalling certain Maxi-Cosi Pria 70 Convertible child seats. When the seat is installed in the forward facing position and secured to the car using the lap belt without also using the top tether, the seat may\u2026"
+  },
+  {
+   "campaignNumber": "21C003000",
+   "manufacturer": "Dorel Juvenile Group",
+   "brands": [
+    "Maxi-Cosi"
+   ],
+   "models": [
+    "PRIA 85"
+   ],
+   "components": [
+    "Vehicle Tether Anchor"
+   ],
+   "recallDate": "2021-08-24",
+   "summary": "Dorel Juvenile Group (Dorel) is recalling certain Maxi-Cosi Pria 85 Convertible child seats. When the seat is installed in the forward facing position and secured to the car using the lap belt without also using the top tether, the seat may\u2026"
+  },
+  {
+   "campaignNumber": "21C002000",
+   "manufacturer": "Diono",
+   "brands": [
+    "Diono"
+   ],
+   "models": [
+    "CAMBRIA 2"
+   ],
+   "components": [],
+   "recallDate": "2021-03-24",
+   "summary": "Diono is recalling certain Cambria 2 Booster Seats, model numbers 31200-US-01, 31201-US-01, and 31202-US-01. In the event of a crash, a crack between the headrest and backrest can occur, allowing the headrest to separate. As such, these sea\u2026"
+  },
+  {
+   "campaignNumber": "21C001000",
+   "manufacturer": "Combi USA, Inc.",
+   "brands": [
+    "Combi"
+   ],
+   "models": [
+    "BABYRIDE"
+   ],
+   "components": [
+    "Harness:Front Adjuster ",
+    "Harness:Strap/Webbing"
+   ],
+   "recallDate": "2021-03-08",
+   "summary": "Combi USA, Inc. (Combi) is recalling certain Combi BabyRide Infant Car Seats, model 378099 with dates of manufacture of 5/1/2016 thru 8/31/2019. The 1-inch-wide webbing strap used in the center front adjuster to adjust the shoulder harness \u2026"
+  },
+  {
+   "campaignNumber": "19C003000",
+   "manufacturer": "Merritt Manufacturing Inc",
+   "brands": [
+    "Merritt Angel Guard"
+   ],
+   "models": [
+    "ANGEL RIDE"
+   ],
+   "components": [
+    "Harness:Strap/Webbing"
+   ],
+   "recallDate": "2019-11-05",
+   "summary": "Merritt Manufacturing Inc. (Merritt) is recalling certain Angel Guard Angel Ride car beds. The restraint harness may not have been properly sewed where the buckle is attached."
+  },
+  {
+   "campaignNumber": "19C002000",
+   "manufacturer": "Dorel China America, Inc.",
+   "brands": [
+    "Babideal"
+   ],
+   "models": [
+    "STORM BOOSTER"
+   ],
+   "components": [
+    "Other:Labels"
+   ],
+   "recallDate": "2019-10-17",
+   "summary": "Dorel China America, Inc. (DCA) is recalling certain Babid\u00c3\u00a9al Storm Booster Car Seats, model BC901BPXL, sold exclusively at Family Dollar Stores. The label attached to the fabric cover may not have the required safety warnings and instruct\u2026"
+  },
+  {
+   "campaignNumber": "19C001000",
+   "manufacturer": "ForB dba WAYB",
+   "brands": [
+    "Wayb"
+   ],
+   "models": [
+    "PICO"
+   ],
+   "components": [],
+   "recallDate": "2019-08-30",
+   "summary": "ForB dba WAYB (WAYB) is recalling certain WAYB Pico child seats manufactured between February 1, 2019 and August 23, 2019. The headrest's aluminum tubular frame can break allowing the headrest to detach."
+  },
+  {
+   "campaignNumber": "18C001000",
+   "manufacturer": "Harmony Juvenile Products",
+   "brands": [
+    "Harmony"
+   ],
+   "models": [
+    "BIG BOOST DELUXE"
+   ],
+   "components": [],
+   "recallDate": "2018-04-17",
+   "summary": "Harmony Juvenile Products (Harmony) is recalling certain Harmony Big Boost Deluxe booster seats. In the event of a crash, the seat belt may cause excessive force to be applied to the restrained child's chest. As such, these booster seats fa\u2026"
+  },
+  {
+   "campaignNumber": "17C003000",
+   "manufacturer": "Diono (formerly SUNSHINE KIDS JUVENILE)",
+   "brands": [
+    "Diono"
+   ],
+   "models": [
+    "RAINIER",
+    "RADIAN R120",
+    "RADIAN RXT",
+    "OLYMPIA",
+    "RADIAN R100",
+    "PACIFICA"
+   ],
+   "components": [],
+   "recallDate": "2017-09-14",
+   "summary": "Diono is recalling certain Radian R100, Radian R120, Radian RXT, Olympia, Pacifica, and Rainier convertible and booster car seats. When the seat is installed in the forward facing position and secured to the car using the lap belt without a\u2026"
+  },
+  {
+   "campaignNumber": "17C002000",
+   "manufacturer": "Britax Child Safety, Inc.",
+   "brands": [
+    "Britax"
+   ],
+   "models": [
+    "B-SAFE 35 ELITE TRAVEL SY",
+    "B-SAFE 35 TRAVEL SYSTEM",
+    "B-SAFE 35 ELITE",
+    "BOB B-SAFE 35",
+    "B-SAFE 35"
+   ],
+   "components": [
+    "Harness Retainer/Chest Clip "
+   ],
+   "recallDate": "2017-06-15",
+   "summary": "Britax Child Safety, Inc. (Britax) is recalling certain B-Safe 35, B-Safe 35 Travel Systems, B-Safe 35 Elite, B-Safe 35 Elite Travel Systems and BOB B-Safe rear-facing infant child safety seats, model numbers E1A183F, E1A185M, E1A185P, E1A1\u2026"
+  },
+  {
+   "campaignNumber": "17C001000",
+   "manufacturer": "Graco Children's Products Inc.",
+   "brands": [
+    "Graco"
+   ],
+   "models": [
+    "MY RIDE 65 BOOSTER"
+   ],
+   "components": [],
+   "recallDate": "2017-05-10",
+   "summary": "Graco Children's Products Inc. (Graco) is recalling certain Graco My Ride 65 convertible child restraints, models 1871689, 1908152, 1813074, 1872691, 1853478, 1877535, 1813015, and 1794334. In the event of a crash, the child seat webbing ma\u2026"
+  },
+  {
+   "campaignNumber": "16C009000",
+   "manufacturer": "Thorley Industries D/B/A 4Moms",
+   "brands": [
+    "4Moms"
+   ],
+   "models": [
+    "SELF INSTALLING CAR SEAT"
+   ],
+   "components": [],
+   "recallDate": "2016-12-30",
+   "summary": "Thorley Industries LLC d/b/a 4moms (4moms) is recalling certain 4moms Self Installing Rear-facing Infant Car Seats, model number 1032, manufactured July 1, 2016, to October 31, 2016. Due to a tight rivet, the affected car seats have a coupl\u2026"
+  },
+  {
+   "campaignNumber": "16C008000",
+   "manufacturer": "Baby Trend, Inc.",
+   "brands": [
+    "Baby Trend"
+   ],
+   "models": [
+    "HYBRID LX 3-IN-1"
+   ],
+   "components": [
+    "Harness:Strap/Webbing"
+   ],
+   "recallDate": "2016-12-19",
+   "summary": "Baby Trend, Inc. (Baby Trend) is recalling certain Hybrid LX 3-in-1 Centennial booster seats, model number FB58181, manufactured on July 23, 2016, and Hybrid LX 3-in-1 Kiwi booster seats, model number FB48417, manufactured on July 14, 2016.\u2026"
+  },
+  {
+   "campaignNumber": "16C007000",
+   "manufacturer": "Evenflo Company, Inc.",
+   "brands": [
+    "Evenflo"
+   ],
+   "models": [
+    "EVOLVE 3-IN-1 SEAT"
+   ],
+   "components": [
+    "Harness:Strap/Webbing"
+   ],
+   "recallDate": "2016-09-07",
+   "summary": "Evenflo Company, Inc. (Evenflo) is recalling certain Evolve 3-in-1 Combination Booster Seats, model number 34411700 manufactured February 26, 2015, to February 9, 2016 and model number 34411741 manufactured May 27, 2015, to February 9, 2016\u2026"
+  },
+  {
+   "campaignNumber": "16C006000",
+   "manufacturer": "Combi USA, Inc.",
+   "brands": [
+    "Combi"
+   ],
+   "models": [
+    "COCCORO"
+   ],
+   "components": [],
+   "recallDate": "2016-07-05",
+   "summary": "Combi USA, Inc. (Combi) is recalling certain Coccoro Convertible Child Restraints, model number 8220, manufactured from January 1, 2009, to June 29, 2016. When the Coccoro car seat is installed in a forward facing position and only secured \u2026"
+  },
+  {
+   "campaignNumber": "16C005000",
+   "manufacturer": "Kiddy USA",
+   "brands": [
+    "Kiddy"
+   ],
+   "models": [
+    "KIDDY WORLD PLUS"
+   ],
+   "components": [
+    "Harness/Crotch Buckle"
+   ],
+   "recallDate": "2016-04-29",
+   "summary": "Kiddy USA (Kiddy) is recalling certain World Plus combination forward facing child restraints that convert to a high back booster seat, model 51 100 WP, manufactured from July 2, 2012, through October 5, 2013. The buckle/tongue on the affec\u2026"
+  },
+  {
+   "campaignNumber": "16C004000",
+   "manufacturer": "Graco Children's Products Inc.",
+   "brands": [
+    "Graco"
+   ],
+   "models": [
+    "TURBOBOOSTER"
+   ],
+   "components": [],
+   "recallDate": "2016-04-25",
+   "summary": "Graco Children's Products Inc. (Graco) is recalling certain Graco TurboBooster booster seats, models 1967886, 1963973, 1963974, 1963975, 1963976, and 1975173, manufactured between December 22, 2015, and April 5, 2016. The instructions for t\u2026"
+  },
+  {
+   "campaignNumber": "16C003000",
+   "manufacturer": "Evenflo Company, Inc.",
+   "brands": [
+    "Evenflo"
+   ],
+   "models": [
+    "TRANSITIONS BOOSTER SEAT"
+   ],
+   "components": [
+    "Harness:Strap/Webbing"
+   ],
+   "recallDate": "2016-02-18",
+   "summary": "Evenflo Company, Inc. (Evenflo) is recalling certain Transitions 3-in-1 Combination Booster Seats, model numbers 34411686, 34411695, and 34411029, produced from December 18, 2014, through January 29, 2016. The central front adjuster (CFA) b\u2026"
+  },
+  {
+   "campaignNumber": "16C002000",
+   "manufacturer": "Graco Children's Products Inc.",
+   "brands": [
+    "Graco"
+   ],
+   "models": [
+    "EXTEND2FIT CONVERTIBLE"
+   ],
+   "components": [
+    "Other:Labels"
+   ],
+   "recallDate": "2016-02-02",
+   "summary": "Graco Children's Products, Inc. (Graco) is recalling certain Extend2Fit Convertible child seats manufactured November 27, 2015, to January 20, 2016. The affected child seats may have the recline label affixed at the wrong location, resultin\u2026"
+  },
+  {
+   "campaignNumber": "16C001000",
+   "manufacturer": "Britax Child Safety, Inc.",
+   "brands": [
+    "Britax"
+   ],
+   "models": [
+    "B-SAFE 35 ELITE TRAVEL SY",
+    "B-SAFE 35 ELITE",
+    "B-SAFE 35 TRAVEL SYSTEM"
+   ],
+   "components": [
+    "Handle (Infant)"
+   ],
+   "recallDate": "2016-01-08",
+   "summary": "Britax Child Safety, Inc. (Britax) is recalling certain B-Safe 35 child seats, models E9LU65M, E9LU65P, E9LU63F, E9LU66R, E9LS63F and EXLU65M, B-Safe 35 Elite child seats, models E9LS55T, E9LS56P, E9LS55U, E9LS66C and E9LS65U, and B-Safe 35\u2026"
+  },
+  {
+   "campaignNumber": "15C004000",
+   "manufacturer": "Graco Children's Products Inc.",
+   "brands": [
+    "Graco"
+   ],
+   "models": [
+    "MILESTONE"
+   ],
+   "components": [],
+   "recallDate": "2015-11-13",
+   "summary": "Graco Children's Products Inc. (Graco) is recalling certain Milestone child seats, model numbers 1910130, 1923980, 1926538, and 1926539, for failing to comply with the requirements of Federal Motor Vehicle Safety Standard number 213, \"Child\u2026"
+  },
+  {
+   "campaignNumber": "15C003000",
+   "manufacturer": "Britax Child Safety, Inc.",
+   "brands": [
+    "Britax"
+   ],
+   "models": [
+    "ADVOCATE CLICKTIGHT",
+    "BOULEVARD CLICKTIGHT",
+    "MARATHON CLICKTIGHT"
+   ],
+   "components": [],
+   "recallDate": "2015-08-11",
+   "summary": "Britax Child Safety, Inc. (Britax) is recalling certain Advocate ClickTight child seats, model numbers E9LT95Q, E9LT95Z, E9LT95N, and E1A025Q, Boulevard ClickTight child seats, model numbers E9LT86F, E1A135Q, E9LT86G, E9LT85Q, E9LT86A, E9LT\u2026"
+  },
+  {
+   "campaignNumber": "15C002000",
+   "manufacturer": "Baby Jogger, LLC",
+   "brands": [
+    "Baby Jogger"
+   ],
+   "models": [
+    "VUE LITE INFANT CAR SEAT",
+    "CITY GO INFANT CAR SEAT",
+    "CITY MINI INFANT CAR SEAT"
+   ],
+   "components": [],
+   "recallDate": "2015-06-10",
+   "summary": "Baby Jogger, LLC (Baby Jogger) is recalling certain City GO Infant Car Seats (models BJ64510 and BJ64529), City GO Base for infant car seat (models BJ80400 and BJ61500); City Mini Infant Car Seat/Stroller Travel Systems (model BJ72510); and\u2026"
+  },
+  {
+   "campaignNumber": "15C001000",
+   "manufacturer": "Graco Children's Products Inc.",
+   "brands": [
+    "Graco"
+   ],
+   "models": [
+    "CLASSIC RIDE",
+    "COMFORTSPORT",
+    "READY RIDE"
+   ],
+   "components": [],
+   "recallDate": "2015-03-18",
+   "summary": "Graco Children's Products Inc. (Graco) is recalling certain ComfortSport child restraints, model numbers 1813040 and 1794333; Ready Ride child restraints, model numbers 1924520 and 1924519; and Classic Ride child restraints, model number 18\u2026"
+  },
+  {
+   "campaignNumber": "14C006000",
+   "manufacturer": "Evenflo Company, Inc.",
+   "brands": [
+    "Evenflo"
+   ],
+   "models": [
+    "EMBRACE 35"
+   ],
+   "components": [
+    "Harness/Crotch Buckle"
+   ],
+   "recallDate": "2014-10-20",
+   "summary": "Evenflo Company, Inc. (Evenflo) is recalling certain Embrace 35 two-piece, rear-facing infant child restraints equipped with an AmSafe QT1 buckle. The affected model numbers include: 30711365 (Snugli brand), 31511040, 31511323, 31511400, 31\u2026"
+  },
+  {
+   "campaignNumber": "14C005000",
+   "manufacturer": "Recaro Child Safety, LLC",
+   "brands": [
+    "Recaro"
+   ],
+   "models": [
+    "PRORIDE",
+    "PERFORMANCE RIDE"
+   ],
+   "components": [
+    "Tether: Connector/Clip"
+   ],
+   "recallDate": "2014-07-30",
+   "summary": "Recaro Child Safety, LLC (Recaro) is recalling certain ProRIDE child restraints, model number 332.01 in all colors (AK21, KAEC, KAEG, KK91, MC11, MJ15, QA56, QA9N, QQ11, QQ14, and QQ95), manufactured from April 9, 2010, through June 9, 2015\u2026"
+  },
+  {
+   "campaignNumber": "14C004000",
+   "manufacturer": "Graco Children's Products Inc.",
+   "brands": [
+    "Graco"
+   ],
+   "models": [
+    "SNUGRIDE",
+    "SNUGRIDE CLASSIC CONNECT",
+    "APRICA A30",
+    "SNUGRIDE 35",
+    "SNUGRIDE CLICK CONNECT 40",
+    "SNUGRIDE 30"
+   ],
+   "components": [
+    "Harness/Crotch Buckle"
+   ],
+   "recallDate": "2014-06-30",
+   "summary": "Graco Children's Products (Graco) is recalling certain rear-facing child restraints manufactured between July 2010 and May 2013, models SnugRide, SnugRide Classic Connect (including Classic Connect 30 and 35), SnugRide 30, SnugRide 35, Snug\u2026"
+  },
+  {
+   "campaignNumber": "14C003000",
+   "manufacturer": "Evenflo Company, Inc.",
+   "brands": [
+    "Evenflo"
+   ],
+   "models": [
+    "SURERIDE DLX",
+    "MAESTRO",
+    "SECURE KID",
+    "SNUGLI BOOSTER",
+    "CHASE",
+    "MAESTRO PERFORMANCE",
+    "TITAN 65",
+    "SNUGLI ALL-IN-ONE",
+    "MOMENTUM 65",
+    "SYMPHONY"
+   ],
+   "components": [
+    "Harness/Crotch Buckle"
+   ],
+   "recallDate": "2014-04-03",
+   "summary": "Evenflo Company, Inc. (Evenflo) is recalling certain convertible and harnessed child restraints, models Momentum 65 (including LX and DLX), Chase (including LX, DLX, and Select), Maestro (including Performance), Symphony (including 65, LX, \u2026"
+  },
+  {
+   "campaignNumber": "14C002000",
+   "manufacturer": "Baby Trend Inc.,",
+   "brands": [
+    "Baby Trend"
+   ],
+   "models": [
+    "TRENDZ FASTBACK"
+   ],
+   "components": [
+    "Harness/Crotch Buckle"
+   ],
+   "recallDate": "2014-04-01",
+   "summary": "Baby Trend, Inc. (Baby Trend) is recalling certain model year 2011 and 2012 TrendZ Fastback 3-in-1 child restraints, models FB60070 (Granite) and FB60408 (Jellybean), manufactured between October 2011 and July 2013. The defect involves diff\u2026"
+  },
+  {
+   "campaignNumber": "14C001000",
+   "manufacturer": "Graco Children's Products Inc.",
+   "brands": [
+    "Graco"
+   ],
+   "models": [
+    "STEP 2",
+    "MY SIZE 70",
+    "SIZE 4 ME 70",
+    "COMFORT SPORT BOOSTER",
+    "COZY CLINE BOOSTER",
+    "READY RIDE",
+    "NAUTILUS 3-IN-1",
+    "NAUTILUS PLUS",
+    "SMART SEAT W/SAFETY SURRO",
+    "NAUTILUS ELITE",
+    "SMART SEAT",
+    "MY RIDE 65 BOOSTER",
+    "MY RIDE 70",
+    "CLASSIC RIDE 50",
+    "ARGOS 70"
+   ],
+   "components": [
+    "Harness/Crotch Buckle"
+   ],
+   "recallDate": "2014-02-10",
+   "summary": "On February 7, 2014, Graco Children's Products, Inc. (Graco) informed NHTSA that it would be recalling model year 2009 through 2013 toddler and booster child restraints, models Cozy Cline, Comfort Sport, Classic Ride 50, My Ride 65, My Ride\u2026"
+  },
+  {
+   "campaignNumber": "13C003000",
+   "manufacturer": "Orbit Baby, Inc.",
+   "brands": [
+    "Orbit"
+   ],
+   "models": [
+    "G2 CAR SEATBASE ORB822000"
+   ],
+   "components": [
+    "Base"
+   ],
+   "recallDate": "2013-10-23",
+   "summary": "Orbit Baby, Inc. (Orbit) is recalling certain G2 Car Seat Bases, Model No. ORB822000, manufactured from March 20, 2013, through July 20, 2013, with batch numbers A0840, A0860, or A0880. The StrongArm Knob component of the Orbit Baby G2 Car \u2026"
+  },
+  {
+   "campaignNumber": "13C002000",
+   "manufacturer": "Combi USA, Inc.",
+   "brands": [
+    "Combi"
+   ],
+   "models": [
+    "COCCORO",
+    "ZEUS 360",
+    "ZEUS TURN"
+   ],
+   "components": [],
+   "recallDate": "2013-06-11",
+   "summary": "Combi USA, Inc. (Combi) is recalling certain model 8220 (Coccoro) child restraints manufactured January 6, 2009, through December 5, 2012; model 8836 (Zeus 360) child restraints manufactured February 25, 2009, through May 24, 2012; and mode\u2026"
+  },
+  {
+   "campaignNumber": "13C001000",
+   "manufacturer": "Recaro Child Safety, LLC",
+   "brands": [
+    "Recaro"
+   ],
+   "models": [
+    "PROSPORT"
+   ],
+   "components": [
+    "Tether: Connector/Clip"
+   ],
+   "recallDate": "2013-02-12",
+   "summary": "Recaro Child Safety LLC (Recaro) is recalling certain Recaro ProSport model 385 child restraints, manufactured from June 16, 2010, through January 31, 2013. When the affected child seats are installed with the LATCH lower anchors only (with\u2026"
+  },
+  {
+   "campaignNumber": "12C004000",
+   "manufacturer": "Britax Child Safety , Inc..",
+   "brands": [
+    "Britax"
+   ],
+   "models": [
+    "ADVOCATE 70 G3",
+    "BOULEVARD 70 G3",
+    "PAVILION 70 G3"
+   ],
+   "components": [
+    "Harness:Strap/Webbing"
+   ],
+   "recallDate": "2012-11-02",
+   "summary": "Britax is recalling certain convertible child restraints, models Boulevard 70 G3, Advocate 70 G3, and Pavilion 70 G3, Model Numbers: E9LJ91A, E9LJ91M, E9LJ91S, E9LJ92E, E9LJ93P, E9LJ93S, E9LK91A, E9LK31A, E9LK31Q, E9LK32D, E9LK32Z, E9LK33Q,\u2026"
+  },
+  {
+   "campaignNumber": "12C003000",
+   "manufacturer": "Evenflo Company, Inc.",
+   "brands": [
+    "Evenflo"
+   ],
+   "models": [
+    "BIG KID"
+   ],
+   "components": [
+    "Other:Labels"
+   ],
+   "recallDate": "2012-09-27",
+   "summary": "Certain Evenflo Big Kid Factory Select booster seats, Model Nos. 30911173AD, 3091967AD, 30911118AD, and 30911120D, shipped between August 6, 2012, and September 18, 2012, fail to conform to the requirements of Federal Motor Vehicle Safety S\u2026"
+  },
+  {
+   "campaignNumber": "12C002000",
+   "manufacturer": "Dorel Juvenile Group",
+   "brands": [
+    "Djg"
+   ],
+   "models": [
+    "IC123FSM (COMFY CARRY)",
+    "IC124FSM (ONBOARD 35)"
+   ],
+   "components": [],
+   "recallDate": "2012-05-02",
+   "summary": "DOREL JUVENILE GROUP (DJG) IS RECALLING CERTAIN INFANT CHILD RESTRAINTS, MODELS IC124FSM (ONBOARD 35) AND IC123FSM (COMFY CARRY), PRODUCED FROM MAY 2011 THROUGH APRIL 2012, WERE SOLD WITHOUT THE SEPARATE SEAT BASE THAT CONTAINS THE REQUIRED\u2026"
+  },
+  {
+   "campaignNumber": "12C001000",
+   "manufacturer": "Britax Child Safety, Inc.",
+   "brands": [
+    "Britax"
+   ],
+   "models": [
+    "CHAPERONE E9L692L COWMOOF",
+    "CHAPERONE E9L692M GREEN",
+    "CHAPERONE E9L692J BLK/SIL",
+    "CHAPERONE E9L692K (RED)"
+   ],
+   "components": [
+    "Harness:Strap/Webbing"
+   ],
+   "recallDate": "2012-01-26",
+   "summary": "BRITAX IS RECALLING CERTAIN CHAPERONE INFANT CHILD RESTRAINT SYSTEMS PRODUCED FROM SEPTEMBER 1, 2010, THROUGH APRIL 30, 2011. THE HARNESS ADJUSTER CAN DETACH FROM THE SEAT SHELL."
+  },
+  {
+   "campaignNumber": "11C002000",
+   "manufacturer": "Dorel Juvenile Group",
+   "brands": [
+    "Safety 1St",
+    "Eddie Bauer"
+   ],
+   "models": [
+    "ALPHA OMEGA ELITE",
+    "COMPLETE AIR SE",
+    "COMPLETE AIR LX",
+    "3-IN-1"
+   ],
+   "components": [
+    "Other:Labels"
+   ],
+   "recallDate": "2011-06-24",
+   "summary": "Dorel Juvenile Group (DJG) is recalling certain Safety 1st Complete Air LX (models CC050xxx), Safety 1st Complete Air SE (models CC051xxx), and Safety 1st Alpha Omega Elite (models 22187xxx , 22465xxx ,CC033xxx , and CC046xxx), and Eddie Ba\u2026"
+  },
+  {
+   "campaignNumber": "11C001000",
+   "manufacturer": "Dorel Juvenile Group",
+   "brands": [
+    "Djg"
+   ],
+   "models": [
+    "22469",
+    "22553",
+    "22564",
+    "22880",
+    "22547",
+    "22077",
+    "22078",
+    "22148",
+    "22149",
+    "22150",
+    "22152",
+    "IC072",
+    "22372",
+    "22799",
+    "22759",
+    "22758",
+    "22755",
+    "22453",
+    "22456",
+    "22740",
+    "22657",
+    "22459",
+    "ALPHA OMEGA(17439)",
+    "22346",
+    "22439",
+    "22574",
+    "22465",
+    "22475",
+    "22476",
+    "22486",
+    "22155",
+    "22158",
+    "22159",
+    "22172",
+    "22188",
+    "22195",
+    "22356",
+    "22790",
+    "22741",
+    "22580",
+    "22567",
+    "22561",
+    "22554",
+    "22546",
+    "22449",
+    "22458",
+    "22412",
+    "22371",
+    "22185",
+    "22178",
+    "22177",
+    "22154",
+    "22560",
+    "22452",
+    "22462"
+   ],
+   "components": [
+    "Harness:Strap/Webbing"
+   ],
+   "recallDate": "2011-02-10",
+   "summary": "DOREL JUVENILE GROUP (DJG) IS RECALLING CERTAIN INFANT, CONVERTIBLE, AND BOOSTER CHILD RESTRAINT SYSTEMS WHICH WERE SOLD BOTH AS STAND ALONE SEATS OR PART OF A TRAVEL SYSTEM (WITH A STROLLER). THE HARNESS LOCKING AND RELEASE BUTTON DOES NOT\u2026"
+  },
+  {
+   "campaignNumber": "10C006000",
+   "manufacturer": "Britax Child Safety, Inc.",
+   "brands": [
+    "Britax"
+   ],
+   "models": [
+    "CHAPERONE 9L69P5 COWMOO",
+    "CHAPERONE E9L69P2 RED MIL",
+    "CHAPERONE E9L69N9 MOONSTO",
+    "CHAPERONE E9L69P3 SAVANNA"
+   ],
+   "components": [],
+   "recallDate": "2010-10-28",
+   "summary": "BRITAX IS RECALLING CERTAIN BRITAX CHAPERON INFANT CAR SEATS MODEL E9L69N9 MOONSTONE, E9L69P2 RED MILL, E9L69P3 SAVANNAH, AND E9L69P5 COWMOOFLAGE, MANUFACTURED FROM APRIL 2009 THROUGH MAY 2010. THE CHEST CLIP WAS INCORRECTLY PRODUCED WHICH \u2026"
+  },
+  {
+   "campaignNumber": "10C005000",
+   "manufacturer": "Evenflo Company, Inc.",
+   "brands": [
+    "Evenflo"
+   ],
+   "models": [
+    "310 (MAESTRO)"
+   ],
+   "components": [],
+   "recallDate": "2010-10-13",
+   "summary": "EVENFLO IS RECALLING CERTAIN MAESTRO CHILD RESTRAINT SYSTEMS WITH MODEL NUMBERS BEGINNING WITH 310 AND BUILT FROM NOVEMBER 24, 2009, THROUGH APRIL 9, 2010. THESE SEATS FAIL TO CONFORM TO THE STRUCTURAL INTEGRITY REQUIREMENTS OF FEDERAL MOTO\u2026"
+  },
+  {
+   "campaignNumber": "10C003000",
+   "manufacturer": "Regal Lager",
+   "brands": [
+    "Cybex"
+   ],
+   "models": [
+    "SOLUTION X-FIX"
+   ],
+   "components": [],
+   "recallDate": "2010-07-26",
+   "summary": "CERTAIN CYBEX SOLUTION X-FIX MODEL BOOSTER SEATS MANUFACTURED DURING FEBRUARY 2010, WERE PRODUCED USING AN INCORRECT WARNING LABEL. THE DEFECT CONSISTS OF AN INCORRECT WARNING STATEMENT RELATED TO SECURING AN UNOCCUPIED BOOSTER SEAT. THIS S\u2026"
+  },
+  {
+   "campaignNumber": "10C001000",
+   "manufacturer": "Dorel Juvenile Group",
+   "brands": [
+    "Maxi-Cosi"
+   ],
+   "models": [
+    "22-371 ORE",
+    "22-371 JUC",
+    "22-515 BLK",
+    "22-371 LMD",
+    "22-371 PNG",
+    "22-372 TTH",
+    "22-371 HFL"
+   ],
+   "components": [
+    "Base"
+   ],
+   "recallDate": "2010-02-04",
+   "summary": "DOREL JUVENILE GROUP (DJG) IS RECALLING CERTAIN MAXI-COSI MICO INFANT CHILD RESTRAINT SYSTEMS, MODELS 22-371 HFL, JUC, LMD, PNG, AND ORE; 22-372 TTH; AND MAXI-COSI MICO INFANT CHILD RESTRAINT SYSTEM - BASE ONLY, MODEL 22-515 BLK, PRODUCED F\u2026"
+  }
+ ]
+}

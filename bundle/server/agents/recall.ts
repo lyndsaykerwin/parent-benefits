@@ -2,6 +2,7 @@ import { col, quoteId, quoteInt, InvalidId, isInlineFamily } from './sql';
 import { explain } from './explain';
 import { matchRecall, typesIn, extractLots, extractModels, extractUpcs, type PurchaseItem, type RecallRecord } from './recallMatch';
 import type { AgentContext, Candidate } from './types';
+import { getSharedPhotoStore } from '../ingest/photo';
 
 const AGENT = 'recall';
 
@@ -266,11 +267,30 @@ async function readRecallRecords(ctx: AgentContext, rows: Row[]): Promise<Map<st
   return out;
 }
 
+/** Does a typed-in family have saved gear or receipts? (They live in the photo store; a failed lookup counts as none.) */
+async function hasSavedGear(familyId: string): Promise<boolean> {
+  try { return (await getSharedPhotoStore().listItems(familyId)).length > 0; } catch { return false; }
+}
+
 async function findRecalled(ctx: AgentContext): Promise<Found> {
-  if (isInlineFamily(ctx.family)) {
+  // A typed-in family used to be skipped outright, which would let its saved gear sail through unchecked. It is now checked
+  // whenever it has saved gear; with nothing saved there is still nothing to look up.
+  const inline = isInlineFamily(ctx.family);
+  if (inline && !(await hasSavedGear(ctx.family.id))) {
     log(ctx, 'check_recalls', 'typed-in family', 'no saved purchases to check: nothing queried');
     return { judged: [], itemsChecked: 0 };
   }
+  try {
+    return await queryRecalls(ctx);
+  } catch (e) {
+    // For a typed-in family the lists may be unreachable (practice mode has no saved answer for it). Say so; never claim "all clear".
+    if (!inline) throw e;
+    log(ctx, 'check_recalls', `family ${ctx.family.id}`, `recall lists unavailable (${String((e as Error)?.message ?? e).slice(0, 80)}): saved gear not checked in this run`, 'fallback');
+    return { judged: [], itemsChecked: 0 };
+  }
+}
+
+async function queryRecalls(ctx: AgentContext): Promise<Found> {
   let itemsSqlText: string;
   let pairs: string;
   try {

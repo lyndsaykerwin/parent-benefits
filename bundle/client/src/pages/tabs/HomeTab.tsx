@@ -5,6 +5,7 @@ import { categorySummary, claimableCards, giftValue, homeTotals, isQuickWin, mon
 import { ComingSoonState, SectionTitle, CardStack, ClaimDrawers, type TabProps } from './shared';
 import { ForgetItemsCard, HowWeGotThisNumber, SaveListCard, ShareBar } from './Extras';
 import Buckets from './Buckets';
+import { ScanCard } from '@/components/scan/ScanButtons';
 
 function Tile({ label, big, small, onClick }: { label: string; big: string; small: string; onClick: () => void }) {
   return (
@@ -103,6 +104,8 @@ export default function HomeTab(props: TabProps) {
           </div>
         </section>
       )}
+
+      <ScanCard />
 
       <Buckets {...props} />
 

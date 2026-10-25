@@ -8,7 +8,7 @@ import { NvidiaGenerator, ModelUnavailable, type Generator, type SeeRequest } fr
 import { TraceLogger } from '../agents/trace';
 import {
   checkReading, cleanUpc, upcCheckDigitOk, visionKindFor, readPhoto, forgetItems, hashImage,
-  recordVisionAnswers, createMemoryPhotoStore, NEEDS_LIVE_MODEL_MESSAGE, CLEARER_PHOTO_MESSAGE,
+  recordVisionAnswers, createMemoryPhotoStore, NEEDS_LIVE_MODEL_MESSAGE, CLEARER_PHOTO_MESSAGE, NO_MODEL_MESSAGE,
   type PhotoDeps,
 } from '../ingest/photo';
 import { createPhotoRouter } from '../routes/photoRoutes';
@@ -285,11 +285,14 @@ describe('privacy: the photo is not kept anywhere', () => {
 describe('sample mode: saved vision answers', () => {
   const photo = () => ({ familyId: 'maya', kind: 'item' as const, mimeType: 'image/png', bytes: fakePhoto('cached') });
 
-  it('with no saved answer, says plainly that photo reading needs the live model and never calls a model', async () => {
+  it('with no saved answer, uses the fictional practice answer (flagged as a sample) and never calls a model', async () => {
     const { gen, seen } = fakeVision([GOOD_ITEM]);
-    const out = await readPhoto(photo(), deps(gen, { sampleMode: true }));
-    expect(out).toMatchObject({ status: 'unavailable', message: NEEDS_LIVE_MODEL_MESSAGE });
+    const d = deps(gen, { sampleMode: true });
+    const out = await readPhoto(photo(), d);
+    expect(out).toMatchObject({ status: 'ok', sample: true });
+    expect(out.status === 'ok' && out.items[0].modelNumber).toBe('SAMPLE-1042');
     expect(seen).toHaveLength(0);
+    expect((await (d.store as ReturnType<typeof createMemoryPhotoStore>).all())[0]).toMatchObject({ extractor: 'sample-answer' });
   });
 
   it('replays answers saved by the recorder, including the retry, with no model call', async () => {
@@ -341,10 +344,19 @@ describe('photo routes', () => {
     });
   });
 
+  it('a gear photo that cannot be read says exactly "We couldn\'t find a model number. Try the white label."', async () => {
+    const { gen } = fakeVision([BAD_ITEM]);
+    await withApp(deps(gen), async (url) => {
+      const j = await (await post(`${url}/api/photo/read`, body('r2g'))).json();
+      expect(j).toMatchObject({ status: 'needs_clearer_photo', message: NO_MODEL_MESSAGE });
+      expect(NO_MODEL_MESSAGE).toBe("We couldn't find a model number. Try the white label.");
+    });
+  });
+
   it('asks for a clearer photo after the retry fails', async () => {
     const { gen, seen } = fakeVision([BAD_ITEM]);
     await withApp(deps(gen), async (url) => {
-      const j = await (await post(`${url}/api/photo/read`, body('r2'))).json();
+      const j = await (await post(`${url}/api/photo/read`, body('r2', { kind: 'receipt' }))).json();
       expect(j).toMatchObject({ status: 'needs_clearer_photo', message: CLEARER_PHOTO_MESSAGE });
       expect(seen).toHaveLength(2);
     });

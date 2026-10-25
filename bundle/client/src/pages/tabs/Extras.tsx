@@ -53,7 +53,7 @@ export function ForgetItemsCard({ familyId, forget = forgetMyItems }: { familyId
     setResult(null);
     try {
       const n = await forget(familyId);
-      setResult({ ok: true, message: n === 0 ? 'We did not have any saved items for you, so there was nothing to remove.' : `Done. We removed ${n === 1 ? '1 item' : `${n} items`} from our records.` });
+      setResult({ ok: true, message: n === 0 ? 'We did not have any saved items for you, so there was nothing to remove.' : `Done. We removed ${n === 1 ? '1 item' : `${n} items`} and your saved photos from our records.` });
     } catch (e) {
       setResult({ ok: false, message: (e as Error)?.message || 'Could not remove your items. Please try again.' });
     } finally {
@@ -64,13 +64,13 @@ export function ForgetItemsCard({ familyId, forget = forgetMyItems }: { familyId
   return (
     <section aria-label="Forget my items" data-testid="forget-card" className="mt-6 rounded-2xl border border-line bg-paper p-4">
       <h3 className="text-[17px] font-extrabold leading-snug">Your items, your choice</h3>
-      <p className="mt-1 text-[15px] leading-relaxed text-ink-2">Photos are never kept, only the product details we read from them. You can delete those any time.</p>
+      <p className="mt-1 text-[15px] leading-relaxed text-ink-2">Photos are saved with your family’s profile only. We strip location data. Delete anytime.</p>
       {!confirming && (
         <button type="button" onClick={() => { setResult(null); setConfirming(true); }} className="mt-3 flex min-h-[48px] w-full items-center justify-center rounded-xl border-2 border-ink px-4 text-[15px] font-bold text-ink">Forget my items</button>
       )}
       {confirming && (
         <div role="alertdialog" aria-label="Delete your saved items?" className="mt-3 rounded-xl bg-cream p-3">
-          <p className="text-[15px] font-semibold leading-snug">Delete every item we saved from your photos? We will stop checking them for recalls and money back. This cannot be undone.</p>
+          <p className="text-[15px] font-semibold leading-snug">Delete every item and photo we saved? We will stop checking them for recalls and money back. This cannot be undone.</p>
           <div className="mt-3 grid grid-cols-2 gap-2">
             <button type="button" onClick={() => setConfirming(false)} disabled={busy} className="min-h-[48px] rounded-xl border-2 border-line bg-paper px-3 text-[15px] font-bold text-ink">Keep my items</button>
             <button type="button" onClick={run} disabled={busy} className="min-h-[48px] rounded-xl bg-ink px-3 text-[15px] font-bold text-cream disabled:opacity-60">{busy ? 'Deleting…' : 'Yes, delete them'}</button>

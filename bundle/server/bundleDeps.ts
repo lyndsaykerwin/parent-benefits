@@ -35,7 +35,7 @@ export function makeOfferCheckWriter(): OfferCheckWriter | undefined {
   };
 }
 
-function makeZetarisClient(sample: boolean): ZetarisClient {
+export function makeZetarisClient(sample: boolean): ZetarisClient {
   return new ZetarisClient({
     baseUrl: process.env.ZETARIS_BASE_URL || 'http://sample-mode.invalid', orgId: process.env.ZETARIS_ORG_ID || 'sample',
     apiKey: process.env.ZETARIS_API_KEY || 'sample',
