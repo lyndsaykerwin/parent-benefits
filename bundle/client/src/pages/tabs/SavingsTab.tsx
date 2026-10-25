@@ -1,4 +1,4 @@
-import { PLAID_TILE, fmtUsdShort } from '@/lib/bundle';
+import { fmtUsdShort } from '@/lib/bundle';
 import FeedCardView from '@/components/FeedCardView';
 import { categorySummary, tabForCard } from '@/lib/tabs';
 import { CardStack, CategoryHeader, SectionTitle, type TabProps } from './shared';
@@ -22,7 +22,7 @@ function NeedsPurchases({ title, sub }: { title: string; sub: string }) {
 /** Savings: the baby's starter account, money back on purchases, and the recall check. */
 export default function SavingsTab(props: TabProps) {
   const mine = props.cards.filter((c) => tabForCard(c) === 'savings');
-  const soon = [...props.cards.filter((c) => c.kind === 'coming_soon' && !c.id.startsWith('coming-soon-state')), PLAID_TILE]
+  const soon = [...props.cards.filter((c) => c.kind === 'coming_soon' && !c.id.startsWith('coming-soon-state'))]
     .filter((c, i, all) => all.findIndex((x) => x.id === c.id) === i);
   const { cents } = categorySummary(props.cards, 'savings');
   const needs = !hasMoneyBack(props.cards);

@@ -102,7 +102,7 @@ Everything the app can be told is listed, with plain-English comments and safe p
 3. Zetaris: `ZETARIS_BASE_URL`, `ZETARIS_ORG_ID`, `ZETARIS_API_KEY`.
 4. AI, either or both: Nightshift on a Mac (`NIGHTSHIFT_TOKEN_FILE`, plus the model names in `.env.example`), and/or NVIDIA direct (`MODEL_API_KEY`, `MODEL_REASONING`, `MODEL_FAST`). `MODEL_PROVIDER` picks the order (`auto` is Nightshift, then NVIDIA, then offline text).
 
-Never commit `.env`. Do not run `npm run db:push`: database changes here are applied as reviewed SQL, by hand, with the
+Never commit `.env`. Never run `npm run db:push`: database changes here are applied as reviewed SQL, by hand, with the
 owner's OK. Mac-only steps (Nightshift, recording new Zetaris answers) are in [`docs/mac-flip-on-checklist.md`](docs/mac-flip-on-checklist.md).
 
 ### Running the live-database test (opt-in)
@@ -210,17 +210,17 @@ Secrets go only in `.env` (git-ignored). `.env.example` holds placeholders.
 | An agent throws | The orchestrator logs `agent_failed` and continues |
 | The model is unavailable | Deterministic text and a plain court screen (its approvals are labelled "Offline screen ... Not reviewed by the AI court"); logged as `fallback` |
 | A claim has no source, or a wrong amount or date | Fact-Checker sends it back (max 2), then drops it and logs the drop |
-| Too little to show | The feed is never empty: fixed minimums of benefits, one recall card, discounts, and two "coming soon" tiles |
+| Too little to show | The feed is never empty: fixed minimums of benefits, one recall card, discounts, and two "coming soon" tiles (pre-filled applications, price-drop watching) |
 | Abuse | Rate limit of 10 runs per IP per 10 minutes; at most 2 runs at once per IP and 5 at once overall; typed-in families are never saved |
 
 ## 8. Proof: logs and the scoreboard
 
 - Every Zetaris query, memory call and agent step is one JSON line (fields: `timestamp, trace_id, agent_name, action, input_summary, output_summary, target_agent, confidence, retry_count, status`). Saved runs: `logs/sample/` (maya, leo, ava, custom-family). Live runs write `logs/run-<id>.jsonl`.
-- `npm run eval` prints the scoreboard and saves `logs/scoreboard.json`. Result of `SAMPLE_MODE=true npm run eval` on 2026-10-25 (demo date 2026-10-23; it exits 0). <!-- TODO W6: refresh these numbers after W5-EVALS adds fields and W6 regenerates the evidence -->
+- `npm run eval` prints the scoreboard and saves `logs/scoreboard.json`. Result of `SAMPLE_MODE=true npm run eval` on 2026-10-25 (demo date 2026-10-23; it exits 0). <!-- TODO W6: refresh these numbers once W6 regenerates the evidence -->
 
 | Measure | Result |
 |---|---|
-| Planted traps caught | **6 of 6** (auto-renew offer, wrong-amount Scout row, recalled crib mattress, refund, duplicate purchase, out-of-state family) |
+| Planted traps caught | **6 of 6** in the saved file (auto-renew offer, wrong-amount Scout row, recalled crib mattress, refund, duplicate purchase, out-of-state family). The current eval checks **8 traps**: those six minus the retired refund trap, plus a subtler subscription-savings trap taught by the learning demo and two recall checks (look-alike products get no recall card; finished FDA recalls get none). <!-- TODO W6: replace with the regenerated 8-of-8 scoreboard --> |
 | False alarms | **0** |
 | Cards with a source | **100%** |
 | Stable across 3 sample runs | yes |
@@ -256,7 +256,7 @@ and purchases are made up. No real personal data and no income in logs.
 - Offline, the Fine Print Court is a plain screen, not a judgement: it catches stated fees and membership requirements, not everything.
 - Benefit amounts and windows are hand-checked as of 2026-10-23 and can go stale. Poverty-guideline figures were not independently re-verified.
 - Offers are one hand-checked snapshot; the Scout demo reads only 3 saved, hand-written page excerpts.
-- No real bank or retailer connections; the Plaid-shaped data is a fixture. The Amazon upload is optional.
+- No real bank or retailer connections; the sample purchase data is a made-up fixture. The Amazon upload is optional.
 - "Likely eligible" is a screening, not a determination.
 - Zetaris data-quality rules were not set up; the Fact-Checker's "no source" rule is the enforced backstop.
 
@@ -271,8 +271,8 @@ Everything else (agents, orchestrator, Fact-Checker, court, Coach, Scout, evals,
 
 ## 13. Sponsor tech: what each one really does
 
-- **Zetaris (a SQL "data door": one place to ask questions that span several scattered data sources).** Agents read their data through Zetaris and not straight from Postgres or the recall sites (`server/adapters/zetaris.ts`); the app shell loads a saved family profile and stores feedback through Drizzle (our database toolkit) in live mode, and the court's finished grades are saved to our own database by `server/agents/offerChecks.ts` (we do not write through Zetaris). The real cross-source join: **one question joins a family's private purchase list with live government recall feeds** (our Postgres `bundle_pg` x `bundle_live.cpsc_recalls` and `bundle_live.fda_food_recalls`), written in `pairsSql` in `server/agents/recall.ts`; fixed matching rules in `recallMatch.ts` then decide which pairs are real. Other reads go through registered views (`v_purchase_items`, `v_judge_offers`, `v_offer_verdicts`, `v_clawback_tx`, `v_recall_orders` and others). The objects are defined in `scripts/zetaris/register.ts` and every query is a trace line. In sample mode answers come from saved real Zetaris responses (`data/sample/zetaris-cache/`), replayed by the exact SQL text.
-- **Meterless H-MEM (Meterless's open-source memory engine).** Stores the rules parents teach Bundle (with a confidence number and an append-only history log, "the ledger"); the Fine Print Court recalls them and must cite them (`server/adapters/memory.ts`, `server/agents/finePrintCourt.ts`; the engine is `vendor/hmem/`). The run also exports the ledger to `logs/ledger-<runId>.jsonl` (`server/agents/orchestrator.ts`). Built and unit-tested, with the tie-in to a run covered in section 14: a shared "workspace" where agents leave notes for each other (`server/agents/workspace.ts`) and grading "lessons" the court reuses (`server/agents/newsroom.ts`). <!-- TODO W5: confirm after W4-ORCH wires workspace + newsroom lessons into the run, then reword "built and unit-tested" -->
+- **Zetaris (a SQL "data door": one place to ask questions that span several scattered data sources).** Agents read their data through Zetaris and not straight from Postgres or the recall sites (`server/adapters/zetaris.ts`); a run reads the family profile through Zetaris too (`familyProfileSql` in `server/agents/savedVerdicts.ts`), falling back to our Neon database (via Drizzle, our database toolkit) if Zetaris cannot answer; feedback is stored through Drizzle in live mode, and the court's finished grades are saved to our own database by `server/agents/offerChecks.ts` (we do not write through Zetaris). The real cross-source join: **one question joins a family's private purchase list with live government recall feeds** (our Postgres `bundle_pg` x `bundle_live.cpsc_recalls` and `bundle_live.fda_food_recalls`), written in `pairsSql` in `server/agents/recall.ts`; fixed matching rules in `recallMatch.ts` then decide which pairs are real. Other reads go through registered views (`v_purchase_items`, `v_judge_offers`, `v_offer_verdicts`, `v_clawback_tx`, `v_recall_orders` and others). The objects are defined in `scripts/zetaris/register.ts` and every query is a trace line. In sample mode answers come from saved real Zetaris responses (`data/sample/zetaris-cache/`), replayed by the exact SQL text.
+- **Meterless H-MEM (Meterless's open-source memory engine).** Stores the rules parents teach Bundle (with a confidence number and an append-only history log, "the ledger"); the Fine Print Court recalls them and must cite them (`server/adapters/memory.ts`, `server/agents/finePrintCourt.ts`; the engine is `vendor/hmem/`). The run also exports the ledger to `logs/ledger-<runId>.jsonl` (`server/agents/orchestrator.ts`). Each run also opens a shared "workspace" in H-MEM where agents leave notes for each other (`server/agents/workspace.ts`) and the court reuses grading "lessons" (`server/agents/newsroom.ts`); see section 14.
 - **Meterless Nightshift (a Meterless Mac app we use as the AI switchboard).** First choice for every AI question when it is running on the same Mac (`server/adapters/llm.ts`, setting `MODEL_PROVIDER`). It passes the hard questions to NVIDIA Nemotron using a key kept inside Nightshift. Details and fallbacks: section 14.
 - **NVIDIA:** Nemotron models, reached through Nightshift or directly with `MODEL_API_KEY` (`server/adapters/llm.ts`); everything degrades to offline text. No live model run is included in the saved scoreboard or examples.
 - **Claude Code:** the AI coding assistant this project was built with. Cursor was optional for this hackathon and was not used.
@@ -283,7 +283,9 @@ What actually runs through Meterless, and what does not. "Fallback" means the ap
 
 **Meterless H-MEM: runs in every mode, offline too.** It is a library copied into this repo and run inside our server (no Meterless service is called). It does real work today: approved rules from parent feedback are stored in it and recalled by the Fine Print Court (the `recall_hmem` trace lines), and the learning demo (`npm run eval -- --learning`) shows a rule changing the next run. Engines used: **H-MEM only**, for case law, plus the workspace notes and newsroom-loop lessons described below. **Not used: Meterless's Markovian and World Model engines.** Our AI steps are short, and Zetaris plus our saved-grades table already hold the shared facts. H-MEM's AI-based extraction and "dreaming" are also not used in a run.
 
-**Workspace and newsroom lessons: built and tested, join-up in progress.** The shared workspace (agents post `claim`, `question`, `answer`, `correction` and `verdict` notes into H-MEM) and the newsroom loop (the court reads earlier saved grades through Zetaris and past lessons from H-MEM, and skips the AI when a wording is unchanged) exist as code with tests. Which of these a given run uses depends on the orchestrator wiring; check a run's trace (`GET /api/runs/:runId/trace`, or the Agent Workspace panel in the app) for `recall_hmem` and workspace lines rather than assuming. <!-- TODO W5: confirm after W4-ORCH; replace this paragraph with the final wording -->
+**Workspace and newsroom lessons: wired into every run.** The orchestrator opens one shared workspace per run (logged as `workspace_open`), where agents post `claim`, `question`, `answer`, `correction` and `verdict` notes into H-MEM. The Fine Print Court reads earlier saved grades through Zetaris and past lessons from H-MEM, skips the AI when an offer's wording is unchanged, and an "offer-check writer" saves its finished grades to our own database (`server/agents/offerChecks.ts`). The Fact-Checker uses `checkWithCorrections`: it sends a card back with a note, the owning agent revises, and the Fact-Checker marks a lesson helpful or wrong, which raises or lowers its confidence. A whole run has a 300-second budget (`RUN_DEADLINE_SECONDS`); past it, no new checking starts and the feed still finishes. You can see all of this in a run's trace (`GET /api/runs/:runId/trace`, or the Agent Workspace panel in the app) as `recall_hmem` and workspace lines.
+
+**What Meterless is used for, and what is not.** Used: **H-MEM** (memory) and **Nightshift** (AI routing, Mac only). **Not used:** Meterless's **Scout Intent** (its safety gatekeeper that checks for prompt injection and issues signed permission slips), **Markovian** and **World Model**. Our injection checks (text written to trick the AI) are our own code (`server/agents/finePrintRules.ts`), not a Meterless product; the Scout script (`scripts/scout.ts`) is our own page reader and only shares the name. Details: `../qc-reports/meterless-safety-research.md`.
 
 **Meterless Nightshift: runs only on Lyndsay's Mac.** Nightshift listens at `http://127.0.0.1:8088/v1` on that computer, so a cloud server, a hosted demo or a judge's machine cannot reach it. With `MODEL_PROVIDER=auto` the order is:
 
@@ -299,7 +301,32 @@ Even with a live model, money amounts and recall decisions are computed by code 
 
 ## 15. Streaming and the saved feed
 
-The app is designed to show a saved feed instantly and then update it as the agents finish, with status pills for each agent. <!-- TODO W5: confirm after W4-STREAM-SRV (streaming route, server-sent events) -->
-Until a run finishes, `GET /api/runs/:runId/trace` can be polled to watch the agents' steps.
+The app shows a saved feed instantly and updates it as the agents finish, with a status pill for each agent.
+
+- `GET /api/runs/:runId/events` streams the run as server-sent events (a one-way, long-open web connection): `agent_status`, `card_ready`, `card_updated`, `card_removed`, then `end` (`server/routes/streamRoutes.ts`).
+- Parents only ever receive events passed through the parent whitelist: cards are copied through the same safe-fields filter as everywhere else, only known agent names and their states are sent, and free-text labels and removal reasons stay owner-only.
+- If the stream is missing or breaks, the app quietly falls back to asking `GET /api/runs/:runId` once a second (`client/src/lib/stream.ts`, `client/src/lib/poll.ts`). You can also poll `GET /api/runs/:runId/trace` by hand to watch the agents' steps.
+
+**Forget my items.** The Extras tab has a "Forget my items" button (with a plain-English confirm step) that deletes the products saved from a family's photos (`POST /api/photo/forget`).
+
+## 16. Try it yourself
+
+Needs Node 24 or newer. No keys, no database:
+
+```bash
+cd bundle
+cp .env.example .env     # SAMPLE_MODE=true is already set
+npm ci
+SAMPLE_MODE=true npm run dev        # starts on http://localhost:5050
+```
+
+In a second terminal:
+
+```bash
+curl -s -o /dev/null -w '%{http_code}\n' localhost:5050/    # 200 means the app is up
+curl -s -XPOST 'localhost:5050/api/run?wait=true' -H 'content-type: application/json' -d '{"familyId":"leo"}'
+```
+
+Open http://localhost:5050 and tap "Try as guest" to see the app. Stop the server with Ctrl+C. Run the checks with `SAMPLE_MODE=true npm test` and `npm run check`. Never run `npm run db:push`.
 
 Licence: MIT (see `LICENSE`).

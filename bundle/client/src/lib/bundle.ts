@@ -134,13 +134,6 @@ export function amountCaption(c: FeedCard): string | null {
 
 const ORDER: CardKind[] = ['clawback', 'recall', 'benefit', 'discount', 'coming_soon'];
 
-/** The client-only "coming soon" tile (Plaid is not live yet; see Task 11 ruling). */
-export const PLAID_TILE: FeedCard = {
-  id: 'coming-soon-plaid', kind: 'coming_soon', title: 'Connect your bank (Plaid)',
-  body: 'Coming soon: link a card once and Bundle checks every new purchase for you.',
-  amountCents: null, deadline: null, verdict: 'info', sources: [], traceId: '',
-};
-
 /** Section title for deals that never went through Fine Print Court (bundled stand-ins shown when the court could not run). */
 export const UNCHECKED_DEALS_SECTION = 'Offers not yet checked by Fine Print Court';
 
@@ -153,7 +146,6 @@ export interface CardGroup { kind: CardKind; cards: FeedCard[]; /** true = offer
 export function groupCards(cards: FeedCard[]): { pinned: FeedCard | null; groups: CardGroup[] } {
   const pinned = cards.find(isInsurance) ?? null;
   const rest = cards.filter((c) => c !== pinned);
-  if (!rest.some((c) => c.id === PLAID_TILE.id)) rest.push(PLAID_TILE);
   const groups: CardGroup[] = [];
   for (const kind of ORDER) {
     if (kind === 'discount') {

@@ -9,14 +9,14 @@ const line = (trace_id: string, agent_name: string, action: string, input_summar
 });
 
 describe('groupCards', () => {
-  it('pins the insurance card, then orders clawback, recall, benefit, discount, coming_soon, and adds the Plaid tile', () => {
+  it('pins the insurance card, then orders clawback, recall, benefit, discount, coming_soon', () => {
     const cards = [c('discount-1', 'discount'), c('benefit-trump_account', 'benefit'), c('coming-soon-prefilled', 'coming_soon'),
       c('benefit-insurance_add_baby', 'benefit'), c('recall-cpsc-1', 'recall'), c('clawback-fsa-x', 'clawback')];
     const { pinned, groups } = groupCards(cards);
     expect(pinned?.id).toBe('benefit-insurance_add_baby');
     expect(groups.map((g) => g.kind)).toEqual(['clawback', 'recall', 'benefit', 'discount', 'coming_soon']);
     expect(groups[2].cards.map((x) => x.id)).toEqual(['benefit-trump_account']);
-    expect(groups[4].cards.map((x) => x.title)).toEqual(['coming-soon-prefilled', 'Connect your bank (Plaid)']);
+    expect(groups[4].cards.map((x) => x.title)).toEqual(['coming-soon-prefilled']);
   });
 });
 
