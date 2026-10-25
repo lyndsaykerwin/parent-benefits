@@ -6,7 +6,7 @@ Keys in cloud: none (no TAVILY, DB, NVIDIA, Zetaris, Meterless) → SAMPLE_MODE 
 
 | Step | Status | test:v2 | npm test | check | QA vs mockup |
 |---|---|---|---|---|---|
-| Step 0 | todo | | | | n/a |
+| Step 0 | done (f4d7bac) | 0/21 (expected) | 1000 pass | clean | n/a |
 | Lane A (S1) | todo | | | | |
 | Lane B (S3,S4) | todo | | | | |
 | Lane D (S5) | todo | | | | |

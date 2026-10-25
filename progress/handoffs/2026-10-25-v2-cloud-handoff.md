@@ -47,3 +47,8 @@ Before stopping, whether finished or out of credits:
 
 ## Progress log
 - Oct 25 (Mac): planning, mockups and 21 failing acceptance tests pushed. Build not started.
+- Oct 25 (cloud): **no keys in the cloud environment** (TAVILY_API_KEY, DATABASE_URL, NVIDIA, Zetaris and Meterless are all missing), so everything is built and checked in SAMPLE_MODE.
+- Oct 25 (cloud): **Step 0 done.** The new database columns and tables are in `bundle/migrations/0002_v2_foundation.sql`, plus new shared types and sample-family answers. Tests: test:v2 0/21 (expected), npm test 1000 pass / 11 skipped, check clean.
+  - **Mac to-do:** apply the migration to Neon (`npm run db:push`). No DATABASE_URL here.
+  - Field names: `household` 'one'|'two'; `parent1Work`/`parent2Work` 'paycheck'|'self_employed'|'not_working'; `insurance` 'job'|'marketplace'|'medicaid'|'tricare'|'none_or_not_sure'; FeedCard `category`, `minutes`.
+  - In practice mode, the four new answers are filled in from `families.json`, because the saved Zetaris replay doesn't have them. In live Zetaris they need a new view later. The existing SQL is unchanged.
