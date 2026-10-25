@@ -240,7 +240,8 @@ describe('UI helpers (Task 12)', () => {
     const { runId } = (await request(app).post('/api/run').send({ familyId: 'leo' })).body;
     const body = (await request(app).get(`/api/runs/${runId}`)).body;
     expect(body.today).toBe('2026-10-23');
-    expect(body.family).toEqual({ name: 'leo', birthDate: null, dueDate: '2026-12-07' });
+    expect(Object.keys(body.family).sort()).toEqual(['birthDate', 'dueDate', 'name', 'state']); // state added, nothing else leaked
+    expect(body.family).toEqual({ name: 'leo', birthDate: null, dueDate: '2026-12-07', state: 'MA' });
     expect(JSON.stringify(body)).not.toContain('14500000');
   });
 

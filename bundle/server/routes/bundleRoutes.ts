@@ -40,7 +40,7 @@ export interface ApiDeps {
 }
 
 /** Display-only family fields the UI needs (header chip, day count). Never income. */
-type FamilyView = { name: string; birthDate: string | null; dueDate: string | null };
+type FamilyView = { name: string; birthDate: string | null; dueDate: string | null; state?: string }; // state is optional because runs saved before this field existed lack it
 type RunEntry = { runId: string; familyId: string; status: 'running' | 'done' | 'failed'; startedAt: string; result?: BundleResult; error?: string; logsDir: string; family: FamilyView; today: string; demoDate: boolean };
 
 const isIsoDate = (v: unknown): v is string =>
@@ -190,7 +190,7 @@ export function createBundleRouter(deps: ApiDeps): Router {
     knownFamilies.add(family.id);
     const entry: RunEntry = {
       runId, familyId: family.id, status: 'running', startedAt: new Date().toISOString(), logsDir: base.logsDir,
-      family: { name: family.name, birthDate: family.birthDate, dueDate: family.dueDate }, today: base.today, demoDate: isSeedFamily(family.id),
+      family: { name: family.name, birthDate: family.birthDate, dueDate: family.dueDate, state: family.state }, today: base.today, demoDate: isSeedFamily(family.id),
     };
     runs.set(runId, entry);
     while (runs.size > MAX_REGISTRY) runs.delete(runs.keys().next().value as string);

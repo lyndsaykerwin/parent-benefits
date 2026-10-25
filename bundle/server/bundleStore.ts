@@ -20,7 +20,7 @@ export interface SavedRunRow {
   sampleMode: boolean;
   result: BundleResult;
   /** Display-only header fields (never income). */
-  family: { name: string; birthDate: string | null; dueDate: string | null };
+  family: { name: string; birthDate: string | null; dueDate: string | null; state?: string };
   today: string;
   demoDate: boolean;
   startedAt: string;
