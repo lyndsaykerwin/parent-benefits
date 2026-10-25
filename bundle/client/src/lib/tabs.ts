@@ -159,6 +159,16 @@ export function plainCardBody(body: string): string {
   return body.replace(/No flagged terms found\.\s*We couldn['’]t fully check this offer['’]s fine print\./, "We couldn’t read this offer’s fine print in full, so we haven’t confirmed it is free of catches. Read the terms before you sign up.");
 }
 
+/** True when the card body says the fine print could not be read in full (the saved offline court line). */
+export const finePrintUnread = (body: string): boolean => /couldn['’]t (fully check|read) this offer['’]s fine print/.test(body);
+
+/** The "How we checked" line for a normal card; says only what was actually checked. */
+export function howWeChecked(body: string): string {
+  return finePrintUnread(body)
+    ? 'We checked this offer against its official source page. We couldn’t read its fine print in full, so read the terms before you sign up.'
+    : 'We checked this against its official source before showing it to you.';
+}
+
 /** The wait part of the effort line, in a natural phrase ("right away" alone read oddly after a minutes count). */
 export function waitPhrase(label: string): string {
   if (label === 'right away') return 'no payout wait stated';

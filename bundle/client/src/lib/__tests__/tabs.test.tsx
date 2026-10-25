@@ -2,7 +2,7 @@ import type { FeedCard } from '@shared/bundle';
 import { sampleRun } from '../../test-support/sampleRuns';
 import {
   TABS, stageOf, tabForCard, claimableCards, homeTotals, categorySummary, urgentDeadlines, comingSoonNote, loadClaims, saveClaims, claimedCents,
-  shareMessage, valueScoreLines, plainCardBody,
+  shareMessage, valueScoreLines, plainCardBody, howWeChecked,
 } from '../tabs';
 import { isCheckWithJob } from '../bundle';
 
@@ -142,6 +142,9 @@ describe('share message and value score words', () => {
     expect(valueScoreLines({ trueValueCents: null, effortLevel: 'low', effortMinutesEstimate: { min: 2, max: 5 }, stepsCount: 1, payoutWaitDays: null, timeLabel: 'right away', catchTypes: [], worthYourTime: true, reasons: [] })[0])
       .toBe('About 2–5 minutes of effort, no payout wait stated');
     expect(plainCardBody("Store Y has an offer. No flagged terms found. We couldn't fully check this offer's fine print.")).not.toMatch(/No flagged terms/);
+    // "How we checked" must not claim more than the card body does
+    expect(howWeChecked("Store Y has an offer. No flagged terms found. We couldn't fully check this offer's fine print.")).toMatch(/couldn’t read its fine print in full/);
+    expect(howWeChecked('Store Y has an offer. No catches found.')).toBe('We checked this against its official source before showing it to you.');
     expect(valueScoreLines({ trueValueCents: null, effortLevel: 'high', effortMinutesEstimate: { min: 30, max: 30 }, stepsCount: 5, payoutWaitDays: null, timeLabel: 'wait unknown', catchTypes: [], worthYourTime: false, reasons: [] }))
       .toEqual(['About 30 minutes of effort, payout wait unknown', 'Probably not worth your time']);
   });

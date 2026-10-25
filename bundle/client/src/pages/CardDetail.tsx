@@ -5,6 +5,7 @@ import FeedCardView from '@/components/FeedCardView';
 import { safeSources, agentLabel, api, familyChip, loadRun, saveRun, traceForCard, type SavedRun, type TraceLine } from '@/lib/bundle';
 import { ZetarisSection, MemorySection } from '@/components/HowWeCheckedSections';
 import { ownerApi, ownerToken } from '@/lib/howWeChecked';
+import { howWeChecked } from '@/lib/tabs';
 import { cn } from '@/lib/utils';
 
 const STATUS_TEXT: Record<TraceLine['status'], { label: string; cls: string }> = {
@@ -119,7 +120,7 @@ export default function CardDetail() {
               ? 'We checked this offer’s fine print and left it out of your feed.'
               : card.kind === 'coming_soon'
                 ? 'This is a preview of a feature we are still building.'
-                : 'We checked this against its official source before showing it to you.'}
+                : howWeChecked(card.body)}
           </p>
         )}
         {owner && <p className="mt-1 text-[15px] text-ink-2">Every step our agents took for this card, straight from the run’s audit log.</p>}

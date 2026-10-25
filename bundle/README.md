@@ -69,28 +69,32 @@ changes the outcome of run 2. Diagram: [`docs/architecture.md`](docs/architectur
 
 ## 4. Quick start
 
-Needs Node 24 or newer. No GPU. **No keys for the sample run.**
+Needs Node 24 or newer (`package.json` says `>=24`; check yours with `node -v`, get it from nodejs.org). In our clean-download rehearsal the sample run, tests, type check, build and eval also passed on Node 22.22, but 24 is the stated requirement. No GPU. **No keys for the sample run.**
 
 ### Option A: sample mode, no keys
 
 `SAMPLE_MODE=true` (already set in `.env.example`) means the app runs from saved sample families and saved Zetaris answers, and never calls Zetaris or an AI model.
 
 ```bash
+git clone <repo-url>     # download the project (use the address of this repository, on the submission branch)
+cd parent-benefits/bundle
 cp .env.example .env     # SAMPLE_MODE=true is already set
-npm ci
+npm ci                   # takes about 20 seconds
 npm run dev              # http://localhost:5050
 ```
 
-Starts in a few seconds. Open http://localhost:5050 for the app, or call the API below.
+`npm ci` prints "30 vulnerabilities" at the end. That is normal for this sample app and can be ignored. The server starts in a few seconds. The terminal will scroll with lines of JSON; that is the agents' activity log, not an error. The line "serving on port 5050" means it is ready. Open http://localhost:5050 for the app, or call the API below.
 
 Other commands:
 
 ```bash
-npm test         # unit tests. The one live-database test (it reseeds Neon) is skipped unless you run RUN_DB_TESTS=1 npm test
+npm test         # unit tests, about 1.5 minutes. The one live-database test (it reseeds Neon) is skipped unless you run RUN_DB_TESTS=1 npm test
 npm run check    # type check
-npm run eval     # the evals (answer key) and prints the scoreboard
+npm run eval     # the evals (answer key); the output is very long (about 1,400 lines), so scroll to the end and look for "trapsCaught": 8, "falseAlarms": 0
 npm run build && npm start   # production build
 ```
+
+Heads-up: `npm test` and `npm run eval` rewrite some saved files that are tracked in git (`bundle/logs/scoreboard.json` and `bundle/output_examples/learning/*.jsonl`), so `git status` will show changes afterwards. That is expected. To undo it, run `git checkout -- bundle/logs bundle/output_examples` from the repo root.
 
 ### Option B: real keys (live mode)
 
@@ -216,16 +220,16 @@ Secrets go only in `.env` (git-ignored). `.env.example` holds placeholders.
 ## 8. Proof: logs and the scoreboard
 
 - Every Zetaris query, memory call and agent step is one JSON line (fields: `timestamp, trace_id, agent_name, action, input_summary, output_summary, target_agent, confidence, retry_count, status`). Saved runs: `logs/sample/` (maya, leo, ava, custom-family). Live runs write `logs/run-<id>.jsonl`.
-- `npm run eval` prints the scoreboard and saves `logs/scoreboard.json`. Result of `SAMPLE_MODE=true npm run eval` on 2026-10-25 (demo date 2026-10-23; it exits 0). <!-- TODO W6: refresh these numbers once W6 regenerates the evidence -->
+- `npm run eval` prints the scoreboard and saves `logs/scoreboard.json`. Result of `SAMPLE_MODE=true npm run eval`, saved at 2026-10-25T12:56Z (demo date 2026-10-23; it exits 0).
 
 | Measure | Result |
 |---|---|
-| Planted traps caught | **6 of 6** in the saved file (auto-renew offer, wrong-amount Scout row, recalled crib mattress, refund, duplicate purchase, out-of-state family). The current eval checks **8 traps**: those six minus the retired refund trap, plus a subtler subscription-savings trap taught by the learning demo and two recall checks (look-alike products get no recall card; finished FDA recalls get none). <!-- TODO W6: replace with the regenerated 8-of-8 scoreboard --> |
+| Planted traps caught | **8 of 8** (auto-renew offer, wrong-amount Scout row, recalled crib mattress, duplicate purchase, out-of-state family, a subtler subscription-savings trap taught by the learning demo, and two recall checks: look-alike products get no recall card; finished FDA recalls get none). `expectationFailures` is empty. |
 | False alarms | **0** |
 | Cards with a source | **100%** |
 | Stable across 3 sample runs | yes |
 | Money back found | Maya $48.99, Leo $0.00, Ava $14.58 |
-| Learning demo | Run 1 approves the "free trial that auto-renews" offer; a reviewer-approved rule is stored in memory; run 2 **blocks** it and cites that rule (`mem-1`) |
+| Learning demo | Run 1 approves the "free trial that auto-renews" offer; a reviewer-approved rule is stored in memory; run 2 **blocks** it and cites that rule (`mem-28`, "Reject offers whose savings depend on keeping a subscription active"; the subtle trap is the Amazon Subscribe & Save diaper discount, and the obvious free-diaper-box trap is also blocked, citing `mem-29`) |
 | Who answered | `llmMode: "offline-fallback"`, Scout `fake-llm` (no real AI model) |
 
   **Every saved run here is offline** (`llmMode: "offline-fallback"`, Scout `fake-llm`): no real AI model was used for the scoreboard, the examples or the traces. Offline, the Fine Print Court's debate lines are "model unavailable" and the Coach picks from two pre-written rule sentences once 2 or more reports share a theme (see the Coach row in §2), so the learning demo shows the *mechanism* (feedback, then memory, then a changed outcome), not AI-written rules. A real-model run can be added with `npm run eval:live-model` once a model key is available (see "When you have an NVIDIA key" in section 4). The learning traces are in `output_examples/learning/`: `run1.jsonl`, `approve.jsonl` (the reviewer's approval: the `memory add_rule` call) and `run2.jsonl` (`memory recall_rules` returns the rule, then the judge blocks the offer and cites it).
@@ -295,7 +299,7 @@ What actually runs through Meterless, and what does not. "Fallback" means the ap
 | Nightshift missing or a call to it fails, and `MODEL_API_KEY`, `MODEL_REASONING` and `MODEL_FAST` are set | **NVIDIA direct** (`integrate.api.nvidia.com`). |
 | Neither is available, `MODEL_PROVIDER=offline`, `SAMPLE_MODE=true` (unless `LIVE_MODEL=true`), or the 300-second run limit has passed | **Offline deterministic text**: fixed sentences, and a plain rule-based screen instead of the AI court ("Offline screen: ... Not reviewed by the AI court"). |
 
-What the saved evidence shows: the committed scoreboard, `output_examples/` and `logs/sample/` were all produced **offline** (`llmMode: "offline-fallback"`); none of it passed through Nightshift or NVIDIA. Zetaris replays were recorded with the AI off on purpose. A Mac check on Oct 24 reached Nemotron through Nightshift (see `../HANDOFF-cloud.md`), and the full-AI scoreboard run is a Mac step (`npm run eval:live-model`, see `docs/mac-flip-on-checklist.md`). Until that is run and its output saved, do not read any saved result here as showing a live model. <!-- TODO W6: update this paragraph if a live Nightshift run is saved -->
+What the saved evidence shows: the committed scoreboard, `output_examples/` and `logs/sample/` were all produced **offline** (`llmMode: "offline-fallback"`); none of it passed through Nightshift or NVIDIA. Zetaris replays were recorded with the AI off on purpose. A Mac check on Oct 24 reached Nemotron through Nightshift (see `../HANDOFF-cloud.md`), and the full-AI scoreboard run is a Mac step (`npm run eval:live-model`, see `docs/mac-flip-on-checklist.md`). Until that is run and its output saved, do not read any saved result here as showing a live model. **To be recorded on the Mac (not done yet):** a saved full-AI run through Nightshift; this paragraph will be updated once that output exists. <!-- TODO W6: live Nightshift run, Mac step -->
 
 Even with a live model, money amounts and recall decisions are computed by code rules, not by the AI, and code can overrule the AI.
 
@@ -311,13 +315,13 @@ The app shows a saved feed instantly and updates it as the agents finish, with a
 
 ## 16. Try it yourself
 
-Needs Node 24 or newer. No keys, no database:
+Needs Node 24 or newer (it also worked on Node 22.22 in testing). No keys, no database. First download the project (`git clone <repo-url>`, then `cd parent-benefits`; the commands below assume you are in that top folder):
 
 ```bash
 cd bundle
 cp .env.example .env     # SAMPLE_MODE=true is already set
-npm ci
-SAMPLE_MODE=true npm run dev        # starts on http://localhost:5050
+npm ci                              # about 20 seconds
+SAMPLE_MODE=true npm run dev        # starts on http://localhost:5050 (scrolling JSON lines are the activity log, not errors)
 ```
 
 In a second terminal:
@@ -327,6 +331,6 @@ curl -s -o /dev/null -w '%{http_code}\n' localhost:5050/    # 200 means the app 
 curl -s -XPOST 'localhost:5050/api/run?wait=true' -H 'content-type: application/json' -d '{"familyId":"leo"}'
 ```
 
-Open http://localhost:5050 and tap "Try as guest" to see the app. Stop the server with Ctrl+C. Run the checks with `SAMPLE_MODE=true npm test` and `npm run check`. Never run `npm run db:push`.
+Open http://localhost:5050 and tap "Try a sample family" (made-up data). The finished list appears on its own; there is no separate "run" button. Open the Deals tab, tap a card, then "How we checked", and use "Your feed" to go back. Stop the server with Ctrl+C. Run the checks with `SAMPLE_MODE=true npm test` (about 1.5 minutes) and `npm run check`. After tests or eval, undo the rewritten saved files with `git checkout -- bundle/logs bundle/output_examples` from the repo root. Never run `npm run db:push`.
 
 Licence: MIT (see `LICENSE`).
