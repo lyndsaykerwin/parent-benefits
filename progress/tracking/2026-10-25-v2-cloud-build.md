@@ -8,7 +8,7 @@ Keys in cloud: none (no TAVILY, DB, NVIDIA, Zetaris, Meterless) → SAMPLE_MODE 
 |---|---|---|---|---|---|
 | Step 0 | done (f4d7bac) | 0/21 (expected) | 1000 pass | clean | n/a |
 | Lane A (S1) | done (b629198) | 3/21 (S1 all pass) | 1051 pass | clean | matched; 3 small diffs (see log) |
-| Lane B (S3,S4) | todo | | | | |
+| Lane B (S3,S4) | done (84779cc) | 8/21 (S1,S3,S4 pass) | 1087 pass | clean | matched; deliberate diffs (see log) |
 | Lane D (S5) | todo | | | | |
 | Lane C (S2) | todo | | | | |
 | Lane E (S6) | todo | | | | |

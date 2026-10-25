@@ -62,3 +62,19 @@ Before stopping, whether finished or out of credits:
     - `POST /api/run` returns `{runId, familyId}`. A typed-in family's id goes in localStorage `bundle_family_id`.
     - Lane E must make `resolveFamily` load saved `guest-…` families.
     - Lane B should add a childcare-credit card for self-employed families, so it matches the checking line.
+- Oct 25 (cloud): **Lane B done** (Stories 3 and 4). Tests: test:v2 8/21 (S1, S3 and S4 all pass), npm test 1087 pass / 11 skipped, check clean. In the real app, all of these work:
+  - the three money buckets
+  - "I got this" sends the card to Claimed
+  - "Not relevant" sends the card to Dismissed, lowers Still to claim and the headline, and Undo puts both back
+  - Quick wins
+  - the Taxes booster with the MA 529 line
+  - Deliberate differences from the mockup:
+    - The booster says "Your tax credits", not "refund".
+    - The booster range is built from the family's own cards, not the mockup's example $3,100.
+    - Minute estimates are Bundle's own: "about N min".
+    - The card link still says "How we checked".
+  - Notes for later lanes:
+    - Claims are kept in the browser (`bundle:claimed:<family>` / `bundle:dismissed:<family>`). The server copy is only written, never read back yet.
+    - Lane C should point the empty "Money back now" bucket's "Add a receipt" at the scan sheet.
+    - **Lane E must remove the old "Save your list… Continue with Google (coming later)" card on Home** (left over from Firebase) and add the "Save your plan" card.
+  - `output_examples/` and `logs/sample/` were regenerated with `npm run examples:regen`, in practice mode.
