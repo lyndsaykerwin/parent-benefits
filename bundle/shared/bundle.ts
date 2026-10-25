@@ -45,6 +45,12 @@ export interface BundleResult {
   familyId: string; runId: string; receipt: BundleReceipt; cards: FeedCard[]; banner: string | null;
   /** Offers the Fine Print Court rejected (verdict 'blocked'). Shown separately; never in the Receipt or the discount minimums. */
   blocked?: FeedCard[];
+  /**
+   * Set when we have no programs on file for the family's state yet: the plain "coming soon" sentence the screen shows
+   * beside the federal programs. Absent for states we cover. (The server does not send it yet; the screen also reads
+   * `family.state` and a `coming-soon-state` card.)
+   */
+  stateNote?: string | null;
 }
 export interface Family {
   id: string; userId: string | null; isGuest: boolean; name: string;

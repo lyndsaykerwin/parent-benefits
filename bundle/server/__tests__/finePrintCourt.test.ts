@@ -22,10 +22,11 @@ const trap = offer(50, { title: 'Free newborn diaper box', store: 'Cuddle & Co',
 const REJECT = '{"verdict":"reject","citedRuleIds":[],"reason":"hidden paid membership"}';
 const APPROVE = '{"verdict":"approve","citedRuleIds":[],"reason":"fine"}';
 
-function setup(rows: any[], llm: any, memory?: BundleMemory) {
+function setup(rows: any[], llm: any, memory?: BundleMemory, saved: any[] = []) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'fpc-'));
   const trace = new TraceLogger('t', dir);
-  const runQuery = jest.fn(async (_sql: string) => ({ headers: [], rows, ms: 1 }));
+  // The saved-verdict question (v_offer_verdicts) gets its own answer; every other question is the offer list.
+  const runQuery = jest.fn(async (sql: string) => ({ headers: [], rows: /v_offer_verdicts/.test(sql) ? saved : rows, ms: 1 }));
   const mem = memory ?? new BundleMemory(fs.mkdtempSync(path.join(os.tmpdir(), 'mem-')));
   const ctx = { runId: 't', family: maya, z: { runQuery } as any, llm, memory: mem, trace } as AgentContext;
   return { ctx, trace, runQuery, mem };
@@ -80,7 +81,8 @@ describe('fine print court', () => {
     expect(ctx.blocked).toHaveLength(1);
     const b = ctx.blocked[0];
     expect(b).toMatchObject({ id: `blocked-${trap.id}`, kind: 'discount', verdict: 'blocked', amountCents: null, title: trap.title });
-    expect(b.traceId).toBe(trace.lines().find((l) => l.agent_name === 'judge')!.trace_id);
+    // The Judge spoke twice (an uncited reject the code screen disagrees with goes to a rebuttal round); the card points at the final ruling.
+    expect(b.traceId).toBe(trace.lines().filter((l) => l.agent_name === 'judge').pop()!.trace_id);
     expect(JSON.stringify(b)).not.toMatch(/income/i);
   });
 
@@ -169,8 +171,9 @@ describe('fine print court', () => {
     const { ctx, runQuery } = setup(rows, new FakeGenerator(['p', 'c', APPROVE]));
     const out = await judgeOffers(ctx, IN);
     expect(out.map((c) => c.claim.offerId)).toEqual([1]);
-    expect(runQuery).toHaveBeenCalledTimes(1);
-    expect(runQuery.mock.calls[0][0]).not.toMatch(/WHERE/i);
+    const offerQueries = runQuery.mock.calls.map((c) => c[0] as string).filter((q) => /v_judge_offers/.test(q));
+    expect(offerQueries).toHaveLength(1);
+    expect(offerQueries[0]).not.toMatch(/WHERE/i);
   });
 
   it('I3: an AI approval keeps the full-check wording; an offline approval never claims one', async () => {
@@ -178,9 +181,10 @@ describe('fine print court', () => {
     expect((await judgeOffers(online.ctx, IN))[0].body).toContain('Our fine-print check found nothing that makes it costly');
     const offline = setup([offer(1)], new UnavailableGenerator('no key'));
     const body = (await judgeOffers(offline.ctx, IN))[0].body;
-    expect(body).toContain('Offline screen: no flagged terms found. Not reviewed by the AI court.');
+    expect(body).toContain("No flagged terms found. We couldn't fully check this offer's fine print.");
+    expect(body).not.toMatch(/Offline screen|AI court/);
     expect(body).not.toMatch(/found nothing that makes it costly|Likely a good deal/);
-    expect(offline.trace.lines().find((l) => l.agent_name === 'judge')!.output_summary).toContain('Offline screen: no flagged terms found. Not reviewed by the AI court.');
+    expect(offline.trace.lines().find((l) => l.agent_name === 'judge')!.output_summary).toContain("No flagged terms found. We couldn't fully check this offer's fine print.");
   });
 
   it('I3: the offline screen rejects offers that need a paid membership, but not the auto-renew trap (only case law catches that)', async () => {
@@ -227,6 +231,115 @@ describe('fine print court', () => {
     const r = await revise(c, 'amount mismatch', ctx);
     expect(r?.retryCount).toBe(1);
     expect(llm.prompts[5]).toContain('amount mismatch');
-    expect(runQuery.mock.calls[0][0]).toContain('WHERE id = 1');
+    expect(runQuery.mock.calls.map((c) => c[0] as string).some((q) => q.includes('v_judge_offers') && q.includes('WHERE id = 1'))).toBe(true);
+  });
+});
+
+describe('rebuttal round (max 1)', () => {
+  beforeEach(() => { process.env.TODAY = '2026-10-23'; });
+  const FEE = 'Free box. $7.99 shipping applies.'; // the code screen rejects this
+  const feeOffer = offer(60, { title: 'Free box', store: 'Fee Co', fine_print: FEE });
+  const writer = () => { const rows: any[] = []; return { rows, insert: jest.fn(async (r: any) => { rows.push(r); return String(rows.length); }) }; };
+  const rounds = (trace: TraceLogger) => trace.lines().filter((l) => l.action === 'court_debate' && /rebuttal round/.test(l.input_summary));
+
+  it('code screen and Judge agree: no rebuttal, 3 AI calls', async () => {
+    const llm = new FakeGenerator(['pro', 'con', APPROVE]);
+    const { ctx, trace } = setup([offer(1)], llm);
+    await judgeOffers(ctx, IN);
+    expect(llm.calls).toBe(3);
+    expect(rounds(trace)).toHaveLength(0);
+  });
+
+  it('a disputed offer shows exactly one rebuttal round, then the stricter answer stands (code reject beats Judge approve)', async () => {
+    const llm = new FakeGenerator(['pro', 'con', APPROVE, 'hunter rebuts', 'lawyer rebuts', APPROVE, 'never asked', 'never asked']);
+    const { ctx, trace } = setup([feeOffer], llm);
+    ctx.blocked = []; ctx.offerChecks = writer() as any;
+    expect(await judgeOffers(ctx, IN)).toEqual([]);
+    expect(llm.calls).toBe(6); // 3 first-round calls + hunter rebuttal + lawyer rebuttal + Judge again
+    const r = rounds(trace);
+    expect(r).toHaveLength(1);
+    expect(r[0].input_summary).toContain('rebuttal round 1 of 1');
+    expect(ctx.blocked).toHaveLength(1);
+    expect(ctx.blocked[0].body).toMatch(/\$7\.99/);
+    // a disputed grade is never saved
+    expect((ctx.offerChecks as any).insert).not.toHaveBeenCalled();
+  });
+
+  it('both sides are asked side by side: rebuttal prompts carry the code screen finding and the first ruling', async () => {
+    const llm = new FakeGenerator(['pro', 'con', APPROVE, 'hr', 'lr', APPROVE]);
+    const { ctx } = setup([feeOffer], llm);
+    await judgeOffers(ctx, IN);
+    for (const i of [3, 4]) {
+      expect(llm.prompts[i]).toContain('$7.99');
+      expect(llm.prompts[i]).toMatch(/Judge/);
+    }
+    expect(llm.prompts[5]).toContain('hr');
+    expect(llm.prompts[5]).toContain('lr');
+  });
+
+  it('the Judge changes their mind after the rebuttal: the two sides now agree, the grade is saved as agreed', async () => {
+    const llm = new FakeGenerator(['pro', 'con', APPROVE, 'hr', 'lr', REJECT]);
+    const { ctx } = setup([feeOffer], llm);
+    const w = writer(); ctx.offerChecks = w as any;
+    expect(await judgeOffers(ctx, IN)).toEqual([]);
+    expect(w.rows).toHaveLength(1);
+    expect(w.rows[0]).toMatchObject({ offerId: '60', store: 'Fee Co', verdict: 'reject', status: 'agreed' });
+  });
+
+  it('strictly max 1: a send-back re-judge of the same offer never opens a second rebuttal round', async () => {
+    const llm = new FakeGenerator(['pro', 'con', APPROVE, 'hr', 'lr', APPROVE]);
+    const { ctx, trace } = setup([feeOffer], llm);
+    await judgeOffers(ctx, IN);
+    const before = llm.calls;
+    const cand: any = { id: 'discount-60', claim: { type: 'offer', offerId: 60 }, retryCount: 0 };
+    expect(await revise(cand, 'check again', ctx)).toBeNull();
+    expect(llm.calls - before).toBe(3); // hunter, lawyer, Judge only
+    expect(rounds(trace)).toHaveLength(1);
+  });
+
+  it('Judge reject that cites recalled case law is not a disagreement (the code screen cannot see case law)', async () => {
+    const llm = new FakeGenerator(['pro', 'con', '']);
+    const { ctx, mem, trace } = setup([trap], llm);
+    const id = mem.addRule('free trials that auto-renew into paid memberships are not free', 'test', 0.8, []);
+    llm.generate = async (p: string) => { llm.prompts.push(p); llm.calls += 1; return llm.calls < 3 ? 'arg' : JSON.stringify({ verdict: 'reject', citedRuleIds: [id], reason: 'rule applies' }); };
+    const w = writer(); ctx.offerChecks = w as any;
+    expect(await judgeOffers(ctx, IN)).toEqual([]);
+    expect(llm.calls).toBe(3);
+    expect(rounds(trace)).toHaveLength(0);
+    expect(w.rows[0]).toMatchObject({ verdict: 'reject', status: 'agreed', ruleCitations: [id] });
+  });
+
+  it('approve with a catch counts only the true value (face value minus the fee), and names the catch', async () => {
+    const pillow = offer(70, { title: 'Free pillow', store: 'Pillow Co', value_cents: 4500, fine_print: 'Free pillow ($45 value). $3.99 shipping applies.' });
+    const llm = new FakeGenerator(['pro', 'con', APPROVE]);
+    const { ctx } = setup([pillow], llm);
+    const [c] = await judgeOffers(ctx, IN);
+    expect(c.amountCents).toBe(4101);
+    expect(c.body).toMatch(/catch/i);
+    expect(c.body).toMatch(/\$3\.99/);
+    expect(llm.calls).toBe(3);
+  });
+
+  it('writes one offer_checks row and one H-MEM lesson for an agreed approval, with value and time from the fine print', async () => {
+    const o = offer(80, { store: 'Wait Co', value_cents: 2000, fine_print: 'Free gift ($20 value). Mail-in form required. Allow 6-8 weeks for your prepaid card.' });
+    const llm = new FakeGenerator(['pro', 'con', APPROVE]);
+    const { ctx, trace } = setup([o], llm);
+    const w = writer(); ctx.offerChecks = w as any;
+    const lessons: any[] = [];
+    ctx.workspace = { recallLessons: () => [], addLesson: (l: any) => { lessons.push(l); return 'lesson-1'; }, post: () => ({}) } as any;
+    await judgeOffers(ctx, IN);
+    expect(w.rows).toHaveLength(1);
+    expect(w.rows[0]).toMatchObject({ offerId: '80', status: 'agreed', verdict: 'approve_with_catch', faceValueCents: 2000, trueValueCents: 2000, payoutWaitDaysMin: 42, payoutWaitDaysMax: 56 });
+    expect(JSON.stringify(w.rows[0])).not.toMatch(/maya|income|02139/i);
+    expect(lessons).toHaveLength(1);
+    expect(lessons[0].offerCheckId).toBe('1');
+    expect(trace.lines().some((l) => l.action === 'offer_check_saved')).toBe(true);
+  });
+
+  it('offline (no AI): nothing is saved, because nothing was agreed', async () => {
+    const { ctx } = setup([offer(1)], new UnavailableGenerator('no key'));
+    const w = writer(); ctx.offerChecks = w as any;
+    await judgeOffers(ctx, IN);
+    expect(w.insert).not.toHaveBeenCalled();
   });
 });

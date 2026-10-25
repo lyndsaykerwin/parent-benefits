@@ -1,5 +1,6 @@
 import { col, isInlineFamily, quoteId, InvalidId, addDays, fmtUsd, dupKey } from './sql';
 import { explain } from './explain';
+import { findRecalledItems, itemKey, pairsSql } from './recall';
 import type { AgentContext, Candidate } from './types';
 
 const AGENT = 'clawback';
@@ -44,6 +45,9 @@ export function priceSql(familyId: string): string {
   );
 }
 
+/** The item each candidate is about, so the safety check can ask the Recall Checker by name. */
+const itemOf = new WeakMap<Candidate, string>();
+
 function log(ctx: AgentContext, action: string, input: string, output: string, status: 'ok' | 'retry' | 'blocked' | 'error' | 'fallback' = 'ok', retry = 0): string {
   return ctx.trace.log({
     agent_name: AGENT, action, input_summary: input, output_summary: output,
@@ -65,13 +69,15 @@ async function fsaCandidates(ctx: AgentContext, seen: Set<string>): Promise<Cand
     const fallback = `You paid ${fmtUsd(cents)} at ${s(r, 'merchant')} for ${item}. It is likely eligible (${s(r, 'fsa_category')}), so you may be able to reimburse it from your health FSA or HSA.`;
     const body = await explain(ctx, AGENT, `Purchase: ${item} at ${s(r, 'merchant')} for ${fmtUsd(cents)}. Likely ${s(r, 'account')}-eligible as: ${s(r, 'fsa_category')}.`, [cents], fallback);
     const id = `clawback-fsa-${s(r, 'item_id')}`;
-    out.push({
+    const cand: Candidate = {
       id, kind: 'clawback', title: `Reimburse your ${item}`, body, amountCents: cents, deadline: null,
       verdict: 'verified', sources: [{ label: `${s(r, 'fsa_category')} (eligible-items list)`, url: s(r, 'source_url') }],
       traceId: log(ctx, 'fsa_reimbursement', `item ${s(r, 'item_id')}`, `${fmtUsd(cents)} likely ${s(r, 'account')}-eligible`),
       agent: AGENT, claim: { type: 'fsa_reimbursement', itemId: s(r, 'item_id'), itemAmountCents: cents },
       evidenceSql: sql, retryCount: 0,
-    });
+    };
+    itemOf.set(cand, item);
+    out.push(cand);
   }
   return out;
 }
@@ -105,7 +111,7 @@ async function priceCandidates(ctx: AgentContext, seen: Set<string>): Promise<Ca
     const item = s(r, 'item');
     const fallback = `You paid ${fmtUsd(paid)} for ${item} at ${s(r, 'merchant')} on ${date}. The price is now ${fmtUsd(n(r, 'observed_price_cents'))}, and ${s(r, 'merchant')} adjusts prices for ${n(r, 'window_days')} days, so ask for ${fmtUsd(cents)} back by ${deadline}.`;
     const body = await explain(ctx, AGENT, `Bought ${item} at ${s(r, 'merchant')} for ${fmtUsd(paid)} on ${date}. Price dropped to ${fmtUsd(n(r, 'observed_price_cents'))} on ${s(r, 'observed_at')}. Store adjusts prices for ${n(r, 'window_days')} days; ask by ${deadline}. Difference ${fmtUsd(cents)}.`, [paid, n(r, 'observed_price_cents'), cents], fallback);
-    out.push({
+    const cand: Candidate = {
       id: `clawback-price-${s(r, 'item_id')}`, kind: 'clawback', title: `Price drop on your ${item}`, body, amountCents: cents, deadline,
       verdict: 'verified',
       sources: [
@@ -115,9 +121,61 @@ async function priceCandidates(ctx: AgentContext, seen: Set<string>): Promise<Ca
       traceId: log(ctx, 'price_adjustment', `item ${s(r, 'item_id')}`, `${fmtUsd(cents)} back by ${deadline}`),
       agent: AGENT, claim: { type: 'price_adjustment', itemId: s(r, 'item_id'), itemAmountCents: paid },
       evidenceSql: sql, retryCount: 0,
-    });
+    };
+    itemOf.set(cand, item);
+    out.push(cand);
   }
   return out;
+}
+
+const KILL_LINE = 'do not encourage buying or claiming a rebate on this item';
+
+/** Leave a note for another agent in the shared workspace. A workspace problem must never stop the safety check. */
+function tell(ctx: AgentContext, from: string, to: string, type: 'question' | 'answer' | 'verdict', about: string, body: string): void {
+  try {
+    ctx.workspace?.post({ from_agent: from, to_agent: to, type, about, body, evidence_sql: pairsSql(ctx.family.id), round: 0 });
+  } catch (e) {
+    log(ctx, 'workspace_note', about, `note not posted (${String((e as Error)?.message ?? e).slice(0, 80)})`, 'fallback');
+  }
+}
+
+/**
+ * The safety-value loop (loop 1). Before a price drop or rebate is published, the Clawback Hunter asks the Recall
+ * Checker, through the workspace, whether that item is under a CPSC or FDA recall. A recalled item's deal is killed
+ * here, before the Judge ever sees it: a money-back card must never nudge a parent toward a dangerous product.
+ * If the Recall Checker cannot be reached the deals are kept and the trace says so (it is never silent).
+ */
+async function safetyGate(ctx: AgentContext, cands: Candidate[]): Promise<Candidate[]> {
+  if (!cands.length) return cands;
+  let recalled: Awaited<ReturnType<typeof findRecalledItems>>;
+  try {
+    recalled = await findRecalledItems(ctx);
+  } catch (e) {
+    log(ctx, 'safety_check', `${cands.length} deal(s)`, `Recall Checker unavailable (${String((e as Error)?.message ?? e).slice(0, 80)}): deals kept, not safety-checked`, 'fallback');
+    return cands;
+  }
+  const kept: Candidate[] = [];
+  for (const c of cands) {
+    const item = itemOf.get(c) ?? '';
+    const what = c.claim.type === 'price_adjustment' ? 'price drop' : 'reimbursement';
+    tell(ctx, 'ClawbackHunter', 'RecallChecker', 'question', c.id, `Is "${item}" under a CPSC or FDA recall? I am about to publish a ${what} on it.`);
+    const hit = recalled.get(itemKey(item));
+    if (!hit) {
+      tell(ctx, 'RecallChecker', 'ClawbackHunter', 'answer', c.id, `No open CPSC or FDA recall matched "${item}".`);
+      log(ctx, 'safety_check', `${c.id}: ${item.slice(0, 80)}`, 'asked the Recall Checker: no recall matched, deal can go on');
+      kept.push(c);
+      continue;
+    }
+    tell(ctx, 'RecallChecker', 'ClawbackHunter', 'answer', c.id, `Yes: recall ${hit.recallId} (${hit.recallTitle}). Evidence: ${hit.evidence}.`);
+    tell(ctx, 'ClawbackHunter', 'Orchestrator', 'verdict', c.id, `Deal killed: "${item}" is under recall ${hit.recallId}; ${KILL_LINE}.`);
+    ctx.trace.log({
+      agent_name: AGENT, action: 'safety_kill', input_summary: `${c.id}: ${item.slice(0, 80)}`,
+      output_summary: `killed before the Judge: recall ${hit.recallId} (${hit.evidence}); ${KILL_LINE}`,
+      target_agent: null, confidence: null, retry_count: 0, status: 'blocked',
+      agentLog: { agent: 'ClawbackHunter', action: 'reject_card', status: 'rejected', target: 'RecallChecker' },
+    });
+  }
+  return kept;
 }
 
 /** Find money a family can get back: FSA reimbursements and store price adjustments, from purchase_items only. */
@@ -136,11 +194,12 @@ export async function findClawbacks(ctx: AgentContext): Promise<Candidate[]> {
     throw e;
   }
   const seen = new Set<string>();
-  const out = [
+  const found = [
     ...(await fsaCandidates(ctx, seen)),
     ...(await priceCandidates(ctx, seen)),
   ];
-  log(ctx, 'find_clawbacks', `family ${ctx.family.id}`, `${out.length} candidate(s): ${out.map((c) => c.claim.type).join(', ') || 'none'}`);
+  const out = await safetyGate(ctx, found);
+  log(ctx, 'find_clawbacks', `family ${ctx.family.id}`, `${out.length} candidate(s)${found.length > out.length ? ` (${found.length - out.length} killed by the recall check)` : ''}: ${out.map((c) => c.claim.type).join(', ') || 'none'}`);
   return out;
 }
 

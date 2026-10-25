@@ -4,6 +4,10 @@ import type { Generator } from '../adapters/llm';
 import type { BundleMemory } from '../adapters/memory';
 import type { TraceLogger } from './trace';
 import type { Workspace } from './workspace';
+import type { offerChecks } from '../../shared/schema';
+
+/** One row to save in offer_checks. */
+export type InsertOfferCheck = typeof offerChecks.$inferInsert;
 
 export interface CourtRuling {
   verdict: 'approve' | 'reject';
@@ -57,6 +61,15 @@ export interface FinePrintCheck {
   quotedAmountsCents: number[];
 }
 
+/**
+ * Where the court saves a finished grade (the Living Fine-Print Database). The real one wraps the database
+ * (offerChecks.createOfferCheckWriter); tests pass a fake. Only 'agreed' rows are ever accepted.
+ */
+export interface OfferCheckWriter {
+  /** Saves one row and returns its id (as text). */
+  insert(row: InsertOfferCheck): Promise<string>;
+}
+
 export interface AgentContext {
   runId: string;
   family: Family;
@@ -70,6 +83,8 @@ export interface AgentContext {
   today?: string;
   /** Offers the court rejected, filled by the court so the app can show "we caught these for you" (never counted in totals). */
   blocked?: FeedCard[];
+  /** Saves each agreed court grade to offer_checks. Absent in sample runs without a database: nothing is saved, and the trace says so. */
+  offerChecks?: OfferCheckWriter;
 }
 
 export interface Candidate extends FeedCard {
@@ -77,4 +92,6 @@ export interface Candidate extends FeedCard {
   claim: Record<string, string | number>;
   evidenceSql: string;
   retryCount: number;
+  /** The court's final answer when it differs from a plain approval: 'approve_with_catch' counts only the true value. */
+  courtVerdict?: 'approve' | 'approve_with_catch';
 }
