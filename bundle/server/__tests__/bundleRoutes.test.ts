@@ -15,7 +15,7 @@ import * as recall from '../agents/recall';
 import * as court from '../agents/finePrintCourt';
 import * as benefits from '../agents/benefits';
 import * as fc from '../agents/factChecker';
-import { createBundleRouter, parentResult, type ApiDeps } from '../routes/bundleRoutes';
+import { createBundleRouter, parentResult, parentCard, type ApiDeps } from '../routes/bundleRoutes';
 import { bodyParsers } from '../middleware/bodyLimit';
 import { MemoryStore } from '../bundleStore';
 import { FakeGenerator } from '../adapters/llm';
@@ -273,6 +273,7 @@ describe('W1-OWNER: owner view split (parent response trimmed on the server)', (
   const HIDDEN_KEYS = ['traceId', 'agent', 'claim', 'evidenceSql', 'retryCount'];
   const HIDDEN_TEXT = [/zetaris/i, /\bv_[a-z_]+\b/, /cited mem-/i, /case law/i, /court was offline/i, /SELECT /i, /Reject offers that turn into paid memberships/];
   const PARENT_CARD_KEYS = ['amountCents', 'body', 'deadline', 'id', 'kind', 'sources', 'title', 'verdict'];
+  const VALUE_SCORE_KEYS = ['catchTypes', 'effortLevel', 'effortMinutesEstimate', 'payoutWaitDays', 'reasons', 'stepsCount', 'timeLabel', 'trueValueCents', 'worthYourTime'];
 
   function withLeakyCards() {
     const ctx = build();
@@ -298,6 +299,29 @@ describe('W1-OWNER: owner view split (parent response trimmed on the server)', (
     expect(res.body.blocked).toHaveLength(1);
     expect(res.body.blocked[0].body).toBe('Other parents reported a catch like this one, so we left it out.');
     expectParentSafe(res.body);
+  });
+
+  it('parentResult / parentCard keep a Value Score on offer cards, copying only its known fields; other cards get no valueScore key', () => {
+    const vs = { trueValueCents: 500, effortLevel: 'low', effortMinutesEstimate: { min: 7, max: 15 }, stepsCount: 1, payoutWaitDays: { min: 14, max: 28 }, timeLabel: 'money in about 2–4 weeks', catchTypes: ['mail_in'], worthYourTime: true, reasons: ['$5.00 after the strings attached'], internalNote: 'SELECT secret' };
+    const base = { kind: 'discount', title: 'T', body: 'B', amountCents: 500, deadline: null, verdict: 'likely', sources: [], traceId: 't-1' };
+    const r: any = { familyId: 'leo', runId: 'r1', banner: null, receipt: { moneyBackCents: 0, likelyBenefitsCents: 0, deadlineCount: 0, nextDeadline: null, itemsChecked: 0 },
+      cards: [{ ...base, id: 'discount-8', valueScore: vs }, { ...base, id: 'recall-1', kind: 'recall' }] };
+    const out = parentResult(r).cards;
+    expect(Object.keys(out[0]).sort()).toEqual([...PARENT_CARD_KEYS, 'valueScore'].sort());
+    expect(Object.keys((out[0] as any).valueScore).sort()).toEqual(VALUE_SCORE_KEYS);
+    expect(Object.keys(out[1]).sort()).toEqual(PARENT_CARD_KEYS);
+    expect(JSON.stringify(out)).not.toMatch(/SELECT|internalNote|traceId/);
+    expect(parentCard(r.cards[0]).valueScore!.payoutWaitDays).toEqual({ min: 14, max: 28 });
+  });
+
+  it('?wait=true returns the family with exactly name, birthDate, dueDate, state (no income, zip, employer)', async () => {
+    const { app } = withLeakyCards();
+    for (const headers of [{}, { 'x-reviewer-token': 'sekret' }]) {
+      const res = await request(app).post('/api/run?wait=true').set(headers).send({ familyId: 'leo' });
+      expect(res.status).toBe(200);
+      expect(Object.keys(res.body.family).sort()).toEqual(['birthDate', 'dueDate', 'name', 'state']);
+      expect(JSON.stringify(res.body)).not.toMatch(/income|zip|employer|householdSize/i);
+    }
   });
 
   it('GET /api/runs/:id without a token is trimmed and carries parent-safe progress steps', async () => {

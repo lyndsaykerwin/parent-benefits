@@ -7,6 +7,7 @@ import { checkFinePrint, finalVerdict, fingerprint } from './finePrintRules';
 import type { SavedVerdict } from './savedVerdicts';
 import { newsroomFor, quoted, MAX_REBUTTALS, type Newsroom, type OfferRef } from './newsroom';
 import type { FinePrintCheck } from './types';
+import { valueScore, worthSettings } from './valueScore';
 
 const AGENT = 'fine_print_court';
 const MAX_OFFERS = 5;
@@ -219,6 +220,7 @@ function toCandidate(ctx: AgentContext, offer: Offer, j: Judged, retry: number, 
     // The offers data has no end date (max_age_days is the oldest baby age it fits), so there is no deadline to show.
     amountCents, deadline: null,
     verdict: 'likely', sources: [{ label: `${offer.store} offer page`, url: offer.sourceUrl }], traceId,
+    valueScore: valueScore(j.check, worthSettings()),
     agent: AGENT, claim: { type: 'offer', offerId: offer.id }, evidenceSql: sql, retryCount: retry,
     ...(withCatch ? { courtVerdict: 'approve_with_catch' as const } : {}),
   };
@@ -297,6 +299,23 @@ function addBlocked(ctx: AgentContext, card: FeedCard): void {
   if (at >= 0) ctx.blocked[at] = card; else ctx.blocked.push(card);
 }
 
+/**
+ * The Value Score for a reused saved grade. Only the saved numbers are used (true value, effort, steps, wait);
+ * what the saved row does not hold (catch types, exact min effort) is left empty, never guessed.
+ */
+function savedValueScore(saved: SavedVerdict, amountCents: number | null): FeedCard['valueScore'] {
+  const steps = saved.stepsCount ?? 0;
+  const minutes = saved.effortMinutesEstimate ?? 0;
+  const check = {
+    verdict: saved.verdict === 'reject' ? 'reject' : saved.verdict === 'approve_with_catch' ? 'approve_with_catch' : 'approve',
+    reasons: [], trueValueCents: saved.trueValueCents ?? amountCents,
+    effortMinutesEstimate: { min: minutes, max: minutes },
+    effortLevel: steps >= 3 ? 'high' : steps >= 1 ? 'medium' : 'low',
+    stepsCount: steps, payoutWaitDaysMin: saved.payoutWaitDaysMax, payoutWaitDaysMax: saved.payoutWaitDaysMax, catchTypes: [],
+  } as unknown as FinePrintCheck;
+  return valueScore(check, worthSettings());
+}
+
 /** An approved offer rebuilt from a saved grade. Counts the saved true value when there is one. */
 function savedCandidate(ctx: AgentContext, offer: Offer, saved: SavedVerdict, sql: string): Candidate {
   const traceId = ctx.trace.lines().filter((l) => l.agent_name === 'judge' && l.input_summary === `offer ${offer.id}`).pop()?.trace_id ?? '';
@@ -310,6 +329,7 @@ function savedCandidate(ctx: AgentContext, offer: Offer, saved: SavedVerdict, sq
       : `${offer.store} has an offer${worth}. An earlier check of this same wording found nothing that makes it costly. Likely a good deal. ${eligibilityText(offer.maxAgeDays)}`,
     amountCents, deadline: null, // no end date in the offers data
     verdict: 'likely', sources: [{ label: `${offer.store} offer page`, url: offer.sourceUrl }], traceId,
+    valueScore: savedValueScore(saved, amountCents),
     agent: AGENT, claim: { type: 'offer', offerId: offer.id }, evidenceSql: sql, retryCount: 0,
     ...(withCatch ? { courtVerdict: 'approve_with_catch' as const } : {}),
   };

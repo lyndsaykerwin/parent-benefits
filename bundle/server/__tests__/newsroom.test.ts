@@ -65,6 +65,16 @@ describe('newsroom loop', () => {
     expect(l.output_summary).toMatch(/same wording/i);
   });
 
+  it('a reused saved grade still gives the card a Value Score, built from the saved numbers', async () => {
+    const { ctx } = setup([offer(1)], new FakeGenerator(['p', 'c', APPROVE]), [savedRow()]);
+    const out = await judgeOffers(ctx, IN);
+    const vs = out[0].valueScore!;
+    expect(vs.trueValueCents).toBe(1000);
+    expect(vs.stepsCount).toBe(1);
+    expect(vs.effortMinutesEstimate.max).toBe(12);
+    expect(vs.payoutWaitDays).toEqual({ min: 56, max: 56 });
+  });
+
   it('a saved grade that was not agreed (disputed) is never reused: the offer is graded fresh', async () => {
     const llm = new FakeGenerator(['p', 'c', APPROVE]);
     const { ctx } = setup([offer(1)], llm, [savedRow({ status: 'disputed' })]);
