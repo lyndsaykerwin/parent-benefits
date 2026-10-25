@@ -3,7 +3,7 @@ import { col, quoteInt, InvalidId, today, fmtUsd, eligibilityText } from './sql'
 import type { FeedCard } from '../../shared/bundle';
 import type { AgentContext, Candidate, CourtRuling } from './types';
 import { offlineProblem } from './offerScreen';
-import { checkFinePrint, finalVerdict, fingerprint } from './finePrintRules';
+import { checkFinePrint, effortLevelFor, finalVerdict, fingerprint } from './finePrintRules';
 import type { SavedVerdict } from './savedVerdicts';
 import { newsroomFor, quoted, MAX_REBUTTALS, type Newsroom, type OfferRef } from './newsroom';
 import type { FinePrintCheck } from './types';
@@ -300,20 +300,22 @@ function addBlocked(ctx: AgentContext, card: FeedCard): void {
 }
 
 /**
- * The Value Score for a reused saved grade. Only the saved numbers are used (true value, effort, steps, wait);
- * what the saved row does not hold (catch types, exact min effort) is left empty, never guessed.
+ * The Value Score for a reused saved grade. Only saved numbers are used (true value, effort, steps, wait), plus the
+ * mail-in / in-store flags re-read from the offer's own (unchanged) wording so the effort level follows the same rule
+ * as a fresh check. If the saved row lacks minutes or steps, there is no score at all (never "0 minutes, low effort").
  */
-function savedValueScore(saved: SavedVerdict, amountCents: number | null): FeedCard['valueScore'] {
-  const steps = saved.stepsCount ?? 0;
-  const minutes = saved.effortMinutesEstimate ?? 0;
+function savedValueScore(ctx: AgentContext, offer: Offer, saved: SavedVerdict, amountCents: number | null): Pick<FeedCard, 'valueScore'> {
+  if (saved.effortMinutesEstimate === null || saved.stepsCount === null) return {};
+  const flags = checkFinePrint(offer.finePrint, { today: ctx.today ?? today() });
+  const minutes = saved.effortMinutesEstimate;
   const check = {
-    verdict: saved.verdict === 'reject' ? 'reject' : saved.verdict === 'approve_with_catch' ? 'approve_with_catch' : 'approve',
+    verdict: saved.verdict === 'approve_with_catch' ? 'approve_with_catch' : 'approve',
     reasons: [], trueValueCents: saved.trueValueCents ?? amountCents,
     effortMinutesEstimate: { min: minutes, max: minutes },
-    effortLevel: steps >= 3 ? 'high' : steps >= 1 ? 'medium' : 'low',
-    stepsCount: steps, payoutWaitDaysMin: saved.payoutWaitDaysMax, payoutWaitDaysMax: saved.payoutWaitDaysMax, catchTypes: [],
+    effortLevel: effortLevelFor(saved.stepsCount, flags.mailIn, flags.inStoreOnly),
+    stepsCount: saved.stepsCount, payoutWaitDaysMin: saved.payoutWaitDaysMax, payoutWaitDaysMax: saved.payoutWaitDaysMax, catchTypes: [],
   } as unknown as FinePrintCheck;
-  return valueScore(check, worthSettings());
+  return { valueScore: valueScore(check, worthSettings()) };
 }
 
 /** An approved offer rebuilt from a saved grade. Counts the saved true value when there is one. */
@@ -329,7 +331,7 @@ function savedCandidate(ctx: AgentContext, offer: Offer, saved: SavedVerdict, sq
       : `${offer.store} has an offer${worth}. An earlier check of this same wording found nothing that makes it costly. Likely a good deal. ${eligibilityText(offer.maxAgeDays)}`,
     amountCents, deadline: null, // no end date in the offers data
     verdict: 'likely', sources: [{ label: `${offer.store} offer page`, url: offer.sourceUrl }], traceId,
-    valueScore: savedValueScore(saved, amountCents),
+    ...savedValueScore(ctx, offer, saved, amountCents),
     agent: AGENT, claim: { type: 'offer', offerId: offer.id }, evidenceSql: sql, retryCount: 0,
     ...(withCatch ? { courtVerdict: 'approve_with_catch' as const } : {}),
   };
