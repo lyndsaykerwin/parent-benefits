@@ -58,7 +58,7 @@ export interface Family {
   - one duplicate transaction
   - one Amazon item whose title matches a real CPSC recalled product
   - daycare payments (`Bright Horizons`, monthly)
-- [ ] Step 4: `npm run db:push` (Neon), then `npx tsx scripts/seed.ts`, then `npm test -- seed`. Expected: PASS.
+- [ ] Step 4: apply reviewed SQL by hand, only with Lyndsay's OK — never run `db:push` (Neon), then `npx tsx scripts/seed.ts`, then `npm test -- seed`. Expected: PASS.
 - [ ] Step 5: Commit `feat: bundle schema, shared types, seed families and fixtures`.
 
 

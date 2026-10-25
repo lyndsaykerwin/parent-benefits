@@ -134,6 +134,11 @@ function sentences(text: string): [number, number][] {
 }
 
 /** `effort` overrides the effort-minute estimates (defaults: effortSettings() in valueScore.ts). */
+/** The one rule for effort level, shared by a fresh check and a reused saved grade. */
+export function effortLevelFor(stepsCount: number, mailIn: boolean, inStoreOnly: boolean): 'low' | 'medium' | 'high' {
+  return stepsCount >= 3 || mailIn ? 'high' : stepsCount >= 1 || inStoreOnly ? 'medium' : 'low';
+}
+
 export interface CheckOptions { today: string; effort?: EffortSettings }
 
 /** Read one offer's fine print with code rules only. No family data goes into a check. */
@@ -239,7 +244,7 @@ export function checkFinePrint(text: string, opts: CheckOptions): FinePrintCheck
   if (f.mailIn) { effort.min += e.mailIn.min; effort.max += e.mailIn.max; }
   if (f.needsPhoneCall) { effort.min += e.phoneCall.min; effort.max += e.phoneCall.max; }
   if (f.inStoreOnly) { effort.min += e.inStore.min; effort.max += e.inStore.max; }
-  const effortLevel = stepsCount >= 3 || f.mailIn ? 'high' : stepsCount >= 1 || f.inStoreOnly ? 'medium' : 'low';
+  const effortLevel = effortLevelFor(stepsCount, f.mailIn, f.inStoreOnly);
 
   const payoutForm = /\bprepaid\s+(?:card|visa|mastercard)\b/i.test(text) ? 'prepaid_card'
     : /\bpoints\b/i.test(text) ? 'points'
