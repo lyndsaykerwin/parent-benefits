@@ -183,3 +183,6 @@ Orchestrator-applied hand-off patches (one at a time, full test run after): `ser
 | S3-DREAM | optional |
 | W6-EVIDENCE | not started |
 | W6-REHEARSE | not started |
+
+## Rulings from Lyndsay (Oct 25)
+- Cursor: no longer needed. Leave metadata.json and CLAUDE.md as they are; W5-DOCS-README must not flag or change the Cursor wording.
