@@ -1,0 +1,135 @@
+openapi: 3.0.3
+info:
+  title: Bundle Offer Audit
+  version: 1.0.0
+  description: |
+    A small public data product from the Bundle app: for each store (brand), how many baby-deal offers our agents
+    checked and how many hid a catch in the fine print. Totals are for the newest saved grade of each offer.
+
+    The answer comes through Zetaris (a "data door" that lets one SQL question read across our sources) from the
+    view `v_offer_audit`. It contains no family data: there are no names, ZIP codes, incomes, employers, due dates or
+    purchases anywhere in it, only per-brand totals. It also never includes the agents' reasoning or rule text.
+    Read only, and rate limited per address.
+servers:
+  - url: http://localhost:5050
+    description: Local development
+paths:
+  /api/offer-audit:
+    get:
+      summary: Per-brand offer audit totals
+      description: |
+        Returns every brand, sorted by store name, or a single brand when `store` is given.
+        With nothing saved yet the status is `none` (never made-up numbers). If the data source cannot answer, the
+        status is `unavailable` with HTTP 503.
+      operationId: getOfferAudit
+      parameters:
+        - name: store
+          in: query
+          required: false
+          description: Limit the answer to one brand. 1 to 80 plain characters (letters, numbers, spaces and . , & ' -).
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 80
+            example: Made-up Store
+      responses:
+        '200':
+          description: Totals found, or nothing saved yet.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OfferAuditResponse'
+              examples:
+                found:
+                  summary: Two brands (made-up numbers for illustration)
+                  value:
+                    status: found
+                    brands:
+                      - store: Made-up Store
+                        offersChecked: 4
+                        offersCaught: 1
+                        catchRate: 0.25
+                        avgFaceValueCents: 2000
+                        avgTrueValueCents: 1500
+                        avgEffortMinutes: 12
+                none:
+                  summary: Nothing graded yet
+                  value:
+                    status: none
+                    brands: []
+                    message: No offer grades have been saved yet.
+        '400':
+          description: The store name is not plain text, or more than one store was given.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Too many requests from this address. Try again in a few minutes.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: The offer audit is not available right now (the data source could not answer).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OfferAuditResponse'
+components:
+  schemas:
+    OfferAuditResponse:
+      type: object
+      required: [status, brands]
+      properties:
+        status:
+          type: string
+          enum: [found, none, unavailable]
+          description: found means at least one brand; none means nothing is saved yet; unavailable means the source could not answer.
+        brands:
+          type: array
+          items:
+            $ref: '#/components/schemas/BrandAudit'
+        message:
+          type: string
+          description: A plain sentence, present when status is none or unavailable.
+    BrandAudit:
+      type: object
+      description: Totals for one brand. No family fields.
+      required: [store, offersChecked, offersCaught, catchRate, avgFaceValueCents, avgTrueValueCents, avgEffortMinutes]
+      properties:
+        store:
+          type: string
+          description: The brand or store name.
+        offersChecked:
+          type: integer
+          nullable: true
+          description: How many of this brand's offers were checked (newest grade per offer).
+        offersCaught:
+          type: integer
+          nullable: true
+          description: How many of those hid a catch (any verdict other than a plain approve).
+        catchRate:
+          type: number
+          nullable: true
+          minimum: 0
+          maximum: 1
+          description: offersCaught divided by offersChecked.
+        avgFaceValueCents:
+          type: number
+          nullable: true
+          description: Average advertised value of the brand's offers, in cents.
+        avgTrueValueCents:
+          type: number
+          nullable: true
+          description: Average value after the catches are counted, in cents.
+        avgEffortMinutes:
+          type: number
+          nullable: true
+          description: Average minutes of effort the offers take to claim.
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
