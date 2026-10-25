@@ -98,6 +98,8 @@ export class RunEventHub {
     return (this.runs.get(runId)?.events ?? []).filter((e) => e.seq > afterSeq).map((e) => ({ ...e }));
   }
 
+  /** True when the hub has ever heard of this run (asking never creates it). */
+  has(runId: string): boolean { return this.runs.has(runId); }
   isFinished(runId: string): boolean { return this.runs.get(runId)?.finished ?? false; }
   listenerCount(runId: string): number { return this.runs.get(runId)?.subs.size ?? 0; }
 }
