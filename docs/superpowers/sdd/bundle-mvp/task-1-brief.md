@@ -21,7 +21,7 @@ Create `/Users/lyndsay/Documents/hackathon/bundle/` as its own git repo (branch 
 5. Add `GET /api/health` returning `{"ok":true}`.
 6. `package.json` name becomes `bundle`. `.gitignore` must include `.env`, `.env.*` (but not `.env.example`), `logs/*.jsonl`, `vendor/hmem/node_modules`, `data/hmem/`, `node_modules`, `dist`.
 7. `.env.example` keeps placeholders only, for: `DATABASE_URL, ZETARIS_BASE_URL, ZETARIS_ORG_ID, ZETARIS_API_KEY, MODEL_API_KEY, MODEL_BASE_URL=https://integrate.api.nvidia.com/v1, MODEL_REASONING, MODEL_FAST, SAMPLE_MODE=false, SOURCE_TIMEOUT_SECONDS=20, MAX_RETRIES=2, REVIEWER_MODE_TOKEN, TODAY, PORT=5000`. Optional Stripe vars, commented out.
-8. Database: the template uses `@neondatabase/serverless` with `DATABASE_URL`. Keep that. The real Neon URL comes from the secrets file via `loadEnv`. Run `npm run db:push` **only if** the schema change is additive and safe. The Neon database already contains a table `spike0_amazon_orders` that must NOT be dropped. If drizzle-kit wants to drop it, do NOT confirm; report instead. (Drizzle's `tablesFilter` can scope it.)
+8. Database: the template uses `@neondatabase/serverless` with `DATABASE_URL`. Keep that. The real Neon URL comes from the secrets file via `loadEnv`. Do not run `db:push`; apply reviewed SQL by hand, only with Lyndsay's OK. The Neon database already contains a table `spike0_amazon_orders` that must NOT be dropped. If drizzle-kit wants to drop it, do NOT confirm; report instead. (Drizzle's `tablesFilter` can scope it.)
 
 ## Verification (paste the outputs into your report)
 - `npm install` succeeds

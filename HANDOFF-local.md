@@ -34,7 +34,7 @@ Waves 2–6 in the tracker: W2 (Zetaris registration + saved-verdict query #38, 
 1. `cd bundle && npm ci` (adds `pg`).
 2. Put `NIGHTSHIFT_TOKEN_FILE=<path to proxy-token>` and `MODEL_API_KEY` in `.secrets/bundle.env.local`.
 3. `npm run model:check -- --provider nightshift`, then `-- --provider nvidia`, then `-- --vision`.
-4. `npm run db:push` against Neon (creates the 5 new tables; asks before applying).
+4. apply reviewed SQL by hand, only with Lyndsay's OK — never run `db:push` (creates the 5 new tables).
 5. Record the new `finishedFdaSql()` Zetaris query once with live keys (until then sample mode keeps finished FDA rows and logs it).
 6. After Meterless's Sunday update: set `NIGHTSHIFT_REASONING` and the thinking-off option (`NIGHTSHIFT_EXTRA_BODY`).
 

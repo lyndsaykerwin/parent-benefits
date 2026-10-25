@@ -157,7 +157,7 @@ All paths are inside `bundle/` unless they start with the repo root.
 - **Scope:** section 6 timeline Saturday; `cloud-build-assessment.md` item 21 and its database note. Switch to the standard `pg` library when `DATABASE_URL` points at this machine; a one-command local test database; new tables `purchase_items` (with `seller`, `quantity`, `input_hash`; section 3), `offer_checks` (every section 1 field including the value and time fields `true_value_cents`, `effort_minutes_estimate`, `steps_count`, `payout_wait_days_max`, `payout_wait_days_min`, `claim_window_days`, plus `status`, `rule_citations`, recall fields; no family column), `run_results` (section 6 item 9), `tax_parameters`, `state_programs`; all added to `BUNDLE_TABLE_NAMES`; generated setup SQL; `package.json` entries for `pg`, a `db:test` script and a `zetaris:record` script name (the script itself is W2-ZREG's).
 - **Owns:** `shared/schema.ts`, `server/db.ts`, `drizzle.config.ts`, `package.json`, `package-lock.json`, `migrations/` (new), new `scripts/db-test-setup.sh`, new `server/__tests__/schema.test.ts`.
 - **Depends on:** nothing.
-- **Cloud-testable:** fully on the local Postgres 16 (`service postgresql start`). Applying to the real Neon (`npm run db:push`) is a Mac flip-on step.
+- **Cloud-testable:** fully on the local Postgres 16 (`service postgresql start`). Applying to the real Neon (apply reviewed SQL by hand, only with Lyndsay's OK — never run `db:push`) is a Mac flip-on step.
 - **Status:** qc-pass (merged b28ccb5; fixes: line_index dedupe, LOCALHOST)
 
 **W1-TRACE: Lyndsay's JSONL trace logger**

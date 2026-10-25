@@ -2,7 +2,7 @@
 
 Plain-English steps for Lyndsay's Mac. "Flip-on" means switching the app from saved sample answers to the real services (Nightshift, NVIDIA, Zetaris, Neon). Run every command in the `bundle` folder. Last updated Oct 25, 2026.
 
-**Words used here.** *Terminal* = the app where you type commands. *Neon* = the online database. *Zetaris* = the SQL "data door" that reads our scattered sources. *Nightshift* = Meterless's free Mac app that acts as an AI switchboard on your own computer. *Nemotron* = NVIDIA's family of AI models. *Replay* = a saved real Zetaris answer the app plays back when it has no keys. *Dry run* = shows what would happen, changes nothing.
+**Words used here.** *Terminal* = the app where you type commands. *Neon* = the online database. *Zetaris* = the SQL "data door" that reads our scattered sources. *Nightshift* = Meterless's free Mac app that acts as an AI switchboard on your own computer. *Nemotron* = NVIDIA's family of AI models. *View* = a saved, named question over our data that Zetaris answers like a table. *Port* = a door number on a computer; each program listens at its own. *Thrift error* = a connection hiccup message from Zetaris's internal messaging layer; it is usually temporary. *Scoreboard* = the file `logs/scoreboard.json` recording how many traps the app caught, how many false alarms, and which AI model answered. *Replay* = a saved real Zetaris answer the app plays back when it has no keys. *Dry run* = shows what would happen, changes nothing.
 
 **Ground rules**
 - Never paste a key into chat, the repo or `.env.example`. Real values live only in your private file `~/Documents/hackathon/.secrets/bundle.env.local`.
