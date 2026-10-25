@@ -192,3 +192,11 @@ Until the Mac re-record happens, sample mode must keep working honestly (empty o
 ## Post-wave fixes
 - Deadline fix: max_age_days is an eligibility limit, not an end date; cards say "Fits babies up to N months old." (merge 256d653)
 - State patch: family state now sent to the client for the coming-soon card; whitelist test asserts exactly name/birthDate/dueDate/state (cce546a)
+
+## Mac live re-record (wave 3)
+
+- Neon: `npm run seed` only (no db:push, no SQL). Maya's KEAWIS crib mattress is 2025-03-10 in Neon.
+- Zetaris views: `scripts/zetaris/register.ts` unchanged since wave 2 (no diff vs 62c5f24), so register was skipped.
+- Recorded live with the existing scripts: `zetaris:record`, `agents-live`, `benefits-live`, `court-live` (twice: once with the Nemotron court, once with the model switched off so the planted free-box trap reaches the Fact-Checker query), `examples:regen -- --live` (run with the model switched off so the court is the offline screen, as the replay tests expect). Transient Zetaris thrift errors passed on retry after waiting.
+- Tests: 848 passed, 2 failed, 11 skipped. tsc clean, build OK. Offline eval: 6/6 traps caught, 0 false alarms, learning flip OK; money back maya $48.99, leo $0, ava $14.58.
+- OPEN (needs Lyndsay's decision): the 2 failures are `tabs.test.tsx` (sends every real card to one tab) and the "I got this" claims test. They hardcode the card id `clawback-fsa-4`, but re-seeding gave Maya's purchase row id 15 (Neon's counter keeps counting up), so the card is now `clawback-fsa-15`/`clawback-price-16`. Fix is either restart that counter and re-seed + re-record, or change the ids in those two tests. Not done: both need a go-ahead.
