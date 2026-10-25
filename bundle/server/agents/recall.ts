@@ -1,10 +1,9 @@
-import { askJson } from '../adapters/llm';
-import { col, quoteId, InvalidId, isInlineFamily } from './sql';
+import { col, quoteId, quoteInt, InvalidId, isInlineFamily } from './sql';
 import { explain } from './explain';
+import { matchRecall, typesIn, extractLots, extractModels, extractUpcs, type PurchaseItem, type RecallRecord } from './recallMatch';
 import type { AgentContext, Candidate } from './types';
 
 const AGENT = 'recall';
-const MAX_PAIRS = 25; // keeps the model cost and the run time bounded
 
 type Row = Record<string, string | number | null>;
 const s = (r: Row, k: string) => String(col(r, k) ?? '');
@@ -35,7 +34,11 @@ export function itemsSql(familyId: string): string {
   return `SELECT DISTINCT item_text, source FROM (${itemsSelect(familyId)}) a ORDER BY item_text`;
 }
 
-/** One statement: purchases x (CPSC + openFDA) recalls, joined inside Zetaris on a brand word or two real title words. */
+/**
+ * One statement: purchases x (CPSC + openFDA) recalls, joined inside Zetaris on a brand word or two real title words.
+ * This is only the wide first net; the fixed matching rules (recallMatch.ts) decide which pairs are real.
+ * Its text is unchanged so its saved replay stays valid.
+ */
 export function pairsSql(familyId: string): string {
   const cpsc =
     "SELECT 'cpsc' AS recall_source, CAST(RecallID AS bigint) AS recall_id, CAST(RecallNumber AS string) AS recall_number, " +
@@ -75,6 +78,40 @@ export function finishedFdaSql(): string {
   );
 }
 
+/** Which recalls to read the full record for. */
+export interface RecallRef { source: 'cpsc' | 'fda'; id: number | string }
+
+/**
+ * The recall RECORD (description, where and when it was sold, model numbers, barcodes, lot codes) for the recalls
+ * that came back as possible matches. A separate small query, so the recorded queries above keep their exact
+ * text. No family data in it. Throws on an unsafe id.
+ */
+export function recallDetailsSql(refs: RecallRef[]): string {
+  const cpsc = [...new Set(refs.filter((r) => r.source === 'cpsc').map((r) => quoteInt(r.id)))];
+  const fda = [...new Set(refs.filter((r) => r.source === 'fda').map((r) => quoteId(String(r.id))))];
+  const parts: string[] = [];
+  if (cpsc.length) {
+    parts.push(
+      "SELECT 'cpsc' AS recall_source, CAST(RecallID AS bigint) AS recall_id, CAST(NULL AS string) AS recall_number, Description AS description, " +
+      "concat_ws(' ', coalesce(SoldAtLabel, ''), concat_ws(' ', transform(Retailers, r -> r.Name))) AS sold_at, " +
+      "concat_ws(' ', transform(Manufacturers, m -> m.Name)) AS firm, concat_ws(' ', transform(Products, p -> p.Model)) AS models, " +
+      "concat_ws(' ', transform(ProductUPCs, u -> CAST(u.UPC AS string))) AS upcs, CAST(NULL AS string) AS lots " +
+      `FROM bundle_live.cpsc_recalls WHERE RecallID IN (${cpsc.join(', ')})`,
+    );
+  }
+  if (fda.length) {
+    parts.push(
+      "SELECT 'fda' AS recall_source, CAST(NULL AS bigint) AS recall_id, f.recall_number AS recall_number, f.reason_for_recall AS description, " +
+      'f.distribution_pattern AS sold_at, f.recalling_firm AS firm, CAST(NULL AS string) AS models, CAST(NULL AS string) AS upcs, f.code_info AS lots ' +
+      'FROM (SELECT x.recall_number AS recall_number, x.reason_for_recall AS reason_for_recall, x.distribution_pattern AS distribution_pattern, ' +
+      'x.recalling_firm AS recalling_firm, x.code_info AS code_info FROM bundle_live.fda_food_recalls LATERAL VIEW explode(results) t AS x) f ' +
+      `WHERE f.recall_number IN (${fda.join(', ')})`,
+    );
+  }
+  if (!parts.length) throw new InvalidId('no recalls to look up');
+  return parts.map((q) => `SELECT * FROM (${q}) d`).join(' UNION ALL ');
+}
+
 /** Drop pairs whose FDA recall is finished, so no parent gets a card about a recall that ended. The FDA feed stays. */
 async function dropFinishedFda(ctx: AgentContext, rows: Row[]): Promise<Row[]> {
   if (!rows.some((r) => s(r, 'recall_source') === 'fda')) return rows;
@@ -93,7 +130,9 @@ async function dropFinishedFda(ctx: AgentContext, rows: Row[]): Promise<Row[]> {
 }
 
 const norm = (t: string) => t.toLowerCase().replace(/\s+/g, ' ').trim();
-/** The only match we accept without a model: the recalled product's whole name appears in what was bought. */
+/** Normalised item name: the key findRecalledItems uses. */
+export const itemKey = norm;
+/** The recalled product's whole name appears in what was bought (a strong sign; the fixed rules still have to agree). */
 export const exactContainment = (item: string, product: string): boolean => {
   const p = norm(product);
   return p.length >= 4 && norm(item).includes(p);
@@ -103,18 +142,23 @@ export const exactContainment = (item: string, product: string): boolean => {
  * Exact-code check done in code on a joined pair: the family's UPC, lot code or model number appears in the recall text.
  * Returns a plain evidence line, or null. Short codes never count (a fragment of another number is not a match).
  */
-export function codeEvidence(row: Row): string | null {
+export type EvidenceType = 'upc' | 'lot' | 'model' | 'name' | 'confirmed';
+export interface CodeMatch { line: string; type: 'upc' | 'lot' | 'model'; code: string }
+
+export const codeEvidence = (row: Row): string | null => codeMatch(row)?.line ?? null;
+
+export function codeMatch(row: Row): CodeMatch | null {
   const text = norm(s(row, 'recalled_product'));
   const upc = s(row, 'upc').replace(/\D+/g, '');
   const noZeros = (x: string) => x.replace(/^0+/, '');
   if (upc.length >= 8 && text.replace(/\D+/g, ' ').split(' ').some((n) => n.length >= 8 && noZeros(n) === noZeros(upc))) {
-    return `UPC ${upc} appears in the recall notice`;
+    return { line: `UPC ${upc} appears in the recall notice`, type: 'upc', code: upc };
   }
   const hasWord = (code: string) => new RegExp(`(^|[^a-z0-9])${code.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}($|[^a-z0-9])`).test(text);
   const lot = norm(s(row, 'lot_code'));
-  if (lot.length >= 4 && hasWord(lot)) return `lot code ${s(row, 'lot_code')} appears in the recall notice`;
+  if (lot.length >= 4 && hasWord(lot)) return { line: `lot code ${s(row, 'lot_code')} appears in the recall notice`, type: 'lot', code: s(row, 'lot_code') };
   const model = norm(s(row, 'model_number'));
-  if (model.length >= 3 && hasWord(model)) return `model number ${s(row, 'model_number')} appears in the recall notice`;
+  if (model.length >= 3 && hasWord(model)) return { line: `model number ${s(row, 'model_number')} appears in the recall notice`, type: 'model', code: s(row, 'model_number') };
   return null;
 }
 
@@ -125,25 +169,51 @@ function log(ctx: AgentContext, action: string, input: string, output: string, s
   });
 }
 
-interface Judged { row: Row; exact: boolean; evidence?: string }
+const recallKey = (r: Row) => `${s(r, 'recall_source')}|${s(r, 'recall_id')}|${s(r, 'recall_number')}`;
 
-async function judgePair(ctx: AgentContext, row: Row): Promise<Judged | null> {
+/** The recall as the matcher wants it: the pair row, enriched with the recall record when Zetaris returned it. */
+function toRecallRecord(row: Row, d: Row | undefined): RecallRecord {
+  const fda = s(row, 'recall_source') === 'fda';
+  const product = s(row, 'recalled_product');
+  const description = d ? s(d, 'description') : '';
+  return {
+    id: fda ? `fda-${s(row, 'recall_number')}` : `cpsc-${s(row, 'recall_id')}`,
+    source: fda ? 'fda' : 'cpsc', title: s(row, 'recall_title'), productNames: [product], description,
+    recallDate: s(row, 'recall_date').slice(0, 10), status: 'ongoing',
+    upcs: [...new Set([...extractUpcs(product), ...(d ? extractUpcs(s(d, 'upcs')) : [])])],
+    models: d ? [...new Set([...extractModels(description), ...extractModels(`Model: ${s(d, 'models')}`)])] : [],
+    lots: fda && d ? extractLots(s(d, 'lots')) : [], soldAt: d ? s(d, 'sold_at') : '', firm: d ? s(d, 'firm') : '',
+  };
+}
+
+interface Judged { row: Row; exact: boolean; evidence: string; level: 'code' | 'rules'; evidenceType: EvidenceType; evidenceCode: string }
+
+/** Evidence as one clean clause: no trailing full stop, and without the matcher's own can sentence (ours is added once, below). */
+const cleanEvidence = (e: string) => e.replace(/\s*Check the lot code on the bottom of the can[^.]*\.?/i, '').trim().replace(/\.$/, '');
+
+/** Judge one possible match: exact codes first, then the fixed rules (brand, type, model, sale dates, seller, size). No model call. */
+function judgePair(ctx: AgentContext, row: Row, detail: Row | undefined, rejected: { n: number }): Judged | null {
   const item = s(row, 'item_text');
   const product = s(row, 'recalled_product');
-  const evidence = codeEvidence(row) ?? undefined;
-  const exact = !!evidence || exactContainment(item, product);
-  // An exact code or product-name match is never second-guessed by the model.
-  if (exact) return { row, exact, evidence };
-  const prompt =
-    'Is the product a family bought the SAME product (same brand and model) as the product named in a safety recall? ' +
-    'Different products from the same category do not count. Reply as JSON: {"same": true} or {"same": false}.\n' +
-    `Bought: ${item}\nRecalled: ${product}\nRecall: ${s(row, 'recall_title')}`;
-  const { value, usedFallback } = await askJson<{ same: boolean }>(
-    ctx.llm, prompt, (x): x is { same: boolean } => typeof (x as any)?.same === 'boolean', { same: false },
-  );
-  if (usedFallback) log(ctx, 'confirm_match', item.slice(0, 80), `no model answer: loose match rejected`, 'fallback');
-  return value.same ? { row, exact, evidence } : null;
+  const code = codeMatch(row);
+  if (code) return { row, exact: true, evidence: code.line, level: 'code', evidenceType: code.type, evidenceCode: code.code };
+  const purchase: PurchaseItem = {
+    text: item, date: s(row, 'purchased_on').slice(0, 10) || null, source: s(row, 'source') || null,
+    upc: s(row, 'upc') || null, model: s(row, 'model_number') || null, lot: s(row, 'lot_code') || null,
+  };
+  const m = matchRecall(purchase, toRecallRecord(row, detail));
+  if (!m.match) {
+    if (rejected.n++ < 20) log(ctx, 'recall_rejected', `${item.slice(0, 60)} vs ${product.slice(0, 60)}`, `${m.reason}: ${m.evidence}`.slice(0, 220));
+    return null;
+  }
+  const byName = exactContainment(item, product);
+  const type: EvidenceType = m.reason === 'exact_upc' ? 'upc' : m.reason === 'exact_lot' ? 'lot' : m.reason === 'exact_model' ? 'model' : byName ? 'name' : 'confirmed';
+  const codeOf = type === 'upc' ? purchase.upc : type === 'lot' ? purchase.lot : type === 'model' ? purchase.model : null;
+  return { row, exact: m.level === 'exact' || byName, evidence: cleanEvidence(m.evidence), level: m.level === 'exact' ? 'code' : 'rules', evidenceType: type, evidenceCode: codeOf ?? '' };
 }
+
+const LOT_LINE = 'Check the lot number on the can against the recall notice.';
+const isFormula = (j: Judged) => typesIn(`${s(j.row, 'recalled_product')} ${s(j.row, 'item_text')}`).has('formula');
 
 async function toCandidate(ctx: AgentContext, j: Judged): Promise<Candidate> {
   const r = j.row;
@@ -153,25 +223,53 @@ async function toCandidate(ctx: AgentContext, j: Judged): Promise<Candidate> {
   const fallback = `You bought "${item}"${bought ? ` on ${bought}` : ''}. ${s(r, 'recall_title')} (recall date ${s(r, 'recall_date')}). Check the official notice and stop using the item if it is the same product.`;
   const explained = await explain(ctx, AGENT, `Bought: ${item}. Recalled product: ${s(r, 'recalled_product')}. Recall: ${s(r, 'recall_title')} dated ${s(r, 'recall_date')}.`, [], fallback);
   // The evidence line is added by code, so it is always true to the data and never depends on the model.
-  const body = j.evidence ? `${explained} Matched on: ${j.evidence}.` : explained;
+  // Every recall alert has one, however it matched.
+  let body = `${explained.replace(/\s*Matched on:.*$/s, '').trim()} Matched on: ${j.evidence}.`;
+  if (isFormula(j)) body += ` ${LOT_LINE}`;
+  const proof = { evidence: j.evidence, evidenceType: j.evidenceType, evidenceCode: j.evidenceCode, recalledProduct: s(r, 'recalled_product'), itemText: item, matchLevel: j.level };
   const claim: Candidate['claim'] = fda
-    ? { type: 'recall', recallSource: 'fda', recallNumber: s(r, 'recall_number') }
-    : { type: 'recall', recallId: Number(col(r, 'recall_id')) };
+    ? { type: 'recall', recallSource: 'fda', recallNumber: s(r, 'recall_number'), ...proof }
+    : { type: 'recall', recallId: Number(col(r, 'recall_id')), ...proof };
   const key = fda ? `fda-${s(r, 'recall_number')}` : `cpsc-${s(r, 'recall_id')}`;
   return {
     id: `recall-${key}`, kind: 'recall', title: `Recall alert: ${s(r, 'recalled_product')}`.slice(0, 120), body,
     amountCents: null, deadline: null, verdict: j.exact ? 'verified' : 'likely',
     sources: [{ label: fda ? 'FDA recall notice' : 'CPSC recall notice', url: s(r, 'recall_url') }],
-    traceId: log(ctx, 'recall_match', `${item.slice(0, 60)} vs ${s(r, 'recalled_product').slice(0, 60)}`, `${key}, ${j.evidence ? `exact code (${j.evidence})` : j.exact ? 'exact name' : 'model-confirmed'}`),
+    traceId: log(ctx, 'recall_match', `${item.slice(0, 60)} vs ${s(r, 'recalled_product').slice(0, 60)}`, `${key}, ${j.level === 'code' ? 'exact' : 'rules'} match: ${j.evidence}`),
     agent: AGENT, claim, evidenceSql: pairsSql(ctx.family.id), retryCount: 0,
   };
 }
 
-/** Safety-check what a family bought against live CPSC and FDA recalls. */
-export async function checkRecalls(ctx: AgentContext): Promise<{ candidates: Candidate[]; itemsChecked: number }> {
+interface Found { judged: Judged[]; itemsChecked: number }
+
+/** Read the recall records for the possible matches. If Zetaris cannot answer, say so and judge from the pair rows alone. */
+async function readRecallRecords(ctx: AgentContext, rows: Row[]): Promise<Map<string, Row>> {
+  const out = new Map<string, Row>();
+  const refs: RecallRef[] = [];
+  const seen = new Set<string>();
+  for (const r of rows) {
+    const fda = s(r, 'recall_source') === 'fda';
+    const id: string | number = fda ? s(r, 'recall_number') : Number(col(r, 'recall_id'));
+    const k = `${fda}|${id}`;
+    if (seen.has(k) || id === '' || (typeof id === 'number' && !Number.isFinite(id))) continue;
+    seen.add(k);
+    refs.push({ source: fda ? 'fda' : 'cpsc', id });
+  }
+  if (!refs.length) return out;
+  try {
+    const res = await ctx.z.runQuery(recallDetailsSql(refs));
+    for (const d of res.rows) out.set(recallKey(d), d);
+    log(ctx, 'recall_record', `${refs.length} recall(s)`, `read ${out.size} recall record(s) for sale dates, models and lots`);
+  } catch (e: any) {
+    log(ctx, 'recall_record', `${refs.length} recall(s)`, `recall record unavailable (${String(e?.message ?? e).slice(0, 80)}): matched on product name and dates from the notice list only`, 'fallback');
+  }
+  return out;
+}
+
+async function findRecalled(ctx: AgentContext): Promise<Found> {
   if (isInlineFamily(ctx.family)) {
     log(ctx, 'check_recalls', 'typed-in family', 'no saved purchases to check: nothing queried');
-    return { candidates: [], itemsChecked: 0 };
+    return { judged: [], itemsChecked: 0 };
   }
   let itemsSqlText: string;
   let pairs: string;
@@ -181,7 +279,7 @@ export async function checkRecalls(ctx: AgentContext): Promise<{ candidates: Can
   } catch (e) {
     if (e instanceof InvalidId) {
       log(ctx, 'check_recalls', 'family', 'unsafe family id: nothing queried', 'error');
-      return { candidates: [], itemsChecked: 0 };
+      return { judged: [], itemsChecked: 0 };
     }
     throw e;
   }
@@ -190,40 +288,81 @@ export async function checkRecalls(ctx: AgentContext): Promise<{ candidates: Can
   const itemsChecked = distinct.size;
   if (itemsChecked === 0) {
     log(ctx, 'check_recalls', `family ${ctx.family.id}`, 'no purchases to check');
-    return { candidates: [], itemsChecked: 0 };
+    return { judged: [], itemsChecked: 0 };
   }
 
   const { rows: allRows } = await ctx.z.runQuery(pairs);
   const rows = await dropFinishedFda(ctx, allRows);
   const seenPair = new Set<string>();
   const deduped = rows.filter((r) => {
-    const k = `${norm(s(r, 'item_text'))}|${s(r, 'recall_source')}|${s(r, 'recall_id')}|${s(r, 'recall_number')}`;
+    const k = `${norm(s(r, 'item_text'))}|${recallKey(r)}`;
     if (seenPair.has(k)) return false;
     seenPair.add(k);
     return true;
   });
-  // Exact-name pairs are all kept; only the loose pairs (which cost a model call) are capped.
-  const isExact = (r: Row) => codeEvidence(r) !== null || exactContainment(s(r, 'item_text'), s(r, 'recalled_product'));
-  const unique = [...deduped.filter(isExact), ...deduped.filter((r) => !isExact(r)).slice(0, MAX_PAIRS)];
 
+  const details = await readRecallRecords(ctx, deduped);
+  const rejected = { n: 0 };
+  const judged: Judged[] = [];
+  for (const row of deduped) {
+    const j = judgePair(ctx, row, details.get(recallKey(row)), rejected);
+    if (j) judged.push(j);
+  }
+  log(ctx, 'check_recalls', `family ${ctx.family.id}`, `${itemsChecked} items checked, ${rows.length} possible pairs, ${judged.length} match(es) kept, ${rows.length - judged.length} rejected by the rules`);
+  return { judged, itemsChecked };
+}
+
+// One lookup per run, shared by the recall cards and the Clawback Hunter's safety question (the two run at the same time).
+const lookups = new WeakMap<AgentContext, Promise<Found>>();
+function sharedLookup(ctx: AgentContext, fresh = false): Promise<Found> {
+  const cached = lookups.get(ctx);
+  if (cached && !fresh) return cached;
+  const p = findRecalled(ctx);
+  lookups.set(ctx, p);
+  p.catch(() => { if (lookups.get(ctx) === p) lookups.delete(ctx); }); // a failed lookup is retried, never remembered
+  return p;
+}
+
+/** An item the family bought that matches a recall: the Recall Checker's answer to the Clawback Hunter. */
+export interface RecalledItem { itemText: string; recallId: string; recallTitle: string; evidence: string; source: 'cpsc' | 'fda'; url: string }
+
+/** Items (keyed by itemKey(name)) that are under an open CPSC or FDA recall, each with its evidence line. */
+export async function findRecalledItems(ctx: AgentContext): Promise<Map<string, RecalledItem>> {
+  const { judged } = await sharedLookup(ctx);
+  const out = new Map<string, RecalledItem>();
+  for (const j of judged) {
+    const fda = s(j.row, 'recall_source') === 'fda';
+    const k = norm(s(j.row, 'item_text'));
+    if (out.has(k) && !j.exact) continue;
+    out.set(k, {
+      itemText: s(j.row, 'item_text'), source: fda ? 'fda' : 'cpsc',
+      recallId: fda ? `fda-${s(j.row, 'recall_number')}` : `cpsc-${s(j.row, 'recall_id')}`,
+      recallTitle: s(j.row, 'recall_title'), evidence: j.evidence, url: s(j.row, 'recall_url'),
+    });
+  }
+  return out;
+}
+
+/** Safety-check what a family bought against live CPSC and FDA recalls. */
+export async function checkRecalls(ctx: AgentContext, opts: { fresh?: boolean } = {}): Promise<{ candidates: Candidate[]; itemsChecked: number }> {
+  const { judged, itemsChecked } = await sharedLookup(ctx, opts.fresh);
+  // One card per recall (the strongest match wins).
   const byRecall = new Map<string, Judged>();
-  for (const row of unique) {
-    const j = await judgePair(ctx, row);
-    if (!j) continue;
-    const key = `${s(row, 'recall_source')}|${s(row, 'recall_id')}|${s(row, 'recall_number')}`;
-    const cur = byRecall.get(key);
-    if (!cur || (j.exact && !cur.exact)) byRecall.set(key, j);
+  for (const j of judged) {
+    const k = recallKey(j.row);
+    const cur = byRecall.get(k);
+    if (!cur || (j.exact && !cur.exact)) byRecall.set(k, j);
   }
   const candidates: Candidate[] = [];
   for (const j of byRecall.values()) candidates.push(await toCandidate(ctx, j));
-  log(ctx, 'check_recalls', `family ${ctx.family.id}`, `${itemsChecked} items checked, ${rows.length} possible pairs, ${candidates.length} recall(s) confirmed`);
+  if (itemsChecked > 0) log(ctx, 'recall_cards', `family ${ctx.family.id}`, `${candidates.length} recall alert(s), each with an evidence line`);
   return { candidates, itemsChecked };
 }
 
 /** Re-derive one recall candidate after the Fact-Checker sent it back. null = give up. */
 export async function revise(c: Candidate, reason: string, ctx: AgentContext): Promise<Candidate | null> {
   log(ctx, 'revise', `${c.id}: ${reason}`.slice(0, 200), 're-deriving from source', 'retry', c.retryCount + 1);
-  const { candidates } = await checkRecalls(ctx);
+  const { candidates } = await checkRecalls(ctx, { fresh: true });
   const match = candidates.find((f) => f.id === c.id);
   if (!match) {
     log(ctx, 'revise', c.id, 'gave up: recall no longer matches', 'blocked', c.retryCount + 1);
