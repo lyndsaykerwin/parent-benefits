@@ -32,14 +32,13 @@ export function ShareBar({ claimedCents }: { claimedCents: number }) {
 
 /** "Save your list": a labelled demo. Sign-in is not built yet (see the report for the estimate). */
 export function SaveListCard() {
-  const [shown, setShown] = useState(false);
   return (
     <section aria-label="Save your list" data-testid="save-card" className="mt-6 rounded-2xl border border-line bg-paper p-4">
       <p className="inline-block rounded-full bg-[#F1ECE4] px-2.5 py-0.5 text-[12px] font-bold text-ink-2">Demo: not built yet</p>
       <h3 className="mt-2 text-[17px] font-extrabold leading-snug">Save your list so you do not lose it</h3>
       <p className="mt-1 text-[15px] leading-relaxed text-ink-2">One tap, no password. Your ticks are kept in this browser for now.</p>
-      <button type="button" onClick={() => setShown(true)} className="mt-3 flex min-h-[48px] w-full items-center justify-center rounded-xl border-2 border-ink px-4 text-[15px] font-bold text-ink">Continue with Google</button>
-      {shown && <p role="status" className="mt-2 text-[13.5px] font-semibold text-ink-2">Demo only: sign-in is not built yet, so nothing was saved to an account.</p>}
+      <button type="button" disabled aria-disabled="true" className="mt-3 flex min-h-[48px] w-full cursor-not-allowed items-center justify-center rounded-xl border-2 border-line px-4 text-[15px] font-bold text-ink-2 opacity-60">Continue with Google (coming later)</button>
+      <p className="mt-2 text-[13.5px] text-ink-2">Sign-in is not built yet, so this button does nothing for now.</p>
     </section>
   );
 }

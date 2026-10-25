@@ -1,7 +1,7 @@
 import { Link } from 'wouter';
 import type { FeedCard } from '@shared/bundle';
 import { KIND_META, VERDICT_LABEL, amountCaption, cardDeadline, fmtUsd, isCheckWithJob, safeSources } from '@/lib/bundle';
-import { valueScoreLines } from '@/lib/tabs';
+import { plainCardBody, valueScoreLines } from '@/lib/tabs';
 import { cn } from '@/lib/utils';
 
 interface Props {
@@ -43,7 +43,7 @@ export default function FeedCardView({ card, today, pinned = false, detailHref, 
   const checkWithJob = isCheckWithJob(card);
   const scoreLines = card.valueScore ? valueScoreLines(card.valueScore) : [];
   // Coming-soon tiles already say "Coming soon" in the eyebrow, so drop the repeat from the body.
-  const body = soon ? card.body.replace(/^coming soon:\s*/i, '') : card.body;
+  const body = plainCardBody(soon ? card.body.replace(/^coming soon:\s*/i, '') : card.body);
   const eyebrow = pinned ? 'Pinned · Deadline' : card.deadline && card.kind === 'benefit' ? 'Benefit · Deadline' : meta.label;
 
   return (

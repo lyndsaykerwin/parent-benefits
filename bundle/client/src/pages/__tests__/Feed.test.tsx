@@ -26,6 +26,8 @@ describe('Feed "Checking" screen (W1-OWNER)', () => {
     await waitFor(() => expect(screen.getByText("Your items vs. official recall lists")).toBeTruthy());
     expect(screen.getByText('Money you can get back')).toBeTruthy();
     expect(screen.queryByText(/Live activity/i)).toBeNull();
+    expect(document.body.textContent).not.toMatch(/checking live/i);
+    expect(screen.getByText(/often quick/)).toBeTruthy();
     expect(screen.queryByText(/Fine Print Court|Fact-Checker|Clawback Finder/)).toBeNull();
     expect(fetchMock.mock.calls.some(([u]) => String(u).includes('/trace'))).toBe(false);
   });
@@ -121,7 +123,8 @@ describe('Feed instant saved results and live cards (W4-STREAM-UI)', () => {
     await waitFor(() => expect(screen.getByText('Brand new recall')).toBeTruthy());
     expect(screen.getByText('Fresh WIC card')).toBeTruthy();
     expect(screen.queryByText('Saved WIC card')).toBeNull();
-    expect(screen.getByText('Checking recalls…')).toBeTruthy();
+    expect(screen.getByText('Your items vs. official recall lists')).toBeTruthy();
+    expect(screen.queryByText('Checking recalls…')).toBeNull(); // one line per step, not a second pill saying the same thing
     expect(document.body.innerHTML).not.toMatch(/owner-trace-id|real-?time/i);
   });
 

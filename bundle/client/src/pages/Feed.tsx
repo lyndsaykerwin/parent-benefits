@@ -95,7 +95,7 @@ function ParentProgress({ steps, elapsed, stream }: { steps: ParentStep[]; elaps
         We’re checking <span className="text-coral">for you.</span>
       </h1>
       <p className="mt-2 text-[16px] text-ink-2">
-        We are checking live government, recall and store information for your family. This can take a minute or two.
+        We are checking government, recall and store information for your family. This is often quick, and can sometimes take a minute or two.
       </p>
       <ol className="bundle-card mt-5 space-y-3 p-5" data-testid="parent-steps">
         {steps.length === 0 && <li className="flex items-center gap-3 text-[15px] text-ink-2"><Spinner /> Getting started…</li>}
@@ -106,7 +106,7 @@ function ParentProgress({ steps, elapsed, stream }: { steps: ParentStep[]; elaps
           </li>
         ))}
       </ol>
-      <StatusPills stream={stream} />
+      {steps.length === 0 && <StatusPills stream={stream} />}
       <p className="tabular mt-4 text-right text-[13px] font-semibold text-ink-2">{elapsed}s</p>
     </section>
   );
@@ -121,7 +121,7 @@ function Progress({ lines, elapsed, stream }: { lines: TraceLine[]; elapsed: num
         Your agents are <span className="text-coral">on it.</span>
       </h1>
       <p className="mt-2 text-[16px] text-ink-2">
-        They are checking live government, recall and store data for your family. This can take a minute or two.
+        They are checking government, recall and store data for your family. This is often quick, and can sometimes take a minute or two.
       </p>
 
       <ol className="bundle-card mt-5 space-y-3 p-5">

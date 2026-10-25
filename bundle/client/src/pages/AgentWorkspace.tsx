@@ -150,7 +150,7 @@ function Ready({ data, cards }: { data: AgentLogData; cards: CardRef[] }) {
   return (
     <>
       <p className="mt-2 text-[15px] text-ink-2">
-        Every step the agents took for this run, grouped by the card it was about. A loop is when agents checked each other’s work.
+        Every step the agents took for this run, grouped by the card it was about. A loop is when agents checked each other’s work. A rebuttal round is when the Fine Print Court argued back and forth about a deal before ruling.
       </p>
       <ul className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4" data-testid="loop-counts" aria-label="Loops in this run">
         {LOOP_KINDS.map((k) => (
@@ -164,8 +164,8 @@ function Ready({ data, cards }: { data: AgentLogData; cards: CardRef[] }) {
       {data.backend && (
         <p className="mt-2 text-[13px] text-ink-2" data-testid="workspace-backend">
           {data.backend === 'hmem-local'
-            ? 'Notes between agents were stored in Meterless H-MEM, the shared workspace.'
-            : 'Notes between agents were kept in a backup list because Meterless H-MEM could not be reached.'}
+            ? 'Notes between agents were stored in Meterless H-MEM (the shared memory the agents use to leave each other notes and remember lessons).'
+            : 'Notes between agents were kept in a backup list because Meterless H-MEM (the shared agent memory) could not be reached.'}
         </p>
       )}
       {data.skipped > 0 && <p className="mt-2 text-[13px] text-ink-2">{data.skipped} damaged log line(s) were left out.</p>}

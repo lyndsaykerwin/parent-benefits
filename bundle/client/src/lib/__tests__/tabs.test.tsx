@@ -2,7 +2,7 @@ import type { FeedCard } from '@shared/bundle';
 import { sampleRun } from '../../test-support/sampleRuns';
 import {
   TABS, stageOf, tabForCard, claimableCards, homeTotals, categorySummary, urgentDeadlines, comingSoonNote, loadClaims, saveClaims, claimedCents,
-  shareMessage, valueScoreLines,
+  shareMessage, valueScoreLines, plainCardBody,
 } from '../tabs';
 import { isCheckWithJob } from '../bundle';
 
@@ -138,8 +138,11 @@ describe('share message and value score words', () => {
       trueValueCents: 3500, effortLevel: 'low', effortMinutesEstimate: { min: 5, max: 10 }, stepsCount: 2, payoutWaitDays: null,
       timeLabel: 'instant', catchTypes: ['shipping_fee', 'weird_code'], worthYourTime: true, reasons: [],
     });
-    expect(lines).toEqual(['True value $35.00', '5–10 minutes, instant', 'Catch: shipping fee, weird code']);
+    expect(lines).toEqual(['True value $35.00', 'About 5–10 minutes of effort, paid instantly', 'Catch: shipping fee, weird code']);
+    expect(valueScoreLines({ trueValueCents: null, effortLevel: 'low', effortMinutesEstimate: { min: 2, max: 5 }, stepsCount: 1, payoutWaitDays: null, timeLabel: 'right away', catchTypes: [], worthYourTime: true, reasons: [] })[0])
+      .toBe('About 2–5 minutes of effort, no payout wait stated');
+    expect(plainCardBody("Store Y has an offer. No flagged terms found. We couldn't fully check this offer's fine print.")).not.toMatch(/No flagged terms/);
     expect(valueScoreLines({ trueValueCents: null, effortLevel: 'high', effortMinutesEstimate: { min: 30, max: 30 }, stepsCount: 5, payoutWaitDays: null, timeLabel: 'wait unknown', catchTypes: [], worthYourTime: false, reasons: [] }))
-      .toEqual(['30 minutes, wait unknown', 'Probably not worth your time']);
+      .toEqual(['About 30 minutes of effort, payout wait unknown', 'Probably not worth your time']);
   });
 });

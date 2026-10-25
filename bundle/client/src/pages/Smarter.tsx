@@ -28,6 +28,11 @@ function Stat({ value, label, accent }: { value: string; label: string; accent?:
   );
 }
 
+/** Reviewer controls are hidden from parents; a reviewer opens this page with ?reviewer=1 to type the code. */
+function reviewerLinkOn(): boolean {
+  try { return new URLSearchParams(window.location.search).has('reviewer'); } catch { return false; }
+}
+
 export default function Smarter() {
   const [data, setData] = useState<{ proposals: Proposal[]; approved: Proposal[]; approvedCount?: number } | null>(null);
   const [board, setBoard] = useState<Scoreboard | null | undefined>(undefined);
@@ -66,7 +71,7 @@ export default function Smarter() {
         Bundle got <span className="text-coral">smarter.</span>
       </h1>
       <p className="mt-2 text-[16px] text-ink-2">
-        When parents report the same problem, Bundle’s Coach writes a rule. A reviewer approves it, and every future run follows it.
+        When parents report the same problem, Bundle’s Coach (the helper that turns parent reports into a new rule) writes one. A reviewer approves it, and from then on the Judge (the helper that decides whether a deal is safe to show) follows it on every future check.
       </p>
 
       <ol className="mt-5 grid grid-cols-3 gap-2 text-center" aria-label="How Bundle learns">
@@ -160,7 +165,7 @@ export default function Smarter() {
 
       </>}
 
-      <details className="mt-10 rounded-2xl border border-line bg-paper p-4" open={!!token}>
+      {(token || reviewerLinkOn()) && <details className="mt-10 rounded-2xl border border-line bg-paper p-4" open>
         <summary className="min-h-[28px] cursor-pointer text-[15px] font-bold text-ink">Reviewer mode</summary>
         <p className="mt-2 text-[14px] text-ink-2">For the demo reviewer only. The code stays in this browser tab and is cleared when you close it.</p>
         {token ? (
@@ -178,7 +183,7 @@ export default function Smarter() {
             <button type="submit" disabled={!draft.trim()} className="min-h-[48px] rounded-xl bg-ink px-4 text-[15px] font-bold text-cream disabled:opacity-40">Turn on</button>
           </form>
         )}
-      </details>
+      </details>}
     </AppShell>
   );
 }

@@ -18,7 +18,7 @@ describe('FeedCardView (Version B additions)', () => {
     }} />);
     const s = screen.getByTestId('value-score');
     expect(within(s).getByText('True value $30.00')).toBeTruthy();
-    expect(within(s).getByText('5–10 minutes, instant')).toBeTruthy();
+    expect(within(s).getByText('About 5–10 minutes of effort, paid instantly')).toBeTruthy();
     expect(within(s).getByText('Catch: shipping fee')).toBeTruthy();
   });
 

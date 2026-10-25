@@ -192,8 +192,9 @@ describe('light extras', () => {
     show('maya');
     const card = screen.getByTestId('save-card');
     expect(within(card).getByText('Demo: not built yet')).toBeTruthy();
-    fireEvent.click(within(card).getByRole('button', { name: /Continue with Google/ }));
-    expect(within(card).getByRole('status').textContent).toMatch(/nothing was saved/);
+    const btn = within(card).getByRole('button', { name: /Continue with Google/ }) as HTMLButtonElement;
+    expect(btn.disabled).toBe(true);
+    expect(card.textContent).toMatch(/does nothing for now/);
   });
 });
 

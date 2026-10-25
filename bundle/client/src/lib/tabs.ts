@@ -154,12 +154,26 @@ const CATCH_WORDS: Record<string, string> = {
 };
 export const catchWord = (t: string): string => CATCH_WORDS[t] ?? t.replace(/_/g, ' ');
 
+/** The saved offline court line reads as a contradiction ("no flagged terms" yet "couldn't fully check"); say it as one idea. */
+export function plainCardBody(body: string): string {
+  return body.replace(/No flagged terms found\.\s*We couldn['’]t fully check this offer['’]s fine print\./, "We couldn’t read this offer’s fine print in full, so we haven’t confirmed it is free of catches. Read the terms before you sign up.");
+}
+
+/** The wait part of the effort line, in a natural phrase ("right away" alone read oddly after a minutes count). */
+export function waitPhrase(label: string): string {
+  if (label === 'right away') return 'no payout wait stated';
+  if (label === 'instant') return 'paid instantly';
+  if (label === 'wait unknown') return 'payout wait unknown';
+  if (label.startsWith('money in')) return label.replace(/^money in/, 'money arrives in');
+  return label;
+}
+
 /** Plain lines for a deal's Value Score: true value, time (effort and wait), catches, and "probably not worth your time". */
 export function valueScoreLines(v: ValueScore): string[] {
   const out: string[] = [];
   if (v.trueValueCents !== null) out.push(`True value ${fmtUsd(v.trueValueCents)}`);
   const { min, max } = v.effortMinutesEstimate;
-  out.push(`${min === max ? min : `${min}–${max}`} minutes, ${v.timeLabel}`);
+  out.push(`About ${min === max ? min : `${min}–${max}`} minutes of effort, ${waitPhrase(v.timeLabel)}`);
   if (v.catchTypes.filter((t) => t !== 'prompt_injection').length) out.push(`Catch: ${v.catchTypes.filter((t) => t !== 'prompt_injection').map(catchWord).join(', ')}`);
   if (v.worthYourTime === false) out.push('Probably not worth your time');
   return out;

@@ -28,6 +28,9 @@ describe('Smarter owner view split (W1-OWNER)', () => {
     const f = mount(false);
     await waitFor(() => expect(screen.getByTestId('parent-rules').textContent).toMatch(/2 lessons/));
     expect(screen.queryByText(/Approve/)).toBeNull();
+    expect(screen.queryByText(/Reviewer mode|Reviewer code/)).toBeNull();
+    expect(screen.getByText(/the helper that turns parent reports into a new rule/)).toBeTruthy();
+    expect(screen.getByText(/the helper that decides whether a deal is safe to show/)).toBeTruthy();
     expect(screen.queryByText(/Scoreboard/)).toBeNull();
     expect(f.mock.calls.some(([u]) => String(u).includes('scoreboard'))).toBe(false);
   });
