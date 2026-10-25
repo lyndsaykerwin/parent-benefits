@@ -99,7 +99,7 @@ Commands run inside the `bundle` folder. Commands marked "new" don't exist yet; 
    `MODEL_PROVIDER=auto`, `NIGHTSHIFT_TOKEN_FILE=<path from step 9 of that guide>`, `MODEL_API_KEY=…`, `MODEL_REASONING=…`, `MODEL_FAST=…`, `MODEL_VISION=…`, `ZETARIS_BASE_URL/ORG_ID/API_KEY=…`, `DATABASE_URL=…`, `AGENTMAIL_API_KEY=…`, `AGENTMAIL_INBOX_ID=…`.
 3. **Check both AI routes:** `npm run model:check -- --provider nightshift` and then `-- --provider nvidia`. Both should say "ok" and name the model that answered. Then quit Nightshift and run the first check again; it should say "Nightshift isn't running."
 4. **Check photo reading (new):** `npm run model:check -- --vision`.
-5. **Create the new tables in Neon:** `npm run db:push`, read the list of changes, and confirm.
+5. **Create the new tables in Neon:** apply reviewed SQL by hand, only with Lyndsay's OK (never `db:push`; see bundle/docs/mac-flip-on-checklist.md).
 6. **Register in Zetaris:** `npx tsx scripts/zetaris/register.ts` (dry run, shows what it will do), then `npx tsx scripts/zetaris/register.ts --apply --replace=v_recall_orders,…`.
 7. **Record saved Zetaris answers (new command, for example `npm run zetaris:record`).** Commit the new files in `data/sample/zetaris-cache/`.
 8. **Smoke test:** `SAMPLE_MODE=true LIVE_MODEL=true npm run dev`, open `http://localhost:5050`, and run the sample family. Try "Use sample receipts", scan a barcode with the webcam, and upload one photo of a made-up receipt. The owner view trace should show which provider and model answered.
