@@ -1,23 +1,26 @@
 {
-  "trapsCaught": 6,
-  "trapsTotal": 6,
+  "trapsCaught": 8,
+  "trapsTotal": 8,
   "falseAlarms": 0,
   "sourcedPct": 100,
   "runs": 3,
   "stable": true,
+  "evidenceLabel": "OFFLINE sample-mode run: AI off, made-up sample families, saved Zetaris answers replayed",
   "learning": {
     "run1Approved": true,
     "run2Blocked": true,
-    "citedRuleId": "mem-1"
+    "citedRuleId": "mem-28",
+    "collateralBlocked": 0
   },
   "llmMode": "offline-fallback",
+  "llmCalls": null,
   "scoutLlmMode": "fake-llm",
-  "generatedAt": "2026-10-23T18:56:01.407Z",
+  "generatedAt": "2026-10-25T12:56:14.803Z",
   "demoDate": "2026-10-23",
   "traps": {
     "auto_renew_offer": {
       "caught": true,
-      "detail": "blocked after learning, cites mem-1"
+      "detail": "blocked after learning, cites mem-28"
     },
     "wrong_amount_scout_row": {
       "caught": true,
@@ -27,10 +30,6 @@
       "caught": true,
       "detail": "card recall-cpsc-10560"
     },
-    "refund": {
-      "caught": true,
-      "detail": "no card for the refunded purchase; money back unchanged"
-    },
     "duplicate": {
       "caught": true,
       "detail": "7 distinct items checked (duplicate counted once)"
@@ -38,6 +37,18 @@
     "non_ma_family": {
       "caught": true,
       "detail": "Ohio family gets no Massachusetts benefit"
+    },
+    "subtle_subscription_savings": {
+      "caught": true,
+      "detail": "approved in run 1, blocked after learning, cites mem-28; 0 other offer(s) wrongly blocked"
+    },
+    "no_false_recall": {
+      "caught": true,
+      "detail": "look-alike products (shared words, different product) get no recall card"
+    },
+    "no_terminated_fda": {
+      "caught": true,
+      "detail": "finished (Terminated) FDA recalls get no card"
     }
   },
   "expectationFailures": [],
@@ -47,10 +58,17 @@
     "ava": 1458
   },
   "learningDetail": {
-    "run1Id": "maya-744e5074-78f7-467d-9bf2-d1a3322bfb0e",
-    "run2Id": "maya-a3d2e670-8112-4f3c-be91-1086d3831f4e",
-    "ruleText": "Reject offers whose free trial turns into a paid membership that renews automatically.",
-    "storedIn": "memory"
+    "run1Id": "maya-3ea3a545-3a27-4e94-9291-466d615baaa9",
+    "run2Id": "maya-daf1af09-65a3-4e6f-b39d-ef2bf837c711",
+    "ruleText": "Reject offers whose savings depend on keeping a subscription active.",
+    "storedIn": "memory",
+    "trapTitle": "Amazon Subscribe & Save diaper discount",
+    "obviousTrap": {
+      "title": "Free newborn diaper box",
+      "run1Approved": true,
+      "run2Blocked": true,
+      "citedRuleId": "mem-29"
+    }
   },
   "scout": {
     "accepted": 3,
@@ -62,6 +80,180 @@
       {
         "title": "Mystery bonus",
         "reason": "no source"
+      }
+    ]
+  },
+  "finePrint": {
+    "cases": 15,
+    "catchesFound": 2,
+    "catchesTotal": 2,
+    "controlFalseAlarms": 0,
+    "controlsTotal": 3,
+    "fieldsCorrect": 46,
+    "fieldsTotal": 46,
+    "fieldAccuracyPct": 100,
+    "inexactQuotes": 0
+  },
+  "recall": {
+    "expected": 1,
+    "caught": 1,
+    "wrongShown": 0,
+    "lookAlikesChecked": 3
+  },
+  "photo": {
+    "measured": false,
+    "madeUpRate": null,
+    "note": "not measured offline: no saved vision replay (needs a real vision model; target made-up rate 0)"
+  },
+  "loops": {
+    "maya": [
+      {
+        "runId": "maya-6c13daaa-09bf-4d5c-b971-e3a35710e241",
+        "sendBacks": 0,
+        "rebuttals": 0,
+        "photoRetries": 0,
+        "savedGradesReused": 0,
+        "safetyKills": 0,
+        "courtRulings": 5,
+        "courtBlocks": 3,
+        "savedVerdictReads": 1,
+        "eligibilityQuestions": 2,
+        "recallVerifications": 1,
+        "safetyChecks": 2,
+        "cardsApproved": 11,
+        "cardsRejected": 0
+      },
+      {
+        "runId": "maya-d630f94c-bf78-45ad-94b6-cd8895fbedcf",
+        "sendBacks": 0,
+        "rebuttals": 0,
+        "photoRetries": 0,
+        "savedGradesReused": 0,
+        "safetyKills": 0,
+        "courtRulings": 5,
+        "courtBlocks": 3,
+        "savedVerdictReads": 1,
+        "eligibilityQuestions": 2,
+        "recallVerifications": 1,
+        "safetyChecks": 2,
+        "cardsApproved": 11,
+        "cardsRejected": 0
+      },
+      {
+        "runId": "maya-18e62f32-6cec-40cd-928e-c6702f68068b",
+        "sendBacks": 0,
+        "rebuttals": 0,
+        "photoRetries": 0,
+        "savedGradesReused": 0,
+        "safetyKills": 0,
+        "courtRulings": 5,
+        "courtBlocks": 3,
+        "savedVerdictReads": 1,
+        "eligibilityQuestions": 2,
+        "recallVerifications": 1,
+        "safetyChecks": 2,
+        "cardsApproved": 11,
+        "cardsRejected": 0
+      }
+    ],
+    "leo": [
+      {
+        "runId": "leo-d3a4dd2c-f1e4-404e-823b-3ee74cbe5eab",
+        "sendBacks": 0,
+        "rebuttals": 0,
+        "photoRetries": 0,
+        "savedGradesReused": 0,
+        "safetyKills": 0,
+        "courtRulings": 5,
+        "courtBlocks": 2,
+        "savedVerdictReads": 1,
+        "eligibilityQuestions": 2,
+        "recallVerifications": 0,
+        "safetyChecks": 0,
+        "cardsApproved": 9,
+        "cardsRejected": 0
+      },
+      {
+        "runId": "leo-b6cb86dc-9ca1-465a-910c-050e54bbb600",
+        "sendBacks": 0,
+        "rebuttals": 0,
+        "photoRetries": 0,
+        "savedGradesReused": 0,
+        "safetyKills": 0,
+        "courtRulings": 5,
+        "courtBlocks": 2,
+        "savedVerdictReads": 1,
+        "eligibilityQuestions": 2,
+        "recallVerifications": 0,
+        "safetyChecks": 0,
+        "cardsApproved": 9,
+        "cardsRejected": 0
+      },
+      {
+        "runId": "leo-27c0b028-65cd-4b73-af9a-76335dcf3e3b",
+        "sendBacks": 0,
+        "rebuttals": 0,
+        "photoRetries": 0,
+        "savedGradesReused": 0,
+        "safetyKills": 0,
+        "courtRulings": 5,
+        "courtBlocks": 2,
+        "savedVerdictReads": 1,
+        "eligibilityQuestions": 2,
+        "recallVerifications": 0,
+        "safetyChecks": 0,
+        "cardsApproved": 9,
+        "cardsRejected": 0
+      }
+    ],
+    "ava": [
+      {
+        "runId": "ava-33a70c56-6a10-46d2-8894-dc726017c920",
+        "sendBacks": 0,
+        "rebuttals": 0,
+        "photoRetries": 0,
+        "savedGradesReused": 0,
+        "safetyKills": 0,
+        "courtRulings": 5,
+        "courtBlocks": 1,
+        "savedVerdictReads": 1,
+        "eligibilityQuestions": 1,
+        "recallVerifications": 0,
+        "safetyChecks": 1,
+        "cardsApproved": 8,
+        "cardsRejected": 0
+      },
+      {
+        "runId": "ava-060cd148-e1a9-4759-9622-cef80a0ebdee",
+        "sendBacks": 0,
+        "rebuttals": 0,
+        "photoRetries": 0,
+        "savedGradesReused": 0,
+        "safetyKills": 0,
+        "courtRulings": 5,
+        "courtBlocks": 1,
+        "savedVerdictReads": 1,
+        "eligibilityQuestions": 1,
+        "recallVerifications": 0,
+        "safetyChecks": 1,
+        "cardsApproved": 8,
+        "cardsRejected": 0
+      },
+      {
+        "runId": "ava-973de3f2-8b21-4272-8240-ccbd0adec5a2",
+        "sendBacks": 0,
+        "rebuttals": 0,
+        "photoRetries": 0,
+        "savedGradesReused": 0,
+        "safetyKills": 0,
+        "courtRulings": 5,
+        "courtBlocks": 1,
+        "savedVerdictReads": 1,
+        "eligibilityQuestions": 1,
+        "recallVerifications": 0,
+        "safetyChecks": 1,
+        "cardsApproved": 8,
+        "cardsRejected": 0
       }
     ]
   }

@@ -44,6 +44,8 @@ export interface Scoreboard {
   sourcedPct: number;
   runs: number;
   stable: boolean;
+  /** Plain-English label saying how this evidence was produced. */
+  evidenceLabel?: string;
   /** The learning demo on the subtler trap. `collateralBlocked` = other approved offers that run 2 wrongly blocked (target 0). */
   learning: { run1Approved: boolean; run2Blocked: boolean; citedRuleId: string | null; collateralBlocked?: number };
   llmMode: LlmMode;
@@ -421,7 +423,7 @@ export async function runEval(opts: EvalOptions = {}): Promise<Scoreboard> {
   const stable = FAMILIES.every((id) => perFamily[id].length < 2 || new Set(perFamily[id].map(sig)).size === 1);
   return {
     trapsCaught: Object.values(traps).filter((t) => t.caught).length, trapsTotal: Object.keys(traps).length, falseAlarms, sourcedPct,
-    runs: n, stable, learning: learn.learning, llmMode: llmModeOf(llm), llmCalls: llmCallsOf(llm), scoutLlmMode: 'fake-llm', generatedAt: new Date().toISOString(),
+    runs: n, stable, evidenceLabel: llmModeOf(llm) === 'offline-fallback' ? 'OFFLINE sample-mode run: AI off, made-up sample families, saved Zetaris answers replayed' : undefined, learning: learn.learning, llmMode: llmModeOf(llm), llmCalls: llmCallsOf(llm), scoutLlmMode: 'fake-llm', generatedAt: new Date().toISOString(),
     demoDate: resolveToday('maya').today, traps, expectationFailures: failures, moneyBackCents: moneyBack,
     learningDetail: { run1Id: learn.r1.runId, run2Id: learn.r2.runId, ruleText: learn.ruleText, storedIn: store instanceof MemoryStore ? 'memory' : 'neon', trapTitle: subtleTitle, obviousTrap: learn.obvious },
     scout: { accepted: scoutRows.length, rejected: sc.rejected.map((r) => ({ title: r.title, reason: r.reason })) },

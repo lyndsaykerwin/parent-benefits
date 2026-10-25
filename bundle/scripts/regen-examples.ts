@@ -39,7 +39,9 @@ async function main() {
       const res = await fetch(`${base}/api/run?wait=true`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: fs.readFileSync(path.join(inDir, file), 'utf8') });
       const result = (await res.json()) as { runId?: string; error?: string };
       if (!res.ok || !result.runId) throw new Error(`${name}: run failed (${res.status}) ${result.error ?? ''}`);
-      fs.writeFileSync(path.join(outDir, `${name}.json`), JSON.stringify(result));
+      // Label the saved file so nobody mistakes it for a live, AI-written result.
+      const label = LIVE ? 'live Zetaris run' : 'OFFLINE sample-mode run: AI off, made-up sample families, saved Zetaris answers replayed (no live Zetaris, no model)';
+      fs.writeFileSync(path.join(outDir, `${name}.json`), JSON.stringify({ ...result, evidenceLabel: label }));
       const trace = path.resolve('logs', `run-${result.runId.replace(/[^A-Za-z0-9_-]/g, '_')}.jsonl`);
       fs.copyFileSync(trace, path.join(traceDir, `${name}.jsonl`));
       console.log(`${name}: wrote output_examples/${name}.json and logs/sample/${name}.jsonl`);
