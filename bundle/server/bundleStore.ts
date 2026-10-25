@@ -1,4 +1,6 @@
-import type { FeedbackRow, RuleProposal } from './agents/coach';
+import path from 'path';
+import { fetchRecentIssues, type FeedbackRow, type RuleProposal } from './agents/coach';
+import { ZetarisClient } from './adapters/zetaris';
 import type { BundleResult } from '../shared/bundle';
 
 export interface ProposalRow {
@@ -41,6 +43,20 @@ export interface BundleStore {
   latestRunResult(familyId: string): Promise<SavedRunRow | null>;
 }
 
+/** Anything that can answer one Zetaris question (the real client or a test fake). */
+export type IssueReader = Pick<ZetarisClient, 'runQuery'>;
+
+/** The real Zetaris client from the environment (live mode). Throws a plain message when the settings are missing. */
+function zetarisFromEnv(): IssueReader {
+  const missing = ['ZETARIS_BASE_URL', 'ZETARIS_ORG_ID', 'ZETARIS_API_KEY'].filter((k) => !process.env[k]);
+  if (missing.length) throw new Error(`Missing settings: ${missing.join(', ')}`);
+  return new ZetarisClient({
+    baseUrl: process.env.ZETARIS_BASE_URL!, orgId: process.env.ZETARIS_ORG_ID!, apiKey: process.env.ZETARIS_API_KEY!,
+    timeoutMs: (Number(process.env.SOURCE_TIMEOUT_SECONDS) || 20) * 1000 * 4, sampleMode: false,
+    cacheDir: path.resolve('data/sample/zetaris-cache'), traceCaller: 'coach',
+  });
+}
+
 const copyRow = (r: SavedRunRow): SavedRunRow => JSON.parse(JSON.stringify(r));
 
 const norm = (t: string) => t.trim().toLowerCase();
@@ -49,14 +65,18 @@ export class MemoryStore implements BundleStore {
   private fb: FeedbackRow[] = [];
   private props: ProposalRow[] = [];
   private runs = new Map<string, SavedRunRow>();
-  constructor(private zips: Record<string, string> = {}) {}
+  /** `issueReader`: when given, the Coach's reports come through it (Zetaris); without one (sample mode) this list is the whole database. */
+  constructor(private zips: Record<string, string> = {}, private issueReader?: IssueReader) {}
   async zipState(zip3: string) { return this.zips[zip3] ?? null; }
   async addFeedback(row: Omit<FeedbackRow, 'id' | 'createdAt'>) {
     const r = { ...row, id: this.fb.length + 1, createdAt: new Date() };
     this.fb.push(r);
     return r;
   }
-  async listRecentIssues(limit: number) { return this.fb.filter((r) => r.kind === 'issue').slice(-limit); }
+  async listRecentIssues(limit: number) {
+    if (this.issueReader) return fetchRecentIssues(this.issueReader, limit);
+    return this.fb.filter((r) => r.kind === 'issue').slice(-limit);
+  }
   async saveProposals(p: RuleProposal[]) {
     const added: ProposalRow[] = [];
     for (const x of p) {
@@ -89,6 +109,8 @@ export class MemoryStore implements BundleStore {
 
 /** Neon through Drizzle. Imported lazily because server/db.ts throws without DATABASE_URL. */
 export class DrizzleStore implements BundleStore {
+  /** `issueReader` defaults to the real Zetaris client (built on first use from the environment); tests pass a fake. */
+  constructor(private issueReader?: IssueReader) {}
   private async d() {
     const { db } = await import('./db');
     const s = await import('../shared/schema');
@@ -108,9 +130,10 @@ export class DrizzleStore implements BundleStore {
     const [r] = await db.insert(s.feedback).values(row).returning();
     return r as FeedbackRow;
   }
+  /** Read through Zetaris (view v_coach_feedback), not straight from Neon. Writes (addFeedback) still go to Neon. */
   async listRecentIssues(limit: number) {
-    const { db, s, o } = await this.d();
-    return (await db.select().from(s.feedback).where(o.eq(s.feedback.kind, 'issue')).orderBy(o.desc(s.feedback.id)).limit(limit)) as FeedbackRow[];
+    this.issueReader ??= zetarisFromEnv();
+    return fetchRecentIssues(this.issueReader, limit);
   }
   async saveProposals(p: RuleProposal[]) {
     const { db, s } = await this.d();
