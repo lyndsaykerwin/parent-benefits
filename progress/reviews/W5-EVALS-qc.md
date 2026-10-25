@@ -1,0 +1,21 @@
+# W5-EVALS QC (commit 1818d55, diffed against merge-base 1cfb1fc)
+
+Verdict: PASS, with 4 small fixes (none block merge; fix 1 is the one judges could notice).
+
+Run in worktree: SAMPLE_MODE=true npm test 908 pass / 0 fail (60 suites); tsc clean; build OK; npm run eval exit 0: 8/8 traps, 0 false alarms, expectationFailures [], maya 4899 / leo 0 / ava 1458, learning run1 approved -> run2 blocked citing mem-28, collateralBlocked 0. Generated files reverted (git status clean).
+
+## Checks
+- SQL / replays / offers: PASS. Diff touches only expected.json, eval.ts, regen-examples.ts, eval.test.ts, coach.ts, build report. No data/, zetaris-cache, sql.ts change; no offer added. Learning run 2 trace: 24 query_cached lines, 0 errors, 0 "No saved response". (The diff against claude/funny-darwin-ccrblc shows a deleted W4-STREAM-SRV-qc.md only because that branch is ahead; against the merge-base nothing is deleted.)
+- Scoreboard numbers: PASS. finePrint, recall.caught/wrongShown, loops, collateralBlocked and photo are all computed from real checks, traces and the separate answer key (data/sample/fine-print-cases/cases.json, expected.json). Photo honestly reports measured:false / madeUpRate:null. loops are cross-checked against raw trace lines in eval.test.ts.
+- Trap list: removing `refund` is honest (its list was empty, so it always passed). Adding `no_false_recall` and `no_terminated_fda` is honest (answer-key entries already existed, now scored; they check absence of cards). The 6 -> 8 explanation in the build report is incomplete (see fix 3).
+
+## Hardcoding question (item 1): keep, but generalize
+How THEMES work: the Coach's OFFLINE fallback only (real-model clustering is used when a key exists). It matches regexes against parent REPORT text, not offer text, needs 2+ matching reports, and the proposed rule is later matched to offers by the Court's generic keyword overlap (finePrintCourt.ts ruleMatches). So the mechanism is general and the other two themes already work the same way.
+Why it still looks rigged: (a) the rule sentence is a near-paraphrase of offer 1328's own fine print ("Savings apply while the subscription is active; price can change."); (b) the new SUBTLE_ISSUE_FIXTURES in eval.ts were written to hit the pattern; (c) the pattern's bare word `savings` is over-broad (a report about "college savings" would trigger a subscription rule) and `delivery plan` is oddly specific. A judge reading coach.ts + eval.ts together could call it a tailored demo.
+Recommendation: do not remove (the subtler-trap demo needs it offline), generalize and disclose.
+
+## Fixes
+1. coach.ts THEMES: drop bare `savings`; match on meaning, e.g. /(?:savings|discount)[^.]{0,40}(?:only|while|as long as)[^.]{0,40}(?:active|subscri|plan|enrolled)|price[^.]{0,30}(?:chang|rose|went up|increas)|stopp?ed? the (?:plan|subscription)/i. Add tests in a coach test: (a) differently worded reports about a different subscription-savings offer still produce the rule; (b) two reports about "college savings" or "late delivery" do NOT. Add one line to the Coach comment / README: offline Coach uses keyword themes, the real model clusters on the Mac.
+2. eval.ts: `recall.expected: 1` is a literal; derive it from expected.json (count of recalled_item entries) so no typed-in expected value remains. Also add a code comment on SUBTLE_ISSUE_FIXTURES that these are fake reports written for the offline demo.
+3. Docs: correct the explanation of 6 -> 8 in progress/reviews/W5-EVALS-build.md: 6 - refund (empty check retired) + subtle_subscription_savings + no_false_recall + no_terminated_fda = 8. Stale "6 of 6" claims remain in progress/reviews/cloud-health-check.md:14 and plans/architecture.md:247 (and presentation/deck/README.md:18 "6 traps"); W6-EVIDENCE/README work must refresh them and say the total rose because checks were added, not because the app improved.
+4. client/src/pages/Smarter.tsx ~152-153: change 'the court approved the “free” trap offer.' to 'the court approved the trap offer (savings that depend on a subscription).' and 'the court already rejected the trap offer.' stays. Trivial text-only; the client test for this page (if any asserts the old wording) needs the same edit.

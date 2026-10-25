@@ -9,7 +9,7 @@ Repo: /Users/lyndsay/Documents/hackathon/bundle (local main, nothing pushed). St
 - 52a13f0 deploy: render.yaml
 
 ## Decisions
-- Cursor: replaced in README (2 places) and metadata.json. Repo docs had no Cursor text. Files OUTSIDE the repo still mention Cursor (hackathon/CLAUDE.md, build-plan.md, cursor-sponsor-overview.md); not touched.
+- Cursor: replaced in README (2 places) and metadata.json. Repo docs had no Cursor text. Files OUTSIDE the repo still mention Cursor (hackathon/CLAUDE.md, plans/build-plan.md, cursor-sponsor-overview.md); not touched.
 - check-model: reasoning prefers ultra, then super, then any other non-nano Nemotron; fast prefers nano. Embedding/reward/vision/guard models are never suggested. Highest id in a tier wins. `--write` edits only the MODEL_REASONING / MODEL_FAST lines of ../.secrets/bundle.env.local (appends if missing). Key is never printed. Exit 2 with no key; exit 1 if the list call or either test message fails.
 - llmMode: NvidiaGenerator now exposes `models`; llmModeOf returns `nvidia:<reasoning>+<fast>`. With a key but no model ids the app falls back to offline and the label stays "offline-fallback" (honest).
 - examples:regen did not exist; added. It runs input_examples/*.json through the real POST /api/run code and rewrites output_examples/*.json and logs/sample/*.jsonl. Default replays saved Zetaris answers (it deletes ZETARIS_* from its own process env); `-- --live` goes live. Verified once, then reverted the regenerated files so saved evidence is unchanged. (First attempt went live to Zetaris because keys are in the secrets file and rewrote the replay cache; I reverted that with git checkout before any commit.)

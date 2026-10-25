@@ -83,9 +83,9 @@ These turn a receipt (email, PDF or photo) into neat fields, including **line it
 | Covers which stores | All | Amazon only | Every store that emails a receipt |
 | Effort for parent | One sign-in | Request file from Amazon, wait hours to days, upload | Forward, or set a filter once |
 
-Sources: Plaid fields from `entity-resolution-test.md` §1 (checked against Plaid docs Oct 24, 2026). Amazon's full export now comes through its "Request your data" page as a ZIP, and the wait "can take several days" (https://takeoutday.org/guides/how-to-download-amazon-data, checked Oct 24, 2026). That alone makes the upload a weak step for a tired new parent.
+Sources: Plaid fields from `research/entity-resolution-test.md` §1 (checked against Plaid docs Oct 24, 2026). Amazon's full export now comes through its "Request your data" page as a ZIP, and the wait "can take several days" (https://takeoutday.org/guides/how-to-download-amazon-data, checked Oct 24, 2026). That alone makes the upload a weak step for a tired new parent.
 
-**How this changes matching.** The "brand + product type + date" matcher from the entity-resolution test (12 of 12 on the main set, 7 of 8 on fresh data, see `entity-resolution-test.md`) is built for exactly this kind of data. Receipts feed it **better** inputs than bank lines, and as good as or better than the Amazon file:
+**How this changes matching.** The "brand + product type + date" matcher from the entity-resolution test (12 of 12 on the main set, 7 of 8 on fresh data, see `research/entity-resolution-test.md`) is built for exactly this kind of data. Receipts feed it **better** inputs than bank lines, and as good as or better than the Amazon file:
 - **Brand + product type** come from the item title, the same as for Amazon orders. No new matching logic is needed.
 - **Seller rule** gets stronger: receipts say which store sold it, so "sold only at Amazon, Aug 2024 to Jul 2025" can be checked for non-Amazon stores too.
 - **Date rule** gets more accurate: the receipt has the order date, not the later charge date.
@@ -155,7 +155,7 @@ The receipt reader slots in **next to** `amazonCsv.ts` as `server/ingest/emailRe
 | **Total with live inbox** | **about 8.5 to 10.5** |
 
 **What it replaces or cuts:**
-- **Replaces the "Upload Amazon orders" tile** with "Forward your receipts" (plus "Use sample receipts"). The Amazon reader code stays, because the sample families still load from the CSV. The grade's "a small real order upload would make Product & UX a 9" (`plan-grade-future-state.md` §2e/§4b) is met by receipts instead, and covers more stores.
+- **Replaces the "Upload Amazon orders" tile** with "Forward your receipts" (plus "Use sample receipts"). The Amazon reader code stays, because the sample families still load from the CSV. The grade's "a small real order upload would make Product & UX a 9" (`plans/plan-grade-future-state.md` §2e/§4b) is met by receipts instead, and covers more stores.
 - **Plaid keeps its role** as the plan sets it: store-level features (daycare bills for the Dependent Care FSA, spotting baby spending), linking a card line to its item, and out of recall matching. No Plaid work is cut.
 - **Depends on the matcher upgrade.** Like the Amazon upload, receipts run through today's matcher would find almost nothing (0 of 12 without AI). Only build this if the brand + type matcher is built.
 - **Where it goes in the cut order:** treat it as the same slot the Amazon upload had. If time is short, build the sample-receipt version only (about 6 hours) and put the live inbox and auto-forward filter on the roadmap slide.

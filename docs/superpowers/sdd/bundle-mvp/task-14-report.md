@@ -36,7 +36,7 @@ Commit: e3bd70a (local main, not pushed, repo not public).
 - Post-hackathon: delete Zetaris cluster/key, reset Neon password.
 
 ## Concerns
-- docs/zetaris-notes.md lives in the parent hackathon folder, not the repo; README does not link it.
+- setup/zetaris-notes.md lives in the parent hackathon folder, not the repo; README does not link it.
 - Poverty-guideline figures remain unverified (pre-existing note).
 
 ## Fix round 1

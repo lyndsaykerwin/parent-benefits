@@ -1,0 +1,1164 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <meta name="dcterms.date" content="2026-10-22" />
+  <title>Bundle: The Class Book</title>
+  <style>
+
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+
+ul.task-list[class]{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+font-size: inherit;
+width: 0.8em;
+margin: 0 0.8em 0.2em -1.6em;
+vertical-align: middle;
+}
+.display.math{display: block; text-align: center; margin: 0.5rem auto;}
+</style>
+  <style type="text/css">body{font-family:-apple-system,Helvetica,Arial,sans-serif;max-width:760px;margin:0 auto;padding:24px;color:#1a1a1a;line-height:1.5;font-size:15px}
+h1{color:#2f4a7a;border-bottom:2px solid #2f4a7a;padding-bottom:4px;margin-top:2em;page-break-before:auto}
+h2{color:#2f4a7a;margin-top:1.5em}
+header h1.title{border:none;font-size:2.2em;margin-top:0}
+p.subtitle{font-size:1.15em;color:#555}
+table{border-collapse:collapse;width:100%;margin:1em 0;font-size:13px}
+th,td{border:1px solid #ccc;padding:6px 8px;vertical-align:top;text-align:left}
+th{background:#eef2f8}
+code{background:#f3f3f3;padding:1px 4px;border-radius:3px;font-size:.92em}
+a{color:#2f4a7a}
+blockquote{border-left:3px solid #ccc;margin-left:0;padding-left:12px;color:#555}
+</style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Bundle: The Class Book</h1>
+<p class="subtitle">Agents, Zetaris, Meterless, data, and what to build
+for families who spend a fortune on kids</p>
+<p class="date">October 22, 2026</p>
+</header>
+<nav id="TOC" role="doc-toc">
+<ul>
+<li><a href="#how-to-read-this" id="toc-how-to-read-this">How to read
+this</a></li>
+<li><a href="#part-1-the-problem-in-numbers" id="toc-part-1-the-problem-in-numbers">Part 1: The problem, in
+numbers</a></li>
+<li><a href="#part-2-the-tech-from-first-principles" id="toc-part-2-the-tech-from-first-principles">Part 2: The tech, from
+first principles</a></li>
+<li><a href="#part-3-data-sources-that-actually-make-this-cool" id="toc-part-3-data-sources-that-actually-make-this-cool">Part 3: Data
+sources that actually make this cool</a></li>
+<li><a href="#part-4-inspiration-and-what-to-steal" id="toc-part-4-inspiration-and-what-to-steal">Part 4: Inspiration, and
+what to steal</a></li>
+<li><a href="#part-5-ten-agent-ideas-evolved" id="toc-part-5-ten-agent-ideas-evolved">Part 5: Ten agent ideas,
+evolved</a></li>
+<li><a href="#part-6-the-pm-take" id="toc-part-6-the-pm-take">Part 6:
+The PM take</a></li>
+<li><a href="#part-7-risks-and-open-questions" id="toc-part-7-risks-and-open-questions">Part 7: Risks and open
+questions</a></li>
+<li><a href="#glossary" id="toc-glossary">Glossary</a></li>
+<li><a href="#sources" id="toc-sources">Sources</a></li>
+</ul>
+</nav>
+<h1 id="how-to-read-this">How to read this</h1>
+<p>This is a study guide for one decision: <strong>what should Bundle
+actually be?</strong> It’s written like a class for a smart 12-year-old.
+Every piece of jargon gets taught the first time it shows up and
+collected again in the glossary at the end. The recommendation comes
+first so you know where we’re heading. The rest shows the work.</p>
+<p>Facts were checked against sources dated mostly 2025–2026 (searched
+Oct 22, 2026). Anything shaky is marked <strong>(check)</strong>.
+Sources are listed by chapter at the end.</p>
+<h2 id="the-short-version">The short version</h2>
+<ol type="1">
+<li><strong>The problem is real and big.</strong> Raising a US child to
+18 costs roughly <strong>$310,000–$390,000</strong>. Infant daycare in
+Massachusetts runs about <strong>$27,000 a year</strong> (check).
+Families also leave money unclaimed: only <strong>56%</strong> of people
+eligible for WIC were enrolled in 2023, about <strong>1 in 5</strong>
+eligible workers miss the EITC, and about <strong>half</strong> of FSA
+holders forfeit money every year (average <strong>$441</strong>).</li>
+<li><strong>“A bunch of government databases” is the weak
+version.</strong> The strong version joins <strong>the family’s own
+private data</strong> (what they actually spend) with <strong>public
+rules and prices</strong>, under strict privacy controls. That’s exactly
+the job Zetaris was built for, and it’s what makes the product feel like
+magic instead of a directory.</li>
+<li><strong>The newsroom is still the right agent design, but it needs a
+better front page.</strong> Instead of a ranked list of deals, the
+newsroom should publish <strong>one number and a countdown</strong>:
+<em>“Baby Maya: $9,840 found, 4 deadlines, the first in 6 days.”</em>
+The agents argue in public before anything reaches the parent (“Fine
+Print Court”), and the Coach turns parent feedback into “case law”
+stored in Meterless memory.</li>
+<li><strong>Recommended concept: “The First 100 Days” (working
+title).</strong> It combines the 30-Day Window idea (deadlines and
+dollars unlocked by a birth), Fine Print Court (visible critique between
+agents), and a light Clawback (money back from what the family already
+spent, using fake bank data from Plaid’s free test environment). Details
+in Part 6.</li>
+</ol>
+<h1 id="part-1-the-problem-in-numbers">Part 1: The problem, in
+numbers</h1>
+<h2 id="kids-are-expensive-and-getting-more-so">Kids are expensive, and
+getting more so</h2>
+<ul>
+<li><strong>Raising a child to 17–18:</strong> estimates range from
+about <strong>$310,605</strong> (Brookings, for a child born in 2015) to
+<strong>$318,949</strong> (Credit Karma’s inflation-adjusted USDA figure
+for a 2025 baby) to about <strong>$389,000</strong> (LendingTree,
+2023).</li>
+<li><strong>The first year:</strong> BabyCenter’s 2025 survey says about
+<strong>$20,384</strong>, not counting the birth, with childcare about
+half of that. (check: it came out as a sponsored press release.)</li>
+<li><strong>Childcare:</strong> the national average is <strong>$13,184
+a year</strong> (Child Care Aware, 2025). Massachusetts is the most
+expensive state for infant care in a center, at about
+<strong>$27,067</strong> (check: secondhand reports of that same
+report). The Department of Labor says one child in full-day care costs
+<strong>9–16% of a family’s median income</strong>.</li>
+<li><strong>Gear prices jumped:</strong> a congressional minority
+analysis of Babylist data found car seats, strollers and similar gear
+rose about <strong>24% between April and June 2025</strong>. About
+<strong>97% of strollers</strong> and <strong>87% of car seats</strong>
+are made in China, so tariffs (taxes on imported goods) hit them
+hard.</li>
+</ul>
+<h2 id="money-families-qualify-for-but-never-get">Money families qualify
+for but never get</h2>
+<p>Economists call this the <strong>take-up gap</strong>: the difference
+between who <em>qualifies</em> for a benefit and who actually
+<em>gets</em> it.</p>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th>Program</th>
+<th>Take-up</th>
+<th>What it means</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>WIC</strong> (food program for pregnant women, babies and
+young kids)</td>
+<td><strong>56.1%</strong> of eligible people (2023)</td>
+<td>82% of eligible infants, but only 27% of eligible 4-year-olds</td>
+</tr>
+<tr>
+<td><strong>EITC</strong> (a tax refund for lower-income workers)</td>
+<td>about <strong>78%</strong> claim it</td>
+<td>Roughly 1 in 5 eligible people miss out</td>
+</tr>
+<tr>
+<td><strong>FSA</strong> (pre-tax account for health costs)</td>
+<td>About <strong>half</strong> forfeit money each year</td>
+<td>Average loss <strong>$441</strong>. The top reason is not knowing
+what counts</td>
+</tr>
+<tr>
+<td><strong>Car seat recalls</strong></td>
+<td><strong>42%</strong> of parents register their seat</td>
+<td>Only about <strong>40%</strong> of recalled seats ever get
+fixed</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-time-tax">The “time tax”</h2>
+<p>Journalist Annie Lowrey coined <strong>“time tax”</strong>: the hours
+people lose to forms, phone queues and proving they qualify. It hits
+hardest the people who have the least time, and a new parent has almost
+no free time. NPR revisited the idea in August 2026. Nobody has measured
+the time tax for new parents specifically, which is itself an
+opening.</p>
+<h2 id="changed-the-rules-so-everyones-information-is-out-of-date">2026
+changed the rules (so everyone’s information is out of date)</h2>
+<ul>
+<li><strong>Trump Accounts:</strong> launched July 4, 2026. Every US
+child born <strong>2025–2028</strong> gets a <strong>$1,000</strong>
+federal deposit. Parents start by filing <strong>IRS Form 4547</strong>
+at trumpaccounts.gov. Families can add up to $5,000 a year.</li>
+<li><strong>Federal tax changes from the 2025 law (the “One Big
+Beautiful Bill Act”):</strong>
+<ul>
+<li>The child tax credit is now <strong>$2,200 per child</strong>.</li>
+<li>The <strong>dependent-care FSA limit</strong> rose from
+<strong>$5,000 to $7,500</strong>, the first change since 1986.
+Employers aren’t forced to adopt it, so it depends on each employer’s
+plan.</li>
+<li>The childcare tax credit (CDCTC) now covers up to
+<strong>50%</strong> of costs for the lowest incomes. (check the exact
+income cutoffs on IRS Form 2441.)</li>
+</ul></li>
+<li><strong>Massachusetts:</strong> the state child tax credit is
+<strong>$440 per child</strong>, paid even if you owe no tax. Paid
+family leave (PFML) now pays up to <strong>$1,230.39 a
+week</strong>.</li>
+</ul>
+<p><strong>Why this matters for the pitch:</strong> when the rules
+change this much in one year, even well-informed parents are working
+from old information. That gives a “you’re probably missing this”
+product an urgent, timely hook.</p>
+<h1 id="part-2-the-tech-from-first-principles">Part 2: The tech, from
+first principles</h1>
+<h2 id="what-an-agent-is">What an “agent” is</h2>
+<p>A <strong>model</strong> (or <strong>LLM</strong>, “large language
+model”) is the AI brain: you send it words and it sends words back. On
+its own it can’t <em>do</em> anything.</p>
+<p>An <strong>agent</strong> is a model plus three things:</p>
+<ol type="1">
+<li><strong>A job:</strong> “you are the Fact-Checker.”</li>
+<li><strong>Tools:</strong> things it can call, like “run this database
+query” or “read this web page.” Using them is called <strong>tool
+use</strong>.</li>
+<li><strong>A loop:</strong> look → think → act → check the result →
+repeat until done.</li>
+</ol>
+<p>A <strong>multi-agent system</strong> is a team of agents with
+different jobs. The code that decides who goes next is the
+<strong>orchestrator</strong> (in your plan, the “Coordinator”). The
+hackathon judges have a clear taste:</p>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr>
+<th>Weak (they mark it down)</th>
+<th>Strong (they reward it)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Linear pipeline</strong>: A → B → C, every time</td>
+<td><strong>Branching</strong>: the next step depends on what
+happened</td>
+</tr>
+<tr>
+<td>Agents that just rephrase a prompt (“prompt wrappers”)</td>
+<td><strong>Critique</strong>: one agent checks another and can reject
+its work</td>
+</tr>
+<tr>
+<td>No memory</td>
+<td><strong>Shared state / memory</strong>: agents build on each
+other</td>
+</tr>
+<tr>
+<td>One try</td>
+<td><strong>Retries</strong> and <strong>escalation</strong>: try again,
+or hand a hard case up to a supervisor or a human</td>
+</tr>
+<tr>
+<td>No evidence</td>
+<td><strong>Traces / logs</strong>: a diary showing who did what and
+why</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Where agents shine vs. ordinary code:</strong> agents are
+good at <em>fuzzy</em> work: reading messy pages, judging “is this worth
+a tired parent’s time?”, explaining, arguing, planning. Ordinary code
+and databases are better at <em>exact</em> work: math, eligibility
+cutoffs, joining tables. A great design gives each side the work it’s
+good at.</p>
+<h2 id="zetaris-the-data-door">Zetaris: the data door</h2>
+<p><strong>The problem it solves.</strong> Useful facts live in many
+places, called <strong>data sources</strong>. Each has its own format,
+its own update schedule and its own way of being asked questions.
+Normally, to combine them, you’d copy everything into one big database.
+That’s called <strong>ETL</strong> (extract, transform, load). Copies go
+stale, and keeping them fresh is a full-time job.</p>
+<p><strong>What Zetaris does instead: data virtualisation.</strong> It
+leaves every source where it lives and only records its
+<strong>metadata</strong> (data about the data: what tables exist, what
+the columns are called, where the source lives). Then you ask
+<strong>one question in one language</strong> (<strong>SQL</strong>,
+Structured Query Language) and Zetaris reaches into every source at once
+and combines the answers. Combining rows from different tables is called
+a <strong>join</strong>.</p>
+<p>Think of a librarian who never moves the books. They keep a
+<strong>catalog</strong> of what’s in every building, and when you ask a
+question they go read the original and bring back the answer.</p>
+<p><strong>The four kinds of sources Zetaris can connect</strong> (from
+its docs):</p>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th>Type</th>
+<th>What it means</th>
+<th>Bundle examples</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>File sources</strong></td>
+<td>Files like CSV, JSON, Parquet (a compressed, column-by-column table
+format) sitting in storage like AWS S3</td>
+<td>A hand-made “program rules” table; an Amazon order-history
+export</td>
+</tr>
+<tr>
+<td><strong>Logical sources (databases)</strong></td>
+<td>Any database with a <strong>JDBC</strong> connector (a universal
+database plug), like Postgres</td>
+<td>Your Neon database: families, feedback, transactions</td>
+</tr>
+<tr>
+<td><strong>REST APIs</strong></td>
+<td>Websites that hand back raw data when you visit a special address
+(an <strong>endpoint</strong>)</td>
+<td>CPSC recalls, openFDA recalls, Open Food Facts</td>
+</tr>
+<tr>
+<td><strong>Streaming</strong></td>
+<td>Data that keeps flowing in, like a river instead of a lake</td>
+<td>Recall alert feeds, price-drop alerts</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Other Zetaris powers worth knowing</strong> (from its starter
+guide):</p>
+<ul>
+<li><strong>Governance:</strong> rules about <em>who may see what</em>.
+<code>GRANT … ON VIEW</code> gives each user or agent its own
+<strong>view</strong> (a filtered window onto the data). Example: the
+Scout agent never sees a family’s income; only the Planner does.</li>
+<li><strong>Data quality (DQ) rules:</strong> <code>REGISTER DQ</code> /
+<code>RUN DQ</code> let you declare checks like “every offer must have a
+source link and a deadline,” and flag rows that fail.</li>
+<li><strong>Semantic layer:</strong> one stored definition of business
+words like “eligible,” so every agent uses the same rule.</li>
+<li><strong>Catalog discovery:</strong> agents can <em>ask Zetaris which
+sources exist</em> instead of having them written into the code. Add a
+new source and the agents find it on their own.</li>
+</ul>
+<p><strong>Its limits:</strong></p>
+<ul>
+<li>It’s <strong>read-only</strong>: it can’t save new rows, so feedback
+has to be written to Neon.</li>
+<li>It reads web addresses that return data; it doesn’t read normal web
+pages.</li>
+<li>Sources that need a sign-in step first (<strong>OAuth</strong>, the
+“allow this app to access your bank” button) probably can’t be wired
+straight in. The safe pattern: a small script copies that data into
+Neon, and Zetaris reads Neon. (Inferred from the docs, not tested.)</li>
+</ul>
+<p><strong>When Zetaris is worth it:</strong> several sources, which
+change over time, which you need to combine, and some of which are
+private. <strong>When it’s decoration:</strong> one source, or a token
+query. The judges’ own words: a Zetaris call that does nothing scores
+<strong>“near zero”</strong> on Sponsor Tech.</p>
+<h2 id="meterless-the-agents-organs">Meterless: the agents’ organs</h2>
+<p>Meterless is one company with two halves.</p>
+<p><strong>Half 1: the engines (blueprints plus ready-made
+code).</strong> These give agents the “organs” a bare model lacks:</p>
+<ul>
+<li><strong>H-MEM (hierarchical memory):</strong> a diary with a
+librarian. Each memory carries:
+<ul>
+<li><strong>provenance</strong>: where it came from</li>
+<li>a <strong>confidence</strong> score: how sure we are</li>
+<li>a <strong>layer</strong>: short-term, working, or long-term</li>
+<li>links like <strong>supersedes</strong>: this replaces that older
+rule</li>
+</ul>
+Before an agent acts, H-MEM <strong>retrieves</strong> the most relevant
+memories and <strong>reinjects</strong> them into its instructions. When
+a memory proves right or wrong, its confidence moves up or down. When
+two memories conflict, it <strong>auto-resolves</strong>, escalating
+only close calls. Between runs it can <strong>“dream”</strong>: look
+across many memories and propose new general rules, which pass an
+approval step before they become permanent. Every change is written to
+an <strong>audit ledger</strong> in <strong>JSONL</strong> (plain text,
+one record per line) that judges can read.</li>
+<li><strong>World Model:</strong> a shared whiteboard of
+<strong>entities</strong> (things like “Maya,” “the Graco car seat,”
+“Dad’s employer”) and how they relate. Every agent reads the same
+picture instead of re-figuring it out.</li>
+<li><strong>Markovian engine:</strong> splits a very long task into
+small chunks and carries a compressed summary forward, so the model
+never runs out of room.</li>
+<li><strong>Scout Intent:</strong> a safety guard that classifies what
+an agent is about to do and blocks risky actions until a person
+approves.</li>
+</ul>
+<p><strong>Half 2: Nightshift, the “AI hotspot.”</strong> An app that
+turns your computer into a private AI server that other apps send
+questions to. Your Mac (M4) qualifies for the free version, which runs
+small models.</p>
+<p><strong>For Bundle, the important engine is H-MEM.</strong> It’s what
+lets the app <em>learn</em>. The judges’ rule of thumb from Meterless’s
+own docs: <strong>“stored ≠ loaded.”</strong> A memory nobody reads back
+is decoration.</p>
+<h2 id="the-rest-of-the-stack-already-set-up">The rest of the stack
+(already set up)</h2>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th>Tool</th>
+<th>Job</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>NVIDIA Nemotron</strong></td>
+<td>The models that power the agents</td>
+<td>Key and credits still to claim</td>
+</tr>
+<tr>
+<td><strong>Neon</strong></td>
+<td>Postgres database for families, feedback and transactions</td>
+<td>Connected</td>
+</tr>
+<tr>
+<td><strong>Firebase</strong></td>
+<td>Sign-in (email and Google)</td>
+<td>Set up</td>
+</tr>
+<tr>
+<td><strong>Colin Matthews’ template</strong></td>
+<td>Ready-made website: login, pages, Stripe payments, tests</td>
+<td>Chosen</td>
+</tr>
+</tbody>
+</table>
+<h1 id="part-3-data-sources-that-actually-make-this-cool">Part 3: Data
+sources that actually make this cool</h1>
+<h2 id="why-only-government-databases-feels-flat">Why “only government
+databases” feels flat</h2>
+<p>Government data is <em>public</em>: everyone has the same copy, so
+the answer is the same for every family. A product built only on public
+data is a <strong>directory</strong>, and directories are commodities
+(hard to stand out with).</p>
+<p>The magic happens when you join <strong>public rules</strong> with
+<strong>private facts about one family</strong>. The Points Guy didn’t
+win by publishing card rules; it won by saying “<em>your</em> points are
+worth $X.” Credit Karma’s offers got good because it already knew
+<em>your</em> credit.</p>
+<h2 id="the-four-families-of-data">The four families of data</h2>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th>Family</th>
+<th>Examples</th>
+<th>Why it matters</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>1. The family’s own private data</strong></td>
+<td>Card transactions, Amazon orders, employer benefits, daycare
+bills</td>
+<td>The “you” in “you left $1,140 on the table.” Needs governance.</td>
+</tr>
+<tr>
+<td><strong>2. Rules and entitlements</strong></td>
+<td>Program rules, tax credits, FSA-eligible lists, registry perks</td>
+<td>Turns spending into money back</td>
+</tr>
+<tr>
+<td><strong>3. Prices and products</strong></td>
+<td>Barcodes, price history, product catalogs</td>
+<td>“Is this a good price?”</td>
+</tr>
+<tr>
+<td><strong>4. Safety and benchmarks</strong></td>
+<td>Recalls; county childcare prices</td>
+<td>“Is this safe?” and “am I overpaying?”</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-best-sources-for-a-5-day-build">The best sources for a 5-day
+build</h2>
+<p>All free, or with free test versions that use fake data.</p>
+<ol type="1">
+<li><strong>Plaid Sandbox:</strong> Plaid is the service most finance
+apps use to connect bank accounts. Its <strong>sandbox</strong> (a test
+environment with fake data) is free and unlimited, and the test login
+<code>user_transactions_dynamic</code> produces realistic, changing
+transactions. You can even design custom fake families. <strong>This is
+the single biggest “wow” upgrade.</strong></li>
+<li><strong>CPSC recalls API:</strong> the Consumer Product Safety
+Commission’s free recall data, no key needed. The easiest new Zetaris
+source.</li>
+<li><strong>openFDA food recalls:</strong> infant formula and baby food
+recalls, updated weekly.</li>
+<li><strong>Open Food Facts:</strong> product lookup by barcode. Zetaris
+<strong>already has a verified recipe</strong> for it.</li>
+<li><strong>A fake Amazon order-history file:</strong> Amazon lets real
+customers download their orders as a CSV, so we build a fake one in the
+same format and Zetaris reads it as a file source.</li>
+<li><strong>DOL National Database of Childcare Prices:</strong>
+county-by-county childcare prices (2008–2022, update in progress).</li>
+<li><strong>A hand-made rules table with citations:</strong>
+FSA-eligible baby categories (from IRS Publication 502), 2026 tax rules,
+registry perks, Massachusetts PFML.</li>
+<li><strong>Bundle’s own feedback database (Neon):</strong> parent
+reports. This is where per-user privacy shows off.</li>
+<li><strong>UPCitemdb:</strong> turns a barcode into a product name
+(about 100 free lookups a day). The “bridge” between sources.</li>
+<li><strong>Live feeds (CPSC recall RSS, Slickdeals RSS):</strong> they
+make the app feel alive.</li>
+</ol>
+<h2 id="three-killer-joins-impossible-without-virtualisation">Three
+“killer joins” (impossible without virtualisation)</h2>
+<ol type="1">
+<li><strong>“Money you left on the table.”</strong> Plaid card
+transactions × Amazon orders × FSA-eligible list × 2026 tax rules →
+<em>“You spent $1,140 on FSA-eligible baby items with a regular card and
+$9,800 on daycare. Here’s how to claim money back.”</em> Four owners,
+four formats, and the bank data never gets copied into anyone else’s
+system.</li>
+<li><strong>“Is anything in my house recalled?”</strong> Purchases →
+barcode → CPSC + openFDA + NHTSA (car seats) recalls, checked live. A
+recall list that’s a week old is dangerous, which is the whole point of
+not copying it.</li>
+<li><strong>“Am I overpaying?”</strong> Daycare payments × the county’s
+median childcare price × anonymized results from other Bundle families
+(<em>“3 nearby families switched and saved 12%”</em>). Per-user views
+let each parent see their own row against the crowd’s totals, never
+another family’s data.</li>
+</ol>
+<h2 id="sources-to-avoid-this-week">Sources to avoid this week</h2>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr>
+<th>Source</th>
+<th>Why not</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Amazon’s product data service</strong> (PA-API)</td>
+<td>Shut down in 2026; its replacement requires an approved affiliate
+account with recent sales</td>
+</tr>
+<tr>
+<td><strong>Real Gmail inboxes</strong></td>
+<td>Reading mail needs Google’s paid security review; use a fake test
+inbox at most</td>
+</tr>
+<tr>
+<td><strong>Reddit</strong></td>
+<td>New data access reportedly takes 2–4 weeks to approve</td>
+</tr>
+<tr>
+<td><strong>Keepa</strong> (Amazon price history)</td>
+<td>Costs money; only worth it if price history is the star feature</td>
+</tr>
+<tr>
+<td><strong>Affiliate networks</strong> (Impact, CJ)</td>
+<td>Brand approvals take days to weeks</td>
+</tr>
+<tr>
+<td><strong>Scraping</strong> (Consumer Reports, Target, resale
+sites)</td>
+<td>Breaks their terms</td>
+</tr>
+<tr>
+<td><strong>Real family data of any kind</strong></td>
+<td>Hackathon rules: fake data only</td>
+</tr>
+</tbody>
+</table>
+<h1 id="part-4-inspiration-and-what-to-steal">Part 4: Inspiration, and
+what to steal</h1>
+<h2 id="the-points-guy-turn-rules-into-one-number">The Points Guy: turn
+rules into one number</h2>
+<p>A travel and credit-card advice site that makes money from card
+<strong>affiliate</strong> fees (a commission when you sign up through
+its link). Its magic was <strong>valuation</strong>: it says what a
+point is worth in cents (Chase points were 2.05¢ in August 2026). Its
+app also shows all your loyalty balances in one wallet and warns you
+before points expire.</p>
+<p><strong>Steal:</strong> put a dollar value on everything. <em>“Your
+family is leaving about $X a year unclaimed”</em> beats any list.</p>
+<h2 id="military-benefits-apps-prove-it-once-unlock-everything">Military
+benefits apps: prove it once, unlock everything</h2>
+<ul>
+<li><strong>My Military OneSource</strong> (the Defense Department’s
+free app) has a <strong>Benefits Finder</strong>: answer a few questions
+and it shows only what you qualify for.</li>
+<li><strong>GovX ID</strong> and <strong>ID.me</strong> check your
+status once, then let you unlock discounts at hundreds of stores without
+re-proving it. ID.me had 157M users by December 2025.</li>
+</ul>
+<p><strong>Steal:</strong> a reusable <strong>“verified parent”</strong>
+status (due date or kids’ ages, state, employer) that unlocks
+everything, and only ever show what <em>this</em> family qualifies
+for.</p>
+<h2 id="honey-rakuten-capital-one-shopping-watch-in-the-background">Honey,
+Rakuten, Capital One Shopping: watch in the background</h2>
+<p>You install once and savings appear at the moment you pay.
+<strong>Warning:</strong> Honey was sued in 2025 (the case was
+dismissed) over secretly swapping creators’ affiliate links. Hidden
+money tricks wreck trust.</p>
+<p><strong>Steal:</strong> the “we’ll tell you when it matters” habit.
+Be completely open about how you make money.</p>
+<h2 id="rocket-money-and-paribus-do-the-boring-work-get-paid-only-when-it-works">Rocket
+Money and Paribus: do the boring work, get paid only when it works</h2>
+<ul>
+<li><strong>Rocket Money</strong> cancels subscriptions and negotiates
+bills, keeping <strong>35–60% of the first year’s savings</strong>, and
+only if it succeeds. Rocket Companies bought it for $1.275B.</li>
+<li><strong>Paribus</strong> read email receipts and automatically
+claimed refunds when prices dropped. Capital One bought it, and its
+founders went on to start Ramp.</li>
+</ul>
+<p><strong>Steal:</strong> a <strong>success fee</strong> (you pay only
+when you get money back) is a business model people trust, and receipts
+are a goldmine.</p>
+<h2 id="propel-build-on-one-question-people-ask-constantly">Propel:
+build on one question people ask constantly</h2>
+<p>It started as a SNAP balance checker (SNAP is food stamps; EBT is the
+card the benefit is loaded on). Now about <strong>5M people a
+month</strong> use it, roughly a quarter of SNAP households. It grew
+from one habit, <em>“what’s my balance?”</em>, and added everything else
+on top.</p>
+<p><strong>Steal:</strong> find the question parents ask over and over
+(<em>“what do I need to do this week?”</em>).</p>
+<h2 id="babylist-catch-families-at-the-start-then-grow-with-them">Babylist:
+catch families at the start, then grow with them</h2>
+<p>A registry that works with any store. Revenue was
+<strong>$750M+</strong> in 2025, up 45%. Its <strong>Health</strong>
+business ships breast pumps paid for by insurance, turning a benefit
+people didn’t know they had into a simple order. Its <strong>completion
+discount</strong> gives 15% off unbought registry items.</p>
+<p><strong>Steal:</strong> “you already have this benefit, here’s the
+one-tap way to use it” is a proven model.</p>
+<h2 id="credit-karma-and-nerdwallet-free-tool-personalized-offers">Credit
+Karma and NerdWallet: free tool, personalized offers</h2>
+<p>Credit Karma made <strong>$2.26B</strong> in Intuit’s 2025 financial
+year, and NerdWallet made <strong>$836.6M</strong> in 2025. The free
+profile is what makes their offers relevant (“your approval odds”).</p>
+<p><strong>Steal:</strong> show <strong>“likely eligible”</strong>
+confidence the way they show approval odds.</p>
+<h2 id="agents-that-act-for-you-and-a-cautionary-tale">Agents that act
+for you, and a cautionary tale</h2>
+<ul>
+<li><strong>Pine</strong> (raised $25M in December 2025) is an AI agent
+that calls companies to lower bills and win refunds.</li>
+<li><strong>DoNotPay</strong> called itself a “robot lawyer.” The FTC
+(the US consumer-protection regulator) ordered refunds and banned
+unproven claims in January 2025.</li>
+</ul>
+<p><strong>Steal:</strong> do real work, but never overclaim. Bundle
+“finds and prepares.” It isn’t a lawyer or a tax adviser, and every
+claim shows its source.</p>
+<h2 id="precedents-you-might-not-have-thought-of">Precedents you might
+not have thought of</h2>
+<ul>
+<li><strong>Estonia’s “no application needed” family benefits:</strong>
+once a birth is registered, parents get a pre-filled offer to confirm,
+and 84% looked at theirs. <strong>This is the north star:</strong>
+<em>“here’s what you’re owed, tap to confirm.”</em></li>
+<li><strong>GetCTC (Code for America):</strong> a simple phone flow that
+helped about 200,000 households claim roughly <strong>$685M</strong> in
+child tax credits.</li>
+<li><strong>MissingMoney.com:</strong> one search across every state’s
+unclaimed-property records. States returned <strong>$4.25B</strong> in a
+year. That’s “one data door across many sources,” the Zetaris idea in
+consumer form.</li>
+</ul>
+<h1 id="part-5-ten-agent-ideas-evolved">Part 5: Ten agent ideas,
+evolved</h1>
+<p>The scores are for a solo non-coder with an AI coding assistant and 4
+days: <strong>Feasibility</strong> from 1 (hard) to 5 (easy), and
+<strong>Upside</strong> from 1 to 5.</p>
+<table>
+<colgroup>
+<col style="width: 20%" />
+<col style="width: 20%" />
+<col style="width: 20%" />
+<col style="width: 20%" />
+<col style="width: 20%" />
+</colgroup>
+<thead>
+<tr>
+<th>#</th>
+<th>Idea</th>
+<th>Pitch</th>
+<th>Feas.</th>
+<th>Upside</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td><strong>Clawback</strong></td>
+<td>Watches what the family already bought and claws money back:
+price-drop refunds, FSA reimbursement, rebates, plus recall alerts</td>
+<td>3</td>
+<td>4</td>
+</tr>
+<tr>
+<td>2</td>
+<td><strong>Childcare Tax Math Duel</strong></td>
+<td>A “dependent-care FSA” advocate and a “tax credit” advocate each
+build a plan; a plain-math Auditor checks them</td>
+<td>4</td>
+<td>4</td>
+</tr>
+<tr>
+<td>3</td>
+<td><strong>The Newsroom</strong> (current plan)</td>
+<td>A weekly personal edition of checked offers</td>
+<td>4</td>
+<td>3–4</td>
+</tr>
+<tr>
+<td>4</td>
+<td><strong>Fine Print Court</strong></td>
+<td>A Deal Hunter argues for an offer, a Fine Print Lawyer argues
+against, a Judge rules, and simulated families act as the jury</td>
+<td>4</td>
+<td>4</td>
+</tr>
+<tr>
+<td>5</td>
+<td><strong>Kid Cost Forecaster</strong></td>
+<td>Simulates the next 12 months under different scenarios (“back to
+work in month 4 vs month 7”)</td>
+<td>3</td>
+<td>4</td>
+</tr>
+<tr>
+<td>6</td>
+<td><strong>Registry Referee</strong></td>
+<td>Coordinates gifts from grandparents so nobody buys duplicates;
+redirects extras to the Trump Account</td>
+<td>3</td>
+<td>3</td>
+</tr>
+<tr>
+<td>7</td>
+<td><strong>Resale Router</strong></td>
+<td>When to sell, hand down or recycle outgrown gear (after a recall
+check)</td>
+<td>3</td>
+<td>3</td>
+</tr>
+<tr>
+<td>8</td>
+<td><strong>Caseworker</strong></td>
+<td>Pre-fills applications (WIC, PFML, Form 4547) and stops before
+submitting</td>
+<td>2</td>
+<td>5</td>
+</tr>
+<tr>
+<td>9</td>
+<td><strong>Recall Guardian</strong></td>
+<td>Registers car seats, watches for recalls</td>
+<td>4</td>
+<td>3</td>
+</tr>
+<tr>
+<td>10</td>
+<td><strong>The 30-Day Window</strong></td>
+<td>A birth starts a countdown of deadlines with a dollar amount on
+each</td>
+<td>4</td>
+<td>5</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Who else is doing this?</strong> - <strong>Fambot</strong>
+($3.5M, September 2026) and <strong>Ohai</strong> ($6M) build AI “chiefs
+of staff” for families, but they focus on calendars and logistics, not
+money. - <strong>Paribus</strong> and <strong>Earny</strong> did
+price-drop refunds but weren’t baby-specific and didn’t check FSA
+eligibility or recalls. - <strong>GoodBuy Gear</strong> does baby gear
+resale. - Nothing found does <strong>money + deadlines +
+verification</strong> for new parents.</p>
+<h1 id="part-6-the-pm-take">Part 6: The PM take</h1>
+<p>How would a sharp consumer product manager, in the spirit of Nikita
+Bier, shape this?</p>
+<h2 id="nikita-biers-principles-in-one-breath">Nikita Bier’s principles,
+in one breath</h2>
+<p>He built tbh (sold to Facebook) and Gas (sold to Discord), then ran
+product at X. His principles:</p>
+<ul>
+<li><strong>Show the value within seconds.</strong></li>
+<li><strong>Prefill instead of asking:</strong> he noticed requiring a
+profile photo caused high drop-off.</li>
+<li><strong>Launch to one tight community</strong> at a time (Gas went
+one high school, one state at a time).</li>
+<li><strong>Run fast, repeatable experiments.</strong></li>
+</ul>
+<h2 id="the-recommendation-the-first-100-days">The recommendation: “The
+First 100 Days”</h2>
+<p><strong>Who it’s for (tight):</strong> a working parent in
+Massachusetts, expecting or within 100 days of a birth, whose job has
+benefits. They’re exhausted, the deadlines are real, and the 2026 rule
+changes mean their information is stale.</p>
+<p><strong>The 10-second magic (time to value):</strong> 1. Three
+inputs: <strong>due date (or birth date), ZIP code, employer.</strong>
+2. Optional: <strong>“connect your card”</strong> (Plaid’s test
+environment in the demo). 3. One screen comes back, for example:
+<strong>“Baby Maya: $9,840 found. 4 deadlines. First one in 6
+days.”</strong> That’s the <strong>Bundle Receipt</strong>, the
+screenshot a parent posts in the group chat.</p>
+<p><strong>What sits underneath (the newsroom, upgraded):</strong></p>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th>Agent</th>
+<th>Job</th>
+<th>Strong-agent pattern it shows</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Scout</strong> (reporter)</td>
+<td>Reads official pages and offers, fills in the rules table with
+source links</td>
+<td>Tool use</td>
+</tr>
+<tr>
+<td><strong>Deal Hunter vs. Fine Print Lawyer</strong> (Fine Print
+Court)</td>
+<td>Argue for and against each offer or benefit; the
+<strong>Judge</strong> rules; the <strong>Parent Panel</strong> (3
+simulated families) can veto</td>
+<td>Critique, debate, veto</td>
+</tr>
+<tr>
+<td><strong>Fact-Checker</strong></td>
+<td>Re-runs a Zetaris query to confirm every number and deadline before
+it’s stated; sends wrong work back to the Scout (max 2 retries)</td>
+<td>Validation, retry, branching</td>
+</tr>
+<tr>
+<td><strong>Clawback</strong> (light)</td>
+<td>Joins the family’s transactions with the FSA-eligible list and
+recalls: “$312 you can claim back, 1 recalled item”</td>
+<td>Private + public join</td>
+</tr>
+<tr>
+<td><strong>Planner</strong></td>
+<td>Turns approved items into a dated countdown (“Week 1: add baby to
+insurance”)</td>
+<td>Planning over time</td>
+</tr>
+<tr>
+<td><strong>Coach</strong></td>
+<td>Turns parent feedback into <strong>“case law”</strong> in H-MEM,
+with source and confidence; future cases cite it</td>
+<td>Shared memory, learning</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Zetaris’s real job:</strong> - <strong>Family profile and
+transactions</strong> (Neon) × <strong>program rules and tax
+rules</strong> (files) × <strong>recalls</strong> (live APIs) ×
+<strong>county childcare prices</strong> (DOL). - Each agent gets its
+own <strong>governed view</strong>: the Scout and the Judge never see
+income. - <strong>Data-quality rules</strong> block any benefit without
+a source link and a deadline. - Remove Zetaris and the app can’t answer
+“what are <em>you</em> owed?”</p>
+<p><strong>Meterless’s real job:</strong> - <strong>H-MEM</strong>
+stores case law and per-family memory, with provenance and confidence. -
+<strong>The demo moment:</strong> run 1 approves a “free” offer, parents
+report shipping charges, the Coach writes a rule, and run 2’s Fine Print
+Court cites that rule and rejects a similar offer. The audit log proves
+it.</p>
+<p><strong>Why this beats the current plan:</strong> - It keeps
+everything already designed (Scout, Fact-Checker, Panel, Coach). - It
+changes the front page from a list into <strong>one number and a
+countdown</strong>. - It adds the one data move that makes Zetaris
+shine: <strong>private × public, under governance</strong>.</p>
+<h2 id="how-it-scores">How it scores</h2>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th>Criterion</th>
+<th>Points</th>
+<th>How “First 100 Days” earns them</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Impact</strong></td>
+<td>30</td>
+<td>A specific user, real dollars, real deadlines; timely because of
+2026 changes; backed by take-up-gap numbers</td>
+</tr>
+<tr>
+<td><strong>Technical</strong></td>
+<td>20</td>
+<td>Debate, veto, retry, branching, shared memory, governed views, full
+traces</td>
+</tr>
+<tr>
+<td><strong>Innovation</strong></td>
+<td>15</td>
+<td>Agents argue in public; case law that compounds; private × public
+join</td>
+</tr>
+<tr>
+<td><strong>Demo</strong></td>
+<td>15</td>
+<td>The Bundle Receipt, a live Fine Print Court ruling, run 1 vs run
+2</td>
+</tr>
+<tr>
+<td><strong>Product &amp; UX</strong></td>
+<td>10</td>
+<td>Three inputs, one number, one countdown; built for phones</td>
+</tr>
+<tr>
+<td><strong>Sponsor Tech</strong></td>
+<td>10</td>
+<td>Zetaris and Meterless are load-bearing, not bolted on</td>
+</tr>
+</tbody>
+</table>
+<h2 id="a-3½-minute-demo-storyboard">A 3½-minute demo storyboard</h2>
+<ol type="1">
+<li><strong>0:00–0:20, the problem.</strong> “$27K for infant care. $441
+lost per FSA holder. 44% of WIC-eligible people aren’t enrolled. And the
+rules changed this year.”</li>
+<li><strong>0:20–0:50, the magic.</strong> Enter due date, ZIP and
+employer, connect a test card, and the Bundle Receipt appears.</li>
+<li><strong>0:50–1:40, under the hood.</strong> A live trace: the Scout
+finds a “free car seat” offer → Fine Print Court: the Lawyer finds a $40
+shipping subscription → the Judge rules against → the Fact-Checker
+catches a wrong income limit and sends it back.</li>
+<li><strong>1:40–2:20, the private × public join.</strong> “$312 you can
+claim from your FSA; one recalled item in your Amazon orders.” Show that
+the Judge’s view hides income.</li>
+<li><strong>2:20–3:00, it learns.</strong> Parent feedback → the Coach
+writes case law (H-MEM, with confidence) → run 2 cites it. The
+before/after scoreboard.</li>
+<li><strong>3:00–3:30, what’s next.</strong> Pre-filled applications
+(Caseworker), background watching, a success-fee business model.</li>
+</ol>
+<h2 id="scope-guardrails-so-it-actually-ships">Scope guardrails (so it
+actually ships)</h2>
+<ul>
+<li><strong>Build:</strong> the Receipt, the countdown, Fine Print
+Court, the Fact-Checker loop, the Coach plus H-MEM, governed views, and
+Clawback-light on Plaid sandbox data.</li>
+<li><strong>Label “coming soon”:</strong> filling in applications,
+background watching, Forecaster, Registry Referee, Resale.</li>
+<li><strong>If time runs short, cut in this order:</strong> Clawback →
+county childcare comparison → Parent Panel down to 1 family.
+<strong>Never cut:</strong> Fine Print Court, the Fact-Checker loop, the
+learning demo, traces.</li>
+</ul>
+<h1 id="part-7-risks-and-open-questions">Part 7: Risks and open
+questions</h1>
+<ul>
+<li><strong>Accuracy is the product.</strong> A wrong deadline or dollar
+amount hurts a real family. Every number needs a source, the
+Fact-Checker must re-verify, and the UI should say “likely eligible,”
+not “eligible.”</li>
+<li><strong>Plaid into Zetaris:</strong> Plaid needs a sign-in step, so
+plan to copy its test data into Neon and let Zetaris read it there. Test
+on day 1.</li>
+<li><strong>Facts to double-check before the demo:</strong>
+<ul>
+<li>the Massachusetts infant-care figure</li>
+<li>the CDCTC income cutoffs</li>
+<li>Trump Account deposit status</li>
+<li>whether “income drops during leave” really changes eligibility for
+specific programs</li>
+<li>the 30-day insurance window for a given employer plan</li>
+</ul></li>
+<li><strong>Scope:</strong> this is still a lot for 4 days. The cut list
+matters.</li>
+<li><strong>Positioning:</strong> “finds and prepares.” Never “advises”
+(the DoNotPay lesson).</li>
+</ul>
+<h1 id="glossary">Glossary</h1>
+<ul>
+<li><strong>Affiliate:</strong> earning a commission when someone signs
+up or buys through your link.</li>
+<li><strong>Agent:</strong> an AI model with a job, tools and a
+loop.</li>
+<li><strong>API / endpoint:</strong> a web address that hands back raw
+data for programs instead of a page for people.</li>
+<li><strong>Audit ledger:</strong> an append-only record of every
+change.</li>
+<li><strong>Catalog:</strong> Zetaris’s list of every connected source
+and what’s in it.</li>
+<li><strong>Confidence score:</strong> how sure the system is about a
+memory or claim, from 0 to 1.</li>
+<li><strong>Critique / validation:</strong> one agent checking another’s
+work and able to reject it.</li>
+<li><strong>Data virtualisation:</strong> querying data where it lives
+instead of copying it.</li>
+<li><strong>DCFSA:</strong> dependent-care FSA, pre-tax money for
+childcare (2026 limit: $7,500).</li>
+<li><strong>DQ rules:</strong> data-quality checks that flag bad
+rows.</li>
+<li><strong>Escalation:</strong> handing a hard case up to a supervisor
+agent or a human.</li>
+<li><strong>ETL:</strong> extract, transform, load: copying data into
+one place.</li>
+<li><strong>FSA / HSA:</strong> pre-tax accounts for health costs.</li>
+<li><strong>Governance / view:</strong> rules for who sees what; a view
+is a filtered window onto data.</li>
+<li><strong>H-MEM:</strong> Meterless’s memory engine.</li>
+<li><strong>JDBC:</strong> a universal plug for connecting to
+databases.</li>
+<li><strong>Join:</strong> combining rows from different tables that
+share a key, such as a ZIP code.</li>
+<li><strong>JSONL:</strong> a text file with one data record per
+line.</li>
+<li><strong>LLM / model:</strong> the AI brain that reads and writes
+text.</li>
+<li><strong>Metadata:</strong> data about data (table names, columns,
+locations).</li>
+<li><strong>OAuth:</strong> the “allow this app to access your account”
+sign-in step.</li>
+<li><strong>Orchestrator:</strong> the code that decides which agent
+goes next.</li>
+<li><strong>Provenance:</strong> where a fact or memory came from.</li>
+<li><strong>Sandbox:</strong> a test environment with fake data.</li>
+<li><strong>Semantic layer:</strong> shared definitions of business
+terms.</li>
+<li><strong>SQL:</strong> the standard language for asking databases
+questions.</li>
+<li><strong>Success fee:</strong> you pay only if the service gets you
+money.</li>
+<li><strong>Take-up gap:</strong> eligible people who don’t get a
+benefit.</li>
+<li><strong>Time tax:</strong> hours lost to paperwork and proving you
+qualify.</li>
+<li><strong>Trace:</strong> a step-by-step log of what each agent
+did.</li>
+</ul>
+<h1 id="sources">Sources</h1>
+<p><strong>Part 1: The problem</strong></p>
+<ul>
+<li>Child cost: <a href="https://www.creditkarma.com/cash-flow/i/how-much-does-it-cost-to-raise-a-child">Credit
+Karma</a> · <a href="https://www.goodmorningamerica.com/family/story/how-much-it-costs-to-raise-a-child-in-the-us-120376717">Good
+Morning America</a> · <a href="https://www.fox29.com/news/heres-what-moms-spending-babies-first-year">Fox
+29 / BabyCenter 2025</a></li>
+<li>Childcare: <a href="https://info.childcareaware.org/price-and-supply-2025">Child Care
+Aware 2025</a> · <a href="https://www.americashealthrankings.org/explore/measures/Infant_Child_Care/MA">America’s
+Health Rankings (MA)</a> · <a href="https://nbcboston.com/news/local/2-mass-counties-rank-among-the-most-expensive-for-infant-care/2959511">NBC
+Boston</a> · <a href="https://www.dol.gov/newsroom/releases/wb/wb20241119">DOL Nov
+2024</a></li>
+<li>Take-up: <a href="https://www.cbpp.org/sites/default/files/3-26-26fa.pdf">CBPP WIC,
+Mar 2026</a> · <a href="https://irs.gov/pub/irs-soi/24rpeitcunderclaimsty2021census.pdf">IRS
+EITC TY2021</a> · <a href="https://www.retaildive.com/news/fsa-hsa-healthcare-shopper-awareness-beauty-retail-wellness/745339/">Retail
+Dive / EBRI FSA</a> · <a href="https://www.safekids.org/node/8977">Safe
+Kids car seats</a></li>
+<li>Tariffs: <a href="https://www.nbcnews.com/business/consumer/prices-common-baby-items-are-rising-due-trumps-tariffs-congressional-a-rcna212753">NBC
+News</a> · <a href="https://www.babylist.com/hello-baby/baby-products-tariffs-registry">Babylist</a></li>
+<li>Time tax: <a href="https://www.kpbs.org/news/national/2026/08/31/paperwork-lines-hours-on-hold-theres-a-time-tax-on-americans-who-need-help-most">KPBS/NPR,
+Aug 31 2026</a> · <a href="https://budgetlab.yale.edu/research/how-would-tcja-reforms-affect-time-burden-filing-taxes">Yale
+Budget Lab</a></li>
+<li>2026 changes: <a href="https://www.wcax.com/2026/08/03/how-trump-accounts-work-who-qualifies-1000-federal-deposit/">WCAX,
+Trump Accounts</a> · <a href="https://www.hwhlaw.com/advisory-dependent-care-fsa-limit-increased-to-7-500-for-2026">HWH
+Law, DCFSA $7,500</a> · <a href="https://www.axios.com/2026/01/02/trump-accounts-signup-big-beautiful-bill">Axios,
+Trump Accounts</a> · <a href="https://www.doeren.com/viewpoint/irs-releases-2026-cost-of-living-adjustments-includes-amendments-from-obbba">Doeren,
+2026 IRS adjustments</a> · <a href="https://www.poppinspayroll.com/blog/2025-childcare-tax-savings-ctc-cdctc-dependent-care-fsa">Poppins
+Payroll</a> · <a href="https://www.ncsl.org/human-services/child-tax-credit-overview/maptype/tile">NCSL
+state CTCs</a> · <a href="https://www.kiplinger.com/taxes/states-that-offer-a-child-tax-credit">Kiplinger</a>
+· <a href="https://www.seyfarth.com/news-insights/2026-massachusetts-paid-family-and-medical-leave-updates-benefit-amount-contribution-rates-and-taxability-of-benefit-payments.html">Seyfarth,
+MA PFML 2026</a></li>
+</ul>
+<p><strong>Part 2: The tech</strong></p>
+<ul>
+<li>Zetaris and Meterless: your hackathon folder
+(setup/zetaris-getting-started/, setup/zetaris-walkthrough.md, setup/meterless-engines/) ·
+<a href="https://github.com/zetaris/getting-started">Zetaris
+getting-started repo</a> · <a href="https://github.com/Meterless/Meterless">Meterless repo</a></li>
+</ul>
+<p><strong>Part 3: Data sources</strong></p>
+<ul>
+<li><a href="https://www.plaid.com/docs/sandbox/test-credentials/">Plaid
+Sandbox test credentials</a> · <a href="https://plaid.com/docs/sandbox/studio/">Plaid Sandbox Studio</a> ·
+<a href="https://support.plaid.com/hc/en-us/articles/16110110883479">Plaid
+trial plan</a></li>
+<li><a href="https://www.cpsc.gov/node/5808">CPSC recalls API</a> · <a href="https://open.fda.gov/apis/food/enforcement">openFDA food
+enforcement</a> · <a href="https://catalog.data.gov/dataset/nhtsas-office-of-defects-investigation-odi-recalls-nhtsa-api">NHTSA
+recalls on data.gov</a> · <a href="https://www.dol.gov/agencies/wb/topics/featured-childcare">DOL
+childcare prices</a></li>
+<li><a href="https://affiliate-program.amazon.com/creatorsapi/docs/en-us/paapiv5-deprecation">Amazon
+PA-API deprecation</a> · <a href="https://keepa.com/api-docs/plans-tokens.html">Keepa plans</a> · <a href="https://www.socialcrawl.dev/blog/reddit-data-api-2026">Reddit API
+2026</a> · <a href="https://openreferral.readthedocs.io/en/v3.0/">Open
+Referral HSDS</a></li>
+</ul>
+<p><strong>Part 4: Inspiration</strong></p>
+<ul>
+<li>The Points Guy: <a href="https://thepointsguy.com/news/monthly-valuations">valuations</a> ·
+<a href="https://thepointsguy.com/legal/advertising-policy">advertising
+policy</a> · <a href="https://creditcards.com/news/the-points-guy-app-launch">app
+launch</a></li>
+<li>Military: <a href="https://www.army.mil/article/240721/app_for_military_resources_available_to_service_members_families">Military
+OneSource app</a> · <a href="https://apps.shopify.com/govx-id">GovX
+ID</a> · <a href="https://sacra.com/research/id-me">ID.me
+(Sacra)</a></li>
+<li>Shopping: <a href="https://news.bloomberglaw.com/litigation/paypals-honey-sheds-influencers-affiliate-link-hijacking-suit">Honey
+suit dismissed</a> · <a href="https://help.rocketmoney.com/en/articles/9744474-bill-negotiation-charge">Rocket
+Money fees</a> · <a href="https://techcrunch.com/2016/10/06/capital-one-acquires-online-price-tracker-paribus/">Paribus
+acquisition</a></li>
+<li>Benefits and parents: <a href="https://www.npr.org/2025/11/04/nx-s1-5587728/snap-shutdown-propel-tech-startup-cash-donations">Propel
+(NPR)</a> · <a href="https://norfolkdailynews.com/online_features/press_releases/babylist-tops-750-million-in-revenue-in-2025-increasing-45-as-it-expands-ecosystem-for/article_026df4cc-0b39-5284-b0c4-f87a1ae5b2d3.html">Babylist
+2025 revenue</a> · <a href="https://help.babylist.com/hc/en-us/articles/115006102688">Babylist
+completion discount</a></li>
+<li>Finance: <a href="https://www.sec.gov/Archives/edgar/data/896878/000089687825000061/intu014766-ars.pdf">Intuit
+FY2025 report</a> · <a href="https://www.businesswire.com/news/home/20260225448516/en/">NerdWallet
+2025 results</a></li>
+<li>Agents: <a href="https://fintech.global/2025/12/03/pine-launches-ai-agent-as-it-secures-25m-series-a/">Pine
+Series A</a> · <a href="https://www.ftc.gov/node/87474">FTC on
+DoNotPay</a> · <a href="https://techcrunch.com/2026/09/01/fambot-introduces-an-ai-chief-of-staff-for-families/">Fambot</a></li>
+<li>Precedents: <a href="https://news.err.ee/991789/parents-no-longer-have-to-apply-for-family-benefits">Estonia
+proactive benefits</a> · <a href="https://codeforamerica.org/programs/tax-benefits/child-tax-credit/">GetCTC</a>
+· <a href="https://unclaimed.org/wp-content/uploads/NAUPA-FY-25-Report.pdf">NAUPA
+unclaimed property FY25</a></li>
+</ul>
+<p><strong>Part 6: The PM take</strong></p>
+<ul>
+<li>Nikita Bier: <a href="https://www.lennysnewsletter.com/p/how-to-consistently-go-viral-nikita-bier">Lenny’s
+Newsletter</a> · <a href="https://x.com/nikitabier/status/1867270647912788365">X post on
+profile photos</a> · <a href="https://thehustle.co/10-18-22-gas-app">The
+Hustle on Gas</a> · <a href="https://www.engadget.com/2231302/x-head-of-product-nikita-bier-leaving-the-company-one-year-after-joining/">Engadget</a></li>
+</ul>
+</body>
+</html>

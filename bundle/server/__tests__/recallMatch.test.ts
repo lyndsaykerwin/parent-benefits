@@ -5,8 +5,8 @@ import {
   type PurchaseItem, type RecallRecord,
 } from '../agents/recallMatch';
 
-// Saved live feeds and FAKE labelled purchases from the entity-resolution test (entity-resolution-test.md).
-const DATA = path.resolve(__dirname, '../../../experiments/entity-resolution/data');
+// Saved live feeds and FAKE labelled purchases from the entity-resolution test (research/entity-resolution-test.md).
+const DATA = path.resolve(__dirname, '../../../research/experiments/entity-resolution/data');
 const load = (f: string) => JSON.parse(fs.readFileSync(path.join(DATA, f), 'utf8'));
 const CPSC: RecallRecord[] = load('cpsc.json').map(fromCpsc);
 const FDA: RecallRecord[] = load('fda.json').results.map(fromFda);

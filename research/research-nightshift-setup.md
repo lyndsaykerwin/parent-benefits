@@ -1,6 +1,6 @@
 # Nightshift + NVIDIA Nemotron: setup guide and change list
 
-Written Sat Oct 24, 2026 (cloud session). **No code was changed.** No secret values appear here. This builds on `research-nightshift.md` (especially its "Oct 24 afternoon update") and on plan v3 item 2 (`bundle-plan-v3.md`).
+Written Sat Oct 24, 2026 (cloud session). **No code was changed.** No secret values appear here. This builds on `research/research-nightshift.md` (especially its "Oct 24 afternoon update") and on plan v3 item 2 (`bundle-plan-v3.md`).
 
 **Short version:** Nightshift runs on your Mac and becomes the one "address" Bundle sends its AI questions to. You add your NVIDIA key *inside* Nightshift so it can hand the hard questions to NVIDIA's Nemotron models. Bundle then tries, in order: **Nightshift → NVIDIA directly → saved offline text**. The hosted website cannot reach your Mac, so all live-AI runs (and the demo video) happen on your Mac.
 
@@ -113,7 +113,7 @@ Effort: about 3–5 hours with tests (a bit more than the earlier 2–4 because 
 
 ### 3d. Test plan
 
-1. **Cloud/any machine, no keys:** `npm test` (all tests pass, including new ones; was 268 passing per `cloud-health-check.md`) and `npm run check` (type check). `SAMPLE_MODE=true npm run eval` still gives the saved offline scoreboard unchanged.
+1. **Cloud/any machine, no keys:** `npm test` (all tests pass, including new ones; was 268 passing per `progress/reviews/cloud-health-check.md`) and `npm run check` (type check). `SAMPLE_MODE=true npm run eval` still gives the saved offline scoreboard unchanged.
 2. **Mac, Saturday/Sunday daytime:** `npm run model:check -- --provider nightshift` (expect both tests "ok", model names printed) and `npm run model:check -- --provider nvidia` (proves the backup works). Then stop Nightshift and run `model:check` again: expect "Nightshift isn't running", and the chain test shows NVIDIA answering.
 3. **Mac, Sunday evening smoke test (risk 3):** one family, live AI: `npx tsx scripts/run-family.ts maya` (note: this script also calls live Zetaris, so the Zetaris keys must be in the private file; with `LIVE_MODEL` built, starting the app with `SAMPLE_MODE=true LIVE_MODEL=true npm run dev` and running Maya in the browser is the replay-Zetaris alternative). Check the trace: each AI step shows provider + real model, no call over its limit, total run under `RUN_DEADLINE_SECONDS`.
 4. **Mac, Monday morning, the one real run:** `npm run eval:live-model`. Done when the scoreboard's `llmMode` reads `nightshift:...` with a Nemotron name (or says honestly which provider answered), `llmCalls` shows worked/total, and run-1/run-2 learning traces are saved. Commit those logs. If below 6 of 6, report the real number.
@@ -158,13 +158,13 @@ Effort: about 3–5 hours with tests (a bit more than the earlier 2–4 because 
 - "Add Meterless as a provider" (Runtime 0.90.0): https://github.com/Meterless/Meterless/blob/main/docs/agent-ready/add-meterless-provider.md
 - Nightshift hotspot doc: https://github.com/Meterless/Meterless/blob/main/docs/products/nightshift/hotspot.md
 - Meterless home (bring-your-own cloud key, local-network address example, Nemotron list): https://meterless.ai/ ; Mac page (M1+ free, "cloud providers are optional"): https://meterless.ai/mac.html ; models: https://meterless.ai/models.html
-- Meterless pinned hackathon announcement, Oct 24, 2026 (screenshot from Lyndsay, summarized in `research-nightshift.md`).
+- Meterless pinned hackathon announcement, Oct 24, 2026 (screenshot from Lyndsay, summarized in `research/research-nightshift.md`).
 - NVIDIA hosted model list, page updated Oct 23, 2026 (base `https://integrate.api.nvidia.com`, `POST /v1/chat/completions`, Nemotron ids above): https://docs.api.nvidia.com/nim/reference/llm-apis
 - Nemotron 3 Super model page, updated Aug 6, 2026 (`chat_template_kwargs` → `enable_thinking: False`, `low_effort`): https://docs.api.nvidia.com/nim/reference/nvidia-nemotron-3-super-120b-a12b
 - NVIDIA key and OpenAI-compatible endpoint (community docs): https://docs.openclaw.ai/providers/nvidia/index.html ; Ultra how-to: https://pasqualepillitteri.it/en/news/4298/how-to-try-nemotron-3-ultra
 - Rate limits / credits (unofficial, conflicting): https://forums.developer.nvidia.com/t/request-for-nvidia-nim-api-rate-limit-increase-40-200-rpm/375340 ; https://github.com/steipete/CodexBar/issues/2498 ; https://dev.to/lorenzojkrl/stop-paying-20month-use-nvidia-build-80-free-ai-models-17ih
 - Nemotron 3.5 Lightning (released Aug 11, 2026): https://openrouter.ai/nvidia/nemotron-3.5-lightning
-- Local: `research-nightshift.md`, `bundle-plan-v3.md` item 2, `plan-grade-future-state.md` risk 3, `entity-resolution-test.md` §3, `architecture.md` §7d, and the Bundle code cited in 3a.
+- Local: `research/research-nightshift.md`, `bundle-plan-v3.md` item 2, `plans/plan-grade-future-state.md` risk 3, `research/entity-resolution-test.md` §3, `plans/architecture.md` §7d, and the Bundle code cited in 3a.
 - A web search for "Meterless Nightshift NVIDIA Nemotron" found nothing beyond Meterless's own pages.
 
 **Unconfirmed:** cloud-key menu path; `proxy-token` folder on macOS; how to pin an exact model and turn thinking off in Nightshift (due Sunday); whether replies name the real model; NVIDIA credit amount and rate limit; `enable_thinking` on Ultra.

@@ -386,7 +386,7 @@ describe('W3-SAFETY: recallMatch wired in, evidence on every alert, formula lot 
     const sample = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../../data/sample/purchase-items.json'), 'utf8'));
     const receipt = sample.receipts.find((r: any) => r.familyId === 'maya' && r.items.some((i: any) => /KEAWIS/.test(i.productName)));
     const item = receipt.items.find((i: any) => /KEAWIS/.test(i.productName));
-    const feed = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../../../experiments/entity-resolution/data/cpsc.json'), 'utf8'));
+    const feed = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../../../research/experiments/entity-resolution/data/cpsc.json'), 'utf8'));
     const rec = fromCpsc(feed.find((r: any) => r.RecallID === 10560));
     const m = matchRecall({ text: item.productName, date: receipt.purchasedOn, source: receipt.source }, rec);
     expect(m.match).toBe(true);

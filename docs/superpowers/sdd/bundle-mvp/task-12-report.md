@@ -37,7 +37,7 @@
   - the scoreboard, which reads Task 13's JSON, including run 1 → run 2 learning and the model label
   - a "Reviewer mode" token field. The token is kept in sessionStorage and sent as `x-reviewer-token`. Approve is turned off until Reviewer mode is on.
 - `client/src/lib/bundle.ts` holds the shared helpers: money and date formatting, `groupCards` (which pins the insurance card and adds the client-only "Connect your bank (Plaid)" tile), `traceForCard`, `describeLine`, API calls, and sessionStorage handling.
-- The design follows deck/design-system.md:
+- The design follows presentation/deck/design-system.md:
   - tokens: cream `#FBF6EF`, ink, ink-2, line, coral and coral-deep, plus the card-kind colours
   - type: Manrope 500–800 and JetBrains Mono, loaded from Google Fonts (the existing CSP already allows this)
   - cards: 24px radius with the deck's card shadow

@@ -14,7 +14,7 @@
 - Meterless H-MEM reference (vendored, Apache-2.0)
 - Jest (from the template)
 
-**Spec:** [bundle-plan-executive-summary.md](../../../bundle-plan-executive-summary.md). Background: [research-book/bundle-class-book.md](../../../research-book/bundle-class-book.md), [hackathon-checklist.md](../../../hackathon-checklist.md).
+**Spec:** [bundle-plan-executive-summary.md](../../../bundle-plan-executive-summary.md). Background: [research/class-book/bundle-class-book.md](../../../research/class-book/bundle-class-book.md), [hackathon-resources/hackathon-checklist.md](../../../hackathon-resources/hackathon-checklist.md).
 
 ## Decisions that override tasks below (Oct 23)
 
@@ -22,7 +22,7 @@ Read the "Decisions locked Oct 23" section of the spec first. Where a task confl
 
 ## Spike 0 result (Oct 23): GO
 
-Zetaris joined Neon (`bundle_pg`) × live CPSC (`bundle_live.cpsc_recalls`) in one query, in about 2s warm and 6s cold; full notes are in `docs/zetaris-notes.md`. Already created: datasource `bundle_pg` (plain `sslmode=require` works) and REST table `bundle_live.cpsc_recalls` (739 rows). The objects in Task 3 Step 5 that already exist should be reused, not recreated.
+Zetaris joined Neon (`bundle_pg`) × live CPSC (`bundle_live.cpsc_recalls`) in one query, in about 2s warm and 6s cold; full notes are in `setup/zetaris-notes.md`. Already created: datasource `bundle_pg` (plain `sslmode=require` works) and REST table `bundle_live.cpsc_recalls` (739 rows). The objects in Task 3 Step 5 that already exist should be reused, not recreated.
 - CPSC product names are nested: use `LATERAL VIEW explode(Products) AS p` and `p.Name` **inside a subquery** (putting LATERAL VIEW directly in a JOIN gives a misleading `mismatched input` error).
 - Real purchase titles need fuzzier recall matching than `LIKE` (brand + model tokens, with an LLM confirm step in the Recall Checker).
 - Plan B is not needed.
@@ -30,7 +30,7 @@ Zetaris joined Neon (`bundle_pg`) × live CPSC (`bundle_live.cpsc_recalls`) in o
 ## Global Constraints
 
 - **Repo location:** `/Users/lyndsay/Documents/hackathon/bundle/` (its own git repo).
-  - Secrets are read from `/Users/lyndsay/Documents/hackathon/.secrets/bundle.env.local` plus Zetaris values copied from `zetaris-getting-started/.env.local`.
+  - Secrets are read from `/Users/lyndsay/Documents/hackathon/.secrets/bundle.env.local` plus Zetaris values copied from `setup/zetaris-getting-started/.env.local`.
   - Never commit secrets. `.env.example` holds placeholders only.
 - **Fake data only.** No real personal data, ever. Income never appears in traces or logs.
 - **Zetaris SQL:** one statement per call, no trailing semicolon, qualified `source.table` names. Use `--dry-run` / show-SQL before any CREATE. Zetaris is read-only: all writes go to Neon via Drizzle.
@@ -229,7 +229,7 @@ export class ZetarisUnavailable extends Error {}
   - `CREATE LIGHTNING REST TABLE fda_food_recalls FROM bundle_live REQUEST (endpoint "https://api.fda.gov/food/enforcement.json?search=product_description:%22infant%20formula%22&limit=100", method "GET")`
   - Optional, if its endpoint is confirmed: an NHTSA car-seat recall REST table in `bundle_live`
   - Per-agent views: `CREATE DATASOURCE VIEW v_judge_offers FROM bundle_pg AS SELECT id, title, store, min_age_days, max_age_days, value_cents, fine_print, source_url FROM offers` (no family columns), and `v_planner_family` (includes income), `v_clawback_tx` (transactions + family id, no income), `v_recall_orders` (amazon_orders + transactions merchant/description, no income), `v_scout_rules` (benefit_rules + offers, no family data)
-- [ ] Step 6: **Go/no-go by Fri Oct 23 noon Boston.** Run `npx tsx scripts/zetaris/register.ts` (dry run), review, then run with `--apply`. Also check that `SELECT * FROM bundle_live.cpsc_recalls LIMIT 5` returns flattened product names (CPSC nests `Products[].Name`). If not, register a saved, flattened CSV copy as a file table and record that in `docs/zetaris-notes.md`. **Plan B, if JDBC to Neon fails:** export the curated tables and fixtures to CSV and register them as Zetaris file tables; private family tables stay in Neon and are joined in the app layer, with the limitation documented. Verify `SHOW DATASOURCES` lists `bundle_pg` and `SELECT count(*) AS n FROM bundle_pg.families` returns `3`. If the JDBC registration fails, record the error in `docs/zetaris-notes.md` and stop for review. This is the plan's biggest unknown.
+- [ ] Step 6: **Go/no-go by Fri Oct 23 noon Boston.** Run `npx tsx scripts/zetaris/register.ts` (dry run), review, then run with `--apply`. Also check that `SELECT * FROM bundle_live.cpsc_recalls LIMIT 5` returns flattened product names (CPSC nests `Products[].Name`). If not, register a saved, flattened CSV copy as a file table and record that in `setup/zetaris-notes.md`. **Plan B, if JDBC to Neon fails:** export the curated tables and fixtures to CSV and register them as Zetaris file tables; private family tables stay in Neon and are joined in the app layer, with the limitation documented. Verify `SHOW DATASOURCES` lists `bundle_pg` and `SELECT count(*) AS n FROM bundle_pg.families` returns `3`. If the JDBC registration fails, record the error in `setup/zetaris-notes.md` and stop for review. This is the plan's biggest unknown.
 - [ ] Step 7: Commit `feat: zetaris client with timeout+cache; source registration script`.
 
 ### Task 4: LLM adapter, trace logger and memory adapter

@@ -1,7 +1,7 @@
 ## Global Constraints
 
 - **Repo location:** `/Users/lyndsay/Documents/hackathon/bundle/` (its own git repo).
-  - Secrets are read from `/Users/lyndsay/Documents/hackathon/.secrets/bundle.env.local` plus Zetaris values copied from `zetaris-getting-started/.env.local`.
+  - Secrets are read from `/Users/lyndsay/Documents/hackathon/.secrets/bundle.env.local` plus Zetaris values copied from `setup/zetaris-getting-started/.env.local`.
   - Never commit secrets. `.env.example` holds placeholders only.
 - **Fake data only.** No real personal data, ever. Income never appears in traces or logs.
 - **Zetaris SQL:** one statement per call, no trailing semicolon, qualified `source.table` names. Use `--dry-run` / show-SQL before any CREATE. Zetaris is read-only: all writes go to Neon via Drizzle.

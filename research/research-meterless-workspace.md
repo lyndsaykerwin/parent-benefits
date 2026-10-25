@@ -4,7 +4,7 @@ Lyndsay's question (round 4c): "Shared message workspace and loops: isn't Meterl
 
 **Short answer: partly, yes.** Meterless's memory engine (**H-MEM**, short for "hierarchical memory") is built to be the place agents **write what they found and read what others found**, with a source, a trust number and an audit trail on every note. So it can be the shared workspace, and it has a built-in "was this note right?" correction loop. What it does **not** do is decide which agent works next, carry a message to a specific agent, or enforce time limits. That part is ordinary code we write (the "orchestrator", the code that runs the agents in order). Using H-MEM this way adds almost no waiting time, because it runs inside our own server with no AI call.
 
-Sources read: `meterless-engines/` (index, readme, H-MEM, Markovian, World Model), `meterless-sponsor-overview.md`, `bundle/server/adapters/memory.ts`, `bundle/server/agents/*`, the vendored engine in `bundle/vendor/hmem/`, and meterless.ai/engines.html (fetched Oct 24, 2026).
+Sources read: `setup/meterless-engines/` (index, readme, H-MEM, Markovian, World Model), `meterless-sponsor-overview.md`, `bundle/server/adapters/memory.ts`, `bundle/server/agents/*`, the vendored engine in `bundle/vendor/hmem/`, and meterless.ai/engines.html (fetched Oct 24, 2026).
 
 ## What each Meterless engine can and can't do for us
 

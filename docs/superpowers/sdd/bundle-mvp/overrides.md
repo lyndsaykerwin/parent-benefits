@@ -4,7 +4,7 @@ Read the "Decisions locked Oct 23" section of the spec first. Where a task confl
 
 ## Spike 0 result (Oct 23): GO
 
-Zetaris joined Neon (`bundle_pg`) × live CPSC (`bundle_live.cpsc_recalls`) in one query, in about 2s warm and 6s cold; full notes are in `docs/zetaris-notes.md`. Already created: datasource `bundle_pg` (plain `sslmode=require` works) and REST table `bundle_live.cpsc_recalls` (739 rows). The objects in Task 3 Step 5 that already exist should be reused, not recreated.
+Zetaris joined Neon (`bundle_pg`) × live CPSC (`bundle_live.cpsc_recalls`) in one query, in about 2s warm and 6s cold; full notes are in `setup/zetaris-notes.md`. Already created: datasource `bundle_pg` (plain `sslmode=require` works) and REST table `bundle_live.cpsc_recalls` (739 rows). The objects in Task 3 Step 5 that already exist should be reused, not recreated.
 - CPSC product names are nested: use `LATERAL VIEW explode(Products) AS p` and `p.Name` **inside a subquery** (putting LATERAL VIEW directly in a JOIN gives a misleading `mismatched input` error).
 - Real purchase titles need fuzzier recall matching than `LIKE` (brand + model tokens, with an LLM confirm step in the Recall Checker).
 - Plan B is not needed.

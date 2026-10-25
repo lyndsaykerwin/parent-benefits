@@ -23,7 +23,7 @@ Reviewer: final reviewer (read-only, nothing in the repo was changed). Date: 202
 
 ### C1. "Built in Cursor" is false, in four places
 - **Where:** `README.md:4` ("built in Cursor"), `README.md:46` (row `| Built in | Cursor |`), `README.md:183` ("**Cursor:** the build tool."), `metadata.json:26` (`"cursor": "Built in Cursor."`).
-- **Failure scenario:** A false claim about sponsor technology is an integrity failure: a claim not backed by the work. Cursor was not used; Claude Code was. The hackathon's own rules still say Cursor is required (`hackathon-overview.md:39,103,153,287`). The organisers' Oct 22 "now optional" message is unconfirmed (`hackathon-checklist.md:47-48`). A judge who asks "how was Cursor used?" (`hackathon-overview.md:320`) gets nothing, and the false claim then undermines every other claim.
+- **Failure scenario:** A false claim about sponsor technology is an integrity failure: a claim not backed by the work. Cursor was not used; Claude Code was. The hackathon's own rules still say Cursor is required (`hackathon-overview.md:39,103,153,287`). The organisers' Oct 22 "now optional" message is unconfirmed (`hackathon-resources/hackathon-checklist.md:47-48`). A judge who asks "how was Cursor used?" (`hackathon-overview.md:320`) gets nothing, and the false claim then undermines every other claim.
 - **Fix:**
   1. Delete the Cursor clause on line 4, the "Built in" row, the Cursor bullet in §13 and `sponsor_tech.cursor`.
   2. Add an honest line: "Built with Claude Code (AI coding assistant). Cursor was made optional by the organisers on Oct 22 [link to the announcement]."
@@ -55,7 +55,7 @@ Reviewer: final reviewer (read-only, nothing in the repo was changed). Date: 202
 
 ### I4. In SAMPLE_MODE, a family the judge types in gets no checked cards at all
 - **Where:** `server/agents/benefits.ts:111-112` (`Promise.all([rules, familySql(guest-…)])`); `orchestrator.ts:164-174, 206` (`purchaseKeywords` and the court query, which depends on age); `clawback.ts` / `recall.ts` queries by family id. Evidence: `logs/sample/custom-family.jsonl`. The rules query hits the cache, then the guest-only queries miss, all four agents fail, the receipt reads $0 and the banner shows.
-- **Failure scenario:** The checklist warns that "Judges will try their own inputs" (`hackathon-checklist.md:77`). Every typed-in family on the hosted SAMPLE_MODE demo shows "Some sources didn't respond" and only unverified cards. The cause is not an outage. The planner queries `v_planner_family` for a guest id that can never be in the database: typed-in families are never saved. That one pointless miss throws away the rules result, which was already cached.
+- **Failure scenario:** The checklist warns that "Judges will try their own inputs" (`hackathon-resources/hackathon-checklist.md:77`). Every typed-in family on the hosted SAMPLE_MODE demo shows "Some sources didn't respond" and only unverified cards. The cause is not an outage. The planner queries `v_planner_family` for a guest id that can never be in the database: typed-in families are never saved. That one pointless miss throws away the rules result, which was already cached.
 - **Fix:**
   - **Benefits:** when `family.isGuest`, skip `familySql` and use the inline family (income is `null`, so WIC is skipped). The rules query and the per-rule fact-check queries are already cached from maya's runs.
   - **Clawback, recall and `purchaseKeywords`:** when `family.isGuest && !family.dataConnected`, return empty without querying.

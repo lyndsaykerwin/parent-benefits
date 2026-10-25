@@ -6,7 +6,7 @@
 *-admin-key.json
 
 # Third-party public repo (clone from GitHub instead)
-zetaris-getting-started/
+setup/zetaris-getting-started/
 
 # Bulky/regenerable
 node_modules/

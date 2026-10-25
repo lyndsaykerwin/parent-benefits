@@ -1,5 +1,5 @@
 /**
- * Lyndsay's required agent trace log format (lyndsay-final-directives.md Part 2, plan section 1c).
+ * Lyndsay's required agent trace log format (plans/lyndsay-directives/lyndsay-final-directives.md Part 2, plan section 1c).
  * One JSON object per line in logs/run_<trace_id>.jsonl, also printed to stdout.
  * These lists are fixed: the checker below rejects anything else.
  */

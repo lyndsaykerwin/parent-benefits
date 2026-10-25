@@ -17,11 +17,11 @@ Plaid (the bank-connection service) is out.
 
 - **CPSC** (the US Consumer Product Safety Commission, which recalls cribs, walkers, toys and so on) has a field called `ProductUPCs`, but **only 22 of 739 recalls since June 2025 fill it in (3%)**, and **only 1 of 86 baby-related recalls** does. Its `Products.Model` field is **empty in all 739**. So "scan the barcode, match the UPC" (a UPC is the 12-digit number under a barcode) will almost never hit a CPSC baby recall.
 - **But the model number is usually there, inside the free text.** About **50 of the 86 baby recalls** say things like *"Model No: MY002" is printed on a label on the back* (ONTHEWEI bath seat, recall 11014), *"Model No.: RV001" is printed on a label under the walker's seat* (Kmaier walker, 10959), or *"Item number B11654 and the UPC 669028116546 are printed on the bottom of the packaging"* (Boon baby bottles, 10803). That is exactly what a **photo of the item's label** captures. So path 3 (photo of the item) is the one that unlocks precise CPSC matches.
-- **openFDA** (the US Food and Drug Administration's free data service; we use its food recall list for infant formula) has **no separate UPC field**, but **31 of the 42 infant-formula recalls write the UPC inside `product_description`** (for example *"Retail UPCs: 070074537306"*, Similac For Spit Up), and **36 of 42 list lot codes in `code_info`** (a lot code is the batch number printed on the can, e.g. *"Lot 300357651Z - USE BY 04JUL2024"*). So **barcode → formula recall** works well, and **photo of the can bottom → lot code → exact recall** is even more precise. 17 of the 42 are "Terminated" (finished) and must be filtered out, as `architecture.md` already plans.
+- **openFDA** (the US Food and Drug Administration's free data service; we use its food recall list for infant formula) has **no separate UPC field**, but **31 of the 42 infant-formula recalls write the UPC inside `product_description`** (for example *"Retail UPCs: 070074537306"*, Similac For Spit Up), and **36 of 42 list lot codes in `code_info`** (a lot code is the batch number printed on the can, e.g. *"Lot 300357651Z - USE BY 04JUL2024"*). So **barcode → formula recall** works well, and **photo of the can bottom → lot code → exact recall** is even more precise. 17 of the 42 are "Terminated" (finished) and must be filtered out, as `plans/architecture.md` already plans.
 
 My own count, Oct 24, 2026: downloaded `saferproducts.gov/RestWebServices/Recall?format=json&RecallDateStart=2025-06-01` (the same feed Zetaris reads, 739 recalls dated 2025-06-05 to 2026-10-22) and `api.fda.gov/food/enforcement.json?search=product_description:"infant formula"&limit=100` (42 results).
 
-This also corrects one line in `architecture.md` §"Product matching": the planned "Bar code: Purchase UPC = CPSC `ProductUPCs`, confidence 0.99" is still right to build, but on its own it will rarely fire. The model-number and lot-code matches do most of the precise work.
+This also corrects one line in `plans/architecture.md` §"Product matching": the planned "Bar code: Purchase UPC = CPSC `ProductUPCs`, confidence 0.99" is still right to build, but on its own it will rarely fire. The model-number and lot-code matches do most of the precise work.
 
 ---
 
@@ -99,7 +99,7 @@ Recommendation for the demo: Open Food Facts first for food/formula, UPCitemdb s
 - **Photo model number / lot code ↔ recall text**: "recall text contains this exact code" (for example `lower(Description) LIKE '%rv001%'`, and `code_info LIKE '%300357651z%'`). Precise, because model and lot codes are unusual strings. Require codes of at least 4 characters and let the existing AI check confirm short or common-looking ones.
 - Everything else keeps today's brand + words matcher plus the AI check.
 
-So all three intake paths feed the same "exact code first, words second" ladder already sketched in `architecture.md`.
+So all three intake paths feed the same "exact code first, words second" ladder already sketched in `plans/architecture.md`.
 
 ---
 

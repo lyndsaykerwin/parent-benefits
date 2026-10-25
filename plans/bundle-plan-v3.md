@@ -1,16 +1,16 @@
 # Bundle plan v3 (Fri Oct 23, 2026; updated Sat Oct 24, sign-off)
 
-Submission: Tue Oct 27, 23:45 UTC (7:45pm Boston; our target is 5pm Boston). Earlier versions are frozen in `plan-history/`: Oct 23 (`bundle-plan-v3-2026-10-24-before-update.md`), round 1 (`...-round1.md`), round 2 (`...-round2.md`) round 3 (`...-round3.md`) and the last version before sign-off (`...-signoff-before.md`).
+Submission: Tue Oct 27, 23:45 UTC (7:45pm Boston; our target is 5pm Boston). Earlier versions are frozen in `plans/old-versions/`: Oct 23 (`bundle-plan-v3-2026-10-24-before-update.md`), round 1 (`...-round1.md`), round 2 (`...-round2.md`) round 3 (`...-round3.md`) and the last version before sign-off (`...-signoff-before.md`).
 
-**How to read this plan.** Only Lyndsay's recorded decisions are written into the body. **At sign-off (Oct 24) she approved every proposal in section 10, with her own versions of ten of them** (`lyndsay-final-directives.md`, binding). Those approved proposals are now written into the body, the must-do and should-do lists and the timeline; section 10 is marked "resolved Oct 24 (sign-off)" and kept for the record. She is signed off: the build goes ahead and is checked to our standards without waiting for more feedback.
+**How to read this plan.** Only Lyndsay's recorded decisions are written into the body. **At sign-off (Oct 24) she approved every proposal in section 10, with her own versions of ten of them** (`plans/lyndsay-directives/lyndsay-final-directives.md`, binding). Those approved proposals are now written into the body, the must-do and should-do lists and the timeline; section 10 is marked "resolved Oct 24 (sign-off)" and kept for the record. She is signed off: the build goes ahead and is checked to our standards without waiting for more feedback.
 
-Where her decisions are recorded: `TRACKING-oct24-plan-update.md` (rounds 1–2), `onboarding-design/gap-answers.md` (top "Lyndsay's decisions" block, Oct 24), `TRACKING-oct24-round4.md` (round-4 feedback, onboarding answers, "Lyndsay's correction", "round 4b" and "round 4c"), and `lyndsay-final-directives.md` (sign-off, Oct 24). The build checklist is `bundle-plan-v3.build-tracker.md`.
+Where her decisions are recorded: `progress/tracking/TRACKING-oct24-plan-update.md` (rounds 1–2), `design/onboarding/gap-answers.md` (top "Lyndsay's decisions" block, Oct 24), `progress/tracking/TRACKING-oct24-round4.md` (round-4 feedback, onboarding answers, "Lyndsay's correction", "round 4b" and "round 4c"), and `plans/lyndsay-directives/lyndsay-final-directives.md` (sign-off, Oct 24). The build checklist is `progress/tracking/bundle-plan-v3.build-tracker.md`.
 
 Section numbers are unchanged from round 4 so other files' references still work; the loops section is numbered **1b** and the new agent trace log section is **1c**. Section 10's item numbers are unchanged.
 
 ## Sign-off: what Lyndsay decided (Oct 24, final)
 
-Source: `lyndsay-final-directives.md` (binding).
+Source: `plans/lyndsay-directives/lyndsay-final-directives.md` (binding).
 
 1. **All open proposals in section 10 are approved,** except the ten below, where her version replaces the proposal. Items that were already answered (1, 18, 31, 34) stay as answered.
 2. **Her versions (Part 1, "updated agent decision grid"):**
@@ -37,7 +37,7 @@ Source: `lyndsay-final-directives.md` (binding).
 5. **The agent loops (section 1b) and the 300-second run limit are must-do:** decided.
 6. **Skip offers whose wording fingerprint hasn't changed** (reuse the saved grade, no AI): decided.
 7. **The job (work-benefits) question stays cut.**
-8. **Building the new onboarding and the Version B screens from her mocks** (`onboarding-design/project/`: the top row, then the bottom row) **is a must-do build item** (section 6, must-do item 6 and detail item 7; section 7; timeline, Sunday).
+8. **Building the new onboarding and the Version B screens from her mocks** (`design/onboarding/project/`: the top row, then the bottom row) **is a must-do build item** (section 6, must-do item 6 and detail item 7; section 7; timeline, Sunday).
 9. **The newsroom loop does not supersede or demote the data product.** The same `offer_checks` rows feed both the agents' future grading and `v_offer_audit` + `GET /api/offer-audit` with its OpenAPI description (must-do, on Sunday's timeline); selling the data and "Points Guy" report cards stay a pitch slide (sections 1 and 1b).
 10. **Nightshift's job is spelled out in plain English** (section 1b, "Nightshift's job"): Meterless's Mac app that is Bundle's AI switchboard, passing every AI question to NVIDIA's Nemotron with her key stored inside it; separate from Meterless memory (H-MEM). Unconfirmed setup details are marked there.
 
@@ -48,7 +48,7 @@ Source: `lyndsay-final-directives.md` (binding).
 1. **Photo first.** Taking a photo (of an item's label, a formula can's bottom, or a paper receipt) that an NVIDIA vision model turns into a tidy row of facts is **the priority way purchases get in for the hackathon**. Forwarded email receipts and barcode scanning are **not dropped**: they are **kept for after the hackathon (Lyndsay's decision)**, with their design left intact in sections 3 and 6 so she can return to them. This answers the old section 10 question "how real each path is by Oct 27".
 2. **Three onboarding gap answers are confirmed decisions:** the Dependent Care FSA (a work benefit that lets parents pay childcare with pre-tax money) is a gentle "Check with your job" card; sign-in is Google only; an uncovered state shows "Support for your state's programs is coming soon".
 3. **The agents' loops must be a visible, prominent part of the plan,** because the judges score agent teamwork with loops (section 1b), **and the loops must be kept fast** (section 1b, "Keeping the loops fast").
-4. **Her agent-loops and latency design** (`lyndsay-feedback-agent-loops-latency.md`, binding): a shared workspace ("bus") between agents; three agent-to-agent loops (Clawback Hunter ↔ Recall Checker safety-value loop, Benefits Planner ↔ Fine Print Lawyer eligibility loop, Judge ↔ Fact-Checker targeted-correction loop, max 2); an instant saved feed, a 1–2 second fast path that streams high-confidence cards, deep loops in the background pushing updates, agent status pills and optimistic background checking; and the database loop (saved verdicts with `status`, `confidence`, `rule_citations`; Zetaris first; parent taps tune `confidence_score`). All in section 1b. *Updated in round 4c:* parent-tap tuning moves to later, and the saved per-offer `confidence` is replaced by the value-and-time grade (round 4c, items 2–3).
+4. **Her agent-loops and latency design** (`plans/lyndsay-directives/lyndsay-feedback-agent-loops-latency.md`, binding): a shared workspace ("bus") between agents; three agent-to-agent loops (Clawback Hunter ↔ Recall Checker safety-value loop, Benefits Planner ↔ Fine Print Lawyer eligibility loop, Judge ↔ Fact-Checker targeted-correction loop, max 2); an instant saved feed, a 1–2 second fast path that streams high-confidence cards, deep loops in the background pushing updates, agent status pills and optimistic background checking; and the database loop (saved verdicts with `status`, `confidence`, `rule_citations`; Zetaris first; parent taps tune `confidence_score`). All in section 1b. *Updated in round 4c:* parent-tap tuning moves to later, and the saved per-offer `confidence` is replaced by the value-and-time grade (round 4c, items 2–3).
 
 ## Round 4: what Lyndsay decided (Oct 24 evening)
 
@@ -63,7 +63,7 @@ Source: `lyndsay-final-directives.md` (binding).
 9. **Onboarding:** the top row of mocks, then Version B (bottom tabs). Never the middle row. Her answers on the "+" button, expecting families and the light checklist/share/save are in section 7.
 10. **Nightshift:** all the code is built and tested in the cloud against a fake Nightshift server. Lyndsay switches it on at her Mac later (section 6, item 2).
 
-Still standing from rounds 1–2 (`TRACKING-oct24-plan-update.md`): middle-class parents, not low-income (poverty, WIC, SNAP and Medicaid dropped); no Massachusetts hardcoding; deeper fine-print checks; no confidence-score bands; Neon (not Supabase) is the database; no Redis; never say "real-time"; Meterless = memory engines, not fine-print reading; store price feeds cut; brand audit = data only, no brand screens. From `gap-answers.md` (confirmed again in round 4b): every US ZIP works, with "Support for your state's programs is coming soon"; the work question is dropped and the Dependent Care FSA becomes a gentle "Check with your job" card; accounts use Better Auth on Neon, Google only; bottom tabs with the 5 tabs in the mock.
+Still standing from rounds 1–2 (`progress/tracking/TRACKING-oct24-plan-update.md`): middle-class parents, not low-income (poverty, WIC, SNAP and Medicaid dropped); no Massachusetts hardcoding; deeper fine-print checks; no confidence-score bands; Neon (not Supabase) is the database; no Redis; never say "real-time"; Meterless = memory engines, not fine-print reading; store price feeds cut; brand audit = data only, no brand screens. From `gap-answers.md` (confirmed again in round 4b): every US ZIP works, with "Support for your state's programs is coming soon"; the work question is dropped and the Dependent Care FSA becomes a gentle "Check with your job" card; accounts use Better Auth on Neon, Google only; bottom tabs with the 5 tabs in the mock.
 
 ---
 
@@ -121,15 +121,15 @@ Example: **"Worth $40 after strings attached · about 15 minutes, 3 steps · pai
 
 These four numbers are **defaults chosen by the planning agent, not by Lyndsay**; they live in settings, are tuned on the 12 fine-print tests, and she can change them at any time. There is no value-per-minute cut-off, because that would act like an hourly rate, which round 2 avoided. A new optional shortest-wait field, `payout_wait_days_min`, is added to `offer_checks`: when the fine print gives both ends, the card says "paid in 6–8 weeks"; otherwise it says "paid within 8 weeks".
 
-**The data product (decided, must-do):** one read-only web address, `GET /api/offer-audit?store=...`. It runs a fixed query against the Zetaris view `v_offer_audit` (per-brand totals only: catch rate, average true vs. advertised value, average effort; plus, if time, open CPSC recalls per brand, section 10 item 17, should-do), is rate-limited (capped at a number of requests per minute), and uses saved answers in sample mode. It comes with an **OpenAPI description**, the standard file that tells any program or AI agent how to call it, plus a test that the answer never contains family fields. Protection rules are already designed in `architecture.md` (lines 368–372) and `research-matching-and-agent-api.md` (Question 2).
+**The data product (decided, must-do):** one read-only web address, `GET /api/offer-audit?store=...`. It runs a fixed query against the Zetaris view `v_offer_audit` (per-brand totals only: catch rate, average true vs. advertised value, average effort; plus, if time, open CPSC recalls per brand, section 10 item 17, should-do), is rate-limited (capped at a number of requests per minute), and uses saved answers in sample mode. It comes with an **OpenAPI description**, the standard file that tells any program or AI agent how to call it, plus a test that the answer never contains family fields. Protection rules are already designed in `plans/architecture.md` (lines 368–372) and `research/research-matching-and-agent-api.md` (Question 2).
 
 **Future (pitch slide only):** sell this data, and offer brand report cards in the style of "The Points Guy" (Strategy 3). There is no brand portal. An MCP server (the standard plug-in that lets AI agents use a tool) comes "later".
 
 ## 1b. How the agents work together: the loops
 
-**Lyndsay's decisions** (round 4b, plus her agent-loops and latency feedback in `lyndsay-feedback-agent-loops-latency.md`, which is binding). Her goal, in her words: *truly agentic* (agents negotiate, hand work to each other, cross-examine and refine offers in feedback loops) **without ruining speed, how responsive the screen feels, or AI spend**. That means moving from a straight-line pipeline to an **event-driven, multi-tier** design: agents react to messages from each other ("event-driven"), and quick checks run first while deeper checks run behind them ("multi-tier").
+**Lyndsay's decisions** (round 4b, plus her agent-loops and latency feedback in `plans/lyndsay-directives/lyndsay-feedback-agent-loops-latency.md`, which is binding). Her goal, in her words: *truly agentic* (agents negotiate, hand work to each other, cross-examine and refine offers in feedback loops) **without ruining speed, how responsive the screen feels, or AI spend**. That means moving from a straight-line pipeline to an **event-driven, multi-tier** design: agents react to messages from each other ("event-driven"), and quick checks run first while deeper checks run behind them ("multi-tier").
 
-**Why it matters for scoring:** the judges mark down agents that "run once in a straight line" (A passes to B, B passes to C) and reward agents that "loop, critique, retry, branch and revise" (`strong-submission-examples.md` §3 and §14, `weak-submission-examples.md` lines 168, 645 and 704, `hackathon-overview.md` line 114 "No feedback loops"). The re-grade credits our Fact-Checker send-back loop by name (`regrade-2026-10-24.md` lines 61 and 133). A **loop** here means one agent's output goes back to another agent (or the same one) with a reason, and the result changes because of it. Every loop has a hard cap on rounds so it always ends.
+**Why it matters for scoring:** the judges mark down agents that "run once in a straight line" (A passes to B, B passes to C) and reward agents that "loop, critique, retry, branch and revise" (`strong-submission-examples.md` §3 and §14, `weak-submission-examples.md` lines 168, 645 and 704, `hackathon-overview.md` line 114 "No feedback loops"). The re-grade credits our Fact-Checker send-back loop by name (`progress/reviews/regrade-2026-10-24.md` lines 61 and 133). A **loop** here means one agent's output goes back to another agent (or the same one) with a reason, and the result changes because of it. Every loop has a hard cap on rounds so it always ends.
 
 ### The agent network and its shared workspace
 
@@ -226,7 +226,7 @@ Like a newsroom: the maker agents file, the Fact-Checker edits, and the archive 
 
 ### Keeping the loops fast (Lyndsay's latency design, plus the speed limits already in the plan)
 
-**The problem:** loops mean more AI calls, and slowness is our main AI failure. Live Zetaris runs have taken **13 to 171 seconds** with occasional errors (`architecture.md` line 204 and line 426); in the one real-AI run the Judge timed out or broke format 4 of 5 times (`regrade-2026-10-24.md` line 61; `plan-grade-future-state.md` risk 3). Today each AI call stops at **20 seconds** (a setting borrowed from the data sources) and **gets no retry after a timeout** (`research-nightshift-setup.md` §3a; `llm.ts` line 132). Today's screen asks the server for progress once a second and shows the whole feed only when the run ends (`client/src/pages/Feed.tsx` lines 105–126); finished results are kept in the server's memory only (lost on restart) and in the browser tab (`client/src/lib/bundle.ts` lines 283–296).
+**The problem:** loops mean more AI calls, and slowness is our main AI failure. Live Zetaris runs have taken **13 to 171 seconds** with occasional errors (`plans/architecture.md` line 204 and line 426); in the one real-AI run the Judge timed out or broke format 4 of 5 times (`progress/reviews/regrade-2026-10-24.md` line 61; `plans/plan-grade-future-state.md` risk 3). Today each AI call stops at **20 seconds** (a setting borrowed from the data sources) and **gets no retry after a timeout** (`research-nightshift-setup.md` §3a; `llm.ts` line 132). Today's screen asks the server for progress once a second and shows the whole feed only when the run ends (`client/src/pages/Feed.tsx` lines 105–126); finished results are kept in the server's memory only (lost on restart) and in the browser tab (`client/src/lib/bundle.ts` lines 283–296).
 
 **Lyndsay's design: show something instantly, then improve it in the background.**
 
@@ -261,7 +261,7 @@ Like a newsroom: the maker agents file, the Fact-Checker edits, and the archive 
 
 **What it is, in plain English.** A diary every agent writes as it works. Each time an agent does something (asks Zetaris, reads a photo, argues, checks a fact, asks for a retry, approves or rejects a card), it writes one line. Each line is one small JSON record (JSON is a machine-readable text format; "JSONL" means one JSON record per line). Judges can open the file and follow exactly who did what, in what order, and why.
 
-### Her required format (verbatim from `lyndsay-final-directives.md`, Part 2)
+### Her required format (verbatim from `plans/lyndsay-directives/lyndsay-final-directives.md`, Part 2)
 
 Every event appended to `logs/run_<trace_id>.jsonl` and printed to stdout. One JSON object per line:
 - timestamp: ISO-8601 UTC
@@ -323,7 +323,7 @@ Nothing is built differently. The Matcher (the "front desk" in the original plan
 
 ## 3. Getting purchases in: three paths into one table
 
-Lyndsay's decision (round 4), with the priority set in round 4b. Sources: `research-email-receipts.md`, `research-photo-barcode-intake.md`, `cloud-build-assessment.md`.
+Lyndsay's decision (round 4), with the priority set in round 4b. Sources: `research-email-receipts.md`, `research-photo-barcode-intake.md`, `progress/reviews/cloud-build-assessment.md`.
 
 **The three paths:**
 1. **Take a photo: the PRIORITY path for the hackathon (round 4b).** A photo of an item (the label under a baby walker, the bottom of a formula can) or of a **paper receipt**. An NVIDIA vision model (an AI that can read pictures) turns it into a tidy row of facts, checked by code in the photo intake loop (section 1b, loop 4).
@@ -406,7 +406,7 @@ Zetaris is the required "data door": one question in SQL (a database language) c
 | Fact-Checker | Is this exact dollar amount, date **and state** right? (asks a separate question) | Re-reads the source row, including its state | Blocks or sends back wrong cards, including a wrong-state card |
 | Privacy views | — | Each helper gets its own filtered view (the deal Judge never sees family data; agents read `v_purchase_items`, never the raw table) | Owner view: "Data sources" per card |
 
-**Two direct database reads (from `audit-round4.md` section A).** Every agent search goes through Zetaris, except two places where agent input is read from Neon directly:
+**Two direct database reads (from `progress/reviews/audit-round4.md` section A).** Every agent search goes through Zetaris, except two places where agent input is read from Neon directly:
 1. The family profile, loaded in live mode (`server/agents/orchestrator.ts:48-55`).
 2. The Coach reading parents' reports (`server/bundleStore.ts:76-79`).
 
@@ -415,7 +415,7 @@ Zetaris is the required "data door": one question in SQL (a database language) c
 **Honest note on sources:**
 - CPSC and openFDA are live outside feeds (FDA recalls stay in; only finished ones are filtered out).
 - Receipt, barcode and photo items are read from made-up inputs and copied into Neon.
-- IRS and state leave figures are official numbers stored as rows with their source link and year, checked Oct 24 (`audit-ma-poverty-evals.md` section 2b). A person should confirm the MA leave figure on mass.gov before it goes on a slide.
+- IRS and state leave figures are official numbers stored as rows with their source link and year, checked Oct 24 (`progress/reviews/audit-ma-poverty-evals.md` section 2b). A person should confirm the MA leave figure on mass.gov before it goes on a slide.
 
 Remove Zetaris and the app can't produce a single personal card. **Line for judges (round-2 wording, restored):** "Zetaris finds the candidate pairs across private and public data in one question; the AI decides the hard cases." (Zetaris has no built-in fuzzy matching, meaning it can't match "close enough" spellings.) **Replacement line approved at sign-off (section 10 item 15)**, used from now on in the README, slides and video: "Zetaris finds candidate matches across private and public data in one question. Code rules make the safety decisions and show their evidence. The AI argues over fine print, explains, and fills gaps the rules can't, and code can overrule it."
 
@@ -437,7 +437,7 @@ Remove Zetaris and the app can't produce a single personal card. **Line for judg
   3. Any-state, middle-class rules.
   4. **Living Fine-Print Database:** fine-print tests, `offer_checks`, **the Zetaris saved-verdict query** (sign-off item 38), the newsroom loop, the Value Score (value and time to get it) with the "worth your time" rule (item 42, labelled defaults), the `v_offer_audit` view **and `GET /api/offer-audit` with its OpenAPI description**.
   5. Recall safety: the finished-FDA-recall filter and the `no_false_recall` test, **plus the product-matching upgrade** (promoted from should-do, approved section 10 item 7).
-  6. **Onboarding + Version B screens, built from Lyndsay's mocks** (`onboarding-design/project/`: the top row of onboarding questions, then the bottom row's Version B tabs; never the middle row). Confirmed must-do in round 4c; details in item 7 below and section 7.
+  6. **Onboarding + Version B screens, built from Lyndsay's mocks** (`design/onboarding/project/`: the top row of onboarding questions, then the bottom row's Version B tabs; never the middle row). Confirmed must-do in round 4c; details in item 7 below and section 7.
   7. Regenerate evidence, including the README's Meterless honesty note (sign-off item 44), the approved judges' line (item 15), the cross-source join wording (item 16) and a short, sourced year-one "what a middle-class family can get back" table (item 27).
   8. Data intake: **the photo path first** (round 4b), with the shared pieces and **the photo intake loop** (loop 7, approved at sign-off, item 40). `purchase_items` becomes the only purchase source for recall matching and money-back cards (sign-off items 8 and 9); the daycare invoice card is dropped (item 10). Email forwarding and barcode are kept for after the hackathon (Lyndsay's decision), not must-do.
   9. **The agent loops, visible and fast** (section 1b, Lyndsay's design): the shared workspace (in Meterless H-MEM, approved message format, item 37); her three agent-to-agent loops; the **one rebuttal round** in the Court (item 29, max 1) and the side-by-side Court (item 30); the newsroom loop; the photo and recall verification loops (loops 7 and 8, approved, items 40–41); the fast screen (instant saved feed, fast-path streaming, background updates by server-sent events, status pills, optimistic checking); and the speed limits (per-call time limit and retry and the 300-second run budget (must-do, decided in round 4c) are already in item 2; the `offer_checks` skip is in item 4). Hours for this are **not yet estimated**.
@@ -465,10 +465,10 @@ Remove Zetaris and the app can't produce a single personal card. **Line for judg
   - `model:check --provider nightshift|nvidia`;
   - scoreboard labels that name the provider and model.
 
-  The fake server was proven on this machine (`cloud-build-assessment.md` §1): it receives the Nightshift labels, cuts off hung calls, returns "not allowed" for a wrong password, and retries a server error. Estimate: 4–5 hours.
+  The fake server was proven on this machine (`progress/reviews/cloud-build-assessment.md` §1): it receives the Nightshift labels, cuts off hung calls, returns "not allowed" for a wrong password, and retries a server error. Estimate: 4–5 hours.
 - **Fallback order (approved, item 11):** Nightshift → NVIDIA Nemotron direct → saved offline text, kept as a setting. **Monday 9am Boston go/no-go (approved, item 12):** if Nemotron isn't answering through Nightshift by then, rerun with NVIDIA direct, labelled as such. **Judge model (approved, item 13):** Nemotron 3 Super with "thinking" off.
 - **Every AI call writes trace log lines** (section 1c) naming the provider and model that answered.
-- **Lyndsay switches it on at her Mac** using the flip-on checklist in `cloud-build-assessment.md` §4:
+- **Lyndsay switches it on at her Mac** using the flip-on checklist in `progress/reviews/cloud-build-assessment.md` §4:
   - Nightshift setup steps A–F (`research-nightshift-setup.md` §2);
   - put `NIGHTSHIFT_TOKEN_FILE` in `.secrets/bundle.env.local`;
   - run `model:check` for both providers;
@@ -478,7 +478,7 @@ Remove Zetaris and the app can't produce a single personal card. **Line for judg
 - **Done when:** the scoreboard names the provider and model that answered (or says honestly which one did); the run-1 and run-2 learning traces are saved; no call runs past its limit; every README and slide line about "offline" or "real model" matches what was run.
 - **Risk:** the Sunday update could slip or rename settings (they are kept as settings, not built into the code); the score may drop and we report what it is.
 
-**3. Any state, middle-class rules** (must-do; about half a day; `audit-ma-poverty-evals.md` sections 1c, 1d, 2)
+**3. Any state, middle-class rules** (must-do; about half a day; `progress/reviews/audit-ma-poverty-evals.md` sections 1c, 1d, 2)
 - **Remove poverty/WIC:** delete the rule, the table, the query, the tests and the label; stop reading exact income.
 - **New tables:** `tax_parameters` (IRS 2026 figures with year and link) and `state_programs` (MA, NY, CA paid family leave, plus the existing MA child credit), both registered in Zetaris.
 - **Code never names a state.** Rule scope is "federal" or any 2-letter state, and card wording comes from a `plain_summary` column. Every 3-digit ZIP prefix is loaded. An uncovered state shows federal programs plus "Support for your state's programs is coming soon" (Lyndsay's wording, `gap-answers.md`). Never an error.
@@ -487,7 +487,7 @@ Remove Zetaris and the app can't produce a single personal card. **Line for judg
 
 **4. Living Fine-Print Database and data product** (must-do; section 1)
 - **New verdicts:** `approve`, `approve_with_catch` (worth it, but the parent sees the catch and the total counts only the true value), and `reject`. A code "reject" always overrides an AI "approve".
-- **12 fine-print tests** (FP-01 to FP-12: shipping fee on "free", shipping costing more than the item, expired, about to expire, mail-in rebate, phone call and forms, auto-renew, minimum purchase, limited stock or regions, required account or app, true value after several strings, prompt injection), **plus 3 controls** that must still be approved (`audit-ma-poverty-evals.md` 3b).
+- **12 fine-print tests** (FP-01 to FP-12: shipping fee on "free", shipping costing more than the item, expired, about to expire, mail-in rebate, phone call and forms, auto-renew, minimum purchase, limited stock or regions, required account or app, true value after several strings, prompt injection), **plus 3 controls** that must still be approved (`progress/reviews/audit-ma-poverty-evals.md` 3b).
 - **Ohio fix:** FP-07 rejects the auto-renew trap for every family. Regenerate `output_examples/ava.json`. The learning demo moves to a subtler trap.
 - **`offer_checks`:** the table and fields from section 1, written by the Fact-Checker and the Court, registered in Zetaris.
 - **The newsroom loop:** past grades looked up through Zetaris and grading lessons recalled from Meterless H-MEM before grading; the Fact-Checker's confirm or correct marks those lessons helpful or wrong; skip unchanged fingerprints, re-check changed ones; misses become tests.
@@ -495,7 +495,7 @@ Remove Zetaris and the app can't produce a single personal card. **Line for judg
 - **`v_offer_audit` and `GET /api/offer-audit` + OpenAPI:**
   - a fixed query and rate limit, with saved answers in sample mode;
   - a test that the response has no family fields;
-  - estimate: 2–3 hours (`cloud-build-assessment.md` #15).
+  - estimate: 2–3 hours (`progress/reviews/cloud-build-assessment.md` #15).
 - **Scoreboard:** fine-print catches found / total, false alarms on controls, field accuracy.
 - **Done when:**
   - the 12 tests and 3 controls pass offline (and are reported with real AI);
@@ -513,7 +513,7 @@ Remove Zetaris and the app can't produce a single personal card. **Line for judg
 - **Product-matching upgrade (must-do; promoted at sign-off, item 7):**
   - "Fields + hard rules": brand + product type from a fixed list, sale dates, seller, FDA status (finished recalls filtered out), and size or model clash, with an evidence line on each alert.
   - New for round 4: exact-code checks (UPC, model number, lot code) from barcode and photo items, checked first.
-  - Test result to quote (`entity-resolution-test.md`): on fresh cases, **7 of 8 real recalls found, with 1 wrong alarm**. Today's matcher found 0 of 12 without AI and 2 of 12 with it.
+  - Test result to quote (`research/entity-resolution-test.md`): on fresh cases, **7 of 8 real recalls found, with 1 wrong alarm**. Today's matcher found 0 of 12 without AI and 2 of 12 with it.
   - Known fixes: "sold in April 2026" dates; "pad/liner/insert" in the type list.
   - Key areas: `server/agents/recall.ts`, `v_recall_orders` in `scripts/zetaris/register.ts`, `evals/expected.json`.
 - **Plaid removal touches this (decided at sign-off, item 8):** `recall.ts:38` and `v_recall_orders` read card-style sample rows today. They are rerouted fully to `purchase_items`: recall matching uses only structured codes (UPC, model number, lot code) from photo and receipt rows; no bank text is matched.
@@ -556,7 +556,7 @@ Remove Zetaris and the app can't produce a single personal card. **Line for judg
   - no name, address, raw email or photo is stored anywhere.
 - **How real each path is: decided in round 4b (photo first).**
 
-**7. Onboarding + Version B UI** (must-do, confirmed in round 4c; section 7; sign-off answers on wording, ZIP and sign-in are in section 7). Built from Lyndsay's mocks in `onboarding-design/project/`: the top row first, then the bottom row (Version B). Key areas: `client/src/pages/Onboarding.tsx`, the Version B tab screens, and the run request in `server/routes/bundleRoutes.ts`. Estimates (`cloud-build-assessment.md`): top row 4–5 hours, Version B 5–7 hours.
+**7. Onboarding + Version B UI** (must-do, confirmed in round 4c; section 7; sign-off answers on wording, ZIP and sign-in are in section 7). Built from Lyndsay's mocks in `design/onboarding/project/`: the top row first, then the bottom row (Version B). Key areas: `client/src/pages/Onboarding.tsx`, the Version B tab screens, and the run request in `server/routes/bundleRoutes.ts`. Estimates (`progress/reviews/cloud-build-assessment.md`): top row 4–5 hours, Version B 5–7 hours.
 
 **8. Regenerate evidence** (must-do)
 - **What:** the scoreboard, saved examples and learning traces reflect the real model, the any-state rules, the fine-print tests, `offer_checks`, the intake paths built and the new views.
@@ -587,7 +587,7 @@ Remove Zetaris and the app can't produce a single personal card. **Line for judg
 - **What:** the family profile in live mode (`server/agents/orchestrator.ts:48-55`) and the Coach's reports (`server/bundleStore.ts:76-79`) are read through Zetaris views instead of straight from Neon. Each new question needs one live recording run before sample mode can replay it (Mac flip-on checklist).
 - **Done when:** no agent reads agent input from Neon directly; the tests use a fake Zetaris for both reads; sample mode still works (falling back honestly until the saved answers are recorded).
 
-**Zetaris saved answers.** Any new or changed Zetaris question needs one live recording run (with keys) before the offline replay can show it (`cloud-build-assessment.md` §2). Saved answers are never written by hand.
+**Zetaris saved answers.** Any new or changed Zetaris question needs one live recording run (with keys) before the offline replay can show it (`progress/reviews/cloud-build-assessment.md` §2). Saved answers are never written by hand.
 
 ## 7. Onboarding (Lyndsay's decisions)
 
@@ -617,12 +617,12 @@ The Work screen is cut.
   - The ZIP screen: the parent types a ZIP; at most a "Use my location" button, no automatic location pre-fill (approved, item 23).
   - No daycare invoice card (sign-off item 10).
 
-All numbers come from the real run, never typed into the page. Full screen spec: `onboarding-spec.md` (parts of it are out of date; see `onboarding-design/round4-mock-review.md` §3).
+All numbers come from the real run, never typed into the page. Full screen spec: `plans/onboarding-spec.md` (parts of it are out of date; see `design/onboarding/round4-mock-review.md` §3).
 
 ## 8. Timeline
 
 **Honest hours vs. time left (information only, not a decision).**
-- **Work estimate:** `cloud-build-assessment.md` puts the whole build at **about 75–90 hours of coding-agent work** (written before the photo research). The photo research then put barcode at 6–8 hours and photos at 9–12 hours, against that file's 4–6 hours each. With email and barcode moved to after the hackathon (round 4b), roughly 14–17 hours of intake work leave the hackathon build; the loop and speed work in section 1b adds some back (not yet estimated).
+- **Work estimate:** `progress/reviews/cloud-build-assessment.md` puts the whole build at **about 75–90 hours of coding-agent work** (written before the photo research). The photo research then put barcode at 6–8 hours and photos at 9–12 hours, against that file's 4–6 hours each. With email and barcode moved to after the hackathon (round 4b), roughly 14–17 hours of intake work leave the hackathon build; the loop and speed work in section 1b adds some back (not yet estimated).
 - **Time left:** many pieces are independent, so several agents can work at once. From Saturday evening to the Monday 3pm Boston code freeze (decided, round 4c) is roughly 40 hours on the clock.
 - **Mac-only:** the Nightshift switch-on, the real-AI rerun and the video need Lyndsay at the Mac.
 - **Cut order:** set Sunday midday from the agents' estimates, using the approved order for loop and screen work (section 6; items 19 and 39).
@@ -630,7 +630,7 @@ All numbers come from the real run, never typed into the page. Full screen spec:
 | Day | What happens | Done when |
 |---|---|---|
 | Sat Oct 24 | **Lyndsay:** signed off (section 10 resolved); Nightshift setup steps A–F if possible. **Build (cloud):** Nightshift adapter + fake-server tests, including the per-call time limit, one retry and the 300-second run budget (section 1b, "Keeping the loops fast"); **the agent trace log writer (section 1c)**; local database setup with every new table (`purchase_items`, `offer_checks` with the Strategy 2 fields and `payout_wait_days_min`, `run_results`, `tax_parameters`, `state_programs`); owner view split; any-state rules + work-question cut + Plaid clean-up (including the daycare card removal); recall safety (finished-FDA filter, `no_false_recall`) | Tests green; owner view behind the token; `state_agnostic` and recall tests pass; `offer_checks` and `run_results` tables exist; a sample run writes `logs/run_<trace_id>.jsonl` in her format |
-| Sun Oct 25 | **Build:** fine-print tests, verdicts, Value Score with the "worth your time" defaults, **the Zetaris saved-verdict query (item 38)**, the newsroom loop (grades saved to `offer_checks` and fed back through Zetaris and Meterless H-MEM; the skip for unchanged fingerprints and universal rules), Lyndsay's three agent-to-agent loops and the shared workspace in H-MEM, **the one rebuttal round** and the side-by-side Court, the fast screen (saved feed from `run_results`, streaming cards by server-sent events, status pills), `v_offer_audit`, **`GET /api/offer-audit` + OpenAPI**; intake shared pieces, **the photo path and its intake loop (loop 7)**, `purchase_items` as the only source for recalls and money back; **the recall verification loop (loop 8)** and the product-matching upgrade; the two direct reads routed through Zetaris; **the Owner View Agent Workspace / Trace panel**; **onboarding top row + Version B screens from her mocks (must-do)**. **Midday:** set the cut order from the agents' estimates. **Sunday evening (Mac):** after the Nightshift update, flip-on checklist steps 1–8 (`cloud-build-assessment.md` §4) | Fine-print tests green; a second offer's trace shows the past grades and H-MEM lessons used; endpoint answers with no family fields; a sample photo becomes a `purchase_items` row and a bad reading triggers one retry then a "clearer photo" request; a disputed offer shows exactly one rebuttal round; the trace panel shows the loops for a sample run; onboarding works on both paths; a first Nightshift trace names the provider and model |
+| Sun Oct 25 | **Build:** fine-print tests, verdicts, Value Score with the "worth your time" defaults, **the Zetaris saved-verdict query (item 38)**, the newsroom loop (grades saved to `offer_checks` and fed back through Zetaris and Meterless H-MEM; the skip for unchanged fingerprints and universal rules), Lyndsay's three agent-to-agent loops and the shared workspace in H-MEM, **the one rebuttal round** and the side-by-side Court, the fast screen (saved feed from `run_results`, streaming cards by server-sent events, status pills), `v_offer_audit`, **`GET /api/offer-audit` + OpenAPI**; intake shared pieces, **the photo path and its intake loop (loop 7)**, `purchase_items` as the only source for recalls and money back; **the recall verification loop (loop 8)** and the product-matching upgrade; the two direct reads routed through Zetaris; **the Owner View Agent Workspace / Trace panel**; **onboarding top row + Version B screens from her mocks (must-do)**. **Midday:** set the cut order from the agents' estimates. **Sunday evening (Mac):** after the Nightshift update, flip-on checklist steps 1–8 (`progress/reviews/cloud-build-assessment.md` §4) | Fine-print tests green; a second offer's trace shows the past grades and H-MEM lessons used; endpoint answers with no family fields; a sample photo becomes a `purchase_items` row and a bad reading triggers one retry then a "clearer photo" request; a disputed offer shows exactly one rebuttal round; the trace panel shows the loops for a sample run; onboarding works on both paths; a first Nightshift trace names the provider and model |
 | Mon Oct 26 | **Mac:** 9am Boston go/no-go on Nightshift (item 12); register new tables and views in Zetaris (including the saved-verdict view and the two rerouted reads), record saved answers, real-AI rerun (`eval:live-model`) with the first live vision-model answers, `examples:regen`. **Build:** evidence and README (with the Meterless honesty note, item 44), including a saved trace log (`logs/run_<trace_id>.jsonl`, from a real run) that shows each built loop (the newsroom loop, send-backs, the debate and its rebuttal round, photo retry, recall verification). **Code freeze 3pm Boston (decided)**, then a clean-copy rehearsal. Video in the evening, on the Mac | Scoreboard and traces saved with the real provider named; README matches files |
 | Tue Oct 27 | Final fresh-download test; make the repo public; submit; target 5pm Boston | Ready before 23:45 UTC |
 
@@ -662,7 +662,7 @@ Keys go only in the git-ignored env file (or inside Nightshift), never in the re
 
 ## 10. Proposals: resolved Oct 24 (sign-off)
 
-**Resolved Oct 24 (sign-off).** Lyndsay approved every proposal below, except the ten she changed (`lyndsay-final-directives.md`, Part 1): her versions of #8, #9, #10 (dropped), #20 (must-do), #29 (one rebuttal round), #33 (must-do trace panel), #38, #40, #41 and #44 are recorded at the top of this plan ("Sign-off") and in the item itself. Every approved item is now written into the body, the must-do and should-do lists and the timeline. The list is kept, with its original wording, for the record; each item's outcome is shown in **[brackets]**. Item numbers are unchanged.
+**Resolved Oct 24 (sign-off).** Lyndsay approved every proposal below, except the ten she changed (`plans/lyndsay-directives/lyndsay-final-directives.md`, Part 1): her versions of #8, #9, #10 (dropped), #20 (must-do), #29 (one rebuttal round), #33 (must-do trace panel), #38, #40, #41 and #44 are recorded at the top of this plan ("Sign-off") and in the item itself. Every approved item is now written into the body, the must-do and should-do lists and the timeline. The list is kept, with its original wording, for the record; each item's outcome is shown in **[brackets]**. Item numbers are unchanged.
 
 1. ~~How real each intake path is by Oct 27.~~ **Answered by Lyndsay (round 4b): photo first; email and barcode kept for after the hackathon.** Kept here so the numbering of other items doesn't change.
 2. **[Approved for when email returns, after the hackathon; section 3.]** **Live Agentmail inbox as the first email piece to drop if short on time.** *Now parked with email (after the hackathon).* *Proposal for when email returns:* yes, keep "Use sample receipts" either way. *Why:* the sample version is the part judges can run without keys.

@@ -29,7 +29,7 @@ Repo: /Users/lyndsay/Documents/hackathon/bundle (created by Task 1; work on `mai
 | Each task self-consistent | — | T1 deletes items tests, fine; T2 seed test asserts `FEDERAL_CHILD_TAX_CREDIT` | OK |
 
 ## Progress
-- Spike 0: complete (Zetaris Neon × CPSC join GO; docs/zetaris-notes.md)
+- Spike 0: complete (Zetaris Neon × CPSC join GO; setup/zetaris-notes.md)
 - Ruling: default dev port 5050 (macOS AirPlay holds 5000) — set PORT=5050 in .env.example/docs — no cost.
 - Ruling: payments/user/webhook routes deleted in T1 (they depended on Replit auth); they're preserved in import commit b2bc3be for post-hackathon — spec says payments "ready but unused", acceptable.
 - Ruling: db:push deferred to Task 2 (schema task), run after reading the printed plan; never drop spike0_amazon_orders.

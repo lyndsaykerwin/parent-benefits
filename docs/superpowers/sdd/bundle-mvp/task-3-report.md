@@ -40,4 +40,4 @@ CREATE LIGHTNING REST TABLE fda_food_recalls FROM bundle_live REQUEST (endpoint 
 - NHTSA car-seat table skipped (endpoint unconfirmed). DQ rules skipped: need an activated USL table (extra setup); the Fact-Checker `no source` check is the backstop.
 - openFDA returns dates as numbers (20200611), and the table is a single row until exploded.
 - cpsc_recalls is a live uncached REST call (about 1-2 s warm); later tasks should batch/cache per run.
-- Notes added to docs/zetaris-notes.md.
+- Notes added to setup/zetaris-notes.md.

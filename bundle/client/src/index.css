@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 /*
-  Bundle design tokens (from deck/design-system.md).
+  Bundle design tokens (from presentation/deck/design-system.md).
   Warm cream background, white cards, one coral accent.
   shadcn/ui variables are mapped onto the same palette (HSL triplets).
 */
