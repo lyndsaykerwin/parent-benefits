@@ -331,15 +331,15 @@ describe('W1-OWNER: owner view split (parent response trimmed on the server)', (
     expect(parentResult(r).receipt).toEqual({ moneyBackCents: 1, likelyBenefitsCents: 2, deadlineCount: 3, nextDeadline: null, itemsChecked: 4 });
   });
 
-  it('parents never see "Not reviewed by the AI court."; they get a plain sentence instead', async () => {
+  it('the court\'s offline approval already uses plain words, so parents and the owner see the same sentence', async () => {
     const { app } = build();
-    (court.judgeOffers as jest.Mock).mockResolvedValue([{ id: 'discount-9', kind: 'discount', title: 'Diaper deal', body: 'Store Y has an offer. Offline screen: no flagged terms found. Not reviewed by the AI court.', amountCents: 300, deadline: null, verdict: 'likely', sources: [], traceId: 't-1', agent: 'fine_print_court', claim: { type: 'offer', offerId: 9 }, evidenceSql: 'SELECT 1', retryCount: 0 }]);
+    (court.judgeOffers as jest.Mock).mockResolvedValue([{ id: 'discount-9', kind: 'discount', title: 'Diaper deal', body: "Store Y has an offer. No flagged terms found. We couldn't fully check this offer's fine print.", amountCents: 300, deadline: null, verdict: 'likely', sources: [], traceId: 't-1', agent: 'fine_print_court', claim: { type: 'offer', offerId: 9 }, evidenceSql: 'SELECT 1', retryCount: 0 }]);
     const parent = await request(app).post('/api/run?wait=true').send({ familyId: 'leo' });
     const card = parent.body.cards.find((c: any) => c.id === 'discount-9');
     expect(card.body).toBe("Store Y has an offer. No flagged terms found. We couldn't fully check this offer's fine print.");
     expect(JSON.stringify(parent.body)).not.toMatch(/AI court|Offline screen/);
     const owner = await request(app).post('/api/run?wait=true').set('x-reviewer-token', 'sekret').send({ familyId: 'leo' });
-    expect(owner.body.cards.find((c: any) => c.id === 'discount-9').body).toMatch(/Not reviewed by the AI court\./);
+    expect(owner.body.cards.find((c: any) => c.id === 'discount-9').body).toBe("Store Y has an offer. No flagged terms found. We couldn't fully check this offer's fine print.");
   });
 
   it('GET /api/case-law hides rule text without the token, shows it with the token', async () => {
