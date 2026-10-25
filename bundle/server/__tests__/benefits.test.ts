@@ -200,6 +200,26 @@ describe('benefits planner', () => {
   });
 });
 
+describe('AI prompt framing for expecting families (W4-ORCH follow-up)', () => {
+  beforeEach(() => { process.env.TODAY = TODAY; });
+
+  it('an unborn baby\'s prompt facts never say "Deadline:"; they say it goes by the due date', async () => {
+    const llm = new FakeGenerator([]);
+    const { ctx } = ctxWith(leo, { llm });
+    await planBenefits(ctx, TODAY, { eligibilityLoop: false });
+    const prompts = llm.prompts.join('\n');
+    expect(prompts).toContain('Going by the due date, the deadline is about');
+    expect(prompts).not.toMatch(/ Deadline: \d{4}/);
+  });
+
+  it('a born baby\'s prompt still gives a plain deadline', async () => {
+    const llm = new FakeGenerator([]);
+    const { ctx } = ctxWith(maya, { llm });
+    await planBenefits(ctx, TODAY, { eligibilityLoop: false });
+    expect(llm.prompts.join('\n')).toMatch(/ Deadline: 2026-11-02/);
+  });
+});
+
 describe('deadline wording by family stage (W4-ORCH)', () => {
   it('a born baby gets a plain "Do this by <date>"', () => {
     const t = ruleFallbackText('INSURANCE_ADD_BABY', 'Add baby to health insurance', null, '2026-11-02', false);

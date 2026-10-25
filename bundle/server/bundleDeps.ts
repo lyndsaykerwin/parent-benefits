@@ -21,6 +21,20 @@ export function makeGenerator(opts: LiveOpts = {}): Generator {
   return isSampleMode() && !opts.live && !isLiveModel() ? new UnavailableGenerator('SAMPLE_MODE is on (offline)') : createGenerator();
 }
 
+/**
+ * The writer that saves agreed court grades to Neon, or undefined in SAMPLE_MODE. SAMPLE_MODE never writes, even when the live AI
+ * option is on (eval:live-model): sample runs must not touch the real database. The database is opened only when a grade is saved.
+ */
+export function makeOfferCheckWriter(): OfferCheckWriter | undefined {
+  if (isSampleMode()) return undefined;
+  return {
+    insert: async (row) => {
+      const { db } = await import('./db');
+      return createOfferCheckWriter(db).insert(row);
+    },
+  };
+}
+
 /** Real Zetaris + model + memory for one run. Shared by the API and scripts/run-family.ts. */
 export function makeRealRunDeps(memory: BundleMemory, familyId?: string, opts: LiveOpts = {}): Omit<RunDeps, 'loadFamily' | 'runId'> {
   const sample = isSampleMode() && !opts.live;
@@ -36,12 +50,7 @@ export function makeRealRunDeps(memory: BundleMemory, familyId?: string, opts: L
   });
   // Real runs save agreed court grades to Neon. The database is opened only when a grade is saved (server/db.ts throws without
   // DATABASE_URL), and SAMPLE_MODE never saves.
-  const offerChecks: OfferCheckWriter | undefined = sample ? undefined : {
-    insert: async (row) => {
-      const { db } = await import('./db');
-      return createOfferCheckWriter(db).insert(row);
-    },
-  };
+  const offerChecks = makeOfferCheckWriter();
   return { z, llm: makeGenerator(opts), memory, offerChecks, logsDir: path.resolve('logs'), today: familyId ? resolveToday(familyId).today : (process.env.TODAY || resolveToday('maya').today) };
 }
 

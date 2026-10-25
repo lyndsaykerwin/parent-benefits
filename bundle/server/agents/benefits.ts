@@ -113,7 +113,7 @@ export async function planBenefits(ctx: AgentContext, today: string, opts: { eli
     const fallback = fallbackText(code, s(r, 'title'), cents, deadline, unborn);
     const facts =
       `Benefit: ${s(r, 'title')}.` + (cents !== null ? ` Amount: ${fmtUsd(cents)}.` : '') +
-      (deadline ? ` Deadline: ${deadline}.` : '') + (unborn ? ' The baby is not born yet.' : '') +
+      (deadline ? (unborn ? ` Going by the due date, the deadline is about ${deadline} (it moves with the real birth date).` : ` Deadline: ${deadline}.`) : '') + (unborn ? ' The baby is not born yet.' : '') +
       ` Rule: ${s(r, 'condition')}.`;
     // The "Check with your job" text is fixed (no model): it must never say "your employer offers" or give a dollar amount.
     const body = checkWithJob ? fallback : await explain(ctx, AGENT, facts, cents !== null ? [cents] : [], fallback);

@@ -42,6 +42,10 @@ export interface RunDeps {
   offerChecks?: OfferCheckWriter;
   /** Live-update board for this run; defaults to the server's shared one. */
   events?: RunEventHub;
+  /** The most time a run may take, in ms (default: RUN_DEADLINE_SECONDS, else 300 s). Past it, no new checking work starts. */
+  budgetMs?: number;
+  /** Clock for the budget (ms). Tests pass a fake so nothing waits for real. */
+  now?: () => number;
 }
 
 /** Load a family: sample file in SAMPLE_MODE, otherwise Neon through Drizzle (imported lazily: server/db.ts throws without DATABASE_URL). */
@@ -226,6 +230,22 @@ async function runBundleInner(familyId: string, runId: string, events: RunEventH
   const status = (agent: string, state: AgentState) => emit(() => events.emit(runId, { type: 'agent_status', agent, state }));
   log('start', `family ${familyId}`, `today ${deps.today}`, 'ok');
 
+  // Run budget: once it is used up, no new checking or correcting starts. What is already checked is kept, the rest is filled in
+  // from the bundled stand-ins (marked "not yet verified"), and the screen says some sources did not finish.
+  const now = deps.now ?? Date.now;
+  const startedAt = now();
+  const budgetMs = deps.budgetMs ?? (Number(process.env.RUN_DEADLINE_SECONDS) > 0 ? Number(process.env.RUN_DEADLINE_SECONDS) * 1000 : 300_000);
+  let deadlineLogged = false;
+  const overBudget = (): boolean => {
+    if (now() - startedAt <= budgetMs) return false;
+    if (!deadlineLogged) {
+      deadlineLogged = true;
+      banner = BANNER;
+      log('run_deadline', `run took over ${Math.round(budgetMs / 1000)} s`, 'fallback: run deadline. No new checks started; finishing with the cards that are ready', 'fallback');
+    }
+    return true;
+  };
+
   const withRetry = <T>(who: string, fn: () => Promise<T>): Promise<T> =>
     retryTransient(fn, (m) => log('retry_transient', who, m, 'retry', 1));
   const runAgent = async <T>(who: TracedAgent, fn: () => Promise<T>): Promise<T> => {
@@ -262,6 +282,7 @@ async function runBundleInner(familyId: string, runId: string, events: RunEventH
   // maxRetries times, then is dropped. A card that could not be CHECKED (source down) is never sent back: transient errors get
   // one retry, otherwise it is dropped with the banner. The final yes is logged by the checker as approve_card.
   const reviserFor = (c: Candidate) => async (card: Candidate, why: string): Promise<Candidate | null> => {
+    if (overBudget()) return null; // out of time: the card is dropped instead of being corrected again
     try {
       switch (c.agent) {
         case 'benefits': return await benefits.revise(card, why, ctxs.benefits, deps.today);
@@ -279,7 +300,7 @@ async function runBundleInner(familyId: string, runId: string, events: RunEventH
     const lessonIds = start.agent === 'fine_print_court' ? court.lessonIdsFor(ctxs.fine_print_court, start.id) : [];
     const check = (c: Candidate) => checkWithCorrections(c, ctxs.fact_checker, reviserFor(start), { lessonIds, maxRounds: maxRetries });
     let out = await check(start);
-    if (out.decision === 'unchecked' && TRANSIENT.test(out.result.reason ?? '')) {
+    if (out.decision === 'unchecked' && TRANSIENT.test(out.result.reason ?? '') && !overBudget()) {
       log('retry_transient', `fact_check ${start.id}`, out.result.reason ?? '', 'retry', out.rounds);
       await new Promise((r) => setTimeout(r, 1500));
       out = await check(out.card);
@@ -306,6 +327,11 @@ async function runBundleInner(familyId: string, runId: string, events: RunEventH
   await Promise.all(Array.from({ length: Math.min(4, all.length) }, async () => {
     while (nextIdx < all.length) {
       const i = nextIdx++;
+      if (overBudget()) {
+        emit(() => events.emit(runId, { type: 'card_removed', cardId: all[i].id, reason: 'ran out of time before it could be checked' }));
+        log('drop', `${all[i].kind} ${all[i].id} from ${all[i].agent}`, 'dropped, not checked: fallback: run deadline', 'fallback');
+        continue;
+      }
       try {
         results[i] = await checkOne(all[i]);
       } catch (e) {
