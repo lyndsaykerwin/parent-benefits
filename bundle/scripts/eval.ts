@@ -25,6 +25,8 @@ import { MemoryStore, type BundleStore } from '../server/bundleStore';
 import { resolveToday } from '../server/demoDate';
 import { checkFinePrint, quoteIsExact } from '../server/agents/finePrintRules';
 import { scout, type ScoutResult } from './scout';
+import { agentLogFileName, agentTraceId, type AgentLogLine } from '../shared/agentLog';
+import { loopsOf, type LoopKind } from '../shared/agentLoops';
 
 /**
  * Which model really produced the numbers, named after the provider that answered (never just the first one configured):
@@ -84,8 +86,10 @@ export interface FinePrintScore {
 export interface LoopCounts {
   runId: string;
   sendBacks: number;
-  corrections: number;
   rebuttals: number;
+  photoRetries: number;
+  savedGradesReused: number;
+  safetyKills: number;
   courtRulings: number;
   courtBlocks: number;
   savedVerdictReads: number;
@@ -182,6 +186,11 @@ export function makeEvalZetaris(opts: { live?: boolean } = {}): ZetarisClient {
 const sig = (r: BundleResult) => r.cards.map((c) => `${c.id}|${c.verdict}|${c.amountCents}|${c.deadline}`).sort().join('\n') + `\n${JSON.stringify(r.receipt)}`;
 const hasCard = (r: BundleResult, spec: { kind: string; idContains: string }) => r.cards.some((c) => c.kind === spec.kind && c.id.includes(spec.idContains));
 
+function readAgentLog(logsDir: string, runId: string): AgentLogLine[] {
+  const file = path.join(logsDir, agentLogFileName(agentTraceId(runId)));
+  return fs.readFileSync(file, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l) as AgentLogLine);
+}
+
 function readTrace(logsDir: string, runId: string) {
   const file = path.join(logsDir, `run-${runId.replace(/[^A-Za-z0-9_-]/g, '_')}.jsonl`);
   const lines = fs.readFileSync(file, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l) as { agent_name: string; action: string; status: string; input_summary: string; output_summary: string });
@@ -256,19 +265,29 @@ export async function runLearning(o: { z: ZetarisClient; llm: Generator; memory:
   };
 }
 
-/** Counts what the loops did in one run, straight from its agent trace lines. */
-export function loopCountsOf(runId: string, lines: { agent_name: string; action?: string; status: string }[]): LoopCounts {
+/**
+ * Counts what the loops did in one run, straight from its trace lines (nothing typed in). The loop rounds (send-backs,
+ * rebuttals, eligibility questions, recall checks, photo retries, saved grades reused, safety kills) use the SAME rules as the
+ * owner panel (shared/agentLoops.ts) on the run's agent log, so the scoreboard and the panel can never disagree. The plain
+ * tallies (court rulings, blocks, reads, safety checks) come from the detailed trace.
+ */
+export function loopCountsOf(
+  runId: string, lines: { agent_name: string; action?: string; status: string }[], agentLines: AgentLogLine[] = [],
+): LoopCounts {
   const n = (f: (l: { agent_name: string; action?: string; status: string }) => boolean) => lines.filter(f).length;
+  const loop = (k: LoopKind) => agentLines.filter((l) => loopsOf(l).includes(k)).length;
   return {
     runId,
-    sendBacks: n((l) => l.action === 'challenge_benefits' && l.status === 'retry'),
-    corrections: n((l) => l.agent_name === 'fact_checker' && l.action === 'correction'),
-    rebuttals: n((l) => l.action === 'rebut'),
+    sendBacks: loop('send_back'),
+    rebuttals: loop('rebuttal'),
+    photoRetries: loop('photo_retry'),
+    savedGradesReused: loop('saved_verdict'),
+    safetyKills: loop('safety_kill'),
     courtRulings: n((l) => l.agent_name === 'judge'),
     courtBlocks: n((l) => l.agent_name === 'judge' && l.status === 'blocked'),
     savedVerdictReads: n((l) => l.action === 'saved_verdicts'),
-    eligibilityQuestions: n((l) => l.action === 'eligibility_check'),
-    recallVerifications: n((l) => l.agent_name === 'recall' && l.action === 'check_recalls'),
+    eligibilityQuestions: loop('eligibility'),
+    recallVerifications: loop('recall_check'),
     safetyChecks: n((l) => l.action === 'safety_check'),
     cardsApproved: n((l) => l.action === 'approve_card'),
     cardsRejected: n((l) => l.action === 'reject_card'),
@@ -397,7 +416,7 @@ export async function runEval(opts: EvalOptions = {}): Promise<Scoreboard> {
     wrongShown: wrongRecalls.length, lookAlikesChecked: lookAlikes.length,
   };
   const loops: Scoreboard['loops'] = {};
-  for (const id of FAMILIES) if (perFamily[id].length) loops[id] = perFamily[id].map((r) => loopCountsOf(r.runId, readTrace(logsDir, r.runId).lines));
+  for (const id of FAMILIES) if (perFamily[id].length) loops[id] = perFamily[id].map((r) => loopCountsOf(r.runId, readTrace(logsDir, r.runId).lines, readAgentLog(logsDir, r.runId)));
 
   const stable = FAMILIES.every((id) => perFamily[id].length < 2 || new Set(perFamily[id].map(sig)).size === 1);
   return {
