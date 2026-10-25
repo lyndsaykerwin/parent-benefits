@@ -3,8 +3,10 @@ import { Link, useParams } from 'wouter';
 import AppShell from '@/components/AppShell';
 import VersionB from '@/pages/tabs/VersionB';
 import AgentWorkspace from '@/pages/AgentWorkspace';
-import { describeLine, familyChip, loadRun, saveRun, type SavedRun, type TraceLine } from '@/lib/bundle';
-import { pollRun } from '@/lib/poll';
+import FeedCardView from '@/components/FeedCardView';
+import { api, describeLine, familyChip, loadRun, saveRun, type SavedRun, type TraceLine } from '@/lib/bundle';
+import { followRun, emptyStream, pillLines, stepsFromStream, sanitizeCard, sortCards, type StreamState } from '@/lib/stream';
+import type { FeedCard } from '@shared/bundle';
 import { ownerApi, ownerToken, type OwnerRunStatus, type ParentStep } from '@/lib/howWeChecked';
 import { cn } from '@/lib/utils';
 
@@ -53,8 +55,40 @@ function collapse(lines: TraceLine[]): { text: string; count: number; status: Tr
   return out;
 }
 
+/** Short status pills from the live stream, in parent words. */
+function StatusPills({ stream }: { stream: StreamState }) {
+  const pills = pillLines(stream);
+  if (pills.length === 0) return null;
+  return (
+    <ul className="mt-4 flex flex-wrap gap-2" data-testid="status-pills" aria-live="polite">
+      {pills.map((p) => (
+        <li key={p.key} className={cn('rounded-full border px-3 py-1 text-[13px] font-semibold', p.state === 'done' ? 'border-line bg-paper text-ink-2' : p.state === 'failed' ? 'border-kind-recall text-kind-recall' : 'border-coral text-ink')}>{p.text}</li>
+      ))}
+    </ul>
+  );
+}
+
+/** Cards to show while the check runs: the last saved results, with each fresh card replacing its saved copy. */
+export function liveCards(saved: FeedCard[], stream: StreamState): FeedCard[] {
+  const fresh = new Set(stream.cards.map((c) => c.id));
+  const gone = new Set(stream.removed);
+  return sortCards([...saved.filter((c) => !fresh.has(c.id) && !gone.has(c.id)), ...stream.cards]);
+}
+
+function LiveCards({ cards, today, fromSaved }: { cards: FeedCard[]; today?: string; fromSaved: boolean }) {
+  if (cards.length === 0) return null;
+  return (
+    <section className="mt-6" data-testid="live-cards">
+      {fromSaved && <p data-testid="saved-feed-note" className="text-[14px] text-ink-2">From your last check. We’re updating these now, and new cards will appear as they’re ready.</p>}
+      <div className="mt-3 space-y-3">
+        {cards.map((c) => <FeedCardView key={c.id} card={c} today={today} />)}
+      </div>
+    </section>
+  );
+}
+
 /** The parent's "Checking" screen: only the server's parent-safe step wording, no agent activity. */
-function ParentProgress({ steps, elapsed }: { steps: ParentStep[]; elapsed: number }) {
+function ParentProgress({ steps, elapsed, stream }: { steps: ParentStep[]; elapsed: number; stream: StreamState }) {
   return (
     <section aria-live="polite">
       <h1 className="mt-6 text-[30px] font-extrabold leading-[1.1] tracking-[-0.03em]">
@@ -72,13 +106,14 @@ function ParentProgress({ steps, elapsed }: { steps: ParentStep[]; elapsed: numb
           </li>
         ))}
       </ol>
+      <StatusPills stream={stream} />
       <p className="tabular mt-4 text-right text-[13px] font-semibold text-ink-2">{elapsed}s</p>
     </section>
   );
 }
 
 /** The owner's "Checking" screen: agent steps and live activity from the trace (reviewer code only). */
-function Progress({ lines, elapsed }: { lines: TraceLine[]; elapsed: number }) {
+function Progress({ lines, elapsed, stream }: { lines: TraceLine[]; elapsed: number; stream: StreamState }) {
   const recent = collapse(lines).slice(-6).reverse(); // newest first, so it shows above the fold
   return (
     <section aria-live="polite">
@@ -101,6 +136,7 @@ function Progress({ lines, elapsed }: { lines: TraceLine[]; elapsed: number }) {
         })}
       </ol>
 
+      <StatusPills stream={stream} />
       <div className="mt-5 flex items-center justify-between">
         <h2 className="eyebrow text-ink-2">Live activity</h2>
         <span className="tabular text-[13px] font-semibold text-ink-2">{elapsed}s</span>
@@ -130,15 +166,48 @@ export default function Feed() {
   const [error, setError] = useState<string | null>(null);
   const [elapsed, setElapsed] = useState(0);
   const started = useRef(Date.now());
+  const [stream, setStream] = useState<StreamState>(emptyStream);
+  const [saved, setSaved] = useState<FeedCard[]>([]);
+  const askedSaved = useRef(false);
+
+  // Keep the "Ns" counter moving while the stream is quiet.
+  const startedAtMs = useRef<number | null>(null);
+  useEffect(() => {
+    if (run) return;
+    const t = setInterval(() => setElapsed(Math.max(0, Math.round((Date.now() - (startedAtMs.current ?? started.current)) / 1000))), 1000);
+    return () => clearInterval(t);
+  }, [run]);
+
+  // Instant feed: one quick look at the run tells us the family, so its saved results show before any stream message arrives.
+  useEffect(() => {
+    if (run) return;
+    let live = true;
+    ownerApi().run(runId).then((status) => {
+      const t = Date.parse(status.startedAt || '');
+      if (live && Number.isFinite(t)) startedAtMs.current = t;
+      if (!live || askedSaved.current || !status.familyId) return;
+      askedSaved.current = true;
+      setChipInfo((c) => c.family ? c : { family: status.family, today: status.today, demoDate: status.demoDate });
+      api.latestRun(status.familyId).then((s) => {
+        if (live && s.status === 'done' && s.result && s.result.runId !== runId) {
+          setSaved(s.result.cards.map((c) => sanitizeCard(c)).filter((c): c is FeedCard => !!c && c.verdict !== 'blocked'));
+        }
+      }).catch(() => { /* no saved run (or the server restarted): the normal checking screen is fine */ });
+    }).catch(() => { /* the follower below reports real problems */ });
+    return () => { live = false; };
+  }, [runId, run]);
 
   useEffect(() => {
     if (run) return; // already finished (or restored from this tab)
-    return pollRun(runId, ownerApi(), {
+    return followRun(runId, ownerApi(), {
+      onStream: setStream,
       onStatus: (status, trace) => {
         if (trace) setLines(trace);
         setSteps((status as OwnerRunStatus).progress ?? []);
         setChipInfo({ family: status.family, today: status.today, demoDate: status.demoDate });
-        setElapsed(Math.round((Date.now() - Date.parse(status.startedAt || new Date(started.current).toISOString())) / 1000));
+        const t = Date.parse(status.startedAt || '');
+        if (Number.isFinite(t)) startedAtMs.current = t;
+        setElapsed(Math.round((Date.now() - (startedAtMs.current ?? started.current)) / 1000));
       },
       onDone: (status) => {
         const saved: SavedRun = { runId, familyId: status.familyId, family: status.family, today: status.today, demoDate: status.demoDate, result: status.result! };
@@ -149,7 +218,7 @@ export default function Feed() {
       onGiveUp: (kind) => setError(kind === 'expired'
         ? 'This run has expired. Start a new one; it only takes a minute.'
         : 'We lost touch with Bundle. Check your connection and try again.'),
-    }, POLL_MS);
+    }, { intervalMs: POLL_MS });
   }, [runId, run]);
 
   const family = run?.family ?? chipInfo.family;
@@ -173,7 +242,13 @@ export default function Feed() {
   }
 
   if (!run) {
-    return <AppShell chip={chip}>{owner ? <Progress lines={lines} elapsed={elapsed} /> : <ParentProgress steps={steps} elapsed={elapsed} />}</AppShell>;
+    const cards = liveCards(saved, stream);
+    return (
+      <AppShell chip={chip}>
+        {owner ? <Progress lines={lines} elapsed={elapsed} stream={stream} /> : <ParentProgress steps={stream.order.length ? stepsFromStream(stream) : steps} elapsed={elapsed} stream={stream} />}
+        <LiveCards cards={cards} today={today} fromSaved={saved.length > 0 && stream.cards.length === 0} />
+      </AppShell>
+    );
   }
 
   // The finished run opens as Version B: five tabs, starting on Home. The tabs read everything from the run's own result.
