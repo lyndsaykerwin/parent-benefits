@@ -9,6 +9,15 @@
         "cd /Users/lyndsay/Documents/hackathon/bundle && SAMPLE_MODE=true PORT=5050 HOST=127.0.0.1 ZETARIS_API_KEY= MODEL_API_KEY= npm run dev"
       ],
       "port": 5050
+    },
+    {
+      "name": "bundle-live",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": [
+        "-c",
+        "cd /Users/lyndsay/Documents/hackathon/bundle && MODEL_PROVIDER=nvidia SAMPLE_MODE=false PORT=5050 HOST=127.0.0.1 npm run dev"
+      ],
+      "port": 5050
     }
   ]
 }
