@@ -1,4 +1,4 @@
-import { applyEvent, emptyStream, followRun, pillLines, sanitizeCard, sortCards, STREAM_STALL_MS, type StreamEvent } from '../stream';
+import { applyEvent, emptyStream, followRun, pillLines, sanitizeCard, stepsFromStream, sortCards, STREAM_STALL_MS, type StreamEvent } from '../stream';
 import type { PollApi } from '../poll';
 import type { RunStatus } from '../bundle';
 import type { FeedCard } from '@shared/bundle';
@@ -21,6 +21,27 @@ describe('sanitizeCard (parents only ever see whitelisted fields)', () => {
     expect(c.sources).toEqual([{ label: 'L', url: 'https://x.gov' }]);
     expect(sanitizeCard({ nope: true } as unknown as FeedCard)).toBeNull();
     expect(sanitizeCard(null as unknown as FeedCard)).toBeNull();
+  });
+});
+
+describe('valueScore', () => {
+  const vs = { trueValueCents: 500, effortLevel: 'low', effortMinutesEstimate: { min: 5, max: 10, secret: 1 }, stepsCount: 2, payoutWaitDays: { min: 1, max: 3 }, timeLabel: 'soon', catchTypes: ['a'], worthYourTime: true, reasons: ['r'] };
+  it('keeps every ValueScore field and drops anything planted', () => {
+    const c = sanitizeCard({ ...card('d', 'discount'), valueScore: { ...vs, sqlDebug: 'SELECT 1', court: 'argued' } } as unknown as FeedCard) as FeedCard;
+    expect(Object.keys(c.valueScore!).sort()).toEqual(['catchTypes', 'effortLevel', 'effortMinutesEstimate', 'payoutWaitDays', 'reasons', 'stepsCount', 'timeLabel', 'trueValueCents', 'worthYourTime']);
+    expect(c.valueScore!.effortMinutesEstimate).toEqual({ min: 5, max: 10 });
+    expect(JSON.stringify(c)).not.toMatch(/SELECT|argued|secret/);
+  });
+  it('a card without a valid valueScore simply has none', () => {
+    expect('valueScore' in (sanitizeCard({ ...card('d', 'discount'), valueScore: 'junk' } as unknown as FeedCard) as FeedCard)).toBe(false);
+  });
+});
+
+describe('stepsFromStream', () => {
+  it('advances the parent steps from agent_status events', () => {
+    let s = applyEvent(emptyStream(), ev({ type: 'agent_status', agent: 'clawback', state: 'done' }, 1));
+    s = applyEvent(s, ev({ type: 'agent_status', agent: 'recall', state: 'working' }, 2));
+    expect(stepsFromStream(s).map((x) => x.state)).toEqual(['done', 'working', 'waiting', 'waiting', 'waiting']);
   });
 });
 

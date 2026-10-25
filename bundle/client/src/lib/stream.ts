@@ -1,4 +1,4 @@
-import type { FeedCard, CardKind, Source } from '@shared/bundle';
+import type { FeedCard, CardKind, Source, ValueScore } from '@shared/bundle';
 import { pollRun, type PollApi, type PollHandlers } from './poll';
 
 /**
@@ -39,6 +39,28 @@ export const emptyStream = (): StreamState => ({ cards: [], removed: [], agents:
 const KINDS: CardKind[] = ['recall', 'clawback', 'benefit', 'discount', 'coming_soon'];
 const VERDICTS = ['verified', 'likely', 'all_clear', 'info', 'blocked'];
 
+const range = (r: unknown) => (r && typeof r === 'object' && typeof (r as { min: unknown }).min === 'number' && typeof (r as { max: unknown }).max === 'number') ? { min: (r as { min: number }).min, max: (r as { max: number }).max } : null;
+
+/** The deal grade, copied one field at a time (same list as ValueScore in shared/bundle.ts). Nothing extra gets through. */
+export function sanitizeValueScore(v: unknown): ValueScore | undefined {
+  if (!v || typeof v !== 'object') return undefined;
+  const x = v as Record<string, unknown>;
+  const minutes = range(x.effortMinutesEstimate);
+  if (!minutes || !['low', 'medium', 'high'].includes(x.effortLevel as string)) return undefined;
+  const strs = (a: unknown) => (Array.isArray(a) ? a.filter((t): t is string => typeof t === 'string') : []);
+  return {
+    trueValueCents: typeof x.trueValueCents === 'number' ? x.trueValueCents : null,
+    effortLevel: x.effortLevel as ValueScore['effortLevel'],
+    effortMinutesEstimate: minutes,
+    stepsCount: typeof x.stepsCount === 'number' ? x.stepsCount : 0,
+    payoutWaitDays: range(x.payoutWaitDays),
+    timeLabel: typeof x.timeLabel === 'string' ? x.timeLabel : '',
+    catchTypes: strs(x.catchTypes),
+    worthYourTime: typeof x.worthYourTime === 'boolean' ? x.worthYourTime : null,
+    reasons: strs(x.reasons),
+  };
+}
+
 /** Copy a card field by field. Anything not listed (trace ids, debate, SQL, rule text) never gets in. Returns null for junk. */
 export function sanitizeCard(c: unknown): FeedCard | null {
   if (!c || typeof c !== 'object') return null;
@@ -47,7 +69,9 @@ export function sanitizeCard(c: unknown): FeedCard | null {
   const sources: Source[] = Array.isArray(x.sources)
     ? x.sources.filter((s): s is Source => !!s && typeof (s as Source).url === 'string').map((s) => ({ label: String((s as Source).label ?? ''), url: (s as Source).url }))
     : [];
+  const valueScore = sanitizeValueScore(x.valueScore);
   return {
+    ...(valueScore ? { valueScore } : {}),
     id: x.id, kind: x.kind as CardKind, title: x.title, body: typeof x.body === 'string' ? x.body : '',
     amountCents: typeof x.amountCents === 'number' ? x.amountCents : null,
     deadline: typeof x.deadline === 'string' ? x.deadline : null,
@@ -121,6 +145,21 @@ export function pillLines(s: StreamState): Pill[] {
   return [...known, ...other].map((key) => {
     const state = s.agents[key];
     return { key, state, text: (PILL_WORDS[key] ?? GENERIC)[state] };
+  });
+}
+
+/** The parent's checking steps, advanced from stream events (same keys and wording the server sends). */
+export function stepsFromStream(s: StreamState): { key: string; label: string; state: 'waiting' | 'working' | 'done' }[] {
+  const defs = [
+    ['money', 'clawback', 'Money you can get back'],
+    ['recalls', 'recall', 'Your items vs. official recall lists'],
+    ['benefits', 'benefits', 'Programs and deadlines for your family'],
+    ['deals', 'court', 'Deals, read for hidden catches'],
+    ['double_check', 'fact_checker', 'Every card double-checked against its source'],
+  ] as const;
+  return defs.map(([key, agent, label]) => {
+    const a = s.agents[agent];
+    return { key, label, state: a === 'done' || a === 'failed' ? 'done' : a === 'working' ? 'working' : 'waiting' };
   });
 }
 

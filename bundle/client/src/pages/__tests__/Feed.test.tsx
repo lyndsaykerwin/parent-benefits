@@ -125,6 +125,17 @@ describe('Feed instant saved results and live cards (W4-STREAM-UI)', () => {
     expect(document.body.innerHTML).not.toMatch(/owner-trace-id|real-?time/i);
   });
 
+  it('the seconds counter keeps counting while the stream is quiet', async () => {
+    jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate'] });
+    try {
+      mount('404');
+      await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+      expect(screen.getByText('0s')).toBeTruthy();
+      await act(async () => { jest.advanceTimersByTime(3000); });
+      expect(screen.getByText('3s')).toBeTruthy();
+    } finally { jest.useRealTimers(); }
+  });
+
   it('keeps working (polling) when the stream breaks', async () => {
     const fetchMock = mount('saved');
     await waitFor(() => expect(FakeES.last).toBeTruthy());

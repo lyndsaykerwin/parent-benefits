@@ -5,7 +5,7 @@ import VersionB from '@/pages/tabs/VersionB';
 import AgentWorkspace from '@/pages/AgentWorkspace';
 import FeedCardView from '@/components/FeedCardView';
 import { api, describeLine, familyChip, loadRun, saveRun, type SavedRun, type TraceLine } from '@/lib/bundle';
-import { followRun, emptyStream, pillLines, sanitizeCard, sortCards, type StreamState } from '@/lib/stream';
+import { followRun, emptyStream, pillLines, stepsFromStream, sanitizeCard, sortCards, type StreamState } from '@/lib/stream';
 import type { FeedCard } from '@shared/bundle';
 import { ownerApi, ownerToken, type OwnerRunStatus, type ParentStep } from '@/lib/howWeChecked';
 import { cn } from '@/lib/utils';
@@ -170,11 +170,21 @@ export default function Feed() {
   const [saved, setSaved] = useState<FeedCard[]>([]);
   const askedSaved = useRef(false);
 
+  // Keep the "Ns" counter moving while the stream is quiet.
+  const startedAtMs = useRef<number | null>(null);
+  useEffect(() => {
+    if (run) return;
+    const t = setInterval(() => setElapsed(Math.max(0, Math.round((Date.now() - (startedAtMs.current ?? started.current)) / 1000))), 1000);
+    return () => clearInterval(t);
+  }, [run]);
+
   // Instant feed: one quick look at the run tells us the family, so its saved results show before any stream message arrives.
   useEffect(() => {
     if (run) return;
     let live = true;
     ownerApi().run(runId).then((status) => {
+      const t = Date.parse(status.startedAt || '');
+      if (live && Number.isFinite(t)) startedAtMs.current = t;
       if (!live || askedSaved.current || !status.familyId) return;
       askedSaved.current = true;
       setChipInfo((c) => c.family ? c : { family: status.family, today: status.today, demoDate: status.demoDate });
@@ -195,7 +205,9 @@ export default function Feed() {
         if (trace) setLines(trace);
         setSteps((status as OwnerRunStatus).progress ?? []);
         setChipInfo({ family: status.family, today: status.today, demoDate: status.demoDate });
-        setElapsed(Math.round((Date.now() - Date.parse(status.startedAt || new Date(started.current).toISOString())) / 1000));
+        const t = Date.parse(status.startedAt || '');
+        if (Number.isFinite(t)) startedAtMs.current = t;
+        setElapsed(Math.round((Date.now() - (startedAtMs.current ?? started.current)) / 1000));
       },
       onDone: (status) => {
         const saved: SavedRun = { runId, familyId: status.familyId, family: status.family, today: status.today, demoDate: status.demoDate, result: status.result! };
@@ -233,7 +245,7 @@ export default function Feed() {
     const cards = liveCards(saved, stream);
     return (
       <AppShell chip={chip}>
-        {owner ? <Progress lines={lines} elapsed={elapsed} stream={stream} /> : <ParentProgress steps={steps} elapsed={elapsed} stream={stream} />}
+        {owner ? <Progress lines={lines} elapsed={elapsed} stream={stream} /> : <ParentProgress steps={stream.order.length ? stepsFromStream(stream) : steps} elapsed={elapsed} stream={stream} />}
         <LiveCards cards={cards} today={today} fromSaved={saved.length > 0 && stream.cards.length === 0} />
       </AppShell>
     );
