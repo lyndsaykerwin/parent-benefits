@@ -52,6 +52,8 @@ function build(over: Partial<ApiDeps> = {}) {
   return { app, deps, store, memory, logsDir };
 }
 
+const FAMILY_VIEW_KEYS = ['birthDate', 'dueDate', 'hasItems', 'household', 'insurance', 'name', 'parent1Work', 'parent2Work', 'state'];
+
 describe('POST /api/run', () => {
   it('leo with ?wait=true returns the BundleResult with >= 9 cards, no auth', async () => {
     const { app } = build();
@@ -97,7 +99,7 @@ describe('POST /api/run', () => {
     }
   });
 
-  it('inline family: runs with the defaults, is not saved, state comes from zip_states', async () => {
+  it('inline family: runs with the defaults, state comes from zip_states', async () => {
     const { app, deps } = build();
     let seen: Family | undefined;
     (benefits.planBenefits as jest.Mock).mockImplementation(async (ctx: any) => { seen = ctx.family; return []; });
@@ -106,6 +108,58 @@ describe('POST /api/run', () => {
     expect(seen).toMatchObject({ householdSize: 3, annualIncomeCents: null, dcfsaOffered: true, state: 'MA', employer: 'Acme', isGuest: true, userId: null });
     expect(seen!.id).toMatch(/^guest-/);
     expect(deps.store).toBeDefined();
+  });
+
+  it('inline family: the Q4 and Q5 answers reach the family, the run and the saved family, and the new id comes back', async () => {
+    const { app, store } = build();
+    let seen: Family | undefined;
+    (benefits.planBenefits as jest.Mock).mockImplementation(async (ctx: any) => { seen = ctx.family; return []; });
+    const answers = { household: 'two', parent1Work: 'paycheck', parent2Work: 'not_working', insurance: 'tricare' };
+    const res = await request(app).post('/api/run').send({ zip: '02139', birthDate: '2026-10-01', ...answers });
+    expect(res.status).toBe(202);
+    expect(res.body.familyId).toMatch(/^guest-/);
+    expect(seen).toMatchObject({ ...answers, householdSize: 3 });
+    const saved = await (store as any).getFamily(res.body.familyId);
+    expect(saved).toMatchObject({ ...answers, zip: '02139', state: 'MA', birthDate: '2026-10-01', isGuest: true });
+    const status = (await request(app).get(`/api/runs/${res.body.runId}`)).body;
+    expect(status.family).toMatchObject({ ...answers, hasItems: false });
+  });
+
+  it('inline family: "just me" drops the second parent, and skipped questions stay empty (null)', async () => {
+    const { app, store } = build();
+    const one = await request(app).post('/api/run').send({ zip: '02139', dueDate: '2027-01-15', household: 'one', parent1Work: 'self_employed', parent2Work: 'paycheck', insurance: 'job' });
+    expect(await (store as any).getFamily(one.body.familyId)).toMatchObject({ household: 'one', parent1Work: 'self_employed', parent2Work: null, householdSize: 2, insurance: 'job' });
+    const skipped = await request(app).post('/api/run').send({ zip: '02139', dueDate: '2027-01-15', insurance: 'none_or_not_sure' });
+    expect(skipped.status).toBe(202);
+    expect(await (store as any).getFamily(skipped.body.familyId)).toMatchObject({ household: null, parent1Work: null, parent2Work: null, insurance: 'none_or_not_sure' });
+  });
+
+  it('inline family: an answer outside the lists is a 400', async () => {
+    const { app } = build();
+    for (const bad of [{ household: 'three' }, { parent1Work: 'W-2', household: 'one' }, { insurance: 'aetna' }]) {
+      const res = await request(app).post('/api/run').send({ zip: '02139', birthDate: '2026-10-01', ...bad });
+      expect(res.status).toBe(400);
+      expect(res.body.error).toBe('Choose one of the listed answers.');
+    }
+  });
+
+  it('a family that cannot be saved still runs, and no id is returned', async () => {
+    const { app, store } = build();
+    jest.spyOn(store, 'saveFamily').mockRejectedValue(new Error('db down'));
+    jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    const res = await request(app).post('/api/run').send({ zip: '02139', birthDate: '2026-10-01', insurance: 'job' });
+    expect(res.status).toBe(202);
+    expect(res.body.familyId).toBeUndefined();
+    expect(typeof res.body.runId).toBe('string');
+  });
+
+  it('a sample family is not re-saved and gets no new id', async () => {
+    const { app, store } = build();
+    const spy = jest.spyOn(store, 'saveFamily');
+    const res = await request(app).post('/api/run').send({ familyId: 'maya' });
+    expect(res.status).toBe(202);
+    expect(res.body.familyId).toBeUndefined();
+    expect(spy).not.toHaveBeenCalled();
   });
 
   it('M11: birth date must be within the last 2 years, due date within the next 10 months', async () => {
@@ -242,8 +296,8 @@ describe('UI helpers (Task 12)', () => {
     const { runId } = (await request(app).post('/api/run').send({ familyId: 'leo' })).body;
     const body = (await request(app).get(`/api/runs/${runId}`)).body;
     expect(body.today).toBe('2026-10-23');
-    expect(Object.keys(body.family).sort()).toEqual(['birthDate', 'dueDate', 'name', 'state']); // state added, nothing else leaked
-    expect(body.family).toEqual({ name: 'leo', birthDate: null, dueDate: '2026-12-07', state: 'MA' });
+    expect(Object.keys(body.family).sort()).toEqual(FAMILY_VIEW_KEYS); // display fields and the Q4/Q5 answers, nothing else leaked
+    expect(body.family).toEqual({ name: 'leo', birthDate: null, dueDate: '2026-12-07', state: 'MA', household: null, parent1Work: null, parent2Work: null, insurance: null, hasItems: false }); // this test's stand-in family has no answers
     expect(JSON.stringify(body)).not.toContain('14500000');
   });
 
@@ -316,12 +370,12 @@ describe('W1-OWNER: owner view split (parent response trimmed on the server)', (
     expect(parentCard(r.cards[0]).valueScore!.payoutWaitDays).toEqual({ min: 14, max: 28 });
   });
 
-  it('?wait=true returns the family with exactly name, birthDate, dueDate, state (no income, zip, employer)', async () => {
+  it('?wait=true returns the family with exactly the display fields and onboarding answers (no income, zip, employer)', async () => {
     const { app } = withLeakyCards();
     for (const headers of [{}, { 'x-reviewer-token': 'sekret' }]) {
       const res = await request(app).post('/api/run?wait=true').set(headers).send({ familyId: 'leo' });
       expect(res.status).toBe(200);
-      expect(Object.keys(res.body.family).sort()).toEqual(['birthDate', 'dueDate', 'name', 'state']);
+      expect(Object.keys(res.body.family).sort()).toEqual(FAMILY_VIEW_KEYS);
       expect(JSON.stringify(res.body)).not.toMatch(/income|zip|employer|householdSize/i);
     }
   });

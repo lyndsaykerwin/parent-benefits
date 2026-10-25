@@ -33,7 +33,7 @@ export function CategoryHeader({ eyebrow, dot, title, sub }: { eyebrow: string; 
 }
 
 /** Cards in a stack, each with its "I got this" tick when it is something a parent can claim. */
-export function CardStack({ cards, props, deadlineLabels }: { cards: FeedCard[]; props: TabProps; deadlineLabels?: Record<string, string> }) {
+export function CardStack({ cards, props, deadlineLabels, extras }: { cards: FeedCard[]; props: TabProps; deadlineLabels?: Record<string, string>; extras?: Record<string, ReactNode> }) {
   const ids = new Set(claimableCards(props.cards).map((c) => c.id));
   return (
     <div className="mt-4 space-y-3">
@@ -45,6 +45,7 @@ export function CardStack({ cards, props, deadlineLabels }: { cards: FeedCard[];
           detailHref={props.href(c.id)}
           // An expecting family has no countdown yet: every benefit deadline counts from the birth.
           deadlineLabel={deadlineLabels?.[c.id] ?? (props.stage === 'expecting' && c.kind === 'benefit' && c.deadline ? 'Starts at birth' : undefined)}
+          extra={extras?.[c.id]}
           claim={ids.has(c.id) ? { checked: !!props.claims[c.id], onToggle: () => props.toggleClaim(c.id) } : undefined}
         />
       ))}

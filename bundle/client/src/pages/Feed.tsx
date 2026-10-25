@@ -1,13 +1,14 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'wouter';
 import AppShell from '@/components/AppShell';
 import VersionB from '@/pages/tabs/VersionB';
 import AgentWorkspace from '@/pages/AgentWorkspace';
 import FeedCardView from '@/components/FeedCardView';
-import { api, describeLine, familyChip, loadRun, saveRun, type SavedRun, type TraceLine } from '@/lib/bundle';
-import { followRun, emptyStream, pillLines, stepsFromStream, sanitizeCard, sortCards, type StreamState } from '@/lib/stream';
+import { api, describeLine, familyChip, fmtUsdShort, loadRun, saveRun, type SavedRun, type TraceLine } from '@/lib/bundle';
+import { FIRST_LINE_MS, LINE_GAP_MS, checkLines, type CheckLine } from '@/lib/checking';
+import { followRun, emptyStream, pillLines, sanitizeCard, sortCards, type StreamState } from '@/lib/stream';
 import type { FeedCard } from '@shared/bundle';
-import { ownerApi, ownerToken, type OwnerRunStatus, type ParentStep } from '@/lib/howWeChecked';
+import { ownerApi, ownerToken } from '@/lib/howWeChecked';
 import { cn } from '@/lib/utils';
 
 const POLL_MS = 1000;
@@ -87,27 +88,56 @@ function LiveCards({ cards, today, fromSaved }: { cards: FeedCard[]; today?: str
   );
 }
 
-/** The parent's "Checking" screen: only the server's parent-safe step wording, no agent activity. */
-function ParentProgress({ steps, elapsed, stream }: { steps: ParentStep[]; elapsed: number; stream: StreamState }) {
+/**
+ * The parent's "Checking" screen. The lines come from the family's own answers and appear one at a time, about 1.3 seconds apart,
+ * and stay. Only after the last line (and only once the run has really finished) does the "We found $X" card appear.
+ * Nothing moves on by itself: the results open when the parent taps "View my results".
+ */
+function ParentProgress({ lines, shown, ready, waiting, elapsed, stream, totalCents, onReveal }: {
+  lines: CheckLine[]; shown: number; ready: boolean; waiting: boolean; elapsed: number; stream: StreamState; totalCents: number | null; onReveal: () => void;
+}) {
+  const allShown = ready && shown >= lines.length;
+  const revealed = allShown && totalCents !== null;
   return (
     <section aria-live="polite">
       <h1 className="mt-6 text-[30px] font-extrabold leading-[1.1] tracking-[-0.03em]">
-        We’re checking <span className="text-coral">for you.</span>
+        {revealed ? <>All <span className="text-coral">checked.</span></> : <>We’re checking <span className="text-coral">for you.</span></>}
       </h1>
-      <p className="mt-2 text-[16px] text-ink-2">
-        We are checking government, recall and store information for your family. This is often quick, and can sometimes take a minute or two.
-      </p>
-      <ol className="bundle-card mt-5 space-y-3 p-5" data-testid="parent-steps">
-        {steps.length === 0 && <li className="flex items-center gap-3 text-[15px] text-ink-2"><Spinner /> Getting started…</li>}
-        {steps.map((s) => (
-          <li key={s.key} className="flex items-center gap-3">
-            <StepIcon state={s.state} />
-            <span className={cn('text-[15px] leading-snug', s.state === 'waiting' ? 'text-ink-2' : 'font-semibold text-ink')}>{s.label}</span>
+      {!revealed && (
+        <p className="mt-2 text-[16px] text-ink-2">
+          We are checking government, recall and store information for your family. This is often quick, and can sometimes take a minute or two.
+        </p>
+      )}
+      <ol className="bundle-card mt-5 space-y-3.5 p-5" data-testid="parent-steps">
+        {!ready || shown === 0 ? <li className="flex items-center gap-3 text-[15px] text-ink-2"><Spinner /> Getting started…</li> : null}
+        {lines.slice(0, shown).map((l) => (
+          <li key={l.key} className="flex items-start gap-3">
+            <StepGlyph state="done" />
+            <span className="sr-only">Done: </span>
+            <span className="flex flex-col">
+              <span className="text-[15px] font-semibold leading-snug text-ink">{l.title}</span>
+              <span className="text-[13px] leading-snug text-ink-2">{l.caption}</span>
+            </span>
           </li>
         ))}
       </ol>
-      {steps.length === 0 && <StatusPills stream={stream} />}
-      <p className="tabular mt-4 text-right text-[13px] font-semibold text-ink-2">{elapsed}s</p>
+      {waiting && <p className="mt-3 flex items-center gap-2 text-[14px] font-semibold text-ink-2"><Spinner /> Still finishing the last check…</p>}
+      {!ready && <StatusPills stream={stream} />}
+      {revealed ? (
+        <div className="mt-5 rounded-3xl bg-ink p-5 text-cream" data-testid="checking-reveal">
+          <p className="sr-only">We found {fmtUsdShort(totalCents)} for your family.</p>
+          <div aria-hidden="true">
+            <p className="text-[20px] font-extrabold">We found</p>
+            <p className="tabular text-[52px] font-extrabold leading-none tracking-[-0.03em]">{fmtUsdShort(totalCents)}</p>
+            <p className="mt-1 text-[20px] font-extrabold">for your family.</p>
+          </div>
+          <button type="button" onClick={onReveal} className="mt-4 flex min-h-[56px] w-full items-center justify-center rounded-2xl bg-coral px-4 text-[17px] font-bold text-white transition active:scale-[.99]">
+            View my results <span aria-hidden="true" className="ml-1">→</span>
+          </button>
+        </div>
+      ) : (
+        <p className="tabular mt-4 text-right text-[13px] font-semibold text-ink-2">{elapsed}s</p>
+      )}
     </section>
   );
 }
@@ -159,8 +189,7 @@ function Progress({ lines, elapsed, stream }: { lines: TraceLine[]; elapsed: num
 export default function Feed() {
   const { runId = '' } = useParams<{ runId: string }>();
   const [run, setRun] = useState<SavedRun | null>(() => loadRun(runId)?.runId === runId ? loadRun(runId) : null);
-  const [lines, setLines] = useState<TraceLine[]>([]);
-  const [steps, setSteps] = useState<ParentStep[]>([]);
+  const [traceLines, setLines] = useState<TraceLine[]>([]);
   const owner = !!ownerToken();
   const [chipInfo, setChipInfo] = useState<{ family?: SavedRun['family']; today?: string; demoDate?: boolean }>({});
   const [error, setError] = useState<string | null>(null);
@@ -168,6 +197,9 @@ export default function Feed() {
   const started = useRef(Date.now());
   const [stream, setStream] = useState<StreamState>(emptyStream);
   const [saved, setSaved] = useState<FeedCard[]>([]);
+  /** The finished run, held back until the parent taps "View my results" (the owner view opens it straight away). */
+  const [finished, setFinished] = useState<SavedRun | null>(null);
+  const [shown, setShown] = useState(0);
   const askedSaved = useRef(false);
 
   // Keep the "Ns" counter moving while the stream is quiet.
@@ -198,12 +230,11 @@ export default function Feed() {
   }, [runId, run]);
 
   useEffect(() => {
-    if (run) return; // already finished (or restored from this tab)
+    if (run || finished) return; // already finished (or restored from this tab)
     return followRun(runId, ownerApi(), {
       onStream: setStream,
       onStatus: (status, trace) => {
         if (trace) setLines(trace);
-        setSteps((status as OwnerRunStatus).progress ?? []);
         setChipInfo({ family: status.family, today: status.today, demoDate: status.demoDate });
         const t = Date.parse(status.startedAt || '');
         if (Number.isFinite(t)) startedAtMs.current = t;
@@ -211,19 +242,35 @@ export default function Feed() {
       },
       onDone: (status) => {
         const saved: SavedRun = { runId, familyId: status.familyId, family: status.family, today: status.today, demoDate: status.demoDate, result: status.result! };
-        saveRun(saved);
-        setRun(saved);
+        if (ownerToken()) { saveRun(saved); setRun(saved); } else setFinished(saved);
       },
       onFailed: setError,
       onGiveUp: (kind) => setError(kind === 'expired'
         ? 'This run has expired. Start a new one; it only takes a minute.'
         : 'We lost touch with Bundle. Check your connection and try again.'),
     }, { intervalMs: POLL_MS });
-  }, [runId, run]);
+  }, [runId, run, finished]);
 
-  const family = run?.family ?? chipInfo.family;
+  const family = run?.family ?? finished?.family ?? chipInfo.family;
   const today = run?.today ?? chipInfo.today;
   const chip = familyChip(family, today);
+
+  // The checking lines: built from the family's answers, shown one at a time.
+  const familyKey = JSON.stringify(family ?? null);
+  const lines = useMemo(() => checkLines(family), [familyKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  const ready = !!family || !!finished;
+  // All the line timers are set up front (not chained through re-renders), so the pace is steady whatever else is happening.
+  const lineCount = lines.length;
+  useEffect(() => {
+    if (run || owner || !ready) return;
+    const timers = Array.from({ length: lineCount }, (_, k) => setTimeout(() => setShown((n) => Math.max(n, k + 1)), FIRST_LINE_MS + k * LINE_GAP_MS));
+    return () => timers.forEach(clearTimeout);
+  }, [run, owner, ready, lineCount]);
+  // "Double-checked" is a promise the run has really kept, so it waits for the run to finish.
+  const visible = finished ? shown : Math.min(shown, lineCount - 1);
+  const waiting = ready && !finished && !run && shown >= lineCount - 1;
+  const total = finished ? finished.result.receipt.moneyBackCents + finished.result.receipt.likelyBenefitsCents : null;
+  const reveal = () => { if (finished) { saveRun(finished); setRun(finished); } };
 
   // The finished run's full audit log (owner only); only needed for the "We caught these" detail.
   const [doneLines, setDoneLines] = useState<TraceLine[]>([]);
@@ -245,8 +292,10 @@ export default function Feed() {
     const cards = liveCards(saved, stream);
     return (
       <AppShell chip={chip}>
-        {owner ? <Progress lines={lines} elapsed={elapsed} stream={stream} /> : <ParentProgress steps={stream.order.length ? stepsFromStream(stream) : steps} elapsed={elapsed} stream={stream} />}
-        <LiveCards cards={cards} today={today} fromSaved={saved.length > 0 && stream.cards.length === 0} />
+        {owner
+          ? <Progress lines={traceLines} elapsed={elapsed} stream={stream} />
+          : <ParentProgress lines={lines} shown={visible} ready={ready} waiting={waiting} elapsed={elapsed} stream={stream} totalCents={total} onReveal={reveal} />}
+        {!(finished && !owner) && <LiveCards cards={cards} today={today} fromSaved={saved.length > 0 && stream.cards.length === 0} />}
       </AppShell>
     );
   }

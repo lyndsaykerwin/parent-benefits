@@ -2,6 +2,7 @@ import { useCallback, useMemo, useState, type ReactNode } from 'react';
 import AppShell from '@/components/AppShell';
 import AddPurchaseButton from '@/components/AddPurchaseButton';
 import { demoDateLabel, familyChip, type SavedRun, type TraceLine } from '@/lib/bundle';
+import { applyInsuranceAnswer } from '@/lib/insurance';
 import { badgeCount, comingSoonNote, isTabId, loadClaims, saveClaims, stageOf, type TabId } from '@/lib/tabs';
 import { Link } from 'wouter';
 import HomeTab from './HomeTab';
@@ -34,7 +35,7 @@ export default function VersionB({ run, owner, lines = [], ownerPanel }: Props) 
   const [tab, setTab] = useState<TabId>(() => loadTab(run.runId));
   const [claims, setClaims] = useState<Record<string, boolean>>(() => loadClaims(run.familyId));
   const stage = stageOf(run.family);
-  const cards = run.result.cards;
+  const cards = useMemo(() => applyInsuranceAnswer(run.result.cards, run.family), [run.result.cards, run.family]);
   const today = run.today ?? '';
 
   const change = useCallback((t: TabId) => { setTab(t); saveTab(run.runId, t); window.scrollTo?.({ top: 0 }); }, [run.runId]);

@@ -3,7 +3,7 @@ import path from 'path';
 import crypto from 'crypto';
 import { Router, type Request, type Response } from 'express';
 import rateLimit from 'express-rate-limit';
-import type { BundleReceipt, BundleResult, Family, FeedCard, ValueScore } from '../../shared/bundle';
+import type { BundleReceipt, BundleResult, Family, FeedCard, Household, InsuranceType, ValueScore, WorkStatus } from '../../shared/bundle';
 import type { Generator } from '../adapters/llm';
 import type { BundleMemory } from '../adapters/memory';
 import { runBundle, newRunId, type RunDeps } from '../agents/orchestrator';
@@ -14,6 +14,7 @@ import type { TraceLine } from '../agents/trace';
 
 import { SEED_FAMILY_IDS, isSeedFamily } from '../demoDate';
 import { dateRangeError } from '../../shared/dateRange';
+import { isInlineFamily } from '../agents/sql';
 export { SEED_FAMILY_IDS };
 export const ZIP_ERROR = 'Enter a valid US ZIP code';
 const WINDOW_MS = 10 * 60 * 1000;
@@ -40,8 +41,43 @@ export interface ApiDeps {
 }
 
 /** Display-only family fields the UI needs (header chip, day count). Never income. */
-type FamilyView = { name: string; birthDate: string | null; dueDate: string | null; state?: string }; // state is optional because runs saved before this field existed lack it
+type FamilyView = {
+  name: string; birthDate: string | null; dueDate: string | null;
+  state?: string; // optional because runs saved before this field existed lack it
+  /** V2 onboarding answers (the checking screen and the Insurance tab read them). Absent on older runs, null when the parent chose not to say. */
+  household?: Household | null; parent1Work?: WorkStatus | null; parent2Work?: WorkStatus | null; insurance?: InsuranceType | null;
+  /** True when Bundle has saved purchases to check for this family (so the checking screen may show the recall line). */
+  hasItems?: boolean;
+};
 type RunEntry = { runId: string; familyId: string; status: 'running' | 'done' | 'failed'; startedAt: string; result?: BundleResult; error?: string; logsDir: string; family: FamilyView; today: string; demoDate: boolean };
+
+const HOUSEHOLDS: readonly string[] = ['one', 'two'];
+const WORK: readonly string[] = ['paycheck', 'self_employed', 'not_working'];
+const INSURANCE: readonly string[] = ['job', 'marketplace', 'medicaid', 'tricare', 'none_or_not_sure'];
+const ANSWER_ERROR = 'Choose one of the listed answers.';
+
+/** The display fields of a family that the screens need. Never income. */
+export function familyView(f: Family): FamilyView {
+  return {
+    name: f.name, birthDate: f.birthDate, dueDate: f.dueDate, state: f.state,
+    household: f.household ?? null, parent1Work: f.parent1Work ?? null, parent2Work: f.parent2Work ?? null, insurance: f.insurance ?? null,
+    hasItems: !isInlineFamily(f) && f.dataConnected,
+  };
+}
+
+/** The Q4 and Q5 answers from a request body. Each is optional ("prefer not to say" sends nothing); a value outside the lists is an error. */
+function readAnswers(body: any): { answers?: Pick<Family, 'household' | 'parent1Work' | 'parent2Work' | 'insurance'>; error?: string } {
+  const pick = <T extends string>(v: unknown, allowed: readonly string[]): T | null | undefined =>
+    v === undefined || v === null || v === '' ? null : typeof v === 'string' && allowed.includes(v) ? (v as T) : undefined;
+  const household = pick<Household>(body?.household, HOUSEHOLDS);
+  const parent1Work = pick<WorkStatus>(body?.parent1Work, WORK);
+  const parent2Work = pick<WorkStatus>(body?.parent2Work, WORK);
+  const insurance = pick<InsuranceType>(body?.insurance, INSURANCE);
+  if (household === undefined || parent1Work === undefined || parent2Work === undefined || insurance === undefined) return { error: ANSWER_ERROR };
+  // Work answers only make sense with a household; a second parent only with "Two of us".
+  if (!household) return { answers: { household: null, parent1Work: null, parent2Work: null, insurance } };
+  return { answers: { household, parent1Work, parent2Work: household === 'two' ? parent2Work : null, insurance } };
+}
 
 const isIsoDate = (v: unknown): v is string =>
   typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) && !Number.isNaN(Date.parse(`${v}T00:00:00Z`)) && new Date(`${v}T00:00:00Z`).toISOString().slice(0, 10) === v;
@@ -188,11 +224,14 @@ export function createBundleRouter(deps: ApiDeps): Router {
     const rangeError = hasBirth ? dateRangeError('birth', body.birthDate, todayIso) : dateRangeError('due', body.dueDate, todayIso);
     if (rangeError) return { error: rangeError };
     const employer = typeof body.employer === 'string' ? body.employer.trim().slice(0, 100) : '';
+    const { answers, error: answerError } = readAnswers(body);
+    if (!answers) return { error: answerError };
     return {
       family: {
         id: `guest-${crypto.randomBytes(4).toString('hex')}`, userId: null, isGuest: true, name: 'Guest',
         birthDate: hasBirth ? body.birthDate : null, dueDate: hasDue ? body.dueDate : null,
-        zip, state, employer, householdSize: 3, annualIncomeCents: null, dcfsaOffered: true, dataConnected: false,
+        zip, state, employer, householdSize: answers.household === 'one' ? 2 : 3, annualIncomeCents: null, dcfsaOffered: true, dataConnected: false,
+        ...answers,
       },
     };
   }
@@ -203,7 +242,7 @@ export function createBundleRouter(deps: ApiDeps): Router {
     knownFamilies.add(family.id);
     const entry: RunEntry = {
       runId, familyId: family.id, status: 'running', startedAt: new Date().toISOString(), logsDir: base.logsDir,
-      family: { name: family.name, birthDate: family.birthDate, dueDate: family.dueDate, state: family.state }, today: base.today, demoDate: isSeedFamily(family.id),
+      family: familyView(family), today: base.today, demoDate: isSeedFamily(family.id),
     };
     runs.set(runId, entry);
     while (runs.size > MAX_REGISTRY) runs.delete(runs.keys().next().value as string);
@@ -239,12 +278,19 @@ export function createBundleRouter(deps: ApiDeps): Router {
       const ip = req.ip ?? 'unknown';
       if ((inFlightByIp.get(ip) ?? 0) >= maxPerIp) return res.status(429).json({ error: `You already have ${maxPerIp} runs going. Please wait for one to finish.` });
       const { entry, done } = startRun(family, ip);
+      // A family typed in on the onboarding screens is saved, and its id goes back to the browser so it can find the family again.
+      // Saving never blocks the run: if it fails, no id is returned.
+      let savedFamilyId: string | undefined;
+      if (isInlineFamily(family)) {
+        try { await deps.store.saveFamily(family); savedFamilyId = family.id; }
+        catch (e) { console.error('Saving family failed:', family.id, (e as Error)?.message); }
+      }
       if (req.query.wait === 'true') {
         await done;
         if (entry.status === 'done') return res.json({ ...view(req, entry.result!), family: entry.family });
         return res.status(500).json({ error: entry.error, runId: entry.runId });
       }
-      return res.status(202).json({ runId: entry.runId });
+      return res.status(202).json({ runId: entry.runId, ...(savedFamilyId ? { familyId: savedFamilyId } : {}) });
     } catch (e) {
       console.error('POST /api/run failed:', (e as Error)?.message);
       return res.status(500).json({ error: 'Could not start the run.' });

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { applyInsuranceAnswer } from '@/lib/insurance';
 import { Link, useParams, useSearch } from 'wouter';
 import AppShell from '@/components/AppShell';
 import FeedCardView from '@/components/FeedCardView';
@@ -57,7 +58,7 @@ export default function CardDetail() {
       .catch(() => {})
       .finally(() => setLooking(false));
   }, [looking, runParam]);
-  const card = run?.result.cards.find((c) => c.id === id) ?? run?.result.blocked?.find((c) => c.id === id) ?? null;
+  const card = (run ? applyInsuranceAnswer(run.result.cards, run.family) : []).find((c) => c.id === id) ?? run?.result.blocked?.find((c) => c.id === id) ?? null;
   const [lines, setLines] = useState<TraceLine[] | null>(null);
   const [traceError, setTraceError] = useState(false);
   const [sent, setSent] = useState<'got_it' | 'issue' | null>(null);

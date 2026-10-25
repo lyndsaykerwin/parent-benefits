@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { Link } from 'wouter';
 import type { FeedCard } from '@shared/bundle';
 import { KIND_META, VERDICT_LABEL, amountCaption, cardDeadline, fmtUsd, isCheckWithJob, safeSources } from '@/lib/bundle';
@@ -16,6 +17,8 @@ interface Props {
   claim?: { checked: boolean; onToggle: () => void };
   /** Replaces the deadline countdown (e.g. "Starts at birth" for an expecting family). */
   deadlineLabel?: string;
+  /** Extra content shown under the card's sentence (e.g. the insurance deadline pill). */
+  extra?: ReactNode;
 }
 
 function ExternalIcon() {
@@ -34,7 +37,7 @@ const verdictStyle: Record<FeedCard['verdict'], string> = {
   blocked: 'bg-[#FBE3E0] text-[#9E2A21]',
 };
 
-export default function FeedCardView({ card, today, pinned = false, detailHref, claim, deadlineLabel }: Props) {
+export default function FeedCardView({ card, today, pinned = false, detailHref, claim, deadlineLabel, extra }: Props) {
   const meta = KIND_META[card.kind];
   const caption = amountCaption(card);
   const soon = card.kind === 'coming_soon';
@@ -66,6 +69,8 @@ export default function FeedCardView({ card, today, pinned = false, detailHref, 
 
       <h3 className="mt-2 text-[17px] font-extrabold leading-snug tracking-[-0.01em] text-ink">{card.title}</h3>
       <p className="mt-1 text-[15px] leading-relaxed text-ink-2">{body.charAt(0).toUpperCase() + body.slice(1)}</p>
+
+      {extra}
 
       {scoreLines.length > 0 && (
         <ul className="mt-2 space-y-0.5 text-[13.5px] font-semibold text-ink-2" aria-label="Value and time" data-testid="value-score">

@@ -1,34 +1,29 @@
 import React from 'react';
-import { render, screen, cleanup, waitFor, act } from '@testing-library/react';
+import { render, screen, cleanup, waitFor, act, fireEvent } from '@testing-library/react';
 import { Router, Route } from 'wouter';
 import { memoryLocation } from 'wouter/memory-location';
 import Feed from '../Feed';
 
 afterEach(() => { cleanup(); sessionStorage.clear(); });
 
-const progress = [
-  { key: 'money', label: 'Money you can get back', state: 'done' },
-  { key: 'recalls', label: 'Your items vs. official recall lists', state: 'working' },
-  { key: 'benefits', label: 'Programs and deadlines for your family', state: 'waiting' },
-];
-
 describe('Feed "Checking" screen (W1-OWNER)', () => {
-  it('a parent sees only the server\'s parent-safe step wording, and the trace is never asked for', async () => {
+  it('a parent sees lines built from the answers, in plain words, and the trace is never asked for', async () => {
+    const family = { name: 'maya', birthDate: null, dueDate: '2026-12-07', household: 'two', parent1Work: 'paycheck', parent2Work: 'paycheck', insurance: 'job', hasItems: true };
     const body = {
-      runId: 'r1', familyId: 'maya', status: 'running', startedAt: new Date().toISOString(), family: { name: 'maya', birthDate: null, dueDate: '2026-12-07' }, today: '2026-10-23', demoDate: false,
-      result: null, error: null, progress, owner: false,
+      runId: 'r1', familyId: 'maya', status: 'running', startedAt: new Date().toISOString(), family, today: '2026-10-23', demoDate: false,
+      result: null, error: null, progress: [], owner: false,
     };
     const fetchMock = jest.fn(async (_url: string) => ({ ok: true, status: 200, json: async () => body }));
     (global as any).fetch = fetchMock;
     const { hook } = memoryLocation({ path: '/feed/r1' });
     render(<Router hook={hook}><Route path="/feed/:runId" component={Feed} /></Router>);
 
-    await waitFor(() => expect(screen.getByText("Your items vs. official recall lists")).toBeTruthy());
-    expect(screen.getByText('Money you can get back')).toBeTruthy();
+    await waitFor(() => expect(screen.getByText('State and federal family benefits')).toBeTruthy(), { timeout: 3000 });
     expect(screen.queryByText(/Live activity/i)).toBeNull();
     expect(document.body.textContent).not.toMatch(/checking live/i);
     expect(screen.getByText(/often quick/)).toBeTruthy();
     expect(screen.queryByText(/Fine Print Court|Fact-Checker|Clawback Finder/)).toBeNull();
+    expect(screen.queryByRole('button', { name: /View my results/ })).toBeNull(); // the run has not finished
     expect(fetchMock.mock.calls.some(([u]) => String(u).includes('/trace'))).toBe(false);
   });
 });
@@ -47,10 +42,18 @@ describe('Feed hands a finished run to Version B (W3-VERSIONB)', () => {
     const { hook } = memoryLocation({ path: `/feed/${run.runId}` });
     render(<Router hook={hook}><Route path="/feed/:runId" component={Feed} /></Router>);
   };
+  /** A parent waits out the checking lines, then taps "View my results" (the clock is fake so this takes no real time). */
+  const openResults = async () => {
+    for (let i = 0; i < 30 && !screen.queryByRole('button', { name: /View my results/ }); i++) await act(async () => { await jest.advanceTimersByTimeAsync(500); });
+    fireEvent.click(screen.getByRole('button', { name: /View my results/ }));
+  };
+  beforeEach(() => { jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate'] }); });
+  afterEach(() => { jest.useRealTimers(); });
 
-  it('opens on the Home tab of the five-tab app, using the run\'s own numbers', async () => {
+  it('opens on the Home tab of the five-tab app after "View my results", using the run\'s own numbers', async () => {
     finished();
-    await waitFor(() => expect(screen.getByRole('navigation', { name: 'Main' })).toBeTruthy());
+    await openResults();
+    expect(screen.getByRole('navigation', { name: 'Main' })).toBeTruthy();
     expect(screen.getByTestId('home-total-amount').textContent).toBe('$3,688.99');
     expect(screen.getByRole('button', { name: /take a photo/i })).toBeTruthy();
     expect(screen.queryByTestId('owner-panel-slot')).toBeNull(); // a parent never gets the owner slot
@@ -61,6 +64,9 @@ describe('Feed hands a finished run to Version B (W3-VERSIONB)', () => {
   it('shows the owner (reviewer code set) the "How the agents worked together" panel on Home', async () => {
     sessionStorage.setItem('bundle:reviewerToken', 'test-code');
     finished();
+    // The owner's own checking screen is the agent view and opens the results by itself.
+    await act(async () => { await jest.advanceTimersByTimeAsync(1500); });
+    expect(screen.queryByRole('button', { name: /View my results/ })).toBeNull();
     await waitFor(() => expect(screen.getByTestId('owner-panel-slot')).toBeTruthy());
     await waitFor(() => expect(screen.getByText('How the agents worked together')).toBeTruthy());
   });
@@ -88,7 +94,7 @@ describe('Feed instant saved results and live cards (W4-STREAM-UI)', () => {
     FakeES.last = null;
     const fetchMock = jest.fn(async (url: string) => {
       if (String(url).includes('/latest-run')) return latest === 'saved' ? { ok: true, status: 200, json: async () => savedBody } : { ok: false, status: 404, json: async () => ({ error: 'No saved run for this family' }) };
-      return { ok: true, status: 200, json: async () => runningBody };
+      return { ok: true, status: 200, json: async () => ({ ...runningBody, startedAt: new Date().toISOString() }) }; // started "now", whatever the clock says
     });
     (global as any).fetch = fetchMock;
     const { hook } = memoryLocation({ path: '/feed/r2' });
@@ -123,8 +129,7 @@ describe('Feed instant saved results and live cards (W4-STREAM-UI)', () => {
     await waitFor(() => expect(screen.getByText('Brand new recall')).toBeTruthy());
     expect(screen.getByText('Fresh WIC card')).toBeTruthy();
     expect(screen.queryByText('Saved WIC card')).toBeNull();
-    expect(screen.getByText('Your items vs. official recall lists')).toBeTruthy();
-    expect(screen.queryByText('Checking recalls…')).toBeNull(); // one line per step, not a second pill saying the same thing
+    expect(screen.queryByText('Checking recalls…')).toBeNull(); // the family's own lines are on screen, so no second set of pills
     expect(document.body.innerHTML).not.toMatch(/owner-trace-id|real-?time/i);
   });
 

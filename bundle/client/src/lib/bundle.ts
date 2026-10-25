@@ -1,4 +1,4 @@
-import type { BundleResult, FeedCard, CardKind, Source, Verdict } from '@shared/bundle';
+import type { BundleResult, FeedCard, CardKind, Household, InsuranceType, Source, Verdict, WorkStatus } from '@shared/bundle';
 
 /** One line of the agents' audit trail, as served by GET /api/runs/:runId/trace. */
 export interface TraceLine {
@@ -14,7 +14,15 @@ export interface TraceLine {
   status: 'ok' | 'retry' | 'blocked' | 'fallback' | 'error';
 }
 
-export interface FamilyView { name: string; birthDate: string | null; dueDate: string | null; /** 2-letter state from the ZIP, when the server sends it */ state?: string }
+export interface FamilyView {
+  name: string; birthDate: string | null; dueDate: string | null;
+  /** 2-letter state from the ZIP, when the server sends it */
+  state?: string;
+  /** The parent's Q4 and Q5 answers (null = prefer not to say; absent on runs saved before V2). */
+  household?: Household | null; parent1Work?: WorkStatus | null; parent2Work?: WorkStatus | null; insurance?: InsuranceType | null;
+  /** True when the family has saved purchases to check (the recall line on the checking screen shows only then). */
+  hasItems?: boolean;
+}
 
 export interface RunStatus {
   runId: string;
@@ -243,11 +251,21 @@ async function json<T>(res: Response): Promise<T> {
   return body as T;
 }
 
-export type RunRequest = { familyId: string } | { zip: string; birthDate?: string; dueDate?: string; employer?: string };
+/** The answers from onboarding. Q4 and Q5 are left out when the parent chose "prefer not to say". */
+export type RunRequest = { familyId: string } | {
+  zip: string; birthDate?: string; dueDate?: string; employer?: string;
+  household?: Household; parent1Work?: WorkStatus; parent2Work?: WorkStatus; insurance?: InsuranceType;
+};
+
+/** localStorage key holding the id of the family saved at the end of onboarding. */
+export const FAMILY_ID_KEY = 'bundle_family_id';
+export function rememberFamilyId(id: string): void {
+  try { localStorage.setItem(FAMILY_ID_KEY, id); } catch { /* storage blocked: the run still works */ }
+}
 
 export const api = {
   startRun: (body: RunRequest) =>
-    fetch('/api/run', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then((r) => json<{ runId: string }>(r)),
+    fetch('/api/run', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then((r) => json<{ runId: string; familyId?: string }>(r)),
   run: (runId: string) => fetch(`/api/runs/${encodeURIComponent(runId)}`).then((r) => json<RunStatus>(r)),
   /** Newest saved result for a family (the instant feed). Rejects with the server's message (404) when there is none yet. */
   latestRun: (familyId: string) => fetch(`/api/families/${encodeURIComponent(familyId)}/latest-run`).then((r) => json<RunStatus>(r)),

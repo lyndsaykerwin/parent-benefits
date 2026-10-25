@@ -1,7 +1,7 @@
 import path from 'path';
 import { fetchRecentIssues, type FeedbackRow, type RuleProposal } from './agents/coach';
 import { ZetarisClient } from './adapters/zetaris';
-import type { BundleResult } from '../shared/bundle';
+import type { BundleResult, Family } from '../shared/bundle';
 
 export interface ProposalRow {
   id: number;
@@ -20,7 +20,7 @@ export interface SavedRunRow {
   sampleMode: boolean;
   result: BundleResult;
   /** Display-only header fields (never income). */
-  family: { name: string; birthDate: string | null; dueDate: string | null; state?: string };
+  family: { name: string; birthDate: string | null; dueDate: string | null; state?: string } & Partial<Pick<Family, 'household' | 'parent1Work' | 'parent2Work' | 'insurance'>> & { hasItems?: boolean };
   today: string;
   demoDate: boolean;
   startedAt: string;
@@ -29,6 +29,8 @@ export interface SavedRunRow {
 /** Everything the API reads or writes in Neon, behind one small interface so tests can use memory. */
 export interface BundleStore {
   zipState(zip3: string): Promise<string | null>;
+  /** Save (or replace) a family typed in on the onboarding screens. */
+  saveFamily(family: Family): Promise<void>;
   addFeedback(row: Omit<FeedbackRow, 'id' | 'createdAt'>): Promise<FeedbackRow>;
   /** Newest `limit` 'issue' reports only (never the whole table). */
   listRecentIssues(limit: number): Promise<FeedbackRow[]>;
@@ -65,9 +67,14 @@ export class MemoryStore implements BundleStore {
   private fb: FeedbackRow[] = [];
   private props: ProposalRow[] = [];
   private runs = new Map<string, SavedRunRow>();
+  private families = new Map<string, Family>();
   /** `issueReader`: when given, the Coach's reports come through it (Zetaris); without one (sample mode) this list is the whole database. */
   constructor(private zips: Record<string, string> = {}, private issueReader?: IssueReader) {}
   async zipState(zip3: string) { return this.zips[zip3] ?? null; }
+  /** Practice mode and tests have no database: the family is kept in memory for as long as the server runs. */
+  async saveFamily(family: Family) { this.families.set(family.id, { ...family }); }
+  /** A saved family, for tests and later screens. */
+  async getFamily(id: string) { return this.families.get(id) ?? null; }
   async addFeedback(row: Omit<FeedbackRow, 'id' | 'createdAt'>) {
     const r = { ...row, id: this.fb.length + 1, createdAt: new Date() };
     this.fb.push(r);
@@ -119,6 +126,17 @@ export class DrizzleStore implements BundleStore {
   }
   private toRow(r: any): ProposalRow {
     return { id: r.id, text: r.text, confidence: r.confidence, sourceFeedbackIds: (r.sourceFeedbackIds ?? []).map(String), status: r.status, memoryId: r.memoryId ?? null };
+  }
+  async saveFamily(family: Family) {
+    const { db, s } = await this.d();
+    const row = {
+      id: family.id, userId: family.userId, isGuest: family.isGuest, name: family.name, birthDate: family.birthDate, dueDate: family.dueDate,
+      zip: family.zip, state: family.state, employer: family.employer, householdSize: family.householdSize, annualIncomeCents: family.annualIncomeCents,
+      dcfsaOffered: family.dcfsaOffered, dataConnected: family.dataConnected,
+      household: family.household ?? null, parent1Work: family.parent1Work ?? null, parent2Work: family.parent2Work ?? null, insurance: family.insurance ?? null,
+      savedAt: new Date(),
+    };
+    await db.insert(s.families).values(row).onConflictDoUpdate({ target: s.families.id, set: row });
   }
   async zipState(zip3: string) {
     const { db, s, o } = await this.d();
