@@ -39,7 +39,10 @@ function log(ctx: AgentContext, action: string, input: string, output: string, s
 /** What the card says if the model is unavailable or says something we cannot trust. */
 function fallbackText(code: string, title: string, cents: number | null, deadline: string | null, afterBirth: boolean): string {
   const when = afterBirth ? 'after your baby arrives' : 'for your baby';
-  const by = deadline ? ` Do this by ${deadline}.` : '';
+  // A baby who has not arrived yet has no real deadline: the date comes from the due date, so say that and say it can move.
+  const by = !deadline ? ''
+    : afterBirth ? ` Going by your due date, plan to do this by about ${deadline}. The date moves if your baby arrives early or late.`
+      : ` Do this by ${deadline}.`;
   switch (code) {
     case 'TRUMP_ACCOUNT':
       return `Your baby is likely eligible for a federal starter deposit of ${fmtUsd(cents ?? 0)} in a Trump Account (a savings account opened ${when}).${by}`;
@@ -110,7 +113,7 @@ export async function planBenefits(ctx: AgentContext, today: string, opts: { eli
     const fallback = fallbackText(code, s(r, 'title'), cents, deadline, unborn);
     const facts =
       `Benefit: ${s(r, 'title')}.` + (cents !== null ? ` Amount: ${fmtUsd(cents)}.` : '') +
-      (deadline ? ` Deadline: ${deadline}.` : '') + (unborn ? ' The baby is not born yet.' : '') +
+      (deadline ? (unborn ? ` Going by the due date, the deadline is about ${deadline} (it moves with the real birth date).` : ` Deadline: ${deadline}.`) : '') + (unborn ? ' The baby is not born yet.' : '') +
       ` Rule: ${s(r, 'condition')}.`;
     // The "Check with your job" text is fixed (no model): it must never say "your employer offers" or give a dollar amount.
     const body = checkWithJob ? fallback : await explain(ctx, AGENT, facts, cents !== null ? [cents] : [], fallback);
@@ -128,7 +131,8 @@ export async function planBenefits(ctx: AgentContext, today: string, opts: { eli
     });
   }
   // No rule for the family's own state on file: federal cards still show, with the honest "coming soon" note (never an error).
-  if (!rules.rows.some((r) => s(r, 'scope') === ctx.family.state)) {
+  ctx.stateCovered = rules.rows.some((r) => s(r, 'scope') === ctx.family.state);
+  if (!ctx.stateCovered) {
     log(ctx, 'state_coverage', `state ${ctx.family.state}`, `${UNCOVERED_STATE_NOTE}; showing federal programs only`, 'fallback');
   }
   // Loop 2: the Fine Print Lawyer tries to disprove what we found; one Zetaris counter-question; confirm or drop.

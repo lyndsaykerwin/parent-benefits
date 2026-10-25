@@ -7,12 +7,15 @@ import { ZetarisUnavailable } from '../adapters/zetaris';
 import type { Generator } from '../adapters/llm';
 import type { BundleMemory } from '../adapters/memory';
 import { TraceLogger } from './trace';
-import type { AgentContext, Candidate } from './types';
-import { verify } from './factChecker';
+import type { AgentContext, Candidate, OfferCheckWriter } from './types';
+import { checkWithCorrections } from './factChecker';
+import { Workspace } from './workspace';
+import { runEvents as defaultRunEvents, type RunEventHub, type AgentState } from './runEvents';
 import * as clawback from './clawback';
 import * as recall from './recall';
 import * as court from './finePrintCourt';
 import * as benefits from './benefits';
+import { UNCOVERED_STATE_NOTE } from './benefits';
 import { itemsSql } from './recall';
 import { col, isInlineFamily } from './sql';
 import { buildFallbackFillers } from './fallback';
@@ -35,6 +38,14 @@ export interface RunDeps {
   today: string;
   /** Optional: lets the API hand the caller the run id before the run finishes. */
   runId?: string;
+  /** Where agreed court grades are saved (offer_checks). Absent in sample runs: nothing is saved. */
+  offerChecks?: OfferCheckWriter;
+  /** Live-update board for this run; defaults to the server's shared one. */
+  events?: RunEventHub;
+  /** The most time a run may take, in ms (default: RUN_DEADLINE_SECONDS, else 300 s). Past it, no new checking work starts. */
+  budgetMs?: number;
+  /** Clock for the budget (ms). Tests pass a fake so nothing waits for real. */
+  now?: () => number;
 }
 
 /** Load a family: sample file in SAMPLE_MODE, otherwise Neon through Drizzle (imported lazily: server/db.ts throws without DATABASE_URL). */
@@ -61,6 +72,7 @@ const KIND_ORDER: Record<string, number> = { clawback: 0, recall: 1, benefit: 2,
 const toCard = (c: Candidate): FeedCard => ({
   id: c.id, kind: c.kind, title: c.title, body: c.body, amountCents: c.amountCents, deadline: c.deadline,
   verdict: c.verdict, sources: c.sources, traceId: c.traceId,
+  ...(c.valueScore ? { valueScore: c.valueScore } : {}),
 });
 const infoCard = (id: string, kind: FeedCard['kind'], title: string, body: string, verdict: FeedCard['verdict'], traceId: string): FeedCard => ({
   id, kind, title, body, amountCents: null, deadline: null, verdict, sources: [], traceId,
@@ -116,13 +128,11 @@ export function assembleFeed(
   const ordered = cards.map((c, i) => ({ c, i })).sort((a, b) => rank(a.c) - rank(b.c) || a.i - b.i).map((x) => x.c);
 
   const counts = (c: FeedCard) => c.verdict === 'verified' || c.verdict === 'likely';
-  // Receipt honesty: only checked cards count (never the "Not yet verified" stand-ins). The Dependent Care FSA card is eligible
-  // spend, not money back or a benefit payout, so it is in neither total. Money back is an explicit list of claim types.
+  // Receipt honesty: only checked cards count (never the "Not yet verified" stand-ins). Money back is an explicit list of claim types.
   const MONEY_BACK_TYPES = new Set(['fsa_reimbursement', 'price_adjustment']);
-  const eligibleSpendIds = new Set([...verified, ...fillers.federalBenefits].filter((c) => c.claim.type === 'dcfsa_childcare').map((c) => c.id));
   const moneyBackIds = new Set(verified.filter((c) => c.kind === 'clawback' && MONEY_BACK_TYPES.has(String(c.claim.type))).map((c) => c.id));
   const sum = (k: string) => ordered
-    .filter((c) => c.kind === k && counts(c) && !eligibleSpendIds.has(c.id) && !c.id.startsWith('clawback-dcfsa-') && (k !== 'clawback' || moneyBackIds.has(c.id)))
+    .filter((c) => c.kind === k && counts(c) && (k !== 'clawback' || moneyBackIds.has(c.id)))
     .reduce((a, c) => a + (c.amountCents ?? 0), 0);
   const deadlines = ordered
     .filter((c) => c.kind === 'benefit' && counts(c) && c.deadline && c.deadline >= today)
@@ -137,14 +147,6 @@ export function assembleFeed(
 }
 
 // ---------- run ----------
-
-type Reviser = (c: Candidate, reason: string, ctx: AgentContext) => Promise<Candidate | null>;
-const REVISERS: Record<string, Reviser> = {
-  clawback: (c, r, x) => clawback.revise(c, r, x),
-  recall: (c, r, x) => recall.revise(c, r, x),
-  fine_print_court: (c, r, x) => court.revise(c, r, x),
-  benefits: (c, r, x) => benefits.revise(c, r, x),
-};
 
 function ageDays(family: Family, today: string): number {
   const anchor = family.birthDate ?? family.dueDate;
@@ -183,17 +185,38 @@ export function newRunId(familyId: string): string {
   return `${familyId.replace(/[^A-Za-z0-9_-]/g, '_')}-${crypto.randomUUID()}`;
 }
 
+const AGENT_NAMES_FOR_TRACE = ['clawback', 'recall', 'benefits', 'fine_print_court', 'fact_checker'] as const;
+type TracedAgent = (typeof AGENT_NAMES_FOR_TRACE)[number];
+
 export async function runBundle(familyId: string, deps: RunDeps): Promise<BundleResult> {
+  const runId = deps.runId ?? newRunId(familyId);
+  const events = deps.events ?? defaultRunEvents;
+  try {
+    return await runBundleInner(familyId, runId, events, deps);
+  } finally {
+    events.finish(runId); // the live stream always ends, even if the run threw
+  }
+}
+
+async function runBundleInner(familyId: string, runId: string, events: RunEventHub, deps: RunDeps): Promise<BundleResult> {
   // Each family run gets a fresh AI time limit (otherwise the clock counts from server start).
   deps.llm.startRun?.();
   const family = await deps.loadFamily(familyId);
-  const runId = deps.runId ?? newRunId(familyId);
   const trace = new TraceLogger(runId, deps.logsDir);
-  // Every Zetaris query and memory call lands in this run's trace (test fakes without withTrace are used as-is).
-  const z = typeof deps.z.withTrace === 'function' ? deps.z.withTrace(trace) : deps.z;
-  const memory = typeof deps.memory.withTrace === 'function' ? deps.memory.withTrace(trace) : deps.memory;
+  // Every Zetaris query and memory call lands in this run's trace, under the name of the agent that made it
+  // (test fakes without withTrace are used as-is).
+  const zFor = (name: string) => (typeof deps.z.withTrace === 'function' ? deps.z.withTrace(trace, name) : deps.z);
+  const memFor = (name: string) => (typeof deps.memory.withTrace === 'function' ? deps.memory.withTrace(trace, name) : deps.memory);
   const blocked: FeedCard[] = [];
-  const ctx: AgentContext = { runId, family, z, llm: deps.llm, memory, trace, today: deps.today, blocked };
+  // One shared notebook for the whole run (Meterless H-MEM), opened once and logged as workspace_open.
+  const workspace = new Workspace(runId, memFor('orchestrator'), trace);
+  const ctxs = {} as Record<TracedAgent, AgentContext>;
+  for (const name of AGENT_NAMES_FOR_TRACE) {
+    ctxs[name] = {
+      runId, family, z: zFor(name), llm: deps.llm, memory: memFor(name), trace, today: deps.today, blocked,
+      workspace, ...(deps.offerChecks ? { offerChecks: deps.offerChecks } : {}),
+    };
+  }
   const maxRetries = /^\d+$/.test(process.env.MAX_RETRIES ?? '') ? Number(process.env.MAX_RETRIES) : 2;
   let banner: string | null = null;
   const log = (action: string, input: string, output: string, status: 'ok' | 'retry' | 'blocked' | 'error' | 'fallback', retry = 0) =>
@@ -202,17 +225,48 @@ export async function runBundle(familyId: string, deps: RunDeps): Promise<Bundle
     banner = BANNER;
     log('agent_failed', who, `${(e as Error)?.name ?? 'Error'}: ${(e as Error)?.message ?? e}`, 'error');
   };
+  /** Live updates are a courtesy: a broken listener never stops the run. */
+  const emit = (fn: () => void) => { try { fn(); } catch { /* ignore */ } };
+  const status = (agent: string, state: AgentState) => emit(() => events.emit(runId, { type: 'agent_status', agent, state }));
   log('start', `family ${familyId}`, `today ${deps.today}`, 'ok');
+
+  // Run budget: once it is used up, no new checking or correcting starts. What is already checked is kept, the rest is filled in
+  // from the bundled stand-ins (marked "not yet verified"), and the screen says some sources did not finish.
+  const now = deps.now ?? Date.now;
+  const startedAt = now();
+  const budgetMs = deps.budgetMs ?? (Number(process.env.RUN_DEADLINE_SECONDS) > 0 ? Number(process.env.RUN_DEADLINE_SECONDS) * 1000 : 300_000);
+  let deadlineLogged = false;
+  const overBudget = (): boolean => {
+    if (now() - startedAt <= budgetMs) return false;
+    if (!deadlineLogged) {
+      deadlineLogged = true;
+      banner = BANNER;
+      log('run_deadline', `run took over ${Math.round(budgetMs / 1000)} s`, 'fallback: run deadline. No new checks started; finishing with the cards that are ready', 'fallback');
+    }
+    return true;
+  };
 
   const withRetry = <T>(who: string, fn: () => Promise<T>): Promise<T> =>
     retryTransient(fn, (m) => log('retry_transient', who, m, 'retry', 1));
+  const runAgent = async <T>(who: TracedAgent, fn: () => Promise<T>): Promise<T> => {
+    status(who, 'working');
+    try {
+      const v = await withRetry(who, fn);
+      status(who, 'done');
+      return v;
+    } catch (e) {
+      status(who, 'failed');
+      throw e;
+    }
+  };
 
   // 2. Run the four agents at the same time; one failing never stops the rest.
+  // (The Benefits Planner runs its own eligibility counter-question loop inside planBenefits; it is not repeated here.)
   const [claws, rec, ben, offers] = await Promise.allSettled([
-    withRetry('clawback', () => clawback.findClawbacks(ctx)),
-    withRetry('recall', () => recall.checkRecalls(ctx)),
-    withRetry('benefits', () => benefits.planBenefits(ctx, deps.today)),
-    withRetry('fine_print_court', async () => court.judgeOffers(ctx, { ageDays: ageDays(family, deps.today), purchaseKeywords: await purchaseKeywords(ctx, (m) => log('retry_transient', 'purchase_keywords', m, 'retry', 1)), includeGeneral: true })),
+    runAgent('clawback', () => clawback.findClawbacks(ctxs.clawback)),
+    runAgent('recall', () => recall.checkRecalls(ctxs.recall)),
+    runAgent('benefits', () => benefits.planBenefits(ctxs.benefits, deps.today)),
+    runAgent('fine_print_court', async () => court.judgeOffers(ctxs.fine_print_court, { ageDays: ageDays(family, deps.today), purchaseKeywords: await purchaseKeywords(ctxs.fine_print_court, (m) => log('retry_transient', 'purchase_keywords', m, 'retry', 1)), includeGeneral: true })),
   ]);
   const take = <T>(r: PromiseSettledResult<T>, who: string, empty: T): T => {
     if (r.status === 'fulfilled') return r.value;
@@ -224,56 +278,69 @@ export async function runBundle(familyId: string, deps: RunDeps): Promise<Bundle
   const benCands = take(ben, 'benefits', [] as Candidate[]);
   const offerCands = take(offers, 'fine_print_court', [] as Candidate[]);
 
-  // 3. Fact-check everything (4 at a time). A card that is WRONG goes back to its owner, up to maxRetries times, then is dropped.
-  // A card that could not be CHECKED (source down) is never sent back: transient errors get one retry, otherwise it is dropped with the banner.
-  const checkOne = async (start: Candidate): Promise<Candidate | null> => {
-    let c = start;
-    for (let attempt = 0; ; attempt++) {
-      let res = await verify(c, ctx);
-      if (res.unavailable && TRANSIENT.test(res.reason ?? '')) {
-        log('retry_transient', `fact_check ${c.id}`, res.reason ?? '', 'retry', attempt);
-        await new Promise((r) => setTimeout(r, 1500));
-        res = await verify(c, ctx);
+  // 3. Fact-check everything (4 at a time) with line-specific corrections. A card that is WRONG goes back to its owner, up to
+  // maxRetries times, then is dropped. A card that could not be CHECKED (source down) is never sent back: transient errors get
+  // one retry, otherwise it is dropped with the banner. The final yes is logged by the checker as approve_card.
+  const reviserFor = (c: Candidate) => async (card: Candidate, why: string): Promise<Candidate | null> => {
+    if (overBudget()) return null; // out of time: the card is dropped instead of being corrected again
+    try {
+      switch (c.agent) {
+        case 'benefits': return await benefits.revise(card, why, ctxs.benefits, deps.today);
+        case 'clawback': return await clawback.revise(card, why, ctxs.clawback);
+        case 'recall': return await recall.revise(card, why, ctxs.recall);
+        case 'fine_print_court': return await court.revise(card, why, ctxs.fine_print_court);
+        default: return null;
       }
-      if (res.ok) return c;
-      if (res.unavailable) {
-        banner = BANNER;
-        log('drop', `${c.kind} ${c.id} from ${c.agent}`, `dropped, not checked: ${res.reason}`, 'error', attempt);
-        return null;
-      }
-      if (attempt >= maxRetries) {
-        log('drop', `${c.kind} ${c.id} from ${c.agent}`, `dropped after ${attempt} retries: ${res.reason}`, 'blocked', attempt);
-        return null;
-      }
-      const reason = `${res.reason ?? 'failed fact-check'}${res.corrected ? ` (corrected values: ${JSON.stringify(res.corrected)})` : ''}`;
-      log('send_back', `${c.id} to ${c.agent}`, reason, 'retry', attempt + 1);
-      let next: Candidate | null = null;
-      try {
-        next = c.agent === 'benefits' ? await benefits.revise(c, reason, ctx, deps.today)
-          : REVISERS[c.agent] ? await REVISERS[c.agent](c, reason, ctx) : null;
-      } catch (e) {
-        noteFailure(`revise ${c.agent}`, e);
-      }
-      if (!next) {
-        log('drop', `${c.kind} ${c.id} from ${c.agent}`, `dropped: ${c.agent} could not fix it (${res.reason})`, 'blocked', attempt + 1);
-        return null;
-      }
-      c = { ...next, retryCount: attempt + 1 };
+    } catch (e) {
+      noteFailure(`revise ${c.agent}`, e);
+      return null;
     }
   };
+  const checkOne = async (start: Candidate): Promise<Candidate | null> => {
+    const lessonIds = start.agent === 'fine_print_court' ? court.lessonIdsFor(ctxs.fine_print_court, start.id) : [];
+    const check = (c: Candidate) => checkWithCorrections(c, ctxs.fact_checker, reviserFor(start), { lessonIds, maxRounds: maxRetries });
+    let out = await check(start);
+    if (out.decision === 'unchecked' && TRANSIENT.test(out.result.reason ?? '') && !overBudget()) {
+      log('retry_transient', `fact_check ${start.id}`, out.result.reason ?? '', 'retry', out.rounds);
+      await new Promise((r) => setTimeout(r, 1500));
+      out = await check(out.card);
+    }
+    const c = out.card;
+    if (out.decision === 'approved') {
+      emit(() => events.emit(runId, { type: 'card_ready', card: toCard(c) }));
+      return { ...c, retryCount: out.rounds };
+    }
+    if (out.decision === 'unchecked') {
+      banner = BANNER;
+      log('drop', `${c.kind} ${c.id} from ${c.agent}`, `dropped, not checked: ${out.result.reason}`, 'error', out.rounds);
+      emit(() => events.emit(runId, { type: 'card_removed', cardId: c.id, reason: 'could not be checked' }));
+      return null;
+    }
+    log('drop', `${c.kind} ${c.id} from ${c.agent}`, `dropped after ${out.rounds} retries: ${out.result.reason}`, 'blocked', out.rounds);
+    emit(() => events.emit(runId, { type: 'card_removed', cardId: c.id, reason: 'did not pass the fact-check' }));
+    return null;
+  };
+  status('fact_checker', 'working');
   const all = [...clawCands, ...recRes.candidates, ...benCands, ...offerCands];
   const results: (Candidate | null)[] = new Array(all.length).fill(null);
   let nextIdx = 0;
   await Promise.all(Array.from({ length: Math.min(4, all.length) }, async () => {
     while (nextIdx < all.length) {
       const i = nextIdx++;
+      if (overBudget()) {
+        emit(() => events.emit(runId, { type: 'card_removed', cardId: all[i].id, reason: 'ran out of time before it could be checked' }));
+        log('drop', `${all[i].kind} ${all[i].id} from ${all[i].agent}`, 'dropped, not checked: fallback: run deadline', 'fallback');
+        continue;
+      }
       try {
         results[i] = await checkOne(all[i]);
       } catch (e) {
         noteFailure(`fact_check ${all[i].id}`, e);
+        emit(() => events.emit(runId, { type: 'card_removed', cardId: all[i].id, reason: 'could not be checked' }));
       }
     }
   }));
+  status('fact_checker', 'done');
   const verified = results.filter((c): c is Candidate => c !== null);
 
   // 4. Assemble. If agents came up short, bundled stand-ins (verdict info, "not yet verified", outside the Receipt) top the feed up.
@@ -286,5 +353,7 @@ export async function runBundle(familyId: string, deps: RunDeps): Promise<Bundle
   } catch (e) {
     log('export_ledger', runId, `failed: ${(e as Error).message}`, 'error');
   }
-  return { familyId, runId, receipt, cards, banner, blocked };
+  // Only a planner that actually read the rules can say the state is not covered; a failed planner says nothing.
+  const uncovered = ctxs.benefits.stateCovered === false;
+  return { familyId, runId, receipt, cards, banner, blocked, ...(uncovered ? { stateNote: UNCOVERED_STATE_NOTE } : {}) };
 }

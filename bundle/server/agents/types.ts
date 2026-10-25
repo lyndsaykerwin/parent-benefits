@@ -85,6 +85,8 @@ export interface AgentContext {
   blocked?: FeedCard[];
   /** Saves each agreed court grade to offer_checks. Absent in sample runs without a database: nothing is saved, and the trace says so. */
   offerChecks?: OfferCheckWriter;
+  /** Set by the Benefits Planner: false = no program rows on file for the family's state (federal only); true = covered; unset = not known. */
+  stateCovered?: boolean;
 }
 
 export interface Candidate extends FeedCard {

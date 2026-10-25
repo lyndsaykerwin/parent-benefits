@@ -14,10 +14,14 @@ import * as court from '../agents/finePrintCourt';
 import * as benefits from '../agents/benefits';
 import * as fc from '../agents/factChecker';
 import { runBundle, assembleFeed, BANNER } from '../agents/orchestrator';
+import { UNCOVERED_STATE_NOTE } from '../agents/benefits';
+import { RunEventHub } from '../agents/runEvents';
+import { Workspace } from '../agents/workspace';
 import { ZetarisUnavailable } from '../adapters/zetaris';
 import { ChainGenerator, FakeGenerator, OpenAICompatGenerator } from '../adapters/llm';
 import { makeGenerator } from '../bundleDeps';
 import type { Candidate } from '../agents/types';
+import { useFakeCheckWithCorrections as useFake } from './helpers/fakeChecker';
 import type { Family } from '../../shared/bundle';
 
 const maya: Family = {
@@ -112,6 +116,11 @@ describe('assembleFeed', () => {
   });
 });
 
+function useFakeCheckWithCorrections() {
+  (court.lessonIdsFor as jest.Mock).mockReturnValue([]);
+  useFake(fc);
+}
+
 function setup(opts: { family?: Family; verify?: (c: Candidate) => any } = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'orch-'));
   const family = opts.family ?? maya;
@@ -120,6 +129,7 @@ function setup(opts: { family?: Family; verify?: (c: Candidate) => any } = {}) {
   (benefits.planBenefits as jest.Mock).mockResolvedValue([ben('a', { amountCents: 100 }), ben('b', { amountCents: 200 })]);
   (court.judgeOffers as jest.Mock).mockResolvedValue([disc(1), disc(2), disc(3)]);
   (fc.verify as jest.Mock).mockImplementation(async (c: Candidate) => (opts.verify ? opts.verify(c) : { ok: true, reason: null, corrected: null }));
+  useFakeCheckWithCorrections();
   const z = { runQuery: jest.fn(async () => ({ headers: [], rows: [], ms: 1 })) } as any;
   const memory = { exportLedger: jest.fn((f: string) => fs.writeFileSync(f, '')), recallRules: jest.fn(() => []) } as any;
   const deps = { z, llm: new FakeGenerator([]), memory, loadFamily: async () => family, logsDir: dir, today: TODAY };
@@ -292,6 +302,135 @@ describe('runBundle', () => {
     (benefits.revise as jest.Mock).mockImplementation(async (c: Candidate) => ({ ...c, retryCount: 1 }));
     const r = await runBundle('maya', deps);
     expect(r.cards.find((c) => c.id === 'benefit-fix')).toBeDefined();
+  });
+});
+
+describe('runBundle wiring (W4-ORCH)', () => {
+  const sampleScore = { trueValueCents: 900, effortLevel: 'low', effortMinutesEstimate: { min: 1, max: 5 }, stepsCount: 2, payoutWaitDays: null, timeLabel: 'right away', catchTypes: [], worthYourTime: true, reasons: ['ok'] } as const;
+
+  it('gives every agent a shared Workspace and the offer-check writer from deps', async () => {
+    const { deps } = setup();
+    const writer = { insert: jest.fn(async () => '1') };
+    await runBundle('maya', { ...deps, offerChecks: writer });
+    for (const fn of [clawback.findClawbacks, recall.checkRecalls, benefits.planBenefits, court.judgeOffers]) {
+      const ctx = (fn as jest.Mock).mock.calls[0][0];
+      expect(ctx.workspace).toBeInstanceOf(Workspace);
+      expect(ctx.offerChecks).toBe(writer);
+    }
+    const spaces = [clawback.findClawbacks, benefits.planBenefits, court.judgeOffers].map((f) => (f as jest.Mock).mock.calls[0][0].workspace);
+    expect(new Set(spaces).size).toBe(1);
+  });
+
+  it('leaves offerChecks empty when deps has no writer', async () => {
+    const { deps } = setup();
+    await runBundle('maya', deps);
+    expect((court.judgeOffers as jest.Mock).mock.calls[0][0].offerChecks).toBeUndefined();
+  });
+
+  it('opens the workspace in the run trace', async () => {
+    const { deps, dir } = setup();
+    await runBundle('maya', deps);
+    const file = fs.readdirSync(dir).find((f) => f.startsWith('run-'))!;
+    expect(fs.readFileSync(path.join(dir, file), 'utf8')).toContain('workspace_open');
+  });
+
+  it('labels each agent in the trace: z and memory get withTrace(trace, agentName)', async () => {
+    const { deps } = setup();
+    const z: any = { runQuery: jest.fn(async () => ({ headers: [], rows: [], ms: 1 })) };
+    z.withTrace = jest.fn((_t: unknown, name?: string) => ({ ...z, who: name }));
+    const memory: any = { exportLedger: jest.fn(), withTrace: jest.fn((_t: unknown, name?: string) => ({ exportLedger: jest.fn(), who: name })) };
+    await runBundle('maya', { ...deps, z, memory });
+    const who = (fn: unknown) => (fn as jest.Mock).mock.calls[0][0].z.who;
+    expect(who(clawback.findClawbacks)).toBe('clawback');
+    expect(who(recall.checkRecalls)).toBe('recall');
+    expect(who(benefits.planBenefits)).toBe('benefits');
+    expect(who(court.judgeOffers)).toBe('fine_print_court');
+    expect((court.judgeOffers as jest.Mock).mock.calls[0][0].memory.who).toBe('fine_print_court');
+  });
+
+  it('checks every card with checkWithCorrections and hands benefits a reviser (with today)', async () => {
+    const { deps } = setup();
+    await runBundle('maya', deps);
+    expect(fc.checkWithCorrections).toHaveBeenCalledTimes(5);
+    const [card, , revise] = (fc.checkWithCorrections as jest.Mock).mock.calls.find((c) => c[0].id === 'benefit-a')!;
+    (benefits.revise as jest.Mock).mockResolvedValue(card);
+    await revise(card, 'because');
+    const call = (benefits.revise as jest.Mock).mock.calls.pop()!;
+    expect(call[1]).toBe('because');
+    expect(call[2].workspace).toBeInstanceOf(Workspace);
+    expect(call[3]).toBe(TODAY);
+  });
+
+  it('passes the lessons a discount card relied on to the checker', async () => {
+    const { deps } = setup();
+    (court.lessonIdsFor as jest.Mock).mockImplementation((_ctx: unknown, id: string) => (id === 'discount-1' ? ['lesson-x'] : []));
+    await runBundle('maya', deps);
+    const calls = (fc.checkWithCorrections as jest.Mock).mock.calls;
+    expect(calls.find((c) => c[0].id === 'discount-1')![3].lessonIds).toEqual(['lesson-x']);
+    expect(calls.find((c) => c[0].id === 'discount-2')![3].lessonIds).toEqual([]);
+    expect(calls.find((c) => c[0].id === 'benefit-a')![3].lessonIds).toEqual([]);
+  });
+
+  it('a card that cannot be fixed logs reject_card and is dropped; approved ones log approve_card', async () => {
+    const { deps, dir } = setup({ verify: (c) => (c.id === 'benefit-bad' ? { ok: false, reason: 'no', corrected: null } : { ok: true, reason: null, corrected: null }) });
+    (benefits.planBenefits as jest.Mock).mockResolvedValue([ben('bad'), ben('a'), ben('b')]);
+    (benefits.revise as jest.Mock).mockResolvedValue(null);
+    const r = await runBundle('maya', deps);
+    expect(r.cards.find((c) => c.id === 'benefit-bad')).toBeUndefined();
+    const file = fs.readdirSync(dir).find((f) => f.startsWith('run-'))!;
+    const text = fs.readFileSync(path.join(dir, file), 'utf8');
+    expect(text).toContain('approve_card');
+    expect(text).toContain('reject_card');
+  });
+
+  it('streams agent status and approved cards to the event hub, then finishes the run', async () => {
+    const { deps } = setup();
+    const events = new RunEventHub();
+    const r = await runBundle('maya', { ...deps, runId: 'maya-evt', events });
+    const seen = events.history('maya-evt');
+    expect(events.isFinished('maya-evt')).toBe(true);
+    const states = seen.filter((e) => e.type === 'agent_status') as any[];
+    for (const agent of ['clawback', 'recall', 'benefits', 'fine_print_court']) {
+      expect(states.filter((e) => e.agent === agent).map((e) => e.state)).toEqual(['working', 'done']);
+    }
+    const ready = seen.filter((e) => e.type === 'card_ready').map((e: any) => e.card.id).sort();
+    expect(ready).toEqual(['benefit-a', 'benefit-b', 'discount-1', 'discount-2', 'discount-3']);
+    expect(r.runId).toBe('maya-evt');
+  });
+
+  it('marks a failed agent as failed, announces a dropped card, and still finishes', async () => {
+    const { deps } = setup({ verify: (c) => (c.id === 'benefit-a' ? { ok: false, reason: 'nope', corrected: null, unavailable: true } : { ok: true, reason: null, corrected: null }) });
+    (recall.checkRecalls as jest.Mock).mockRejectedValue(new Error('boom'));
+    const events = new RunEventHub();
+    await runBundle('maya', { ...deps, runId: 'maya-evt2', events });
+    const seen = events.history('maya-evt2') as any[];
+    expect(seen.find((e) => e.type === 'agent_status' && e.agent === 'recall' && e.state === 'failed')).toBeTruthy();
+    expect(seen.find((e) => e.type === 'card_removed' && e.cardId === 'benefit-a')).toBeTruthy();
+    expect(events.isFinished('maya-evt2')).toBe(true);
+  });
+
+  it('finishes the event stream even when the run throws', async () => {
+    const { deps } = setup();
+    const events = new RunEventHub();
+    await expect(runBundle('maya', { ...deps, runId: 'maya-evt3', events, loadFamily: async () => { throw new Error('no family'); } })).rejects.toThrow('no family');
+    expect(events.isFinished('maya-evt3')).toBe(true);
+  });
+
+  it('sets stateNote only when the family state has no programs on file', async () => {
+    const { deps } = setup();
+    (benefits.planBenefits as jest.Mock).mockImplementation(async (ctx: any) => { ctx.stateCovered = false; return [ben('a'), ben('b')]; });
+    const uncovered = await runBundle('maya', deps);
+    expect(uncovered.stateNote).toBe(UNCOVERED_STATE_NOTE);
+    (benefits.planBenefits as jest.Mock).mockImplementation(async (ctx: any) => { ctx.stateCovered = true; return [ben('a'), ben('b')]; });
+    expect((await runBundle('maya', deps)).stateNote).toBeUndefined();
+    (benefits.planBenefits as jest.Mock).mockRejectedValue(new Error('down'));
+    expect((await runBundle('maya', deps)).stateNote).toBeUndefined(); // unknown is not "uncovered"
+  });
+
+  it('copies valueScore onto the feed card', () => {
+    const { cards } = assembleFeed([cand('discount-9', 'discount', 'fine_print_court', { valueScore: sampleScore as any })], maya, 0, fillers(), TODAY);
+    expect(cards.find((c) => c.id === 'discount-9')!.valueScore).toEqual(sampleScore);
+    expect('valueScore' in cards.find((c) => c.id === 'benefit-a')!).toBe(false);
   });
 });
 

@@ -337,6 +337,12 @@ function savedCandidate(ctx: AgentContext, offer: Offer, saved: SavedVerdict, sq
   };
 }
 
+/** The H-MEM lesson ids the court used when it graded this card's offer (for the Fact-Checker's helpful/wrong signal). */
+export function lessonIdsFor(ctx: AgentContext, cardId: string): string[] {
+  const m = /^discount-(\d+)$/.exec(cardId);
+  return m ? newsroomFor(ctx, () => '').lessonIdsFor(m[1]) : [];
+}
+
 /** Re-judge one offer after the Fact-Checker sent it back, with the reason added. null = give up. */
 export async function revise(c: Candidate, reason: string, ctx: AgentContext): Promise<Candidate | null> {
   try {

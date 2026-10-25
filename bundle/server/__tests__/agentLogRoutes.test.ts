@@ -112,9 +112,22 @@ describe('GET /api/runs/:runId/agent-log (owner only)', () => {
     expect(res.body.backend).toBe('hmem-local');
   });
 
-  it('coping with the missing workspace_open line: no notes and no backend is fine', async () => {
+  it('a real run opens the shared workspace: the log names the backend and carries the agents\' notes', async () => {
     const { app, runId } = await sampleRun();
     const res = await request(app).get(`/api/runs/${runId}/agent-log`).set('x-reviewer-token', TOKEN);
+    expect(res.body.backend).toBe('hmem-local');
+    expect(res.body.notes.length).toBeGreaterThan(0);
+  });
+
+  it('coping with a log that has no workspace_open line: no notes and no backend is fine', async () => {
+    const { app, runId, logsDir } = await sampleRun();
+    const file = path.join(logsDir, `run-${runId}.jsonl`);
+    const kept = fs.readFileSync(file, 'utf8').split('\n').filter(Boolean)
+      .filter((l) => !['workspace_open', 'workspace_fallback', 'post_note', 'read_notes', 'add_lesson'].includes(JSON.parse(l).action));
+    expect(kept.length).toBeGreaterThan(0);
+    fs.writeFileSync(file, `${kept.join('\n')}\n`);
+    const res = await request(app).get(`/api/runs/${runId}/agent-log`).set('x-reviewer-token', TOKEN);
+    expect(res.status).toBe(200);
     expect(res.body.notes).toEqual([]);
     expect(res.body.backend).toBeNull();
   });

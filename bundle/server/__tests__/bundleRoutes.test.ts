@@ -15,6 +15,7 @@ import * as recall from '../agents/recall';
 import * as court from '../agents/finePrintCourt';
 import * as benefits from '../agents/benefits';
 import * as fc from '../agents/factChecker';
+import { useFakeCheckWithCorrections } from './helpers/fakeChecker';
 import { createBundleRouter, parentResult, parentCard, type ApiDeps } from '../routes/bundleRoutes';
 import { bodyParsers } from '../middleware/bodyLimit';
 import { MemoryStore } from '../bundleStore';
@@ -33,6 +34,7 @@ function build(over: Partial<ApiDeps> = {}) {
   (benefits.planBenefits as jest.Mock).mockResolvedValue([]);
   (court.judgeOffers as jest.Mock).mockResolvedValue([]);
   (fc.verify as jest.Mock).mockResolvedValue({ ok: true, reason: null, corrected: null });
+  useFakeCheckWithCorrections(fc);
   const memory = { exportLedger: jest.fn((f: string) => fs.writeFileSync(f, '')), recallRules: jest.fn(() => []), addRule: jest.fn(() => 'mem-1') } as any;
   const store = new MemoryStore({ '021': 'MA', '000': 'US' });
   const llm = new FakeGenerator([JSON.stringify({ clusters: [{ rule: 'Reject offers with shipping fees.', feedbackIds: [1, 2] }] })]);

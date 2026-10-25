@@ -63,6 +63,8 @@ export class Newsroom {
   private saved = new Map<string, SavedVerdict>();
   private runGrades: PastGrade[] = [];
   private rebuttals = new Map<number, number>();
+  /** Saved lesson ids each offer's grading used, so the Fact-Checker can tell the memory whether those lessons helped. */
+  private lessonsUsed = new Map<string, string[]>();
   /** 'unavailable' means Zetaris could not answer; the court then grades everything fresh. */
   savedStatus: 'found' | 'none' | 'unavailable' | 'not_asked' = 'not_asked';
 
@@ -110,6 +112,7 @@ export class Newsroom {
       try { lessons = this.ctx.workspace.recallLessons(`${offer.store} ${offer.title} ${offer.finePrint}`.slice(0, 300), MAX_LESSONS); } catch { lessons = []; }
     }
 
+    if (lessons.length) this.lessonsUsed.set(String(offer.id), lessons.map((l) => l.id));
     const parts: string[] = [];
     if (pastGrades.length) parts.push(`Past grades for this store (from earlier checks; context, not binding):\n${pastGrades.map((g) => `- ${describe(g)}`).join('\n')}`);
     if (lessons.length) parts.push(`Lessons from earlier checks (from Meterless H-MEM):\n${lessons.map((l) => `- [${l.id}] ${quoted(l.text)}`).join('\n')}`);
@@ -119,6 +122,9 @@ export class Newsroom {
     }
     return { pastGrades, lessons, promptText: parts.length ? `\n\n${parts.join('\n\n')}` : '' };
   }
+
+  /** The H-MEM lesson ids used when this offer was graded (empty when none). */
+  lessonIdsFor(offerId: string | number): string[] { return [...(this.lessonsUsed.get(String(offerId)) ?? [])]; }
 
   canRebut(offerId: number): boolean { return (this.rebuttals.get(offerId) ?? 0) < MAX_REBUTTALS; }
   useRebuttal(offerId: number): void { this.rebuttals.set(offerId, (this.rebuttals.get(offerId) ?? 0) + 1); }
