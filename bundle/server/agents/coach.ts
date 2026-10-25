@@ -63,6 +63,11 @@ export const confidenceFor = (reports: number): number => Math.round(Math.min(0.
  */
 export const THEMES: { name: string; pattern: RegExp; rule: string }[] = [
   {
+    name: 'savings that depend on a plan',
+    pattern: /savings|price (?:went|kept|changed|rose|jump)|price\b[^.]{0,30}\bchang|delivery plan/i,
+    rule: 'Reject offers whose savings only apply while a subscription stays active and the price can change.',
+  },
+  {
     name: 'auto-renewing membership',
     pattern: /auto[-\s]?renew|automatic(?:ally)?|renews?\b|membership|subscri|enrol|charged|trial|recurring|per month|monthly|\/month/i,
     rule: 'Reject offers whose free trial turns into a paid membership that renews automatically.',

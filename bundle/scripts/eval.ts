@@ -23,6 +23,7 @@ import { TraceLogger } from '../server/agents/trace';
 import { proposeRules, type FeedbackRow } from '../server/agents/coach';
 import { MemoryStore, type BundleStore } from '../server/bundleStore';
 import { resolveToday } from '../server/demoDate';
+import { checkFinePrint, quoteIsExact } from '../server/agents/finePrintRules';
 import { scout, type ScoutResult } from './scout';
 
 /**
@@ -41,7 +42,8 @@ export interface Scoreboard {
   sourcedPct: number;
   runs: number;
   stable: boolean;
-  learning: { run1Approved: boolean; run2Blocked: boolean; citedRuleId: string | null };
+  /** The learning demo on the subtler trap. `collateralBlocked` = other approved offers that run 2 wrongly blocked (target 0). */
+  learning: { run1Approved: boolean; run2Blocked: boolean; citedRuleId: string | null; collateralBlocked?: number };
   llmMode: LlmMode;
   /** Real-model calls that returned text vs. failed (a failure means that step used offline text). Null when no NVIDIA model was behind the run. */
   llmCalls: { ok: number; failed: number } | null;
@@ -51,8 +53,47 @@ export interface Scoreboard {
   traps: Record<string, { caught: boolean; detail: string }>;
   expectationFailures: string[];
   moneyBackCents: Record<string, number>;
-  learningDetail: { run1Id: string; run2Id: string; ruleText: string | null; storedIn: 'neon' | 'memory' };
+  learningDetail: { run1Id: string; run2Id: string; ruleText: string | null; storedIn: 'neon' | 'memory'; trapTitle?: string; obviousTrap?: { title: string; run1Approved: boolean; run2Blocked: boolean; citedRuleId: string | null } };
   scout: { accepted: number; rejected: { title: string; reason: string }[] };
+  /** Fine-print code rules graded against the answer key (data/sample/fine-print-cases). No AI involved. */
+  finePrint: FinePrintScore;
+  /** Recall Checker graded against the answer key: expected recalls shown, look-alike and finished recalls kept out. */
+  recall: { expected: number; caught: number; wrongShown: number; lookAlikesChecked: number };
+  /** Photo intake. Null means "not measured offline" (no saved vision replay), never a made-up zero. */
+  photo: { measured: boolean; madeUpRate: number | null; note: string };
+  /** What the loops did in each run, counted from the agent trace lines (nothing typed in). */
+  loops: Record<string, LoopCounts[]>;
+}
+
+export interface FinePrintScore {
+  cases: number;
+  /** Cases whose answer key lists catch types: how many had every listed catch found. */
+  catchesFound: number;
+  catchesTotal: number;
+  /** Controls (CTRL-*) that raised any catch at all. Target 0. */
+  controlFalseAlarms: number;
+  controlsTotal: number;
+  /** Individual answer-key fields (amounts, dates, flags, verdict) the rules got exactly right. */
+  fieldsCorrect: number;
+  fieldsTotal: number;
+  fieldAccuracyPct: number;
+  /** Cases whose quoted evidence was not exact words from the fine print. Target 0. */
+  inexactQuotes: number;
+}
+
+export interface LoopCounts {
+  runId: string;
+  sendBacks: number;
+  corrections: number;
+  rebuttals: number;
+  courtRulings: number;
+  courtBlocks: number;
+  savedVerdictReads: number;
+  eligibilityQuestions: number;
+  recallVerifications: number;
+  safetyChecks: number;
+  cardsApproved: number;
+  cardsRejected: number;
 }
 
 export interface EvalOptions {
@@ -70,6 +111,12 @@ export interface EvalOptions {
 }
 
 const FAMILIES = ['maya', 'leo', 'ava'];
+/** Fake parent reports for the subtler trap: no "free trial" or "auto-renew" words, just savings that depend on a plan. */
+export const SUBTLE_ISSUE_FIXTURES = [
+  'My savings disappeared the moment I stopped the delivery plan, and the price kept changing.',
+  'The discount only counts while the plan stays active; the price changed on the second order, so the savings were gone.',
+  'Savings looked great but the price went up after the first shipment.',
+];
 export const ISSUE_FIXTURES = [
   'The free diaper box needed a card, and then I was charged $29.99 for a membership I never signed up for.',
   'It said free, but after the trial it automatically enrolled us in a paid monthly membership.',
@@ -137,21 +184,28 @@ const hasCard = (r: BundleResult, spec: { kind: string; idContains: string }) =>
 
 function readTrace(logsDir: string, runId: string) {
   const file = path.join(logsDir, `run-${runId.replace(/[^A-Za-z0-9_-]/g, '_')}.jsonl`);
-  const lines = fs.readFileSync(file, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l) as { agent_name: string; status: string; output_summary: string });
+  const lines = fs.readFileSync(file, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l) as { agent_name: string; action: string; status: string; input_summary: string; output_summary: string });
   return { file, lines };
 }
 
-/** Learning demo: run 1 -> parents report problems -> Coach proposes -> a reviewer approves -> run 2. */
-export async function runLearning(o: { z: ZetarisClient; llm: Generator; memory: BundleMemory; store: BundleStore; logsDir: string; trapTitle: string; copyTracesTo?: string }) {
+/**
+ * Learning demo: run 1 -> parents report problems -> Coach proposes -> a reviewer approves -> run 2.
+ * Two traps are taught at once, both from offers already in the saved sample data: the obvious one (a "free" box that turns
+ * into a paid membership) and the subtler one (savings that only last while a subscription stays active). The headline
+ * result is the subtler trap; the obvious one is kept as a second line so the older proof still shows.
+ */
+export async function runLearning(o: { z: ZetarisClient; llm: Generator; memory: BundleMemory; store: BundleStore; logsDir: string; trapTitle: string; subtleTitle: string; copyTracesTo?: string }) {
   const run = (id: string) => runBundle(id, { z: o.z, llm: o.llm, memory: o.memory, loadFamily, logsDir: o.logsDir, today: resolveToday(id).today });
-  const isTrap = (r: BundleResult) => r.cards.find((c) => c.kind === 'discount' && c.title === o.trapTitle);
+  const findCard = (r: BundleResult, title: string) => r.cards.find((c) => c.kind === 'discount' && c.title === title);
 
   const r1 = await run('maya');
-  const trap1 = isTrap(r1);
+  const obvious1 = findCard(r1, o.trapTitle);
+  const subtle1 = findCard(r1, o.subtleTitle);
 
-  // Three (fake) parents report the same problem. Saved through the same store the API uses.
+  // Three (fake) parents report each problem. Saved through the same store the API uses.
   const rows: FeedbackRow[] = [];
-  for (const note of ISSUE_FIXTURES) rows.push(await o.store.addFeedback({ familyId: 'eval-fixture', cardId: trap1?.id ?? 'discount-trap', kind: 'issue', note }));
+  for (const note of ISSUE_FIXTURES) rows.push(await o.store.addFeedback({ familyId: 'eval-fixture', cardId: obvious1?.id ?? 'discount-trap', kind: 'issue', note }));
+  for (const note of SUBTLE_ISSUE_FIXTURES) rows.push(await o.store.addFeedback({ familyId: 'eval-fixture', cardId: subtle1?.id ?? 'discount-subtle-trap', kind: 'issue', note }));
   const proposed = await proposeRules(rows, o.llm);
   const saved = await o.store.saveProposals(proposed);
   // saveProposals skips text it already has (a re-run): reuse that proposal instead of losing it.
@@ -162,17 +216,31 @@ export async function runLearning(o: { z: ZetarisClient; llm: Generator; memory:
   const approveId = `approve-${r1.runId}`;
   const approveTrace = new TraceLogger(approveId, o.logsDir);
   const memoryIds: string[] = [];
+  const ruleTextById = new Map<string, string>();
   for (const p of mine) {
     const memoryId = o.memory.withTrace(approveTrace).addRule(p.text, `case_law:${p.id}`, p.confidence, p.sourceFeedbackIds);
     await o.store.markApproved(p.id, memoryId);
     memoryIds.push(memoryId);
+    ruleTextById.set(memoryId, p.text);
   }
 
   const r2 = await run('maya');
-  const trap2 = isTrap(r2);
   const t2 = readTrace(o.logsDir, r2.runId);
-  const citing = t2.lines.find((l) => l.agent_name === 'judge' && l.status === 'blocked' && memoryIds.some((id) => l.output_summary.includes(id)));
-  const citedRuleId = citing ? memoryIds.find((id) => citing.output_summary.includes(id)) ?? null : null;
+  // The rule a blocked ruling cited for one specific offer (trace lines say "offer <id>").
+  const citedFor = (card: { id: string } | undefined): string | null => {
+    if (!card) return null;
+    const offerId = card.id.replace(/^discount-/, '');
+    const citing = t2.lines.find((l) => l.agent_name === 'judge' && l.status === 'blocked' && l.input_summary ===`offer ${offerId}` && memoryIds.some((id) => l.output_summary.includes(id)));
+    return citing ? memoryIds.find((id) => citing.output_summary.includes(id)) ?? null : null;
+  };
+  const subtleCited = citedFor(subtle1);
+  const obviousCited = citedFor(obvious1);
+  const subtle2 = findCard(r2, o.subtleTitle);
+  const obvious2 = findCard(r2, o.trapTitle);
+  // Collateral damage: any other offer approved in run 1 that run 2 wrongly blocked.
+  const trapIds = new Set([obvious1?.id, subtle1?.id]);
+  const r2Ids = new Set(r2.cards.map((c) => c.id));
+  const collateralBlocked = r1.cards.filter((c) => c.kind === 'discount' && !trapIds.has(c.id) && !r2Ids.has(c.id)).length;
 
   if (o.copyTracesTo) {
     fs.mkdirSync(o.copyTracesTo, { recursive: true });
@@ -182,9 +250,63 @@ export async function runLearning(o: { z: ZetarisClient; llm: Generator; memory:
   }
   return {
     r1, r2,
-    learning: { run1Approved: !!trap1, run2Blocked: !!trap1 && !trap2 && citedRuleId !== null, citedRuleId },
-    ruleText: mine[0]?.text ?? null,
+    learning: { run1Approved: !!subtle1, run2Blocked: !!subtle1 && !subtle2 && subtleCited !== null, citedRuleId: subtleCited, collateralBlocked },
+    obvious: { title: o.trapTitle, run1Approved: !!obvious1, run2Blocked: !!obvious1 && !obvious2 && obviousCited !== null, citedRuleId: obviousCited },
+    ruleText: subtleCited ? ruleTextById.get(subtleCited) ?? null : null,
   };
+}
+
+/** Counts what the loops did in one run, straight from its agent trace lines. */
+export function loopCountsOf(runId: string, lines: { agent_name: string; action?: string; status: string }[]): LoopCounts {
+  const n = (f: (l: { agent_name: string; action?: string; status: string }) => boolean) => lines.filter(f).length;
+  return {
+    runId,
+    sendBacks: n((l) => l.action === 'challenge_benefits' && l.status === 'retry'),
+    corrections: n((l) => l.agent_name === 'fact_checker' && l.action === 'correction'),
+    rebuttals: n((l) => l.action === 'rebut'),
+    courtRulings: n((l) => l.agent_name === 'judge'),
+    courtBlocks: n((l) => l.agent_name === 'judge' && l.status === 'blocked'),
+    savedVerdictReads: n((l) => l.action === 'saved_verdicts'),
+    eligibilityQuestions: n((l) => l.action === 'eligibility_check'),
+    recallVerifications: n((l) => l.agent_name === 'recall' && l.action === 'check_recalls'),
+    safetyChecks: n((l) => l.action === 'safety_check'),
+    cardsApproved: n((l) => l.action === 'approve_card'),
+    cardsRejected: n((l) => l.action === 'reject_card'),
+  };
+}
+
+const FINE_PRINT_FIELDS = [
+  'hiddenCostCents', 'trueValueCents', 'deadlineDate', 'expired', 'daysLeft', 'mailIn', 'needsReceipt', 'needsProofOfPurchase',
+  'claimWindowDays', 'payoutWaitDaysMin', 'payoutWaitDaysMax', 'payoutForm', 'needsPhoneCall', 'needsForms', 'autoRenew',
+  'renewalPriceCents', 'renewalPeriod', 'cancelMethod', 'cardRequired', 'minPurchaseCents', 'limitedStock', 'regionsExcluded',
+  'inStoreOnly', 'accountRequired', 'appRequired', 'marketingOptInRequired', 'injectionDetected', 'onePerHousehold', 'verdict',
+] as const;
+
+/** Grades the fine-print code rules (no AI) against the made-up cases and their answer key. Every number is computed here. */
+export function scoreFinePrint(casesFile = path.resolve('data/sample/fine-print-cases/cases.json')): FinePrintScore {
+  const file = JSON.parse(fs.readFileSync(casesFile, 'utf8')) as { today: string; cases: { id: string; text: string; expect: Record<string, unknown> }[] };
+  let catchesFound = 0, catchesTotal = 0, controlFalseAlarms = 0, controlsTotal = 0, fieldsCorrect = 0, fieldsTotal = 0, inexactQuotes = 0;
+  for (const c of file.cases) {
+    const r = checkFinePrint(c.text, { today: file.today });
+    const got = r as unknown as Record<string, unknown>;
+    for (const f of FINE_PRINT_FIELDS) if (f in c.expect) { fieldsTotal++; if (JSON.stringify(got[f]) === JSON.stringify(c.expect[f])) fieldsCorrect++; }
+    const want = (c.expect.catchTypes as string[] | undefined) ?? [];
+    if (want.length) { catchesTotal++; if (want.every((t) => r.catchTypes.includes(t as never))) catchesFound++; }
+    if (c.id.startsWith('CTRL')) { controlsTotal++; if (r.catchTypes.length) controlFalseAlarms++; }
+    if (!quoteIsExact(r.evidenceQuote, c.text)) inexactQuotes++;
+  }
+  return {
+    cases: file.cases.length, catchesFound, catchesTotal, controlFalseAlarms, controlsTotal, fieldsCorrect, fieldsTotal,
+    fieldAccuracyPct: fieldsTotal ? Math.round((fieldsCorrect / fieldsTotal) * 1000) / 10 : 0, inexactQuotes,
+  };
+}
+
+/** Photo intake is only measurable with a saved vision replay; with none, say so instead of reporting a made-up zero. */
+export function photoMetrics(dir = path.resolve('data/sample/vision-cache')): Scoreboard['photo'] {
+  const saved = fs.existsSync(dir) ? fs.readdirSync(dir).filter((f) => f.endsWith('.json')) : [];
+  return saved.length
+    ? { measured: false, madeUpRate: null, note: `${saved.length} saved vision replay(s) found, but the made-up-field check needs a labelled photo answer key: not measured offline` }
+    : { measured: false, madeUpRate: null, note: 'not measured offline: no saved vision replay (needs a real vision model; target made-up rate 0)' };
 }
 
 /** The scripted Scout trap: 3 good rows, one wrong-amount row ($5,000 on a $1,000 page) and one row with no source. */
@@ -207,7 +329,9 @@ export async function runEval(opts: EvalOptions = {}): Promise<Scoreboard> {
   const memory = new BundleMemory(fs.mkdtempSync(path.join(os.tmpdir(), 'bundle-eval-mem-')));
   const trapTitle: string = expected.traps.auto_renew_offer.offerTitle;
 
-  const learn = await runLearning({ z, llm, memory, store, logsDir, trapTitle, copyTracesTo: opts.copyTracesTo });
+  const subtleTitle: string = expected.traps.subtle_subscription_savings.offerTitle;
+
+  const learn = await runLearning({ z, llm, memory, store, logsDir, trapTitle, subtleTitle, copyTracesTo: opts.copyTracesTo });
 
   const perFamily: Record<string, BundleResult[]> = { maya: [learn.r2], leo: [], ava: [] };
   const n = opts.runsPerFamily ?? 3;
@@ -244,10 +368,15 @@ export async function runEval(opts: EvalOptions = {}): Promise<Scoreboard> {
   const wrongRow = sc.rejected.find((r) => /5000|500000/.test(r.reason));
   set('wrong_amount_scout_row', !!wrongRow && !sc.rules.some((r) => r.amountCents === T.wrong_amount_scout_row.wrongAmountCents), wrongRow?.reason ?? 'wrong row was not rejected');
   set('recalled_item', mayaRuns.length > 0 && mayaRuns.every((r) => r.cards.some((c) => c.id === T.recalled_item.cardId && c.verdict === 'verified')), `card ${T.recalled_item.cardId}`);
-  set('refund', mayaRuns.length > 0 && mayaRuns.every((r) => !r.cards.some((c) => T.refund.mustNotHaveIdContains.some((s: string) => c.id.includes(s))) && r.receipt.moneyBackCents === expected.families.maya.moneyBackCents), 'no card for the refunded purchase; money back unchanged');
   set('duplicate', mayaRuns.length > 0 && mayaRuns.every((r) => r.receipt.itemsChecked === T.duplicate.itemsChecked && !r.cards.some((c) => T.duplicate.mustNotHaveIdContains.some((s: string) => c.id.includes(s)))), `${mayaRuns[0]?.receipt.itemsChecked} distinct items checked (duplicate counted once)`);
   set('non_ma_family', avaRuns.length > 0 && avaRuns.every((r) => !r.cards.some((c) => c.id.startsWith(T.non_ma_family.mustNotHaveIdPrefix))), 'Ohio family gets no Massachusetts benefit');
-  if (opts.learningOnly) for (const k of ['recalled_item', 'refund', 'duplicate', 'non_ma_family']) if (!traps[k].caught) traps[k].detail += ' (learning-only run: not measured)';
+  set('subtle_subscription_savings', learn.learning.run1Approved && learn.learning.run2Blocked && mayaRuns.every((r) => !r.cards.some((c) => c.title === subtleTitle)) && !learn.learning.collateralBlocked,
+    learn.learning.run2Blocked ? `approved in run 1, blocked after learning, cites ${learn.learning.citedRuleId}; ${learn.learning.collateralBlocked} other offer(s) wrongly blocked` : 'not blocked after learning');
+  const lookAlikes: string[] = [...T.no_false_recall.mustNotHaveIdContains, ...T.no_terminated_fda.mustNotHaveIdContains];
+  const wrongRecalls = mayaRuns.flatMap((r) => r.cards.filter((c) => c.kind === 'recall' && lookAlikes.some((s) => c.id.includes(s))).map((c) => c.id));
+  set('no_false_recall', mayaRuns.length > 0 && !mayaRuns.some((r) => r.cards.some((c) => T.no_false_recall.mustNotHaveIdContains.some((s: string) => c.id.includes(s)))), 'look-alike products (shared words, different product) get no recall card');
+  set('no_terminated_fda', mayaRuns.length > 0 && !mayaRuns.some((r) => r.cards.some((c) => T.no_terminated_fda.mustNotHaveIdContains.some((s: string) => c.id.includes(s)))), 'finished (Terminated) FDA recalls get no card');
+  if (opts.learningOnly) for (const k of ['recalled_item', 'duplicate', 'non_ma_family', 'no_false_recall', 'no_terminated_fda']) if (!traps[k].caught) traps[k].detail += ' (learning-only run: not measured)';
 
   // Every verified/likely card, and every accepted Scout row, must carry a source link.
   const cards = Object.values(perFamily).flat().flatMap((r) => r.cards).filter((c) => c.verdict === 'verified' || c.verdict === 'likely');
@@ -257,13 +386,27 @@ export async function runEval(opts: EvalOptions = {}): Promise<Scoreboard> {
   const total = cards.length + scoutRows.length;
   const sourcedPct = total ? Math.round(((cardOk + scoutOk) / total) * 1000) / 10 : 0;
 
+  const finePrint = scoreFinePrint();
+  // Other kinds of false alarm: a control fine print that raised a catch, a good offer the learned rules wrongly blocked, a wrong recall shown.
+  falseAlarms += finePrint.controlFalseAlarms + (learn.learning.collateralBlocked ?? 0) + wrongRecalls.length;
+  if (finePrint.controlFalseAlarms) failures.push(`fine print: ${finePrint.controlFalseAlarms} control(s) raised a catch`);
+  if (learn.learning.collateralBlocked) failures.push(`learning: ${learn.learning.collateralBlocked} good offer(s) wrongly blocked after learning`);
+  for (const id of wrongRecalls) failures.push(`recall: wrong recall card shown (${id})`);
+  const recall = {
+    expected: 1, caught: mayaRuns.length > 0 && mayaRuns.every((r) => r.cards.some((c) => c.id === T.recalled_item.cardId && c.verdict === 'verified')) ? 1 : 0,
+    wrongShown: wrongRecalls.length, lookAlikesChecked: lookAlikes.length,
+  };
+  const loops: Scoreboard['loops'] = {};
+  for (const id of FAMILIES) if (perFamily[id].length) loops[id] = perFamily[id].map((r) => loopCountsOf(r.runId, readTrace(logsDir, r.runId).lines));
+
   const stable = FAMILIES.every((id) => perFamily[id].length < 2 || new Set(perFamily[id].map(sig)).size === 1);
   return {
     trapsCaught: Object.values(traps).filter((t) => t.caught).length, trapsTotal: Object.keys(traps).length, falseAlarms, sourcedPct,
     runs: n, stable, learning: learn.learning, llmMode: llmModeOf(llm), llmCalls: llmCallsOf(llm), scoutLlmMode: 'fake-llm', generatedAt: new Date().toISOString(),
     demoDate: resolveToday('maya').today, traps, expectationFailures: failures, moneyBackCents: moneyBack,
-    learningDetail: { run1Id: learn.r1.runId, run2Id: learn.r2.runId, ruleText: learn.ruleText, storedIn: store instanceof MemoryStore ? 'memory' : 'neon' },
+    learningDetail: { run1Id: learn.r1.runId, run2Id: learn.r2.runId, ruleText: learn.ruleText, storedIn: store instanceof MemoryStore ? 'memory' : 'neon', trapTitle: subtleTitle, obviousTrap: learn.obvious },
     scout: { accepted: scoutRows.length, rejected: sc.rejected.map((r) => ({ title: r.title, reason: r.reason })) },
+    finePrint, recall, photo: photoMetrics(), loops,
   };
 }
 
@@ -275,7 +418,7 @@ export function mergeLearning(existing: Record<string, unknown> | null, sb: Scor
   const base = existing ?? {
     trapsCaught: null, trapsTotal: null, falseAlarms: null, sourcedPct: null, runs: null, stable: null,
     llmMode: sb.llmMode, llmCalls: sb.llmCalls, scoutLlmMode: null, demoDate: sb.demoDate, traps: null, expectationFailures: null,
-    moneyBackCents: null, scout: null,
+    moneyBackCents: null, scout: null, finePrint: null, recall: null, photo: null, loops: null,
   };
   return { ...base, generatedAt: sb.generatedAt, learning: sb.learning, learningDetail: sb.learningDetail, learningLlmMode: sb.llmMode, learningLlmCalls: sb.llmCalls };
 }

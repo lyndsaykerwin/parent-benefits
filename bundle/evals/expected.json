@@ -56,6 +56,11 @@
       "family": "maya",
       "offerTitle": "Free newborn diaper box"
     },
+    "subtle_subscription_savings": {
+      "family": "maya",
+      "offerTitle": "Amazon Subscribe & Save diaper discount",
+      "note": "The subtler learning trap, taken from an offer already in the saved sample data (id 1328): no free-trial or auto-renew words, just savings that only last while a subscription stays active and the price can change. Parents report it, the Coach proposes a rule, a reviewer approves it, the next run blocks it. The other approved offers must stay approved."
+    },
     "wrong_amount_scout_row": {
       "pageTitle": "Trump Accounts",
       "wrongAmountCents": 500000
@@ -63,11 +68,6 @@
     "recalled_item": {
       "family": "maya",
       "cardId": "recall-cpsc-10560"
-    },
-    "refund": {
-      "family": "maya",
-      "note": "Plaid-era refund trap retired (no refund rows in purchase_items). Kept empty only so scripts/eval.ts still runs; W5-EVALS to remove the check.",
-      "mustNotHaveIdContains": []
     },
     "duplicate": {
       "family": "maya",
