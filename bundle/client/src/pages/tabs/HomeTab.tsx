@@ -1,8 +1,10 @@
+import { useState } from 'react';
 import { Link } from 'wouter';
 import { fmtUsdShort } from '@/lib/bundle';
-import { categorySummary, claimableCards, claimedCents, giftValue, homeTotals, urgentDeadlines, type TabId } from '@/lib/tabs';
-import { ComingSoonState, SectionTitle, CardStack, type TabProps } from './shared';
+import { categorySummary, claimableCards, giftValue, homeTotals, isQuickWin, moneyNumbers, taskCards, urgentDeadlines, cardState, type TabId } from '@/lib/tabs';
+import { ComingSoonState, SectionTitle, CardStack, ClaimDrawers, type TabProps } from './shared';
 import { ForgetItemsCard, HowWeGotThisNumber, SaveListCard, ShareBar } from './Extras';
+import Buckets from './Buckets';
 
 function Tile({ label, big, small, onClick }: { label: string; big: string; small: string; onClick: () => void }) {
   return (
@@ -20,21 +22,26 @@ const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one :
 export default function HomeTab(props: TabProps) {
   const { run, stage, cards } = props;
   const today = run.today ?? '';
-  const totals = homeTotals(run.result);
-  const urgent = urgentDeadlines(cards, today, stage, run.family);
+  const [quick, setQuick] = useState(false);
+  // "Not relevant" cards are out of every number and list on this screen; "I got this" cards stay in the headline and move to Claimed so far.
+  const live = cards.filter((c) => !props.dismissed[c.id]);
+  const money = moneyNumbers(run.result, props.claims, props.dismissed);
+  const base = homeTotals(run.result);
+  const totals = { ...base, totalCents: money.found, parts: base.parts.filter((c) => !props.dismissed[c.id]) };
+  const urgent = urgentDeadlines(live, today, stage, run.family).filter((u) => cardState(u.card.id, props.claims, props.dismissed) === 'open');
   const claimable = claimableCards(cards);
-  const doneCount = 1 + claimable.filter((c) => props.claims[c.id]).length; // "See what you qualify for" is done the moment you arrive
-  const total = 1 + claimable.length;
-  const claimed = claimedCents(cards, props.claims);
-  const pct = Math.round((doneCount / total) * 100);
-  const gifts = cards.filter((c) => c.kind === 'discount' && c.verdict !== 'info' && c.verdict !== 'blocked' && giftValue(c) > 0);
+  const claimed = money.claimed;
+  const tasks = taskCards(cards);
+  const openTasks = tasks.filter((c) => cardState(c.id, props.claims, props.dismissed) === 'open');
+  const shownTasks = quick ? openTasks.filter(isQuickWin) : openTasks;
+  const gifts = live.filter((c) => c.kind === 'discount' && c.verdict !== 'info' && c.verdict !== 'blocked' && giftValue(c) > 0);
   const blockedCount = run.result.blocked?.length ?? 0;
   const expecting = stage === 'expecting';
   const labels = Object.fromEntries(urgent.map((u) => [u.card.id, u.label]));
-  const tax = categorySummary(cards, 'taxes');
-  const sav = categorySummary(cards, 'savings');
+  const tax = categorySummary(live, 'taxes');
+  const sav = categorySummary(live, 'savings');
   const ins = urgent.filter((u) => u.tab === 'insurance');
-  const deals = categorySummary(cards, 'deals');
+  const deals = categorySummary(live, 'deals');
   const giftsLine = totals.giftsCents > 0 ? `${fmtUsdShort(totals.giftsCents)} in free gifts${expecting ? ' you can get now' : ''}` : null;
 
   const giftSection = gifts.length > 0 && (
@@ -50,7 +57,7 @@ export default function HomeTab(props: TabProps) {
   return (
     <>
       <section className="bundle-card mt-5 p-5" aria-labelledby="home-total">
-        <p id="home-total" className="eyebrow text-ink-2">{expecting ? 'Waiting for your family' : 'Your family could get'}</p>
+        <p id="home-total" className="eyebrow text-ink-2">{expecting ? 'Waiting for your family' : 'Found for your family'}</p>
         <p data-testid="home-total-amount" className="tabular mt-1.5 text-[56px] font-extrabold leading-none tracking-[-0.04em] text-coral">{fmtUsdShort(totals.totalCents)}</p>
         <p className="mt-1.5 text-[16px] font-semibold" data-testid="home-total-sub">
           {expecting ? 'in savings and tax credits once baby arrives' : 'in savings and tax credits'}
@@ -62,17 +69,18 @@ export default function HomeTab(props: TabProps) {
         </div>
         <HowWeGotThisNumber totals={totals} href={props.href} />
 
-        <div className="mt-4 border-t border-dashed border-line pt-3" data-testid="progress-block">
-          <div className="flex items-baseline justify-between text-[14px] font-bold">
-            <span data-testid="done-count">{doneCount} of {total} done</span>
-            <span data-testid="claimed-amount" className="tabular text-kind-clawback">{fmtUsdShort(claimed)} claimed</span>
-          </div>
-          <div className="mt-2 h-2 overflow-hidden rounded-full bg-line" role="progressbar" aria-label="Checklist progress" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
-            <div className="h-full rounded-full bg-coral transition-all" style={{ width: `${pct}%` }} />
-          </div>
-          <p className="mt-2 flex items-center gap-1.5 text-[13.5px] text-ink-2"><span aria-hidden="true" className="text-kind-clawback">✓</span> See what you qualify for · Done!</p>
-        </div>
       </section>
+
+      <div className="mt-3 grid grid-cols-2 gap-2.5" data-testid="money-summary">
+        <div data-testid="still-to-claim" className="bundle-card p-4">
+          <p className="eyebrow text-ink-2">Still to claim</p>
+          <p className="tabular mt-1.5 text-[28px] font-extrabold leading-none tracking-[-0.02em] text-coral">{fmtUsdShort(money.still)}</p>
+        </div>
+        <div data-testid="claimed-so-far" className="bundle-card p-4">
+          <p className="eyebrow text-ink-2">Claimed so far</p>
+          <p className="tabular mt-1.5 text-[28px] font-extrabold leading-none tracking-[-0.02em] text-kind-clawback">{fmtUsdShort(money.claimed)}</p>
+        </div>
+      </div>
 
       <ComingSoonState note={props.stateNote} />
 
@@ -96,6 +104,21 @@ export default function HomeTab(props: TabProps) {
         </section>
       )}
 
+      <Buckets {...props} />
+
+      <section aria-label={quick ? 'Quick wins' : 'Do these next'} data-testid="task-list">
+        <SectionTitle>Do these next</SectionTitle>
+        <div className="mt-2 flex flex-wrap gap-2" role="group" aria-label="Filter tasks">
+          <button type="button" aria-pressed={!quick} onClick={() => setQuick(false)} className={`min-h-[44px] rounded-full border px-4 text-[14px] font-bold ${!quick ? 'border-ink bg-ink text-cream' : 'border-line bg-paper text-ink'}`}>All</button>
+          <button type="button" aria-pressed={quick} onClick={() => setQuick(true)} className={`min-h-[44px] rounded-full border px-4 text-[14px] font-bold ${quick ? 'border-ink bg-ink text-cream' : 'border-line bg-paper text-ink'}`}>⚡ Quick wins (under 5 min)</button>
+        </div>
+        {quick && <p className="mt-2 text-[13px] text-ink-2">Times are our estimates.</p>}
+        {shownTasks.length > 0
+          ? <CardStack cards={shownTasks} props={props} />
+          : <p className="mt-3 rounded-2xl border border-line bg-paper px-4 py-3 text-[15px] text-ink-2" data-testid="tasks-empty">{quick ? 'No quick wins left. Nice work.' : 'Everything is handled. Nice work.'}</p>}
+      </section>
+      <ClaimDrawers cards={tasks} props={props} />
+
       <SectionTitle>By category</SectionTitle>
       <div className="mt-2 grid grid-cols-2 gap-2.5">
         <Tile label="Taxes" big={fmtUsdShort(tax.cents)} small={plural(tax.count, 'benefit', 'benefits')} onClick={() => props.go('taxes')} />
@@ -114,7 +137,7 @@ export default function HomeTab(props: TabProps) {
         </button>
       )}
 
-      {claimed > 0 && <ShareBar claimedCents={claimed} />}
+      {(claimed > 0 || claimable.some((c) => props.claims[c.id] && !props.dismissed[c.id])) && <ShareBar claimedCents={claimed} />}
       <SaveListCard />
       <ForgetItemsCard familyId={run.familyId} />
 

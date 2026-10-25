@@ -1,7 +1,7 @@
 import { fmtUsdShort } from '@/lib/bundle';
 import FeedCardView from '@/components/FeedCardView';
 import { categorySummary, tabForCard } from '@/lib/tabs';
-import { CardStack, CategoryHeader, SectionTitle, type TabProps } from './shared';
+import { CardStack, CategoryHeader, ClaimDrawers, SectionTitle, type TabProps } from './shared';
 
 const hasMoneyBack = (cards: TabProps['cards']) => cards.some((c) => c.kind === 'clawback' && /^clawback-(fsa|price)-/.test(c.id));
 
@@ -24,7 +24,7 @@ export default function SavingsTab(props: TabProps) {
   const mine = props.cards.filter((c) => tabForCard(c) === 'savings');
   const soon = [...props.cards.filter((c) => c.kind === 'coming_soon' && !c.id.startsWith('coming-soon-state'))]
     .filter((c, i, all) => all.findIndex((x) => x.id === c.id) === i);
-  const { cents } = categorySummary(props.cards, 'savings');
+  const { cents } = categorySummary(props.cards.filter((c) => !props.dismissed[c.id]), 'savings');
   const needs = !hasMoneyBack(props.cards);
   return (
     <>
@@ -34,6 +34,7 @@ export default function SavingsTab(props: TabProps) {
         sub="Government deposits for your baby, plus money back on baby gear you have already bought."
       />
       <CardStack cards={mine} props={props} />
+      <ClaimDrawers cards={mine} props={props} />
       {needs && (
         <div className="mt-3 space-y-3">
           <NeedsPurchases title="Pay yourself back from an FSA or HSA" sub="Thermometers, pumps and more can come out of a pre-tax health account." />

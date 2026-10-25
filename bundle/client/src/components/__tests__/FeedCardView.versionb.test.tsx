@@ -35,15 +35,25 @@ describe('FeedCardView (Version B additions)', () => {
     expect(screen.queryByTestId('value-score')).toBeNull();
   });
 
-  it('shows an "I got this" tick only when asked, and reports the tap', () => {
-    const toggle = jest.fn();
+  it('shows "I got this" and "Not relevant" only when asked, and reports each tap', () => {
+    const onGotIt = jest.fn();
+    const onNotRelevant = jest.fn();
     const { rerender } = render(<FeedCardView card={base} />);
-    expect(screen.queryByLabelText('I got this')).toBeNull();
-    rerender(<FeedCardView card={base} claim={{ checked: false, onToggle: toggle }} />);
-    fireEvent.click(screen.getByLabelText('I got this'));
-    expect(toggle).toHaveBeenCalledTimes(1);
-    rerender(<FeedCardView card={base} claim={{ checked: true, onToggle: toggle }} />);
-    expect((screen.getByLabelText('I got this') as HTMLInputElement).checked).toBe(true);
+    expect(screen.queryByRole('button', { name: 'I got this' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Not relevant' })).toBeNull();
+    rerender(<FeedCardView card={base} actions={{ onGotIt, onNotRelevant }} />);
+    fireEvent.click(screen.getByRole('button', { name: 'I got this' }));
+    expect(onGotIt).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole('button', { name: 'Not relevant' }));
+    expect(onNotRelevant).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows the minutes estimate beside the buttons ("about N min") but not on deals', () => {
+    const task = { ...base, id: 'benefit-ma_child_tax_credit', kind: 'benefit' as const, minutes: 4 };
+    const { rerender } = render(<FeedCardView card={task} actions={{ onGotIt: jest.fn(), onNotRelevant: jest.fn() }} />);
+    expect(screen.getByTestId('card-minutes').textContent).toBe('about 4 min');
+    rerender(<FeedCardView card={{ ...base, kind: 'discount', minutes: 5 }} actions={{ onGotIt: jest.fn(), onNotRelevant: jest.fn() }} />);
+    expect(screen.queryByTestId('card-minutes')).toBeNull();
   });
 
   it('the Dependent Care FSA card reads "Check with your job" and shows no amount', () => {

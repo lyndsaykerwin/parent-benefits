@@ -149,28 +149,25 @@ describe('Version B tabs, expecting (Leo)', () => {
 });
 
 describe('light extras', () => {
-  it('"I got this" ticks add to "$ claimed", persist, and reveal the share bar', () => {
+  it('"I got this" moves money to "Claimed so far", persists in this browser, and reveals the share bar', () => {
     const run = show('maya');
     expect(screen.queryByTestId('share-bar')).toBeNull();
-    const before = screen.getByTestId('done-count').textContent!;
     fireEvent.click(tab('Savings'));
     const acct = screen.getByRole('article', { name: /Trump Account/ });
-    fireEvent.click(within(acct).getByLabelText('I got this'));
+    fireEvent.click(within(acct).getByRole('button', { name: 'I got this' }));
     fireEvent.click(tab('Home'));
-    expect(screen.getByTestId('claimed-amount').textContent).toBe('$1,000 claimed');
-    expect(screen.getByTestId('done-count').textContent).not.toBe(before);
+    expect(screen.getByTestId('claimed-so-far').textContent).toMatch(/\$1,000/);
     expect(screen.getByTestId('share-bar')).toBeTruthy();
     expect(JSON.parse(localStorage.getItem(`bundle:claimed:${run.familyId}`)!)).toEqual({ 'benefit-trump_account': true });
     cleanup();
     show('maya');
-    expect(screen.getByTestId('claimed-amount').textContent).toBe('$1,000 claimed');
+    expect(screen.getByTestId('claimed-so-far').textContent).toMatch(/\$1,000/);
   });
 
-  it('starts with "1 of N done" and "$0 claimed" and the first item ticked', () => {
-    show('maya');
-    expect(screen.getByTestId('done-count').textContent).toMatch(/^1 of \d+ done$/);
-    expect(screen.getByTestId('claimed-amount').textContent).toBe('$0 claimed');
-    expect(screen.getByText(/See what you qualify for/)).toBeTruthy();
+  it('starts with nothing claimed and the whole total still to claim', () => {
+    const run = show('maya');
+    expect(screen.getByTestId('claimed-so-far').textContent).toMatch(/\$0/);
+    expect(screen.getByTestId('still-to-claim').textContent).toContain(fmtUsdShort(run.result.receipt.moneyBackCents + run.result.receipt.likelyBenefitsCents));
   });
 
   it('share sends a link only: no names, dates, ZIP or amounts', async () => {
@@ -178,7 +175,7 @@ describe('light extras', () => {
     Object.defineProperty(navigator, 'share', { value: share, configurable: true });
     show('maya');
     fireEvent.click(tab('Savings'));
-    fireEvent.click(within(screen.getByRole('article', { name: /Trump Account/ })).getByLabelText('I got this'));
+    fireEvent.click(within(screen.getByRole('article', { name: /Trump Account/ })).getByRole('button', { name: 'I got this' }));
     fireEvent.click(tab('Home'));
     fireEvent.click(screen.getByRole('button', { name: 'Share this with a friend' }));
     await Promise.resolve();

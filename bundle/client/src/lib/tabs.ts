@@ -4,6 +4,7 @@
 import type { BundleResult, FeedCard, ValueScore } from '@shared/bundle';
 import { URGENT_DAYS, daysUntil, deadlineText, fmtUsd, isCheckWithJob, type FamilyView, type SavedRun } from './bundle';
 import { COVERED_STATES, UNCOVERED_STATE_NOTE } from './onboarding';
+import { minutesOf } from '@shared/cardMeta';
 
 export type TabId = 'home' | 'taxes' | 'savings' | 'insurance' | 'deals';
 export const TABS: { id: TabId; label: string }[] = [
@@ -134,6 +135,48 @@ export function loadClaims(familyId: string): Record<string, boolean> {
 export function saveClaims(familyId: string, claims: Record<string, boolean>): void {
   try { localStorage.setItem(claimKey(familyId), JSON.stringify(claims)); } catch { /* storage blocked: ticks last until the page closes */ }
 }
+
+const dismissKey = (familyId: string) => `bundle:dismissed:${familyId}`;
+
+/** The cards this family marked "Not relevant" (this browser; the server keeps a copy in the claims table). */
+export function loadDismissed(familyId: string): Record<string, boolean> {
+  try {
+    const raw = localStorage.getItem(dismissKey(familyId));
+    const parsed = raw ? JSON.parse(raw) : {};
+    return parsed && typeof parsed === 'object' ? (parsed as Record<string, boolean>) : {};
+  } catch { return {}; }
+}
+
+export function saveDismissed(familyId: string, dismissed: Record<string, boolean>): void {
+  try { localStorage.setItem(dismissKey(familyId), JSON.stringify(dismissed)); } catch { /* storage blocked: lasts until the page closes */ }
+}
+
+/**
+ * The three money numbers on Home, all worked out from the run's counted cards:
+ *   found   = the headline: everything counted, minus what the parent said does not apply to them;
+ *   claimed = the counted money on cards marked "I got this";
+ *   still   = found minus claimed.
+ * "Not relevant" comes off found and still and never goes into claimed.
+ */
+export interface MoneyNumbers { found: number; claimed: number; still: number; dismissed: number }
+export function moneyNumbers(result: BundleResult, claims: Record<string, boolean>, dismissed: Record<string, boolean>): MoneyNumbers {
+  const t = homeTotals(result);
+  const sum = (f: (c: FeedCard) => boolean) => t.parts.filter(f).reduce((a, c) => a + (c.amountCents ?? 0), 0);
+  const gone = sum((c) => !!dismissed[c.id]);
+  const claimed = sum((c) => !dismissed[c.id] && !!claims[c.id]);
+  const found = t.totalCents - gone;
+  return { found, claimed, still: found - claimed, dismissed: gone };
+}
+
+/** Where a card is right now: still to do, in the Claimed drawer, or in the Dismissed drawer. */
+export type CardState = 'open' | 'claimed' | 'dismissed';
+export const cardState = (id: string, claims: Record<string, boolean>, dismissed: Record<string, boolean>): CardState =>
+  dismissed[id] ? 'dismissed' : claims[id] ? 'claimed' : 'open';
+
+/** Task cards for the Home "Do these next" list: things a parent can act on that are not free gifts (gifts live on Deals). */
+export const taskCards = (cards: FeedCard[]): FeedCard[] => claimableCards(cards).filter((c) => c.kind !== 'discount');
+/** "Quick wins": under 5 minutes. A card with no estimate is never called a quick win. */
+export const isQuickWin = (c: FeedCard): boolean => { const m = minutesOf(c); return m !== undefined && m < 5; };
 
 /** "$ claimed": the money on ticked cards only. */
 export function claimedCents(cards: FeedCard[], claims: Record<string, boolean>): number {

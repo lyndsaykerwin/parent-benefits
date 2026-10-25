@@ -341,7 +341,8 @@ describe('W1-OWNER: owner view split (parent response trimmed on the server)', (
   }
   const expectParentSafe = (result: any) => {
     for (const c of [...result.cards, ...(result.blocked ?? [])]) {
-      expect(Object.keys(c).sort()).toEqual(PARENT_CARD_KEYS);
+      // The Home bucket (category) and the minutes estimate are plain facts the parent's screen needs; everything else is the fixed list.
+      expect(Object.keys(c).filter((k) => k !== 'category' && k !== 'minutes').sort()).toEqual(PARENT_CARD_KEYS);
       for (const k of HIDDEN_KEYS) expect(c).not.toHaveProperty(k);
     }
     const text = JSON.stringify(result);

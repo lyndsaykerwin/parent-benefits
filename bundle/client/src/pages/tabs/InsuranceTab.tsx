@@ -3,7 +3,7 @@ import { daysUntil, fmtDate } from '@/lib/bundle';
 import { isAddBabyCard } from '@/lib/insurance';
 import { tabForCard, urgentDeadlines } from '@/lib/tabs';
 import { insuranceDeadline, insuranceLabel, daycareRoute } from '@shared/eligibility';
-import { CardStack, CategoryHeader, type TabProps } from './shared';
+import { CardStack, CategoryHeader, ClaimDrawers, type TabProps } from './shared';
 import HrQuestions from './HrQuestions';
 
 const CARRIERS = ['Aetna', 'BCBS', 'UnitedHealthcare', 'Kaiser', 'Other'] as const;
@@ -102,6 +102,7 @@ export default function InsuranceTab(props: TabProps) {
       ))}
 
       <CardStack cards={rest} props={props} deadlineLabels={expecting ? labels : undefined} />
+      <ClaimDrawers cards={mine} props={props} />
     </>
   );
 }

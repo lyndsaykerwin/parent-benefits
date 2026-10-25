@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
 import type { BundleReceipt, BundleResult, Family, FeedCard } from '../../shared/bundle';
+import { cardCategory, cardMinutes } from '../../shared/cardMeta';
 import type { ZetarisClient } from '../adapters/zetaris';
 import { ZetarisUnavailable } from '../adapters/zetaris';
 import type { Generator } from '../adapters/llm';
@@ -127,12 +128,17 @@ export async function defaultLoadFamily(id: string, opts: LoadFamilyOpts = {}): 
 // ---------- never-empty feed ----------
 
 const KIND_ORDER: Record<string, number> = { clawback: 0, recall: 1, benefit: 2, discount: 3, coming_soon: 4 };
-const toCard = (c: Candidate): FeedCard => ({
+/** Stamp the Home bucket (category) and the estimated minutes on a card, so the screen never has to guess them from the card's name. */
+const withMeta = (c: FeedCard): FeedCard => {
+  const minutes = cardMinutes(c);
+  return { ...c, category: cardCategory(c), ...(minutes !== undefined ? { minutes } : {}) };
+};
+const toCard = (c: Candidate): FeedCard => withMeta({
   id: c.id, kind: c.kind, title: c.title, body: c.body, amountCents: c.amountCents, deadline: c.deadline,
   verdict: c.verdict, sources: c.sources, traceId: c.traceId,
   ...(c.valueScore ? { valueScore: c.valueScore } : {}),
 });
-const infoCard = (id: string, kind: FeedCard['kind'], title: string, body: string, verdict: FeedCard['verdict'], traceId: string): FeedCard => ({
+const infoCard = (id: string, kind: FeedCard['kind'], title: string, body: string, verdict: FeedCard['verdict'], traceId: string): FeedCard => withMeta({
   id, kind, title, body, amountCents: null, deadline: null, verdict, sources: [], traceId,
 });
 

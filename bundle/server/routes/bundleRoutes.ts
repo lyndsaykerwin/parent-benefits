@@ -7,7 +7,7 @@ import type { BundleReceipt, BundleResult, Family, FeedCard, Household, Insuranc
 import type { Generator } from '../adapters/llm';
 import type { BundleMemory } from '../adapters/memory';
 import { runBundle, newRunId, type RunDeps } from '../agents/orchestrator';
-import { proposeRules, MAX_ISSUES } from '../agents/coach';
+import { proposeRules, proposeFromDismissals, MAX_ISSUES } from '../agents/coach';
 import type { BundleStore, SavedRunRow } from '../bundleStore';
 import { agentTraceId } from '../../shared/agentLog';
 import type { TraceLine } from '../agents/trace';
@@ -94,7 +94,7 @@ export function tokenOk(supplied: unknown, expected: string): boolean {
 // no trace ids, agent names, SQL, debate text or memory-rule text. The reviewer token unlocks the full result.
 
 const PARENT_CARD_KEYS = ['id', 'kind', 'title', 'body', 'amountCents', 'deadline', 'verdict', 'sources'] as const;
-type ParentCard = Pick<FeedCard, (typeof PARENT_CARD_KEYS)[number] | 'valueScore'>;
+type ParentCard = Pick<FeedCard, (typeof PARENT_CARD_KEYS)[number] | 'valueScore' | 'category' | 'minutes'>;
 export const CAUGHT_BY_PARENT_REPORTS = 'Other parents reported a catch like this one, so we left it out.';
 const CAUGHT_GENERIC = 'We found a catch in the fine print, so we left it out.';
 const OWNER_ONLY_TEXT = /zetaris|\bv_[a-z_]+\b|\bselect\b|\bcited\b|case law|court|memory|mem-[\w-]+/i;
@@ -125,6 +125,9 @@ export function parentCard(c: FeedCard, caught = false): ParentCard {
   const out = {} as Record<string, unknown>;
   for (const k of PARENT_CARD_KEYS) out[k] = (c as unknown as Record<string, unknown>)[k];
   if (c.valueScore) out.valueScore = parentValueScore(c.valueScore);
+  // The Home bucket and the minutes estimate are plain facts for the parent's screen (set only when the card has them).
+  if (c.category) out.category = c.category;
+  if (c.minutes !== undefined) out.minutes = c.minutes;
   out.sources = (c.sources ?? []).map((s) => ({ label: s.label, url: s.url }));
   out.body = caught ? parentCaughtReason(c.body) : c.body;
   return out as ParentCard;
@@ -345,10 +348,15 @@ export function createBundleRouter(deps: ApiDeps): Router {
     const { familyId, cardId, kind, note } = req.body ?? {};
     if (typeof familyId !== 'string' || !knownFamilies.has(familyId)) return res.status(400).json({ error: 'Unknown family' });
     if (typeof cardId !== 'string' || !cardId || cardId.length > 200) return res.status(400).json({ error: 'Missing card' });
-    if (kind !== 'got_it' && kind !== 'issue') return res.status(400).json({ error: 'kind must be got_it or issue' });
+    if (kind !== 'got_it' && kind !== 'issue' && kind !== 'not_relevant') return res.status(400).json({ error: 'kind must be got_it, issue or not_relevant' });
     if (note !== undefined && typeof note !== 'string') return res.status(400).json({ error: 'note must be text' });
     try {
       const saved = await deps.store.addFeedback({ familyId, cardId, kind, note: (note ?? '').slice(0, 500) });
+      // "I got this" and "Not relevant" are also remembered per card (the claims table). Never blocks the answer.
+      if (kind === 'got_it' || kind === 'not_relevant') {
+        try { await deps.store.setClaim({ familyId, cardId, status: kind }); }
+        catch (e) { console.error('Saving claim failed:', (e as Error)?.message); }
+      }
       let proposals: unknown[] = [];
       try {
         const existing = await deps.store.listProposals();
@@ -358,11 +366,36 @@ export function createBundleRouter(deps: ApiDeps): Router {
       } catch (e) {
         console.error('Coach failed:', (e as Error)?.message); // feedback is saved either way
       }
+      // The Coach also learns from "Not relevant": the same card dismissed by 2 or more families becomes a proposed rule.
+      if (kind === 'not_relevant') {
+        try {
+          const dismissed = await deps.store.listRecentDismissals(MAX_ISSUES);
+          const covered = new Set((await deps.store.listProposals()).flatMap((p) => p.sourceFeedbackIds));
+          const fresh = proposeFromDismissals(dismissed).filter((p) => !p.sourceFeedbackIds.every((id) => covered.has(id)));
+          proposals = [...proposals, ...(await deps.store.saveProposals(fresh))];
+        } catch (e) {
+          console.error('Coach (dismissals) failed:', (e as Error)?.message);
+        }
+      }
       if (!isOwner(req)) return res.json({ ok: true, feedbackId: saved.id, proposals: [], proposedCount: proposals.length }); // rule text is owner-only
       return res.json({ ok: true, feedbackId: saved.id, proposals, proposedCount: proposals.length });
     } catch (e) {
       console.error('POST /api/feedback failed:', (e as Error)?.message);
       return res.status(500).json({ error: 'Could not save feedback.' });
+    }
+  });
+
+  /** Undo: take back an "I got this" or "Not relevant". The feedback row stays as history; the Coach only counts answers that still stand. */
+  router.post('/api/claims/undo', feedbackLimiter, async (req, res) => {
+    const { familyId, cardId } = req.body ?? {};
+    if (typeof familyId !== 'string' || !knownFamilies.has(familyId)) return res.status(400).json({ error: 'Unknown family' });
+    if (typeof cardId !== 'string' || !cardId || cardId.length > 200) return res.status(400).json({ error: 'Missing card' });
+    try {
+      await deps.store.clearClaim(familyId, cardId);
+      return res.json({ ok: true });
+    } catch (e) {
+      console.error('POST /api/claims/undo failed:', (e as Error)?.message);
+      return res.status(500).json({ error: 'Could not undo.' });
     }
   });
 

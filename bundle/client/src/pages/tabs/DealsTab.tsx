@@ -3,7 +3,7 @@ import { MemorySection } from '@/components/HowWeCheckedSections';
 import { UNCHECKED_DEALS_SECTION, fmtUsdShort } from '@/lib/bundle';
 import { blockedReason } from '@/lib/howWeChecked';
 import { categorySummary } from '@/lib/tabs';
-import { CardStack, CategoryHeader, SectionTitle, type TabProps } from './shared';
+import { CardStack, CategoryHeader, ClaimDrawers, SectionTitle, type TabProps } from './shared';
 
 /** Deals: offers that passed the Fine Print Court (with their Value Score), offers not yet checked, and the ones we blocked. */
 export default function DealsTab(props: TabProps) {
@@ -11,7 +11,7 @@ export default function DealsTab(props: TabProps) {
   const checked = deals.filter((c) => c.verdict !== 'info' && c.verdict !== 'blocked');
   const unchecked = deals.filter((c) => c.verdict === 'info');
   const blocked = props.run.result.blocked ?? [];
-  const { cents } = categorySummary(props.cards, 'deals');
+  const { cents } = categorySummary(props.cards.filter((c) => !props.dismissed[c.id]), 'deals');
   return (
     <>
       <CategoryHeader
@@ -26,6 +26,7 @@ export default function DealsTab(props: TabProps) {
           <CardStack cards={unchecked} props={props} />
         </>
       )}
+      <ClaimDrawers cards={deals} props={props} />
       {blocked.length > 0 && (
         <section className="mt-7" aria-label="We caught these for you" data-testid="blocked-section">
           <h2 className="eyebrow text-[#9E2A21]">We caught these for you</h2>

@@ -7,7 +7,7 @@ export interface FeedbackRow {
   id: number;
   familyId: string;
   cardId: string;
-  kind: 'got_it' | 'issue';
+  kind: 'got_it' | 'issue' | 'not_relevant';
   note: string;
   createdAt?: Date | null;
 }
@@ -125,6 +125,33 @@ export async function proposeRules(feedbackRows: FeedbackRow[], llm: Generator):
     if (ids.length < 2 || !text) continue;
     ids.forEach((id) => used.add(id));
     out.push({ text, confidence: confidenceFor(ids.length), sourceFeedbackIds: ids });
+  }
+  return out;
+}
+
+/** "benefit-ma_child_tax_credit" -> "ma child tax credit": the words a person would use for a card id. */
+const cardWords = (cardId: string): string => cardId.replace(/^(benefit|clawback|discount|recall)-/, '').replace(/-\d+$/, '').replace(/[_-]+/g, ' ');
+
+/**
+ * Coach, second input: cards parents marked "Not relevant". When 2 or more different families dismiss the same card, the Coach
+ * proposes a rule asking the eligibility check to look at that program again. It reads only the dismissals that still stand
+ * (an Undo takes one back), and it never proposes from a single family. A person still approves every proposal.
+ */
+export function proposeFromDismissals(feedbackRows: FeedbackRow[]): RuleProposal[] {
+  const byCard = new Map<string, FeedbackRow[]>();
+  for (const r of feedbackRows) {
+    if (r.kind !== 'not_relevant') continue;
+    byCard.set(r.cardId, [...(byCard.get(r.cardId) ?? []), r]);
+  }
+  const out: RuleProposal[] = [];
+  for (const [cardId, rows] of byCard) {
+    const families = new Set(rows.map((r) => r.familyId));
+    if (families.size < 2) continue;
+    out.push({
+      text: `Check the eligibility conditions again before showing "${cardWords(cardId)}": ${families.size} families said it does not apply to them.`,
+      confidence: confidenceFor(families.size),
+      sourceFeedbackIds: rows.map((r) => String(r.id)),
+    });
   }
   return out;
 }

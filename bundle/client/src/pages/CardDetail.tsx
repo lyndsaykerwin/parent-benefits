@@ -6,7 +6,9 @@ import FeedCardView from '@/components/FeedCardView';
 import { safeSources, agentLabel, api, familyChip, loadRun, saveRun, traceForCard, type SavedRun, type TraceLine } from '@/lib/bundle';
 import { ZetarisSection, MemorySection } from '@/components/HowWeCheckedSections';
 import { ownerApi, ownerToken } from '@/lib/howWeChecked';
-import { howWeChecked } from '@/lib/tabs';
+import { howWeChecked, moneyNumbers, claimableCards, cardState } from '@/lib/tabs';
+import { useClaims } from '@/hooks/useClaims';
+import { fmtUsdShort } from '@/lib/bundle';
 import { cn } from '@/lib/utils';
 
 const STATUS_TEXT: Record<TraceLine['status'], { label: string; cls: string }> = {
@@ -61,7 +63,8 @@ export default function CardDetail() {
   const card = (run ? applyInsuranceAnswer(run.result.cards, run.family) : []).find((c) => c.id === id) ?? run?.result.blocked?.find((c) => c.id === id) ?? null;
   const [lines, setLines] = useState<TraceLine[] | null>(null);
   const [traceError, setTraceError] = useState(false);
-  const [sent, setSent] = useState<'got_it' | 'issue' | null>(null);
+  const [sent, setSent] = useState<'issue' | null>(null);
+  const mine = useClaims(run?.familyId ?? '');
   const [reporting, setReporting] = useState(false);
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
@@ -93,12 +96,12 @@ export default function CardDetail() {
   // rule_recalled lines are shown in the Memory section below, not as a raw step.
   const steps = lines ? traceForCard(card, lines).filter((l) => l.action !== 'rule_recalled') : [];
 
-  async function send(kind: 'got_it' | 'issue') {
+  async function send() {
     setBusy(true);
     setError(null);
     try {
-      await api.feedback({ familyId: run!.familyId, cardId: card!.id, kind, note: kind === 'issue' ? note.trim() : undefined });
-      setSent(kind);
+      await api.feedback({ familyId: run!.familyId, cardId: card!.id, kind: 'issue', note: note.trim() });
+      setSent('issue');
       setReporting(false);
     } catch (e) {
       setError((e as Error).message);
@@ -106,6 +109,12 @@ export default function CardDetail() {
       setBusy(false);
     }
   }
+
+  // "I got this" and "Not relevant" work exactly like the buttons on the cards: same saved answer, same numbers.
+  const canAct = claimableCards(run.result.cards).some((c) => c.id === card.id);
+  const state = cardState(card.id, mine.claims, mine.dismissed);
+  const counted = moneyNumbers(run.result, {}, { [card.id]: true });
+  const cents = moneyNumbers(run.result, {}, {}).found - counted.found;
 
   return (
     <AppShell chip={chip} back={{ href: feedHref, label: 'Your feed' }}>
@@ -187,27 +196,38 @@ export default function CardDetail() {
 
       {card.kind !== 'coming_soon' && card.verdict !== 'blocked' && (
         <section className="mt-8" aria-label="Your feedback">
+          {state !== 'open' && (
+            <div role="status" className="mb-3 flex items-center justify-between gap-3 rounded-2xl bg-[#E3F3EA] px-4 py-3 text-[15px] font-semibold text-[#17643F]">
+              <span>{state === 'claimed' ? 'Nice. We’ve moved this one to Claimed.' : `Dismissed. ${cents > 0 ? `${fmtUsdShort(cents)} taken off Still to claim. ` : ''}We told the Coach.`}</span>
+              <button type="button" onClick={() => mine.undo(card.id)} className="min-h-[44px] shrink-0 rounded-xl border border-[#17643F] bg-paper px-4 text-[15px] font-bold text-ink">Undo</button>
+            </div>
+          )}
           {sent ? (
             <p role="status" className="rounded-2xl bg-[#E3F3EA] px-4 py-4 text-[15px] font-semibold text-[#17643F]">
-              {sent === 'got_it'
-                ? 'Nice. We’ve marked this one as done for you.'
-                : 'Thanks. Reports like yours teach Bundle: when parents report the same problem, it proposes a new rule for a reviewer to approve.'}
+              Thanks. Reports like yours teach Bundle: when parents report the same problem, it proposes a new rule for a reviewer to approve.
             </p>
           ) : (
             <>
               <div className="grid grid-cols-2 gap-3">
-                <button type="button" disabled={busy} onClick={() => send('got_it')} className="min-h-[56px] rounded-2xl bg-ink text-[17px] font-bold text-cream disabled:opacity-60">
-                  I got this
-                </button>
+                {canAct && state === 'open' && (
+                  <>
+                    <button type="button" onClick={() => mine.claim(card.id)} className="min-h-[56px] rounded-2xl bg-ink text-[17px] font-bold text-cream">
+                      I got this
+                    </button>
+                    <button type="button" onClick={() => mine.dismiss(card.id, card.title, cents)} className="min-h-[56px] rounded-2xl border border-line bg-paper text-[17px] font-bold text-ink">
+                      Not relevant
+                    </button>
+                  </>
+                )}
                 <button
                   type="button" disabled={busy} aria-expanded={reporting} onClick={() => setReporting((r) => !r)}
-                  className={cn('min-h-[56px] rounded-2xl border-2 text-[17px] font-bold disabled:opacity-60', reporting ? 'border-coral bg-coral-tint text-coral-deep' : 'border-ink bg-transparent text-ink')}
+                  className={cn('col-span-2 min-h-[56px] rounded-2xl border-2 text-[17px] font-bold disabled:opacity-60', reporting ? 'border-coral bg-coral-tint text-coral-deep' : 'border-ink bg-transparent text-ink')}
                 >
                   Report issue
                 </button>
               </div>
               {reporting && (
-                <form className="mt-3 rounded-2xl border border-line bg-paper p-4" onSubmit={(e) => { e.preventDefault(); void send('issue'); }}>
+                <form className="mt-3 rounded-2xl border border-line bg-paper p-4" onSubmit={(e) => { e.preventDefault(); void send(); }}>
                   <label htmlFor="issue-note" className="text-[15px] font-bold text-ink">What went wrong?</label>
                   <textarea
                     id="issue-note" value={note} onChange={(e) => setNote(e.target.value)} maxLength={500} rows={3}

@@ -3,6 +3,7 @@ import { Link } from 'wouter';
 import type { FeedCard } from '@shared/bundle';
 import { KIND_META, VERDICT_LABEL, amountCaption, cardDeadline, fmtUsd, isCheckWithJob, safeSources } from '@/lib/bundle';
 import { plainCardBody, valueScoreLines } from '@/lib/tabs';
+import { minutesOf } from '@shared/cardMeta';
 import { cn } from '@/lib/utils';
 
 interface Props {
@@ -13,8 +14,8 @@ interface Props {
   pinned?: boolean;
   /** Where "How we checked" goes. Omit to hide the link (e.g. on the detail page itself). */
   detailHref?: string;
-  /** Shows an "I got this" tick. The parent ticks it once they have claimed the money or done the step. */
-  claim?: { checked: boolean; onToggle: () => void };
+  /** Shows "I got this" and "Not relevant" buttons. Leave out for cards a parent cannot act on (safety checks, coming-soon tiles). */
+  actions?: { onGotIt: () => void; onNotRelevant: () => void };
   /** Replaces the deadline countdown (e.g. "Starts at birth" for an expecting family). */
   deadlineLabel?: string;
   /** Extra content shown under the card's sentence (e.g. the insurance deadline pill). */
@@ -37,13 +38,14 @@ const verdictStyle: Record<FeedCard['verdict'], string> = {
   blocked: 'bg-[#FBE3E0] text-[#9E2A21]',
 };
 
-export default function FeedCardView({ card, today, pinned = false, detailHref, claim, deadlineLabel, extra }: Props) {
+export default function FeedCardView({ card, today, pinned = false, detailHref, actions, deadlineLabel, extra }: Props) {
   const meta = KIND_META[card.kind];
   const caption = amountCaption(card);
   const soon = card.kind === 'coming_soon';
   const sources = safeSources(card.sources);
   const due = deadlineLabel ? { text: deadlineLabel, urgent: false } : card.deadline ? cardDeadline(card.kind, card.deadline, today) : null;
   const checkWithJob = isCheckWithJob(card);
+  const minutes = card.kind === 'discount' ? undefined : minutesOf(card); // deals already say their effort in the Value and time lines
   const scoreLines = card.valueScore ? valueScoreLines(card.valueScore) : [];
   // Coming-soon tiles already say "Coming soon" in the eyebrow, so drop the repeat from the body.
   const body = plainCardBody(soon ? card.body.replace(/^coming soon:\s*/i, '') : card.body);
@@ -62,11 +64,16 @@ export default function FeedCardView({ card, today, pinned = false, detailHref, 
         </p>
         {!soon && (
           <span className={cn('shrink-0 rounded-full px-2 py-0.5 text-[12px] font-bold', verdictStyle[card.verdict])}>
-            {checkWithJob ? 'Check with your job' : VERDICT_LABEL[card.verdict]}
+            {checkWithJob ? 'Check with your job' : /^benefit-childcare_tax_credit$/.test(card.id) ? 'Ask your tax preparer' : VERDICT_LABEL[card.verdict]}
           </span>
         )}
       </div>
 
+      {minutes !== undefined && actions && (
+        <p className="mt-2">
+          <span data-testid="card-minutes" title="Our estimate" className="inline-flex rounded-full bg-[#FBEBCB] px-2.5 py-1 text-[12.5px] font-bold text-[#7A5410]">about {minutes} min</span>
+        </p>
+      )}
       <h3 className="mt-2 text-[17px] font-extrabold leading-snug tracking-[-0.01em] text-ink">{card.title}</h3>
       <p className="mt-1 text-[15px] leading-relaxed text-ink-2">{body.charAt(0).toUpperCase() + body.slice(1)}</p>
 
@@ -112,22 +119,25 @@ export default function FeedCardView({ card, today, pinned = false, detailHref, 
         </ul>
       )}
 
-      {(claim || (detailHref && !soon)) && (
-        <div className="mt-2 flex items-center justify-between gap-2 border-t border-dashed border-line pt-1">
-          {claim ? (
-            <label className="inline-flex min-h-[44px] cursor-pointer items-center gap-2 text-[14px] font-bold text-ink">
-              <input type="checkbox" checked={claim.checked} onChange={claim.onToggle} className="h-5 w-5 accent-[#E4572E]" />
-              I got this
-            </label>
-          ) : <span />}
-          {detailHref && !soon && (
+      {detailHref && !soon && (
+        <div className="mt-2 flex items-center justify-end border-t border-dashed border-line pt-1">
           <Link
             href={detailHref}
             className="inline-flex min-h-[44px] items-center gap-1 px-1 text-[14px] font-bold text-ink-2 hover:text-ink"
           >
             How we checked <span aria-hidden="true">›</span>
           </Link>
-          )}
+        </div>
+      )}
+      {actions && !soon && (
+        <div className={cn('grid grid-cols-2 gap-2.5', detailHref ? 'mt-1' : 'mt-3')}>
+          <button type="button" onClick={actions.onGotIt} className="inline-flex min-h-[48px] items-center justify-center gap-1.5 rounded-2xl bg-ink px-3 text-[15px] font-bold text-cream active:scale-[.99]">
+            <svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m5 12 5 5 9-10" /></svg>
+            I got this
+          </button>
+          <button type="button" onClick={actions.onNotRelevant} className="inline-flex min-h-[48px] items-center justify-center rounded-2xl border border-line bg-paper px-3 text-[15px] font-bold text-ink active:scale-[.99]">
+            Not relevant
+          </button>
         </div>
       )}
     </article>

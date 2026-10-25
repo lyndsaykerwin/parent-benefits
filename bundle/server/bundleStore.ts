@@ -34,6 +34,12 @@ export interface BundleStore {
   addFeedback(row: Omit<FeedbackRow, 'id' | 'createdAt'>): Promise<FeedbackRow>;
   /** Newest `limit` 'issue' reports only (never the whole table). */
   listRecentIssues(limit: number): Promise<FeedbackRow[]>;
+  /** Remember a card the family marked "I got this" or "Not relevant" (the latest answer wins per family + card). */
+  setClaim(row: { familyId: string; cardId: string; status: 'got_it' | 'not_relevant' }): Promise<void>;
+  /** Take one back (Undo). */
+  clearClaim(familyId: string, cardId: string): Promise<void>;
+  /** Newest `limit` "Not relevant" answers that still stand (an Undo removes one), for the Coach. */
+  listRecentDismissals(limit: number): Promise<FeedbackRow[]>;
   saveProposals(p: RuleProposal[]): Promise<ProposalRow[]>;
   listProposals(): Promise<ProposalRow[]>;
   getProposal(id: number): Promise<ProposalRow | null>;
@@ -83,6 +89,17 @@ export class MemoryStore implements BundleStore {
   async listRecentIssues(limit: number) {
     if (this.issueReader) return fetchRecentIssues(this.issueReader, limit);
     return this.fb.filter((r) => r.kind === 'issue').slice(-limit);
+  }
+  /** Practice mode has no database: claims live in memory for as long as the server runs. */
+  private claims = new Map<string, 'got_it' | 'not_relevant'>();
+  async setClaim(row: { familyId: string; cardId: string; status: 'got_it' | 'not_relevant' }) { this.claims.set(`${row.familyId}|${row.cardId}`, row.status); }
+  async clearClaim(familyId: string, cardId: string) { this.claims.delete(`${familyId}|${cardId}`); }
+  /** A family's saved claims, for tests and later screens. */
+  async getClaims(familyId: string) {
+    return [...this.claims].filter(([k]) => k.startsWith(`${familyId}|`)).map(([k, status]) => ({ cardId: k.slice(familyId.length + 1), status }));
+  }
+  async listRecentDismissals(limit: number) {
+    return this.fb.filter((r) => r.kind === 'not_relevant' && this.claims.get(`${r.familyId}|${r.cardId}`) === 'not_relevant').slice(-limit);
   }
   async saveProposals(p: RuleProposal[]) {
     const added: ProposalRow[] = [];
@@ -152,6 +169,22 @@ export class DrizzleStore implements BundleStore {
   async listRecentIssues(limit: number) {
     this.issueReader ??= zetarisFromEnv();
     return fetchRecentIssues(this.issueReader, limit);
+  }
+  async setClaim(row: { familyId: string; cardId: string; status: 'got_it' | 'not_relevant' }) {
+    const { db, s } = await this.d();
+    await db.insert(s.claims).values(row).onConflictDoUpdate({ target: [s.claims.familyId, s.claims.cardId], set: { status: row.status, createdAt: new Date() } });
+  }
+  async clearClaim(familyId: string, cardId: string) {
+    const { db, s, o } = await this.d();
+    await db.delete(s.claims).where(o.and(o.eq(s.claims.familyId, familyId), o.eq(s.claims.cardId, cardId)));
+  }
+  /** Read straight from Neon (no Zetaris view exists for this yet); the rows are the family's own answers, no free text. */
+  async listRecentDismissals(limit: number) {
+    const { db, s, o } = await this.d();
+    const rows = await db.select({ f: s.feedback }).from(s.feedback)
+      .innerJoin(s.claims, o.and(o.eq(s.claims.familyId, s.feedback.familyId), o.eq(s.claims.cardId, s.feedback.cardId), o.eq(s.claims.status, 'not_relevant')))
+      .where(o.eq(s.feedback.kind, 'not_relevant')).orderBy(o.desc(s.feedback.id)).limit(limit);
+    return rows.map((r: any) => r.f as FeedbackRow).reverse();
   }
   async saveProposals(p: RuleProposal[]) {
     const { db, s } = await this.d();

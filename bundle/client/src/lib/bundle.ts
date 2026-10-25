@@ -270,8 +270,11 @@ export const api = {
   /** Newest saved result for a family (the instant feed). Rejects with the server's message (404) when there is none yet. */
   latestRun: (familyId: string) => fetch(`/api/families/${encodeURIComponent(familyId)}/latest-run`).then((r) => json<RunStatus>(r)),
   trace: (runId: string) => fetch(`/api/runs/${encodeURIComponent(runId)}/trace`).then((r) => json<TraceLine[]>(r)),
-  feedback: (body: { familyId: string; cardId: string; kind: 'got_it' | 'issue'; note?: string }) =>
+  feedback: (body: { familyId: string; cardId: string; kind: 'got_it' | 'issue' | 'not_relevant'; note?: string }) =>
     fetch('/api/feedback', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then((r) => json<{ ok: true; proposals: unknown[] }>(r)),
+  /** Take back an "I got this" or "Not relevant" on the server (the browser has already put the card back). */
+  undoClaim: (body: { familyId: string; cardId: string }) =>
+    fetch('/api/claims/undo', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then((r) => json<{ ok: true }>(r)),
   caseLaw: () => fetch('/api/case-law').then((r) => json<{ proposals: Proposal[]; approved: Proposal[] }>(r)),
   approve: (id: number, token: string) =>
     fetch(`/api/case-law/${id}/approve`, { method: 'POST', headers: { 'x-reviewer-token': token } }).then((r) => json<{ ok: true }>(r)),

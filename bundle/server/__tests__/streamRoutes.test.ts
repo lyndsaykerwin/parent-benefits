@@ -190,7 +190,7 @@ describe('a real sample run, streamed to a parent', () => {
       const r = await get('/api/runs/real-maya/events');
       const cards = parse(r.text).filter((e) => e.event === 'card_ready').map((e) => e.data.card);
       expect(cards.map((c) => c.id)).toEqual(ownerCards.map((c: any) => c.id));
-      const allowed = ['amountCents', 'body', 'deadline', 'id', 'kind', 'sources', 'title', 'valueScore', 'verdict'];
+      const allowed = ['amountCents', 'body', 'category', 'deadline', 'id', 'kind', 'minutes', 'sources', 'title', 'valueScore', 'verdict'];
       for (const c of cards) {
         expect(Object.keys(c).every((k) => allowed.includes(k))).toBe(true);
         expect(c.sources.every((s: any) => Object.keys(s).sort().join() === 'label,url')).toBe(true);
