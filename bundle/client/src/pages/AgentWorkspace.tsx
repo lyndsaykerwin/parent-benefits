@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { reviewerToken } from '@/lib/bundle';
 import { cn } from '@/lib/utils';
 import type { AgentLogLine } from '@shared/agentLog';
+import { loopsOf, LOOP_KINDS, type LoopKind } from '@shared/agentLoops';
 
 /**
  * "How the agents worked together": the owner-only panel (plan sections 1c and 4, tracker M11).
@@ -27,37 +28,25 @@ export interface AgentLogData {
 }
 export interface CardRef { id: string; title: string }
 
-export type LoopKind = 'send_back' | 'rebuttal' | 'photo_retry' | 'recall_check' | 'saved_verdict';
+export type { LoopKind };
+export { loopsOf };
 export const LOOP_LABEL: Record<LoopKind, string> = {
   send_back: 'Send-backs',
   rebuttal: 'Rebuttal rounds',
+  eligibility: 'Eligibility questions',
   photo_retry: 'Photo retries',
   recall_check: 'Recall checks',
-  saved_verdict: 'Saved verdicts reused',
+  saved_verdict: 'Saved grades reused',
+  safety_kill: 'Deals stopped for safety',
 };
-const LOOP_KINDS = Object.keys(LOOP_LABEL) as LoopKind[];
 const LOOP_BADGE: Record<LoopKind, string> = {
-  send_back: 'Sent back', rebuttal: 'Rebuttal round', photo_retry: 'Photo retry', recall_check: 'Recall check', saved_verdict: 'Saved verdict reused',
+  send_back: 'Sent back', rebuttal: 'Rebuttal round', eligibility: 'Eligibility question', photo_retry: 'Photo retry',
+  recall_check: 'Recall check', saved_verdict: 'Saved grade reused', safety_kill: 'Stopped for safety',
 };
 const ACTION_LABEL: Record<AgentLogLine['action'], string> = {
   query_zetaris: 'looked up data', vision_extract: 'read a photo', evaluate_offer: 'checked an offer', court_debate: 'court debate',
   fact_check: 'fact-check', retry_request: 'asked for a redo', recall_hmem: 'used memory', approve_card: 'approved', reject_card: 'rejected',
 };
-
-/** Which loops one log line is part of. Today's lines carry these clues; the loop builders reuse the same words. */
-export function loopsOf(l: AgentLogLine): LoopKind[] {
-  const text = `${l.input_summary} ${l.output_summary}`;
-  const out: LoopKind[] = [];
-  // One photo retry writes two lines (the retry request, then the second read): count the request only.
-  if (l.action === 'retry_request' && l.agent_name === 'PhotoReader') out.push('photo_retry');
-  else if (l.action === 'retry_request' && l.status === 'needs_revision') out.push('send_back');
-  if (l.action === 'court_debate' && (l.retry_count >= 1 || /rebuttal/i.test(text))) out.push('rebuttal');
-  // Only a check that went against the recall record (or needed a redo) is a recall verification;
-  // an ordinary "verified" on a recall card is not a loop.
-  if (l.action === 'fact_check' && /\brecall\b/i.test(l.input_summary) && (l.retry_count >= 1 || /recall record|recall verification|evidence/i.test(text))) out.push('recall_check');
-  if (/saved (verdict|grade)|past grade/i.test(text)) out.push('saved_verdict');
-  return out;
-}
 
 export interface Group {
   key: string;
@@ -68,7 +57,7 @@ export interface Group {
 }
 export interface Grouped { groups: Group[]; counts: Record<LoopKind, number> }
 
-const emptyLoops = (): Record<LoopKind, number> => ({ send_back: 0, rebuttal: 0, photo_retry: 0, recall_check: 0, saved_verdict: 0 });
+const emptyLoops = (): Record<LoopKind, number> => Object.fromEntries(LOOP_KINDS.map((k) => [k, 0])) as Record<LoopKind, number>;
 export const RUN_KEY = '__run';
 
 /** The card (or offer, purchase or rule) a line is about, from the words the agents write in input_summary. */
@@ -163,7 +152,7 @@ function Ready({ data, cards }: { data: AgentLogData; cards: CardRef[] }) {
       <p className="mt-2 text-[15px] text-ink-2">
         Every step the agents took for this run, grouped by the card it was about. A loop is when agents checked each other’s work.
       </p>
-      <ul className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-5" data-testid="loop-counts" aria-label="Loops in this run">
+      <ul className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4" data-testid="loop-counts" aria-label="Loops in this run">
         {LOOP_KINDS.map((k) => (
           <li key={k} className="rounded-2xl border border-line bg-paper px-3 py-2 text-center">
             <span className="tabular block text-[22px] font-extrabold leading-none text-ink">{counts[k]}</span>
