@@ -18,9 +18,11 @@ describe('tabs and cards', () => {
   it('sends every real card of a sample run to one tab (or none for coming-soon tiles)', () => {
     const { result } = sampleRun('maya');
     const by = (tab: string) => result.cards.filter((c) => tabForCard(c) === tab).map((c) => c.id);
+    // database serial ids change on re-seed, so find the real card by kind/prefix
+    const fsaId = result.cards.find((c) => c.id.startsWith('clawback-fsa-'))!.id;
     expect(by('taxes')).toEqual(expect.arrayContaining(['benefit-federal_child_tax_credit', 'benefit-ma_child_tax_credit', 'benefit-dcfsa_life_event']));
     expect(by('insurance')).toEqual(expect.arrayContaining(['benefit-insurance_add_baby', 'benefit-ma_pfml']));
-    expect(by('savings')).toEqual(expect.arrayContaining(['benefit-trump_account', 'clawback-fsa-4', 'recall-cpsc-10560']));
+    expect(by('savings')).toEqual(expect.arrayContaining(['benefit-trump_account', fsaId, 'recall-cpsc-10560']));
     expect(by('deals').every((id) => id.startsWith('discount-'))).toBe(true);
     expect(by('deals').length).toBeGreaterThan(0);
     for (const c of result.cards.filter((x) => x.kind === 'coming_soon')) expect(tabForCard(c)).toBeNull();
@@ -111,9 +113,12 @@ describe('"I got this" ticks and $ claimed', () => {
     const claimable = claimableCards(result.cards);
     expect(claimable.map((c) => c.id)).not.toContain('benefit-dcfsa_life_event');
     expect(claimable.map((c) => c.id)).not.toContain('recall-cpsc-10560');
-    saveClaims('maya', { 'benefit-trump_account': true, 'clawback-fsa-4': true, 'not-a-card': true });
-    expect(loadClaims('maya')).toEqual({ 'benefit-trump_account': true, 'clawback-fsa-4': true, 'not-a-card': true });
-    expect(claimedCents(result.cards, loadClaims('maya'))).toBe(100000 + 2899);
+    const fsa = result.cards.find((c) => c.id.startsWith('clawback-fsa-'))!;
+    const trump = result.cards.find((c) => c.id === 'benefit-trump_account')!;
+    expect(fsa.amountCents).toBeGreaterThan(0);
+    saveClaims('maya', { 'benefit-trump_account': true, [fsa.id]: true, 'not-a-card': true });
+    expect(loadClaims('maya')).toEqual({ 'benefit-trump_account': true, [fsa.id]: true, 'not-a-card': true });
+    expect(claimedCents(result.cards, loadClaims('maya'))).toBe(trump.amountCents! + fsa.amountCents!);
   });
   it('survives storage being blocked', () => {
     const spy = jest.spyOn(Storage.prototype, 'getItem').mockImplementation(() => { throw new Error('blocked'); });
