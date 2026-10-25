@@ -1,5 +1,6 @@
 import { col, addDays, today as todayIso, fmtUsd } from './sql';
 import { explain } from './explain';
+import { runEligibilityLoop, UNVERIFIED_NOTE, type BenefitTerms } from './eligibilityLawyer';
 import type { AgentContext, Candidate } from './types';
 
 const AGENT = 'benefits';
@@ -82,7 +83,7 @@ export function ruleFallbackText(code: string, title: string, cents: number | nu
 export const isCheckWithJob = (code: string): boolean => code === DCFSA_CODE;
 
 /** Work out which benefits a family likely qualifies for. Amounts and deadlines come from the rules table. */
-export async function planBenefits(ctx: AgentContext, today: string): Promise<Candidate[]> {
+export async function planBenefits(ctx: AgentContext, today: string, opts: { eligibilityLoop?: boolean } = {}): Promise<Candidate[]> {
   // Only the state and the dates (both already on the family) are used. Exact income and household size are never read.
   const rSql = rulesSql(ctx.family.state);
   const rules = await ctx.z.runQuery(rSql);
@@ -92,6 +93,7 @@ export async function planBenefits(ctx: AgentContext, today: string): Promise<Ca
   const unborn = !born && !!due;
 
   const out: Candidate[] = [];
+  const terms = new Map<string, BenefitTerms>();
   const skipped: string[] = [];
   for (const r of rules.rows) {
     const code = s(r, 'code');
@@ -112,6 +114,12 @@ export async function planBenefits(ctx: AgentContext, today: string): Promise<Ca
       ` Rule: ${s(r, 'condition')}.`;
     // The "Check with your job" text is fixed (no model): it must never say "your employer offers" or give a dollar amount.
     const body = checkWithJob ? fallback : await explain(ctx, AGENT, facts, cents !== null ? [cents] : [], fallback);
+    if (!checkWithJob) {
+      terms.set(code, {
+        code, title: s(r, 'title'), scope, amountCents: cents, windowEndDays: num(r, 'window_end_days_from_birth'),
+        condition: s(r, 'condition'), deadline,
+      });
+    }
     out.push({
       id: `benefit-${code.toLowerCase()}`, kind: 'benefit', title, body, amountCents: cents, deadline,
       verdict: checkWithJob ? 'info' : 'likely', sources: [{ label: s(r, 'title'), url: s(r, 'source_url') }],
@@ -123,19 +131,43 @@ export async function planBenefits(ctx: AgentContext, today: string): Promise<Ca
   if (!rules.rows.some((r) => s(r, 'scope') === ctx.family.state)) {
     log(ctx, 'state_coverage', `state ${ctx.family.state}`, `${UNCOVERED_STATE_NOTE}; showing federal programs only`, 'fallback');
   }
+  // Loop 2: the Fine Print Lawyer tries to disprove what we found; one Zetaris counter-question; confirm or drop.
+  let kept = out;
+  if (opts.eligibilityLoop !== false && out.length) {
+    const loop = await runEligibilityLoop(ctx, [...terms.values()], today);
+    kept = [];
+    for (const c of out) {
+      const res = loop.resolutions.get(String(c.claim.ref));
+      if (!res) { kept.push(c); continue; }
+      if (res.outcome === 'dropped') {
+        log(ctx, 'eligibility_drop', `rule ${c.claim.ref}`, `dropped after the counter-question: ${res.reason}`, 'blocked');
+        continue;
+      }
+      kept.push(markEligibility(c, res.outcome));
+    }
+  }
   log(ctx, 'plan_benefits', `family ${ctx.family.id}, ${unborn ? 'due' : 'born'} date, ${ctx.family.state}`,
-    `${out.length} benefit(s): ${out.map((c) => c.claim.ref).join(', ') || 'none'}; skipped ${skipped.length}`);
-  return out;
+    `${kept.length} benefit(s): ${kept.map((c) => c.claim.ref).join(', ') || 'none'}; skipped ${skipped.length}`);
+  return kept;
+}
+
+/** Record what the eligibility loop found on the card. An unanswered question keeps the card but says so in plain words. */
+function markEligibility(c: Candidate, outcome: 'confirmed' | 'unverified' | 'dropped'): Candidate {
+  const body = outcome === 'unverified' && !c.body.includes(UNVERIFIED_NOTE) ? `${c.body} ${UNVERIFIED_NOTE}` : c.body;
+  return { ...c, body, claim: { ...c.claim, eligibility: outcome } };
 }
 
 /** Re-derive one card from the rules table after the Fact-Checker sent it back. null = give up. */
 export async function revise(c: Candidate, reason: string, ctx: AgentContext, today: string = todayIso()): Promise<Candidate | null> {
   log(ctx, 'revise', `rule ${c.claim.ref}: ${reason}`.slice(0, 200), 're-deriving from source', 'retry', c.retryCount + 1);
-  const fresh = await planBenefits(ctx, today);
+  // The counter-question was already asked this run: re-deriving a card never asks it again, the card keeps its result.
+  const fresh = await planBenefits(ctx, today, { eligibilityLoop: false });
   const match = fresh.find((f) => f.claim.ref === c.claim.ref);
   if (!match) {
     log(ctx, 'revise', `rule ${c.claim.ref}`, 'gave up: not in source data', 'blocked', c.retryCount + 1);
     return null;
   }
-  return { ...match, retryCount: c.retryCount + 1 };
+  const earlier = c.claim.eligibility;
+  const carried = earlier === 'confirmed' || earlier === 'unverified' ? markEligibility(match, earlier) : match;
+  return { ...carried, retryCount: c.retryCount + 1 };
 }
