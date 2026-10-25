@@ -15,6 +15,7 @@ import * as recall from '../agents/recall';
 import * as court from '../agents/finePrintCourt';
 import * as benefits from '../agents/benefits';
 import * as fc from '../agents/factChecker';
+import { useFakeCheckWithCorrections } from './helpers/fakeChecker';
 import { resolveToday, DEMO_TODAY } from '../demoDate';
 import { makeRealRunDeps } from '../bundleDeps';
 import { createBundleRouter, type ApiDeps } from '../routes/bundleRoutes';
@@ -66,6 +67,7 @@ describe('run status demo flag', () => {
     (benefits.planBenefits as jest.Mock).mockResolvedValue([]);
     (court.judgeOffers as jest.Mock).mockResolvedValue([]);
     (fc.verify as jest.Mock).mockResolvedValue({ ok: true, reason: null, corrected: null });
+    useFakeCheckWithCorrections(fc);
     const memory = { exportLedger: jest.fn((f: string) => fs.writeFileSync(f, '')), recallRules: jest.fn(() => []), addRule: jest.fn() } as any;
     const seen: string[] = [];
     const deps: ApiDeps = {

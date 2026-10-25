@@ -3,6 +3,8 @@ import { ZetarisClient } from './adapters/zetaris';
 import { createGenerator, isLiveModel, UnavailableGenerator, type Generator } from './adapters/llm';
 import { BundleMemory } from './adapters/memory';
 import { defaultLoadFamily, type RunDeps } from './agents/orchestrator';
+import { createOfferCheckWriter } from './agents/offerChecks';
+import type { OfferCheckWriter } from './agents/types';
 import { DrizzleStore, MemoryStore } from './bundleStore';
 import { zipStateMap } from './sampleZips';
 import type { ApiDeps } from './routes/bundleRoutes';
@@ -32,7 +34,15 @@ export function makeRealRunDeps(memory: BundleMemory, familyId?: string, opts: L
     timeoutMs: (Number(process.env.SOURCE_TIMEOUT_SECONDS) || 20) * 1000 * 4, sampleMode: sample,
     cacheDir: path.resolve('data/sample/zetaris-cache'),
   });
-  return { z, llm: makeGenerator(opts), memory, logsDir: path.resolve('logs'), today: familyId ? resolveToday(familyId).today : (process.env.TODAY || resolveToday('maya').today) };
+  // Real runs save agreed court grades to Neon. The database is opened only when a grade is saved (server/db.ts throws without
+  // DATABASE_URL), and SAMPLE_MODE never saves.
+  const offerChecks: OfferCheckWriter | undefined = sample ? undefined : {
+    insert: async (row) => {
+      const { db } = await import('./db');
+      return createOfferCheckWriter(db).insert(row);
+    },
+  };
+  return { z, llm: makeGenerator(opts), memory, offerChecks, logsDir: path.resolve('logs'), today: familyId ? resolveToday(familyId).today : (process.env.TODAY || resolveToday('maya').today) };
 }
 
 export function createDefaultApiDeps(opts: LiveOpts = {}): ApiDeps {

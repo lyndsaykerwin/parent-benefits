@@ -295,7 +295,7 @@ function sendLessonSignal(ctx: AgentContext, lessonIds: string[], kind: 'helpful
  * relied on: confirmed first time = helpful, needed a correction = wrong, unchecked = no signal.
  */
 export async function checkWithCorrections(
-  card: Candidate, ctx: AgentContext, revise: Reviser, opts: { lessonIds?: string[] } = {},
+  card: Candidate, ctx: AgentContext, revise: Reviser, opts: { lessonIds?: string[]; maxRounds?: number } = {},
 ): Promise<CorrectionOutcome> {
   let current = card;
   let rounds = 0;
@@ -309,7 +309,7 @@ export async function checkWithCorrections(
       return { decision: 'approved', card: current, rounds, result };
     }
     if (result.unavailable) return { decision: 'unchecked', card: current, rounds, result };
-    if (result.sendBack !== true || rounds >= MAX_CORRECTION_ROUNDS) {
+    if (result.sendBack !== true || rounds >= (opts.maxRounds ?? MAX_CORRECTION_ROUNDS)) {
       logDecision(ctx, current, 'reject_card', `${result.reason ?? 'failed'}${rounds ? ` (after ${rounds} correction round(s))` : ''}`, rounds);
       if (lessons.length && (corrected || result.fixes?.length)) sendLessonSignal(ctx, lessons, 'wrong');
       return { decision: 'rejected', card: current, rounds, result };

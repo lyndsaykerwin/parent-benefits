@@ -7,6 +7,7 @@ import { checkFinePrint, finalVerdict, fingerprint } from './finePrintRules';
 import type { SavedVerdict } from './savedVerdicts';
 import { newsroomFor, quoted, MAX_REBUTTALS, type Newsroom, type OfferRef } from './newsroom';
 import type { FinePrintCheck } from './types';
+import { valueScore, worthSettings } from './valueScore';
 
 const AGENT = 'fine_print_court';
 const MAX_OFFERS = 5;
@@ -220,6 +221,7 @@ function toCandidate(ctx: AgentContext, offer: Offer, j: Judged, retry: number, 
     amountCents, deadline: null,
     verdict: 'likely', sources: [{ label: `${offer.store} offer page`, url: offer.sourceUrl }], traceId,
     agent: AGENT, claim: { type: 'offer', offerId: offer.id }, evidenceSql: sql, retryCount: retry,
+    valueScore: valueScore(j.check, worthSettings()),
     ...(withCatch ? { courtVerdict: 'approve_with_catch' as const } : {}),
   };
 }
@@ -313,6 +315,12 @@ function savedCandidate(ctx: AgentContext, offer: Offer, saved: SavedVerdict, sq
     agent: AGENT, claim: { type: 'offer', offerId: offer.id }, evidenceSql: sql, retryCount: 0,
     ...(withCatch ? { courtVerdict: 'approve_with_catch' as const } : {}),
   };
+}
+
+/** The H-MEM lesson ids the court used when it graded this card's offer (for the Fact-Checker's helpful/wrong signal). */
+export function lessonIdsFor(ctx: AgentContext, cardId: string): string[] {
+  const m = /^discount-(\d+)$/.exec(cardId);
+  return m ? newsroomFor(ctx, () => '').lessonIdsFor(m[1]) : [];
 }
 
 /** Re-judge one offer after the Fact-Checker sent it back, with the reason added. null = give up. */

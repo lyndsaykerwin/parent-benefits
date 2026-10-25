@@ -1,7 +1,7 @@
 import os from 'os';
 import fs from 'fs';
 import path from 'path';
-import { planBenefits, revise } from '../agents/benefits';
+import { planBenefits, revise, ruleFallbackText } from '../agents/benefits';
 import { BENEFIT_RULES } from '../../scripts/seed';
 import { verify } from '../agents/factChecker';
 import { TraceLogger } from '../agents/trace';
@@ -197,5 +197,24 @@ describe('benefits planner', () => {
     expect(fixed!.retryCount).toBe(1);
     const gone = await revise({ ...first, claim: { type: 'rule', ref: 'NOT_A_RULE' } }, 'source not found', ctx);
     expect(gone).toBeNull();
+  });
+});
+
+describe('deadline wording by family stage (W4-ORCH)', () => {
+  it('a born baby gets a plain "Do this by <date>"', () => {
+    const t = ruleFallbackText('INSURANCE_ADD_BABY', 'Add baby to health insurance', null, '2026-11-02', false);
+    expect(t).toContain('Do this by 2026-11-02.');
+  });
+
+  it('an expecting family is told the date comes from the due date and can move, never a flat "Do this by"', () => {
+    const t = ruleFallbackText('INSURANCE_ADD_BABY', 'Add baby to health insurance', null, '2027-02-05', true);
+    expect(t).not.toContain('Do this by');
+    expect(t).toContain('due date');
+    expect(t).toContain('about 2027-02-05');
+    expect(t).toContain('early or late');
+  });
+
+  it('no deadline, no sentence', () => {
+    expect(ruleFallbackText('TRUMP_ACCOUNT', 'Trump Account', 100000, null, true)).not.toMatch(/plan to do this|Do this by/);
   });
 });

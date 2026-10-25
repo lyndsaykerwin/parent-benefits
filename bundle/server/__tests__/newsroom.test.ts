@@ -1,7 +1,7 @@
 import os from 'os';
 import fs from 'fs';
 import path from 'path';
-import { judgeOffers } from '../agents/finePrintCourt';
+import { judgeOffers, lessonIdsFor } from '../agents/finePrintCourt';
 import { fingerprint } from '../agents/finePrintRules';
 import { TraceLogger } from '../agents/trace';
 import { FakeGenerator } from '../adapters/llm';
@@ -126,6 +126,18 @@ describe('newsroom loop', () => {
     expect(llm.prompts[2]).toContain('Lessons from earlier checks');
     expect(llm.prompts[2]).toContain('registry required means you must add items first');
     expect(trace.lines().find((l) => l.action === 'newsroom_context')!.output_summary).toContain(id);
+  });
+
+  it('lessonIdsFor names the lessons a card relied on, and a fresh card carries its valueScore', async () => {
+    const llm = new FakeGenerator(['p', 'c', APPROVE]);
+    const { ctx, workspace } = setup([offer(3, { store: 'Lesson Co', fine_print: 'Registry required.' })], llm);
+    const id = workspace.addLesson({ text: 'Lesson Co offers: registry required means you must add items first', offerCheckId: '7', confidence: 0.7 });
+    const out = await judgeOffers(ctx, IN);
+    expect(lessonIdsFor(ctx, 'discount-3')).toEqual([id]);
+    expect(lessonIdsFor(ctx, 'discount-999')).toEqual([]);
+    expect(lessonIdsFor(ctx, 'benefit-x')).toEqual([]);
+    expect(out[0].valueScore).toHaveProperty('worthYourTime');
+    expect(out[0].valueScore!.effortLevel).toMatch(/low|medium|high/);
   });
 
   it('after an agreed verdict, one offer_checks row and one H-MEM lesson are written; the lesson points at the row', async () => {
