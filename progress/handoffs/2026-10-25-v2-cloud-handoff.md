@@ -97,3 +97,18 @@ Before stopping, whether finished or out of credits:
     - Cards carry `offerFacts`.
     - Any lane that changes run output must re-run `npm run examples:regen`.
     - `bodyLimit.ts` now lets photo uploads past 100 KB on `/api/photo/read`. Lane C should verify this.
+- Oct 25 (cloud): **Lane C done** (Story 2). Tests: test:v2 17/21 (S2 passes; only S6 is left), npm test 1140 pass / 11 skipped, check clean.
+  - Checked in the real app:
+    - All four Scan entry points open the "What are you scanning?" sheet: the Home card, the header button, the Savings card and the empty locker.
+    - The gear camera shows the dashed frame and the exact label tip.
+    - The result reads "No recalls found as of … Checked against 69 NHTSA car-seat recalls" with "Register it with Graco →".
+    - The receipt shows a thumbnail and its item count. The locker and Forget work, and a 1.8 MB photo works.
+  - The NHTSA list is new: `bundle/data/nhtsa-car-seat-recalls.json`, 69 child-seat recalls from NHTSA's public download, Oct 25.
+  - Practice mode has no photo-reading key, so the answer comes from `data/sample/sample-photo-answers.json` and is clearly labelled "Practice mode" and "Sample".
+  - Differences from the mockup and open items:
+    - When no recall list is reachable, the result says "Not checked for recalls". The mockups don't show this case.
+    - **Small fix needed:** for sample families, the recall date uses today (Oct 25) while the demo date banner says Oct 23. These should match.
+  - **Mac to-do:**
+    - `npm run record-vision` (needs NVIDIA) to record a real sample photo and receipt.
+    - Test the new CPSC recall query against live Zetaris.
+    - Test the item_photos database code on Neon.
