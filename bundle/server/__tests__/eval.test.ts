@@ -19,14 +19,14 @@ describe('runEval (offline: no model key, replayed Zetaris, fake families)', () 
   const logsDir = tmp();
   beforeAll(async () => { sb = await runEval({ z: makeEvalZetaris(), logsDir }); });
 
-  it('has 6 traps, all sourced, stable across 3 runs', () => {
-    expect(sb.trapsTotal).toBe(6);
+  it('has 8 traps, all sourced, stable across 3 runs', () => {
+    expect(sb.trapsTotal).toBe(8);
     expect(sb.sourcedPct).toBe(100);
     expect(sb.runs).toBe(3);
     expect(sb.stable).toBe(true);
     expect(sb.expectationFailures).toEqual([]);
     expect(sb.falseAlarms).toBe(0);
-    expect(sb.trapsCaught).toBe(6);
+    expect(sb.trapsCaught).toBe(8);
   });
 
   it('maya money back is exactly $48.99 and does not depend on the clock (price window ends on the demo date)', () => {
@@ -39,7 +39,10 @@ describe('runEval (offline: no model key, replayed Zetaris, fake families)', () 
     expect(sb.learning.run1Approved).toBe(true);
     expect(sb.learning.run2Blocked).toBe(true);
     expect(sb.learning.citedRuleId).toEqual(expect.any(String));
-    expect(sb.learningDetail.ruleText).toMatch(/membership/i);
+    expect(sb.learningDetail.ruleText).toMatch(/subscription/i);
+    expect(sb.learningDetail.trapTitle).toBe('Amazon Subscribe & Save diaper discount');
+    expect(sb.learning.collateralBlocked).toBe(0);
+    expect(sb.learningDetail.obviousTrap).toMatchObject({ run1Approved: true, run2Blocked: true });
     const run2 = fs.readFileSync(path.join(logsDir, `run-${sb.learningDetail.run2Id}.jsonl`), 'utf8');
     expect(run2).toContain(`[cited ${sb.learning.citedRuleId}]`);
     const approve = fs.readFileSync(path.join(logsDir, `run-approve-${sb.learningDetail.run1Id}.jsonl`), 'utf8');
@@ -55,9 +58,9 @@ describe('runEval (offline: no model key, replayed Zetaris, fake families)', () 
   });
 
   it('a --learning run keeps the full scoreboard and only refreshes the learning fields', () => {
-    const merged = mergeLearning({ ...sb, trapsCaught: 6 }, { ...sb, learning: { run1Approved: false, run2Blocked: false, citedRuleId: null } });
-    expect(merged.trapsCaught).toBe(6);
-    expect(merged.trapsTotal).toBe(6);
+    const merged = mergeLearning({ ...sb, trapsCaught: 8 }, { ...sb, learning: { run1Approved: false, run2Blocked: false, citedRuleId: null } });
+    expect(merged.trapsCaught).toBe(8);
+    expect(merged.trapsTotal).toBe(8);
     expect(merged.learning).toEqual({ run1Approved: false, run2Blocked: false, citedRuleId: null });
     const fresh = mergeLearning(null, sb);
     expect(fresh.learning).toEqual(sb.learning);
@@ -68,6 +71,32 @@ describe('runEval (offline: no model key, replayed Zetaris, fake families)', () 
   it('labels what was behind the numbers', () => {
     expect(sb.llmMode).toBe('offline-fallback');
     expect(sb.scoutLlmMode).toBe('fake-llm');
+  });
+
+  it('scores the fine-print rules against the answer key, with controls and honest nulls', () => {
+    expect(sb.finePrint.cases).toBe(15);
+    expect(sb.finePrint.controlsTotal).toBe(3);
+    expect(sb.finePrint.controlFalseAlarms).toBe(0);
+    expect(sb.finePrint.catchesFound).toBe(sb.finePrint.catchesTotal);
+    expect(sb.finePrint.fieldsCorrect).toBe(sb.finePrint.fieldsTotal);
+    expect(sb.finePrint.fieldsTotal).toBeGreaterThan(30);
+    expect(sb.finePrint.inexactQuotes).toBe(0);
+    expect(sb.photo).toMatchObject({ measured: false, madeUpRate: null });
+    expect(sb.recall).toMatchObject({ expected: 1, caught: 1, wrongShown: 0 });
+  });
+
+  it('counts the loops from the real trace of every run', () => {
+    expect(Object.keys(sb.loops).sort()).toEqual(['ava', 'leo', 'maya']);
+    for (const runs of Object.values(sb.loops)) {
+      expect(runs).toHaveLength(3);
+      for (const r of runs) {
+        const trace = fs.readFileSync(path.join(logsDir, `run-${r.runId}.jsonl`), 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l));
+        expect(r.cardsApproved).toBe(trace.filter((l: { action: string }) => l.action === 'approve_card').length);
+        expect(r.courtRulings).toBe(trace.filter((l: { agent_name: string }) => l.agent_name === 'judge').length);
+        expect(r.eligibilityQuestions).toBe(trace.filter((l: { action: string }) => l.action === 'eligibility_check').length);
+      }
+    }
+    expect(sb.loops.maya[0].courtBlocks).toBeGreaterThan(0);
   });
 
   it('fixture feedback is three auto-renew complaints (no personal data)', () => {

@@ -1,6 +1,7 @@
 /**
  * Re-runs the saved example inputs (input_examples/*.json) through the real POST /api/run code path and rewrites
- *   output_examples/<name>.json   (the result)   and   logs/sample/<name>.jsonl   (that run's trace).
+ *   output_examples/<name>.json   (the result)   and   logs/sample/<name>.jsonl   (that run's trace)
+ *   plus logs/sample/<name>.agent.jsonl (the agent log, logs/run_bundle_<runId>.jsonl).
  *   npm run examples:regen            replays the saved Zetaris answers
  *   npm run examples:regen -- --live  asks Zetaris live (needs ZETARIS_* keys) and refreshes the saved answers
  * Replay mode is fully offline (no Zetaris, no model, offline explanation and court text). With --live, Zetaris and the
@@ -11,6 +12,7 @@ import path from 'path';
 import express from 'express';
 import type { AddressInfo } from 'net';
 import { loadEnv } from '../server/env';
+import { agentLogFileName, agentTraceId } from '../shared/agentLog';
 
 loadEnv();
 process.env.SAMPLE_MODE = 'true'; // sample families + in-memory store; --live below makes the clients live anyway
@@ -41,6 +43,12 @@ async function main() {
       const trace = path.resolve('logs', `run-${result.runId.replace(/[^A-Za-z0-9_-]/g, '_')}.jsonl`);
       fs.copyFileSync(trace, path.join(traceDir, `${name}.jsonl`));
       console.log(`${name}: wrote output_examples/${name}.json and logs/sample/${name}.jsonl`);
+      // The agent log (one line per agent action, the shape judges read) sits beside it as <name>.agent.jsonl.
+      const agentLog = path.resolve('logs', agentLogFileName(agentTraceId(result.runId)));
+      if (fs.existsSync(agentLog)) {
+        fs.copyFileSync(agentLog, path.join(traceDir, `${name}.agent.jsonl`));
+        console.log(`${name}: wrote logs/sample/${name}.agent.jsonl`);
+      } else console.log(`${name}: no agent log found at logs/${path.basename(agentLog)} (not copied)`);
     }
   } finally {
     server.close();

@@ -63,6 +63,13 @@ export const confidenceFor = (reports: number): number => Math.round(Math.min(0.
  */
 export const THEMES: { name: string; pattern: RegExp; rule: string }[] = [
   {
+    // Meaning, not one word: a savings/discount complaint that ties the saving to a subscription, autoship or delivery plan.
+    // (This offline Coach only knows keyword themes; the live AI Coach writes free-form rules from the reports.)
+    name: 'savings that depend on a subscription',
+    pattern: /(?:savings?|discount|deal)\b[^.]{0,80}\b(?:subscri\w*|autoship|auto-?renew\w*|delivery plan|plan)\b|\b(?:subscri\w*|autoship|auto-?renew\w*|delivery plan)\b[^.]{0,80}\b(?:savings?|discount)/i,
+    rule: 'Reject offers whose savings depend on keeping a subscription active.',
+  },
+  {
     name: 'auto-renewing membership',
     pattern: /auto[-\s]?renew|automatic(?:ally)?|renews?\b|membership|subscri|enrol|charged|trial|recurring|per month|monthly|\/month/i,
     rule: 'Reject offers whose free trial turns into a paid membership that renews automatically.',
