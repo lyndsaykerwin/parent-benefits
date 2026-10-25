@@ -14,7 +14,7 @@ export interface TraceLine {
   status: 'ok' | 'retry' | 'blocked' | 'fallback' | 'error';
 }
 
-export interface FamilyView { name: string; birthDate: string | null; dueDate: string | null }
+export interface FamilyView { name: string; birthDate: string | null; dueDate: string | null; /** 2-letter state from the ZIP, when the server sends it */ state?: string }
 
 export interface RunStatus {
   runId: string;
@@ -115,12 +115,15 @@ export const VERDICT_LABEL: Record<Verdict, string> = {
 export const safeSources = (sources: Source[]): Source[] => sources.filter((s) => /^https?:\/\//i.test(s.url));
 
 export const isDcfsa = (c: FeedCard) => c.id.startsWith('clawback-dcfsa');
+/** Work-based items we cannot see: the Dependent Care FSA and paid family leave. They get the gentle "Check with your job" card (no dollar amount, never in a total). */
+export const isCheckWithJob = (c: FeedCard) => c.kind === 'benefit' && /^benefit-(dcfsa|.+_pfml?$|.+_pfl$)/.test(c.id);
 /** The insurance card is pinned first only when it was actually checked; a "Not yet verified" stand-in is not promoted. */
 export const isInsurance = (c: FeedCard) => c.kind === 'benefit' && /insurance/i.test(c.id) && c.verdict !== 'info';
 
 /** The small word under a card amount. DCFSA is the family's own pre-tax money, so it is "eligible spend", never "money back". */
 export function amountCaption(c: FeedCard): string | null {
   if (c.amountCents === null) return null;
+  if (isCheckWithJob(c)) return null;
   if (c.verdict === 'info') return 'not yet verified';
   if (isDcfsa(c)) return 'eligible spend';
   if (c.kind === 'clawback') return 'money back';

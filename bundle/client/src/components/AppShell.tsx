@@ -1,18 +1,31 @@
 import type { ReactNode } from 'react';
 import { Link } from 'wouter';
 
+interface Props {
+  chip?: string | null;
+  children: ReactNode;
+  back?: { href: string; label: string };
+  /** A control at the right end of the header (Version B puts the "+" photo button here, so it is on every tab). */
+  action?: ReactNode;
+  /** Pinned to the bottom of the screen (the Version B tab bar). The page leaves room so it never covers content. */
+  footer?: ReactNode;
+}
+
 /** Phone-width page frame: "bundle." wordmark, optional family chip, 16px side padding. */
-export default function AppShell({ chip, children, back }: { chip?: string | null; children: ReactNode; back?: { href: string; label: string } }) {
+export default function AppShell({ chip, children, back, action, footer }: Props) {
   return (
     <div className="min-h-[100dvh] bg-cream text-ink">
-      <div className="mx-auto w-full max-w-[480px] px-4 pb-16 pt-5">
+      <div className={`mx-auto w-full max-w-[480px] px-4 pt-5 ${footer ? 'pb-32' : 'pb-16'}`}>
         <header className="flex min-h-[44px] items-center justify-between gap-3">
           <Link href="/" className="text-[24px] font-extrabold tracking-[-0.03em] text-ink" aria-label="Bundle home">
             bundle<span className="text-coral">.</span>
           </Link>
-          {chip && (
-            <span className="truncate rounded-full border border-line bg-paper px-3 py-1 text-[13px] font-semibold text-ink-2">{chip}</span>
-          )}
+          <div className="flex min-w-0 items-center gap-2">
+            {chip && (
+              <span className="truncate rounded-full border border-line bg-paper px-3 py-1 text-[13px] font-semibold text-ink-2">{chip}</span>
+            )}
+            {action}
+          </div>
         </header>
         {back && (
           <Link href={back.href} className="-ml-1 mt-2 inline-flex min-h-[44px] items-center gap-1 px-1 text-[15px] font-bold text-ink-2 hover:text-ink">
@@ -21,6 +34,7 @@ export default function AppShell({ chip, children, back }: { chip?: string | nul
         )}
         <main>{children}</main>
       </div>
+      {footer}
     </div>
   );
 }
