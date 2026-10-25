@@ -112,3 +112,35 @@ Before stopping, whether finished or out of credits:
     - `npm run record-vision` (needs NVIDIA) to record a real sample photo and receipt.
     - Test the new CPSC recall query against live Zetaris.
     - Test the item_photos database code on Neon.
+- Oct 25 (cloud): **Lane E done, except the Nightshift check** (Story 6). Tests: **test:v2 21/21**, **npm test 1162 pass / 11 skipped**, **check clean**.
+  - Checked in the real app:
+    - A typed-in family comes back after a reload without onboarding.
+    - Switch family goes to Leo and back.
+    - Editing an answer re-runs the check.
+    - "Technical details" hides the `mem-` ids until tapped.
+    - The Insurance tab has its "Change" link.
+    - Back from card detail and from Account keeps the tab and the scroll spot.
+    - Start over and Forget everything both work. Forget clears the server copy, the memory and localStorage.
+    - The old "Continue with Google (coming later)" card is gone, replaced by "Save your plan".
+    - The recall date for sample families now matches the Oct 23 demo date.
+  - Differences from the mockup:
+    - "What Bundle has learned from parents" shows its empty message here, because the local memory file has no approved rules yet.
+    - The header chip still says "Baby Guest · day N" for typed-in families (old behaviour).
+  - Other changes: the tab bar now has six tabs (Account added); editing a sample family makes a copy saved as your own profile.
+  - One full `npm test` run had a one-off failure in `eval.test`, which passed alone and on the next full run. Watch for it.
+
+## Final state of the cloud session (Oct 25, evening)
+- **Done:** Step 0 and Lanes A, B, D, C and E. All 21 acceptance tests pass, plus 1162 other tests, and the type check is clean. Every lane was clicked through in the real app (practice mode) and compared with the mockups. Nothing from the cut line was cut.
+- **Not done (Step 6 and key-dependent checks), next steps in order on the Mac:**
+  1. Apply the database change to Neon: `cd bundle && npm run db:push` (adds `0002_v2_foundation`).
+  2. Nightshift check (R4): with the Nightshift app running, run `npm run model:check -- --provider nightshift`, do one live run, and save the output to `progress/reviews/nightshift-check.md`.
+  3. Real Tavily search: run with `TAVILY_API_KEY` and `SAMPLE_MODE=false`, open Deals, and confirm "New · found today" cards appear (only tested against a fake here).
+  4. `npm run record-vision` (NVIDIA) for a real sample photo and receipt. Today practice mode uses the labelled made-up answer in `data/sample/sample-photo-answers.json`.
+  5. Zetaris: run `register` (new views `v_audit_by_source` and the CPSC recall query), then `npm run zetaris:record`, then `npm run examples:regen`.
+  6. One real-mode click-through with the database. These were never run against Neon: saving and forgetting families, claims, photos, and audits saved to `offer_checks`.
+  7. Step 6 proof: a full `agent-browser` click-through (switch family, Back keeps your place, Deals with Wi-Fi off, an audit saved then reused), then update the README and the demo script.
+- **Not built:** saving live-search finds into `offer_checks` (only parent audits are saved).
+- **Questions for Lyndsay:**
+  - **Tab bar:** OK with six tabs (Account added)? Or should Account move into the header?
+  - **Report card:** the offer report card is empty in practice mode until Zetaris is re-recorded. Is that fine for the demo, or should the re-recording be done first?
+  - **Header chip:** should a typed-in family's chip show a name (from "Save your plan") instead of "Baby Guest"?
