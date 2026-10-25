@@ -186,3 +186,4 @@ Orchestrator-applied hand-off patches (one at a time, full test run after): `ser
 
 ## Rulings from Lyndsay (Oct 25)
 - Cursor: no longer needed. Leave metadata.json and CLAUDE.md as they are; W5-DOCS-README must not flag or change the Cursor wording.
+- $9,210 year-one total (QC W5-DOCS-MAC): only ~$6,040 independently source-checked (see bundle/docs/year-one-table.md). W5-DOCS-README and any demo text must say "estimated from our research; about $6,040 source-checked", not a flat $9,210. Deck is out of scope (Lyndsay: not now) — list it for her morning.
