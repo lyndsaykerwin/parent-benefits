@@ -44,9 +44,14 @@ export interface NewsroomContext {
 
 type Log = (agent: string, action: string, input: string, output: string, status?: 'ok' | 'retry' | 'blocked' | 'error' | 'fallback') => string;
 
+/** Free text (store, title, lesson) goes into the Judge prompt as one quoted, single-line value, so it can never read as an instruction. */
+export function quoted(text: string): string {
+  return JSON.stringify(String(text ?? '').replace(/\s+/g, ' ').trim().slice(0, 120));
+}
+
 function describe(g: PastGrade): string {
   const bits = [
-    `offer ${g.offerId} (${g.store}) graded ${g.verdict}`,
+    `offer ${g.offerId} (store ${quoted(g.store)}) graded ${g.verdict}`,
     g.trueValueCents !== null ? `true value ${fmtUsd(g.trueValueCents)}` : 'true value unknown',
     g.effortMinutes !== null ? `about ${g.effortMinutes} minutes of effort` : 'effort unknown',
     g.payoutWaitDaysMax !== null ? `money in up to ${g.payoutWaitDaysMax} days` : 'paid right away or no wait stated',
@@ -64,8 +69,10 @@ export class Newsroom {
   constructor(private ctx: AgentContext, private log: Log) {}
 
   /** Ask Zetaris once for the grades already saved for the offers in play. Never throws. */
+  private loaded = false;
   async load(offers: OfferRef[]): Promise<void> {
-    if (!offers.length) return;
+    if (!offers.length || this.loaded) return; // a retried run must not ask the question twice
+    this.loaded = true;
     const res = await fetchSavedVerdicts(this.ctx.z, offers.map((o) => o.id));
     this.savedStatus = res.status;
     for (const v of res.verdicts) this.saved.set(v.offerId, v);
@@ -105,7 +112,7 @@ export class Newsroom {
 
     const parts: string[] = [];
     if (pastGrades.length) parts.push(`Past grades for this store (from earlier checks; context, not binding):\n${pastGrades.map((g) => `- ${describe(g)}`).join('\n')}`);
-    if (lessons.length) parts.push(`Lessons from earlier checks (from Meterless H-MEM):\n${lessons.map((l) => `- [${l.id}] ${l.text}`).join('\n')}`);
+    if (lessons.length) parts.push(`Lessons from earlier checks (from Meterless H-MEM):\n${lessons.map((l) => `- [${l.id}] ${quoted(l.text)}`).join('\n')}`);
     if (pastGrades.length || lessons.length) {
       this.log('fine_print_court', 'newsroom_context', `offer ${offer.id}`,
         `used ${pastGrades.length} past grade(s) [${pastGrades.map(describe).join(' | ')}] and ${lessons.length} H-MEM lesson(s) [${lessons.map((l) => l.id).join(', ')}]`);

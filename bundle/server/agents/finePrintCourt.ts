@@ -5,7 +5,7 @@ import type { AgentContext, Candidate, CourtRuling } from './types';
 import { offlineProblem } from './offerScreen';
 import { checkFinePrint, finalVerdict, fingerprint } from './finePrintRules';
 import type { SavedVerdict } from './savedVerdicts';
-import { newsroomFor, MAX_REBUTTALS, type Newsroom, type OfferRef } from './newsroom';
+import { newsroomFor, quoted, MAX_REBUTTALS, type Newsroom, type OfferRef } from './newsroom';
 import type { FinePrintCheck } from './types';
 
 const AGENT = 'fine_print_court';
@@ -81,7 +81,7 @@ async function argue(
   const reply = rebuttal
     ? `\n\nREBUTTAL ROUND (your last chance to speak): ${rebuttal}\nIn 2 plain-English sentences, answer it. Stand by your side if you can back it up with the fine print; concede if you cannot.`
     : '';
-  const prompt = `${task}\n\nOffer: ${offer.title} at ${offer.store}\nFine print: ${offer.finePrint || '(none)'}${extra}${reply}`;
+  const prompt = `${task}\n\nOffer: ${quoted(offer.title)} at ${quoted(offer.store)}\nFine print: ${offer.finePrint || '(none)'}${extra}${reply}`;
   const action = rebuttal ? 'rebut' : 'argue';
   try {
     const text = (await ctx.llm.generate(prompt, undefined, 'fast')).trim().slice(0, 600);
@@ -129,7 +129,7 @@ async function judgeOne(ctx: AgentContext, offer: Offer, note: string, nr: Newsr
     'You are the Judge in a Fine Print Court for a new-parent offer. Decide whether to approve or reject it. ' +
     'Reject offers that are not really free or cost the parent more than they save (hidden fees, trials that auto-renew into paid plans). ' +
     'Binding case law (cite the ids you rely on):\n' + caseLawText(rules) + past.promptText +
-    `\n\nOffer: ${offer.title} at ${offer.store}\nFine print: ${offer.finePrint || '(none)'}${extra}` +
+    `\n\nOffer: ${quoted(offer.title)} at ${quoted(offer.store)}\nFine print: ${offer.finePrint || '(none)'}${extra}` +
     `\n\nDeal Hunter argues: ${h}\nFine Print Lawyer argues: ${l}${tail}` +
     '\n\nReply as JSON: {"verdict":"approve"|"reject","citedRuleIds":["..."],"reason":"one plain sentence"}';
   const known = new Set(rules.map((r) => r.id));
