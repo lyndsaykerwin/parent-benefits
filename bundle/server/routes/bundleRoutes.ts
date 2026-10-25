@@ -3,7 +3,7 @@ import path from 'path';
 import crypto from 'crypto';
 import { Router, type Request, type Response } from 'express';
 import rateLimit from 'express-rate-limit';
-import type { BundleReceipt, BundleResult, Family, FeedCard } from '../../shared/bundle';
+import type { BundleReceipt, BundleResult, Family, FeedCard, ValueScore } from '../../shared/bundle';
 import type { Generator } from '../adapters/llm';
 import type { BundleMemory } from '../adapters/memory';
 import { runBundle, newRunId, type RunDeps } from '../agents/orchestrator';
@@ -58,7 +58,7 @@ function tokenOk(supplied: unknown, expected: string): boolean {
 // no trace ids, agent names, SQL, debate text or memory-rule text. The reviewer token unlocks the full result.
 
 const PARENT_CARD_KEYS = ['id', 'kind', 'title', 'body', 'amountCents', 'deadline', 'verdict', 'sources'] as const;
-type ParentCard = Pick<FeedCard, (typeof PARENT_CARD_KEYS)[number]>;
+type ParentCard = Pick<FeedCard, (typeof PARENT_CARD_KEYS)[number] | 'valueScore'>;
 export const CAUGHT_BY_PARENT_REPORTS = 'Other parents reported a catch like this one, so we left it out.';
 const CAUGHT_GENERIC = 'We found a catch in the fine print, so we left it out.';
 const OWNER_ONLY_TEXT = /zetaris|\bv_[a-z_]+\b|\bselect\b|\bcited\b|case law|court|memory|mem-[\w-]+/i;
@@ -73,9 +73,22 @@ export function parentCaughtReason(body: string): string {
   return text.length > 120 ? `${text.slice(0, 117)}…` : text;
 }
 
-function parentCard(c: FeedCard, caught = false): ParentCard {
+/** Value Score fields copied one by one (like the receipt), so a field added later never reaches parents by accident. */
+function parentValueScore(v: ValueScore): ValueScore {
+  return {
+    trueValueCents: v.trueValueCents, effortLevel: v.effortLevel,
+    effortMinutesEstimate: { min: v.effortMinutesEstimate.min, max: v.effortMinutesEstimate.max },
+    stepsCount: v.stepsCount,
+    payoutWaitDays: v.payoutWaitDays ? { min: v.payoutWaitDays.min, max: v.payoutWaitDays.max } : null,
+    timeLabel: v.timeLabel, catchTypes: [...v.catchTypes], worthYourTime: v.worthYourTime, reasons: [...v.reasons],
+  };
+}
+
+/** The parent-safe copy of one card (also used by the live-updates route). */
+export function parentCard(c: FeedCard, caught = false): ParentCard {
   const out = {} as Record<string, unknown>;
   for (const k of PARENT_CARD_KEYS) out[k] = (c as unknown as Record<string, unknown>)[k];
+  if (c.valueScore) out.valueScore = parentValueScore(c.valueScore);
   out.sources = (c.sources ?? []).map((s) => ({ label: s.label, url: s.url }));
   out.body = caught ? parentCaughtReason(c.body) : c.body;
   return out as ParentCard;
@@ -228,7 +241,7 @@ export function createBundleRouter(deps: ApiDeps): Router {
       const { entry, done } = startRun(family, ip);
       if (req.query.wait === 'true') {
         await done;
-        if (entry.status === 'done') return res.json(view(req, entry.result!));
+        if (entry.status === 'done') return res.json({ ...view(req, entry.result!), family: entry.family });
         return res.status(500).json({ error: entry.error, runId: entry.runId });
       }
       return res.status(202).json({ runId: entry.runId });

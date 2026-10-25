@@ -65,6 +65,30 @@ describe('newsroom loop', () => {
     expect(l.output_summary).toMatch(/same wording/i);
   });
 
+  it('a reused saved grade still gives the card a Value Score, built from the saved numbers', async () => {
+    const { ctx } = setup([offer(1)], new FakeGenerator(['p', 'c', APPROVE]), [savedRow()]);
+    const out = await judgeOffers(ctx, IN);
+    const vs = out[0].valueScore!;
+    expect(vs.trueValueCents).toBe(1000);
+    expect(vs.stepsCount).toBe(1);
+    expect(vs.effortMinutesEstimate.max).toBe(12);
+    expect(vs.payoutWaitDays).toEqual({ min: 56, max: 56 });
+  });
+
+  it('a reused 1-step mail-in grade is "high" effort, same as a fresh check', async () => {
+    const print = 'Mail in the form with your receipt.';
+    const { ctx } = setup([offer(1, { fine_print: print })], new FakeGenerator(['p', 'c', APPROVE]), [savedRow({ fine_print_hash: fingerprint(print), steps_count: 1 })]);
+    const out = await judgeOffers(ctx, IN);
+    expect(out[0].valueScore!.effortLevel).toBe('high');
+  });
+
+  it.each([['effort_minutes_estimate'], ['steps_count']])('a saved row with null %s gives a card with NO valueScore (nothing invented)', async (col) => {
+    const { ctx } = setup([offer(1)], new FakeGenerator(['p', 'c', APPROVE]), [savedRow({ [col]: null })]);
+    const out = await judgeOffers(ctx, IN);
+    expect(out).toHaveLength(1);
+    expect(out[0]).not.toHaveProperty('valueScore');
+  });
+
   it('a saved grade that was not agreed (disputed) is never reused: the offer is graded fresh', async () => {
     const llm = new FakeGenerator(['p', 'c', APPROVE]);
     const { ctx } = setup([offer(1)], llm, [savedRow({ status: 'disputed' })]);

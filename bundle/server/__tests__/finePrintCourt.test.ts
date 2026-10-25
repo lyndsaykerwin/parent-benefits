@@ -45,6 +45,21 @@ describe('fine print court', () => {
     expect(out[0].body).toContain('Fits babies up to 12 months old.');
   });
 
+  it('an approved offer card carries a Value Score built from the same check (true value, effort, wait)', async () => {
+    const llm = new FakeGenerator(['pro', 'con', APPROVE]);
+    const { ctx } = setup([offer(3, { value_cents: 2500 })], llm);
+    const out = await judgeOffers(ctx, IN);
+    expect(out).toHaveLength(1);
+    const vs = out[0].valueScore!;
+    expect(vs).toBeDefined();
+    expect(vs.trueValueCents).toBeNull(); // the fine print quotes no dollar figure, so the value is honestly unknown
+    expect(vs.worthYourTime).toBeNull();
+    expect(['low', 'medium', 'high']).toContain(vs.effortLevel);
+    expect(typeof vs.worthYourTime === 'boolean' || vs.worthYourTime === null).toBe(true);
+    expect(vs.timeLabel).toBeTruthy();
+    expect(vs.reasons.length).toBeGreaterThan(0);
+  });
+
   it('rejects the trap when the Judge says reject, and traces it as blocked', async () => {
     const llm = new FakeGenerator(['Great free box!', 'Auto-renews into $40 shipping subscription.', REJECT]);
     const { ctx, trace } = setup([trap], llm);
