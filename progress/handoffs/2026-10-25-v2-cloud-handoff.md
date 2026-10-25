@@ -52,3 +52,13 @@ Before stopping, whether finished or out of credits:
   - **Mac to-do:** apply the migration to Neon (`npm run db:push`). No DATABASE_URL here.
   - Field names: `household` 'one'|'two'; `parent1Work`/`parent2Work` 'paycheck'|'self_employed'|'not_working'; `insurance` 'job'|'marketplace'|'medicaid'|'tricare'|'none_or_not_sure'; FeedCard `category`, `minutes`.
   - In practice mode, the four new answers are filled in from `families.json`, because the saved Zetaris replay doesn't have them. In live Zetaris they need a new view later. The existing SQL is unchanged.
+- Oct 25 (cloud): **Lane A done** (Story 1). Tests: test:v2 3/21 (all of S1), npm test 1051 pass / 11 skipped, check clean. In the real app, Q4 (two-parent and solo), Q5, the checking screen, the reveal and the Insurance card all match the mockups.
+  - Differences from the mockup:
+    - The Insurance tab has no "Change" link yet. It needs Lane E's profile editing.
+    - The carrier booster shows plain steps instead of a carrier link, because no carrier web addresses were checked.
+    - The reveal total is the real run number, not the mockup's example.
+  - Notes for later lanes:
+    - The rules are in `bundle/shared/eligibility.ts`.
+    - `POST /api/run` returns `{runId, familyId}`. A typed-in family's id goes in localStorage `bundle_family_id`.
+    - Lane E must make `resolveFamily` load saved `guest-…` families.
+    - Lane B should add a childcare-credit card for self-employed families, so it matches the checking line.
