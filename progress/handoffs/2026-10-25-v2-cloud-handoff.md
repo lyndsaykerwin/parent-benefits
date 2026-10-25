@@ -78,3 +78,22 @@ Before stopping, whether finished or out of credits:
     - Lane C should point the empty "Money back now" bucket's "Add a receipt" at the scan sheet.
     - **Lane E must remove the old "Save your list… Continue with Google (coming later)" card on Home** (left over from Firebase) and add the "Save your plan" card.
   - `output_examples/` and `logs/sample/` were regenerated with `npm run examples:regen`, in practice mode.
+- Oct 25 (cloud): **Lane D done** (Story 5). Tests: test:v2 15/21 (S5 7/7, with S1, S3 and S4 still passing), npm test 1114 pass / 11 skipped, check clean.
+  - Checked in the real app:
+    - Deals opens at once with the saved offers. Practice mode says "Checking 16 saved offers against your baby's age (Day 20)", worked out from the run.
+    - Offer cards show "Fine Print Court: Approved (0 subscription traps, $0 hidden fees)", "About N minutes", "True value $X" and the age line. "Likely a good deal" is gone.
+    - A failed search, or one with no key or that times out after 10s, quietly shows "No new offers right now. Showing your checked offers."
+    - The audit form works. In a test with a stand-in AI model, a confident audit was saved ("Added to the shared list"), and repeating it came back instantly from the saved copy.
+  - Differences from the mockup:
+    - The report card is empty in practice mode, because the recorded Zetaris answer has 0 grades. The mockup shows example numbers.
+    - Offer cards have no short note like "online registry setup only".
+  - **Mac to-do (needs keys):**
+    - Prove a real Tavily search with TAVILY_API_KEY (only tested against a fake here).
+    - Test the database copy of saved audits (`createDbAuditStore`).
+    - Run Zetaris `register` for the new view `v_audit_by_source`, then `npm run zetaris:record`.
+    - Not built: saving live-search finds to offer_checks.
+  - Notes:
+    - New route `/api/offers/report-card`.
+    - Cards carry `offerFacts`.
+    - Any lane that changes run output must re-run `npm run examples:regen`.
+    - `bodyLimit.ts` now lets photo uploads past 100 KB on `/api/photo/read`. Lane C should verify this.
