@@ -163,3 +163,41 @@ describe('live updates route', () => {
     expect(a.agents.court).toBe('working');
   });
 });
+
+describe('a real sample run, streamed to a parent', () => {
+  it('every card_ready the real orchestrator emits goes through the parent whitelist (no trace id, SQL or agent log)', async () => {
+    const os = await import('os');
+    const fs = await import('fs');
+    const path = await import('path');
+    const { runBundle, loadSampleFamily } = await import('../agents/orchestrator');
+    const { makeRealRunDeps } = await import('../bundleDeps');
+    const { BundleMemory } = await import('../adapters/memory');
+    const savedMode = process.env.SAMPLE_MODE;
+    process.env.SAMPLE_MODE = 'true';
+    try {
+      const hub = new RunEventHub();
+      const memory = new BundleMemory(fs.mkdtempSync(path.join(os.tmpdir(), 'stream-mem-')));
+      await runBundle('maya', {
+        ...makeRealRunDeps(memory, 'maya'), loadFamily: loadSampleFamily, runId: 'real-maya', events: hub,
+        logsDir: fs.mkdtempSync(path.join(os.tmpdir(), 'stream-logs-')),
+      });
+      // The hub holds the full owner card, which does carry the trace id (so the check below is a real test).
+      const ownerCards = hub.history('real-maya').filter((e) => e.type === 'card_ready').map((e: any) => e.card);
+      expect(ownerCards.length).toBeGreaterThan(0);
+      expect(ownerCards.every((c: any) => typeof c.traceId === 'string' && c.traceId.length > 0)).toBe(true);
+
+      await start(hub);
+      const r = await get('/api/runs/real-maya/events');
+      const cards = parse(r.text).filter((e) => e.event === 'card_ready').map((e) => e.data.card);
+      expect(cards.map((c) => c.id)).toEqual(ownerCards.map((c: any) => c.id));
+      const allowed = ['amountCents', 'body', 'deadline', 'id', 'kind', 'sources', 'title', 'valueScore', 'verdict'];
+      for (const c of cards) {
+        expect(Object.keys(c).every((k) => allowed.includes(k))).toBe(true);
+        expect(c.sources.every((s: any) => Object.keys(s).sort().join() === 'label,url')).toBe(true);
+      }
+      expect(r.text).not.toMatch(/traceId|evidenceSql|bundle_pg|SELECT |agent_name|input_summary|retry_count|"claim"/);
+    } finally {
+      if (savedMode === undefined) delete process.env.SAMPLE_MODE; else process.env.SAMPLE_MODE = savedMode;
+    }
+  });
+});

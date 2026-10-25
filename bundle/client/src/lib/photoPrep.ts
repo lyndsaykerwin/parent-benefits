@@ -59,6 +59,25 @@ export async function preparePhoto(file: File, codec: PhotoCodec = browserCodec)
   }
 }
 
+const FORGET_FAILED = 'Could not remove your items. Please try again.';
+
+/** Ask the server to delete every item saved for this family (the existing "forget" route). Returns how many were removed. */
+export async function forgetMyItems(familyId: string, fetchFn: typeof fetch = fetch): Promise<number> {
+  let res: Response;
+  try {
+    res = await fetchFn('/api/photo/forget', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ familyId }),
+    });
+  } catch {
+    throw new Error(FORGET_FAILED);
+  }
+  const json = (await res.json().catch(() => ({}))) as { deleted?: number; error?: string };
+  if (!res.ok) throw new Error(json.error || FORGET_FAILED);
+  return typeof json.deleted === 'number' ? json.deleted : 0;
+}
+
 export type PhotoReadResponse =
   | { status: 'ok'; rounds?: number; stored?: number; items: Record<string, unknown>[] }
   | { status: 'needs_clearer_photo' | 'rejected' | 'unavailable'; message: string };

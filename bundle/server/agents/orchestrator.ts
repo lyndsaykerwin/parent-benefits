@@ -19,6 +19,7 @@ import { UNCOVERED_STATE_NOTE } from './benefits';
 import { itemsSql } from './recall';
 import { col, isInlineFamily } from './sql';
 import { buildFallbackFillers } from './fallback';
+import { familyProfileSql } from './savedVerdicts';
 
 export const BANNER = "Some sources didn't respond: showing what we could check.";
 export const COPY = {
@@ -48,7 +49,7 @@ export interface RunDeps {
   now?: () => number;
 }
 
-/** Load a family: sample file in SAMPLE_MODE, otherwise Neon through Drizzle (imported lazily: server/db.ts throws without DATABASE_URL). */
+/** A family from the sample file (the offline stand-in, and the fallback when Zetaris cannot answer in SAMPLE_MODE). */
 export async function loadSampleFamily(id: string): Promise<Family> {
   const all: Family[] = JSON.parse(fs.readFileSync(path.resolve('data/sample/families.json'), 'utf8'));
   const f = all.find((x) => x.id === id);
@@ -56,14 +57,65 @@ export async function loadSampleFamily(id: string): Promise<Family> {
   return f;
 }
 
-export async function defaultLoadFamily(id: string): Promise<Family> {
-  if (process.env.SAMPLE_MODE === 'true') return loadSampleFamily(id);
+const truthy = (v: unknown): boolean => v === true || v === 1 || /^(true|t|1|yes)$/i.test(String(v ?? ''));
+const textOrNull = (v: unknown): string | null => (v === null || v === undefined || v === '' ? null : String(v));
+const dateOrNull = (v: unknown): string | null => { const t = textOrNull(v); return t ? t.slice(0, 10) : null; };
+const intOrNull = (v: unknown): number | null => (v === null || v === undefined || v === '' ? null : Number(v));
+
+/** One row of the Zetaris family-profile view (v_family_profile) as a Family. Zetaris sends booleans as text and drops a zip's leading zero. */
+export function familyFromRow(row: Record<string, unknown>): Family {
+  const get = (n: string) => col(row as any, n);
+  const zip = String(get('zip') ?? '');
+  return {
+    id: String(get('id')), userId: null, isGuest: truthy(get('is_guest')), name: String(get('name') ?? ''),
+    birthDate: dateOrNull(get('birth_date')), dueDate: dateOrNull(get('due_date')),
+    zip: /^\d{1,4}$/.test(zip) ? zip.padStart(5, '0') : zip, state: String(get('state') ?? ''),
+    employer: String(get('employer') ?? ''), householdSize: Number(get('household_size') ?? 3),
+    annualIncomeCents: intOrNull(get('annual_income_cents')), dcfsaOffered: truthy(get('dcfsa_offered')),
+    dataConnected: truthy(get('data_connected')),
+  };
+}
+
+/** The family profile asked of Zetaris with the existing familyProfileSql (the question that has saved replays). Throws if there is no such family. */
+export async function loadFamilyViaZetaris(z: Pick<ZetarisClient, 'runQuery'>, id: string): Promise<Family> {
+  const res = await z.runQuery(familyProfileSql(id));
+  if (!res.rows.length) throw new Error(`Zetaris has no family profile for ${id}`);
+  return familyFromRow(res.rows[0]);
+}
+
+/** The old direct read from Neon through Drizzle (imported lazily: server/db.ts throws without DATABASE_URL). */
+async function loadFamilyFromNeon(id: string): Promise<Family> {
   const { db } = await import('../db');
   const { families } = await import('../../shared/schema');
   const { eq } = await import('drizzle-orm');
   const rows = await db.select().from(families).where(eq(families.id, id)).limit(1);
   if (!rows.length) throw new Error(`Unknown family: ${id}`);
   return rows[0] as Family;
+}
+
+export interface LoadFamilyOpts {
+  /** Zetaris (its saved replays in SAMPLE_MODE). Without it the family comes straight from the old source. */
+  z?: Pick<ZetarisClient, 'runQuery'>;
+  /** The old direct read from Neon (default: the real database). Only used when Zetaris cannot answer. */
+  neon?: (id: string) => Promise<Family>;
+  log?: (message: string) => void;
+}
+
+/**
+ * Load a family. Zetaris is the way agents read data, so it is asked first (in SAMPLE_MODE that is the saved replay).
+ * If Zetaris cannot answer, the log says so and the old source is used: the sample file in SAMPLE_MODE, otherwise Neon.
+ */
+export async function defaultLoadFamily(id: string, opts: LoadFamilyOpts = {}): Promise<Family> {
+  const sample = process.env.SAMPLE_MODE === 'true';
+  const log = opts.log ?? ((m: string) => console.warn(m));
+  if (opts.z) {
+    try {
+      return await loadFamilyViaZetaris(opts.z, id);
+    } catch (e: any) {
+      log(`Family profile for ${id}: Zetaris could not answer (${String(e?.message ?? e).slice(0, 120)}); reading it ${sample ? 'from the sample file' : 'straight from Neon'} instead.`);
+    }
+  }
+  return sample ? loadSampleFamily(id) : (opts.neon ?? loadFamilyFromNeon)(id);
 }
 
 // ---------- never-empty feed ----------
