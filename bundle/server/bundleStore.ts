@@ -20,7 +20,7 @@ export interface SavedRunRow {
   sampleMode: boolean;
   result: BundleResult;
   /** Display-only header fields (never income). */
-  family: { name: string; birthDate: string | null; dueDate: string | null; state?: string } & Partial<Pick<Family, 'household' | 'parent1Work' | 'parent2Work' | 'insurance'>> & { hasItems?: boolean };
+  family: { name: string; birthDate: string | null; dueDate: string | null; state?: string; zip?: string } & Partial<Pick<Family, 'household' | 'parent1Work' | 'parent2Work' | 'insurance'>> & { hasItems?: boolean };
   today: string;
   demoDate: boolean;
   startedAt: string;
@@ -31,6 +31,13 @@ export interface BundleStore {
   zipState(zip3: string): Promise<string | null>;
   /** Save (or replace) a family typed in on the onboarding screens. */
   saveFamily(family: Family): Promise<void>;
+  /** A family saved by `saveFamily`, or null (never saved, or forgotten). */
+  getFamily(id: string): Promise<Family | null>;
+  /**
+   * "Forget everything" for one family: its saved answers (unless `keepFamily`, used for the built-in sample families), its
+   * "I got this" / "Not relevant" answers, its feedback and every saved run. Photos and memory entries are deleted by the caller.
+   */
+  deleteFamily(id: string, opts?: { keepFamily?: boolean }): Promise<void>;
   addFeedback(row: Omit<FeedbackRow, 'id' | 'createdAt'>): Promise<FeedbackRow>;
   /** Newest `limit` 'issue' reports only (never the whole table). */
   listRecentIssues(limit: number): Promise<FeedbackRow[]>;
@@ -79,8 +86,14 @@ export class MemoryStore implements BundleStore {
   async zipState(zip3: string) { return this.zips[zip3] ?? null; }
   /** Practice mode and tests have no database: the family is kept in memory for as long as the server runs. */
   async saveFamily(family: Family) { this.families.set(family.id, { ...family }); }
-  /** A saved family, for tests and later screens. */
-  async getFamily(id: string) { return this.families.get(id) ?? null; }
+  /** A saved family (a copy), or null. */
+  async getFamily(id: string) { const f = this.families.get(id); return f ? { ...f } : null; }
+  async deleteFamily(id: string, opts: { keepFamily?: boolean } = {}) {
+    if (!opts.keepFamily) this.families.delete(id);
+    for (const k of [...this.claims.keys()]) if (k.startsWith(`${id}|`)) this.claims.delete(k);
+    this.fb = this.fb.filter((r) => r.familyId !== id);
+    for (const [runId, r] of this.runs) if (r.familyId === id) this.runs.delete(runId);
+  }
   async addFeedback(row: Omit<FeedbackRow, 'id' | 'createdAt'>) {
     const r = { ...row, id: this.fb.length + 1, createdAt: new Date() };
     this.fb.push(r);
@@ -154,6 +167,25 @@ export class DrizzleStore implements BundleStore {
       savedAt: new Date(),
     };
     await db.insert(s.families).values(row).onConflictDoUpdate({ target: s.families.id, set: row });
+  }
+  async getFamily(id: string): Promise<Family | null> {
+    const { db, s, o } = await this.d();
+    const rows = await db.select().from(s.families).where(o.eq(s.families.id, id)).limit(1);
+    const r: any = rows[0];
+    if (!r) return null;
+    return {
+      id: r.id, userId: r.userId ?? null, isGuest: !!r.isGuest, name: r.name, birthDate: r.birthDate ?? null, dueDate: r.dueDate ?? null,
+      zip: r.zip, state: r.state, employer: r.employer ?? '', householdSize: r.householdSize, annualIncomeCents: r.annualIncomeCents ?? null,
+      dcfsaOffered: !!r.dcfsaOffered, dataConnected: !!r.dataConnected,
+      household: r.household ?? null, parent1Work: r.parent1Work ?? null, parent2Work: r.parent2Work ?? null, insurance: r.insurance ?? null,
+    };
+  }
+  async deleteFamily(id: string, opts: { keepFamily?: boolean } = {}) {
+    const { db, s, o } = await this.d();
+    if (!opts.keepFamily) await db.delete(s.families).where(o.eq(s.families.id, id));
+    await db.delete(s.claims).where(o.eq(s.claims.familyId, id));
+    await db.delete(s.feedback).where(o.eq(s.feedback.familyId, id));
+    await db.delete(s.runResults).where(o.eq(s.runResults.familyId, id));
   }
   async zipState(zip3: string) {
     const { db, s, o } = await this.d();

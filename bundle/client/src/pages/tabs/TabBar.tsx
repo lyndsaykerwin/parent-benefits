@@ -1,4 +1,4 @@
-import { TABS, type TabId } from '@/lib/tabs';
+import { ALL_TABS, type TabId } from '@/lib/tabs';
 import { cn } from '@/lib/utils';
 
 const ICONS: Record<TabId, string> = {
@@ -7,14 +7,15 @@ const ICONS: Record<TabId, string> = {
   savings: 'M12 3v18M16 7.5c0-1.7-1.8-3-4-3s-4 1.3-4 3 1.8 2.7 4 3.2 4 1.5 4 3.2-1.8 3-4 3-4-1.3-4-3',
   insurance: 'M12 3l8 3v6c0 4.5-3.4 8-8 9-4.6-1-8-4.5-8-9V6z',
   deals: 'M20 12l-8 8-9-9V3h8zM7.5 7.5h.01',
+  account: 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4 21c0-4.4 3.6-7 8-7s8 2.6 8 7',
 };
 
-/** The bottom bar: five tabs, labels always shown, taps at least 44px. The Insurance tab shows a red count while you are elsewhere. */
+/** The bottom bar: six tabs, labels always shown, taps at least 44px. The Insurance tab shows a red count while you are elsewhere. */
 export default function TabBar({ current, onChange, badge }: { current: TabId; onChange: (t: TabId) => void; badge: number }) {
   return (
     <nav aria-label="Main" className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-paper/95 backdrop-blur" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
       <ul className="mx-auto flex max-w-[480px]">
-        {TABS.map((t) => {
+        {ALL_TABS.map((t) => {
           const on = current === t.id;
           const showBadge = t.id === 'insurance' && badge > 0 && !on;
           return (

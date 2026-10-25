@@ -2,11 +2,13 @@ import { useState } from 'react';
 import { questionsToAsk } from '@shared/eligibility';
 import { taxYearFor } from '@/lib/insurance';
 import type { SavedRun } from '@/lib/bundle';
+import { useFreezeSpot } from '@/lib/scrollSpot';
 
 const button = 'flex min-h-[52px] flex-1 items-center justify-center rounded-2xl px-4 text-[16px] font-bold transition active:scale-[.99]';
 
 /** "Questions to ask HR" (or "for your tax preparer"): built from the work and insurance answers, with Copy and Email to myself. Bundle sends nothing. */
 export default function HrQuestions({ run, onBack }: { run: SavedRun; onBack: () => void }) {
+  useFreezeSpot();
   const f = run.family;
   const list = questionsToAsk({ household: f?.household, parent1Work: f?.parent1Work, parent2Work: f?.parent2Work, insurance: f?.insurance }, taxYearFor(f, run.today ?? ''));
   const [done, setDone] = useState<Record<number, boolean>>({});

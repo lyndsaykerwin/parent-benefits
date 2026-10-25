@@ -1,22 +1,25 @@
-import { useCallback, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import AppShell from '@/components/AppShell';
 import { ScanProvider, useScan } from '@/components/scan/ScanContext';
 import { ScanHeaderButton } from '@/components/scan/ScanButtons';
 import ScanSheet from '@/components/scan/ScanSheet';
 import { GearLockerView } from '@/components/scan/GearLocker';
-import { demoDateLabel, familyChip, type SavedRun, type TraceLine } from '@/lib/bundle';
+import { api, demoDateLabel, familyChip, FAMILY_ID_KEY, runFromStatus, savedFamilyId, saveRun, type SavedRun, type TraceLine } from '@/lib/bundle';
+import { markStartOver } from '@/lib/account';
+import { clearSpotContext, currentScroll, recordSpot, restoreSpot, setSpotContext } from '@/lib/scrollSpot';
 import { applyInsuranceAnswer } from '@/lib/insurance';
 import { applyDaycareAnswer } from '@/lib/daycare';
 import { useClaims } from '@/hooks/useClaims';
 import { badgeCount, comingSoonNote, isTabId, moneyNumbers, stageOf, type TabId } from '@/lib/tabs';
 import type { FeedCard } from '@shared/bundle';
 import { fmtUsdShort } from '@/lib/bundle';
-import { Link } from 'wouter';
+import { useLocation } from 'wouter';
 import HomeTab from './HomeTab';
 import TaxesTab from './TaxesTab';
 import SavingsTab from './SavingsTab';
 import InsuranceTab from './InsuranceTab';
 import DealsTab from './DealsTab';
+import AccountTab, { type SwitchTarget } from './AccountTab';
 import TabBar from './TabBar';
 import type { TabProps } from './shared';
 
@@ -42,8 +45,12 @@ export default function VersionB(props: Props) {
   return <ScanProvider><VersionBInner {...props} /></ScanProvider>;
 }
 
-function VersionBInner({ run, owner, lines = [], ownerPanel }: Props) {
+function VersionBInner({ run: runProp, owner, lines = [], ownerPanel }: Props) {
   const scan = useScan();
+  const [, navigate] = useLocation();
+  // The run on screen. "Switch family" swaps it for another family's saved run without leaving the app.
+  const [run, setRun] = useState<SavedRun>(runProp);
+  useEffect(() => { setRun(runProp); }, [runProp]);
   const [tab, setTab] = useState<TabId>(() => loadTab(run.runId));
   const { claims, dismissed, bar, claim, dismiss, undo, closeBar } = useClaims(run.familyId);
   const stage = stageOf(run.family);
@@ -51,7 +58,51 @@ function VersionBInner({ run, owner, lines = [], ownerPanel }: Props) {
   const today = run.today ?? '';
 
   const { closeLocker } = scan;
-  const change = useCallback((t: TabId) => { closeLocker(); setTab(t); saveTab(run.runId, t); window.scrollTo?.({ top: 0 }); }, [run.runId, closeLocker]);
+  const change = useCallback((t: TabId) => { closeLocker(); setTab(t); saveTab(run.runId, t); }, [run.runId, closeLocker]);
+
+  // Back keeps your place: the scroll spot of each tab is remembered while you scroll, and put back when you come to the tab again
+  // (from a card's detail page, from another tab, or from a sub-view such as the gear locker).
+  const firstTab = useRef(true);
+  useLayoutEffect(() => {
+    setSpotContext(run.runId, tab);
+    if (firstTab.current) { firstTab.current = false; restoreSpot(); } else restoreSpot({ toTop: true });
+  }, [run.runId, tab]);
+  useEffect(() => {
+    const onScroll = () => recordSpot(currentScroll());
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => { window.removeEventListener('scroll', onScroll); clearSpotContext(); };
+  }, []);
+
+  // ----- the Account tab's actions -----
+  const switchTo = useCallback(async (t: SwitchTarget): Promise<string | null> => {
+    const id = t === 'saved' ? savedFamilyId() : t;
+    if (!id) { markStartOver(); navigate('/'); return null; } // no saved profile yet: the five questions
+    try {
+      let next: SavedRun | null = null;
+      try { next = runFromStatus(await api.latestRun(id)); }
+      catch (e) { if ((e as { status?: number }).status !== 404) throw e; }
+      if (!next) {
+        // Nothing saved for this family yet (a fresh server): check them now, on the checking screen.
+        const { runId } = await api.startRun({ familyId: id });
+        saveTab(runId, 'account');
+        navigate(`/feed/${encodeURIComponent(runId)}`);
+        return null;
+      }
+      saveRun(next);
+      saveTab(next.runId, 'account');
+      setRun(next);
+      setTab('account');
+      navigate(`/feed/${encodeURIComponent(next.runId)}`, { replace: true });
+      return null;
+    } catch (e) {
+      const err = e as Error & { status?: number };
+      if (t === 'saved' && err.status === 404) { try { localStorage.removeItem(FAMILY_ID_KEY); } catch { /* ignore */ } }
+      return err.message || 'Could not open that family. Please try again.';
+    }
+  }, [navigate]);
+  const startOver = useCallback(() => navigate('/'), [navigate]);
+  const forgot = useCallback(() => navigate('/'), [navigate]);
+  const rerun = useCallback((runId: string) => { saveTab(runId, 'account'); navigate(`/feed/${encodeURIComponent(runId)}`); }, [navigate]);
   // The amount a "Not relevant" tap takes off: only what counts toward the headline (a card with no counted money takes off $0).
   const act = useMemo(() => ({
     claim,
@@ -70,7 +121,7 @@ function VersionBInner({ run, owner, lines = [], ownerPanel }: Props) {
   }), [run, stage, cards, claims, dismissed, act, change, owner, lines]);
 
   const demoLabel = demoDateLabel(run.demoDate, run.today);
-  const Screen = { home: HomeTab, taxes: TaxesTab, savings: SavingsTab, insurance: InsuranceTab, deals: DealsTab }[tab];
+  const Screen = { home: HomeTab, taxes: TaxesTab, savings: SavingsTab, insurance: InsuranceTab, deals: DealsTab, account: null }[tab];
 
   return (
     <AppShell
@@ -86,7 +137,7 @@ function VersionBInner({ run, owner, lines = [], ownerPanel }: Props) {
         <GearLockerView familyId={run.familyId} />
       ) : (
         <div role="region" aria-label={TAB_NAMES[tab]} data-testid={`tab-${tab}`}>
-          <Screen {...props} />
+          {Screen ? <Screen {...props} /> : <AccountTab {...props} onSwitch={switchTo} onStartOver={startOver} onForgot={forgot} onRerun={rerun} />}
         </div>
       )}
       <ScanSheet familyId={run.familyId} />
@@ -99,13 +150,8 @@ function VersionBInner({ run, owner, lines = [], ownerPanel }: Props) {
           <button type="button" onClick={() => { undo(bar.id); closeBar(); }} className="min-h-[44px] shrink-0 rounded-xl bg-paper px-4 text-[15px] font-bold text-ink">Undo</button>
         </div>
       )}
-      {tab === 'home' && !scan.lockerOpen && (
-        <Link href="/" className="mt-3 flex min-h-[48px] items-center justify-center text-[15px] font-bold text-ink-2 underline decoration-line decoration-2 underline-offset-4">
-          Start over with your own details
-        </Link>
-      )}
     </AppShell>
   );
 }
 
-const TAB_NAMES: Record<TabId, string> = { home: 'Home', taxes: 'Taxes', savings: 'Savings', insurance: 'Insurance', deals: 'Deals' };
+const TAB_NAMES: Record<TabId, string> = { home: 'Home', taxes: 'Taxes', savings: 'Savings', insurance: 'Insurance', deals: 'Deals', account: 'Account' };

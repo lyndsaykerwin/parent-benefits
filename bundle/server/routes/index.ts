@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer } from "http";
 import { createBundleRouter, type ApiDeps } from "./bundleRoutes";
-import { createPhotoRouter } from "./photoRoutes";
+import { createPhotoRouter, createDefaultPhotoDeps } from "./photoRoutes";
 import { createOfferAuditRouter } from "./offerAuditRoutes";
 import { createOfferRouter } from "./offerRoutes";
 import { createAgentLogRouter } from "./agentLogRoutes";
@@ -19,11 +19,15 @@ export async function registerRoutes(app: Express, apiDeps: ApiDeps = createDefa
 
   app.use(createBundleRouter(apiDeps));
   app.use(createStreamRouter({ reviewerToken: apiDeps.reviewerToken }));
-  app.use(createPhotoRouter());
-  app.use(createAgentLogRouter({ reviewerToken: apiDeps.reviewerToken }));
-  app.use(createOfferAuditRouter());
   // The offer routes need the full memory (they read case law). The app's own deps carry one; a test's stand-in gets the default folder.
   const memory = apiDeps.memory instanceof BundleMemory ? apiDeps.memory : new BundleMemory(path.resolve('data/hmem'));
+  app.use(createPhotoRouter({
+    ...createDefaultPhotoDeps(),
+    rememberGear: (familyId, text) => memory.addFamilyFact(familyId, 'gear', text),
+    forgetGear: (familyId) => { memory.forgetFamily(familyId, 'gear'); },
+  }));
+  app.use(createAgentLogRouter({ reviewerToken: apiDeps.reviewerToken }));
+  app.use(createOfferAuditRouter());
   app.use(createOfferRouter({ llm: apiDeps.llm, memory }));
 
   return server;

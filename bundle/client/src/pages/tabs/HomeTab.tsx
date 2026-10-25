@@ -3,7 +3,7 @@ import { Link } from 'wouter';
 import { fmtUsdShort } from '@/lib/bundle';
 import { categorySummary, claimableCards, giftValue, homeTotals, isQuickWin, moneyNumbers, taskCards, urgentDeadlines, cardState, type TabId } from '@/lib/tabs';
 import { ComingSoonState, SectionTitle, CardStack, ClaimDrawers, type TabProps } from './shared';
-import { ForgetItemsCard, HowWeGotThisNumber, SaveListCard, ShareBar } from './Extras';
+import { ForgetItemsCard, HowWeGotThisNumber, SavePlanCard, ShareBar } from './Extras';
 import Buckets from './Buckets';
 import { ScanCard } from '@/components/scan/ScanButtons';
 
@@ -83,6 +83,8 @@ export default function HomeTab(props: TabProps) {
         </div>
       </div>
 
+      <SavePlanCard familyId={run.familyId} />
+
       <ComingSoonState note={props.stateNote} />
 
       {expecting && giftSection}
@@ -141,7 +143,6 @@ export default function HomeTab(props: TabProps) {
       )}
 
       {(claimed > 0 || claimable.some((c) => props.claims[c.id] && !props.dismissed[c.id])) && <ShareBar claimedCents={claimed} />}
-      <SaveListCard />
       <ForgetItemsCard familyId={run.familyId} />
 
       <Link

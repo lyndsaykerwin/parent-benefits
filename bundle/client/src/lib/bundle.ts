@@ -18,6 +18,8 @@ export interface FamilyView {
   name: string; birthDate: string | null; dueDate: string | null;
   /** 2-letter state from the ZIP, when the server sends it */
   state?: string;
+  /** The ZIP the family gave (shown on the Account tab; absent on older saved runs). */
+  zip?: string;
   /** The parent's Q4 and Q5 answers (null = prefer not to say; absent on runs saved before V2). */
   household?: Household | null; parent1Work?: WorkStatus | null; parent2Work?: WorkStatus | null; insurance?: InsuranceType | null;
   /** True when the family has saved purchases to check (the recall line on the checking screen shows only then). */
@@ -253,6 +255,8 @@ async function json<T>(res: Response): Promise<T> {
 
 /** The answers from onboarding. Q4 and Q5 are left out when the parent chose "prefer not to say". */
 export type RunRequest = { familyId: string } | {
+  /** A saved family's id: the answers below then replace that family's answers (the check re-runs for the same family). */
+  familyId?: string;
   zip: string; birthDate?: string; dueDate?: string; employer?: string;
   household?: Household; parent1Work?: WorkStatus; parent2Work?: WorkStatus; insurance?: InsuranceType;
 };
@@ -262,6 +266,30 @@ export const FAMILY_ID_KEY = 'bundle_family_id';
 export function rememberFamilyId(id: string): void {
   try { localStorage.setItem(FAMILY_ID_KEY, id); } catch { /* storage blocked: the run still works */ }
 }
+/** The saved family's id in this browser, or null. */
+export function savedFamilyId(): string | null {
+  try { const id = localStorage.getItem(FAMILY_ID_KEY); return id && /^[A-Za-z0-9_-]{1,40}$/.test(id) ? id : null; } catch { return null; }
+}
+
+/** The finished run in a server reply, in the shape the screens keep. */
+export function runFromStatus(s: RunStatus): SavedRun | null {
+  return s.status === 'done' && s.result ? { runId: s.runId, familyId: s.familyId, family: s.family, today: s.today, demoDate: s.demoDate, result: s.result } : null;
+}
+
+/** What Bundle remembers about a family, and what it has learned from parents (the Account tab). */
+export interface FamilyMemoryItem { id: string; text: string; source: string; savedOn: string }
+export interface LearnedMemoryItem { id: string; text: string; reports: number | null }
+export interface FamilyMemory { family: FamilyMemoryItem[]; learned: LearnedMemoryItem[] }
+
+/** A server reply read defensively: anything that is not the expected shape counts as "nothing yet". */
+export function readFamilyMemory(raw: unknown): FamilyMemory {
+  const o = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
+  const list = (v: unknown): Record<string, unknown>[] => (Array.isArray(v) ? v.filter((x) => x && typeof x === 'object') as Record<string, unknown>[] : []);
+  return {
+    family: list(o.family).filter((m) => typeof m.text === 'string').map((m) => ({ id: String(m.id ?? ''), text: String(m.text), source: String(m.source ?? 'setup'), savedOn: String(m.savedOn ?? '') })),
+    learned: list(o.learned).filter((m) => typeof m.text === 'string').map((m) => ({ id: String(m.id ?? ''), text: String(m.text), reports: typeof m.reports === 'number' ? m.reports : null })),
+  };
+}
 
 export const api = {
   startRun: (body: RunRequest) =>
@@ -269,6 +297,10 @@ export const api = {
   run: (runId: string) => fetch(`/api/runs/${encodeURIComponent(runId)}`).then((r) => json<RunStatus>(r)),
   /** Newest saved result for a family (the instant feed). Rejects with the server's message (404) when there is none yet. */
   latestRun: (familyId: string) => fetch(`/api/families/${encodeURIComponent(familyId)}/latest-run`).then((r) => json<RunStatus>(r)),
+  memory: (familyId: string) => fetch(`/api/families/${encodeURIComponent(familyId)}/memory`).then((r) => json<unknown>(r)).then(readFamilyMemory),
+  /** "Forget everything": the server deletes the family, claims, photos, runs and memory entries. */
+  forgetFamily: (familyId: string) =>
+    fetch(`/api/families/${encodeURIComponent(familyId)}`, { method: 'DELETE' }).then((r) => json<{ ok: true }>(r)),
   trace: (runId: string) => fetch(`/api/runs/${encodeURIComponent(runId)}/trace`).then((r) => json<TraceLine[]>(r)),
   feedback: (body: { familyId: string; cardId: string; kind: 'got_it' | 'issue' | 'not_relevant'; note?: string }) =>
     fetch('/api/feedback', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then((r) => json<{ ok: true; proposals: unknown[] }>(r)),

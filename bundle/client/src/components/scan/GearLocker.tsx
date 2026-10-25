@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { fetchLocker, forgetMyItems, type Locker, type LockerItem } from '@/lib/photoPrep';
 import { ForgetItemsCard } from '@/pages/tabs/Extras';
+import { useFreezeSpot } from '@/lib/scrollSpot';
 import { useScan } from './ScanContext';
 import { ScanButton } from './ScanButtons';
 import { LockerReceiptRow, RecallLine, Thumb } from './ResultCards';
@@ -39,6 +40,7 @@ function GearRow({ item }: { item: LockerItem }) {
 
 /** The Gear Locker page: every gear item and receipt saved for this family, with a scan button and the privacy line. */
 export function GearLockerView({ familyId }: { familyId: string }) {
+  useFreezeSpot(); // the tab's scroll spot is kept while the locker is open, and the page returns to it on Back
   const { closeLocker, bump } = useScan();
   const load = useLocker(familyId);
   const locker = load.s === 'ready' ? load.locker : null;
@@ -80,14 +82,15 @@ function EmptyLocker() {
   );
 }
 
-/** A small locker card for the Savings tab (and the Account tab): how many things are saved, "Open ›", or the empty state with a scan button. */
-export function GearLockerCard({ familyId }: { familyId: string }) {
+/** A small locker card for the Savings tab (and the Account tab): how many things are saved, "Open ›", or the empty state with a scan button. `list` also names each gear item (the Account tab uses it). */
+export function GearLockerCard({ familyId, list = false }: { familyId: string; list?: boolean }) {
   const { openLocker } = useScan();
   const load = useLocker(familyId);
   const locker = load.s === 'ready' ? load.locker : null;
   const n = locker ? total(locker) : 0;
   return (
-    <section aria-label="Your gear locker card" data-testid="gear-locker-card" className="bundle-card mt-4 p-4">
+    // Like the full locker page, the "gear locker" region appears once the locker has loaded (never an empty one).
+    <section aria-label={locker ? 'Your gear locker card' : undefined} data-testid="gear-locker-card" className="bundle-card mt-4 p-4">
       <div className="flex items-center justify-between gap-2">
         <p className="eyebrow text-ink-2">Your gear locker</p>
         <button type="button" onClick={openLocker} className="flex min-h-[44px] items-center px-1 text-[15px] font-bold text-coral-deep">Open ›</button>
@@ -109,6 +112,11 @@ export function GearLockerCard({ familyId }: { familyId: string }) {
             {' '}saved and checked against official recall lists.
           </p>
         )}
+      {list && locker && locker.items.length > 0 && (
+        <ul className="mt-2 divide-y divide-line" data-testid="locker-names">
+          {locker.items.map((it, i) => <li key={`${it.id ?? 'x'}-${i}`} className="py-2 text-[15px] font-bold leading-snug">{it.productName}</li>)}
+        </ul>
+      )}
     </section>
   );
 }

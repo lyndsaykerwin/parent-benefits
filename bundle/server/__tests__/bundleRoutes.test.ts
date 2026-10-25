@@ -52,7 +52,7 @@ function build(over: Partial<ApiDeps> = {}) {
   return { app, deps, store, memory, logsDir };
 }
 
-const FAMILY_VIEW_KEYS = ['birthDate', 'dueDate', 'hasItems', 'household', 'insurance', 'name', 'parent1Work', 'parent2Work', 'state'];
+const FAMILY_VIEW_KEYS = ['birthDate', 'dueDate', 'hasItems', 'household', 'insurance', 'name', 'parent1Work', 'parent2Work', 'state', 'zip'];
 
 describe('POST /api/run', () => {
   it('leo with ?wait=true returns the BundleResult with >= 9 cards, no auth', async () => {
@@ -297,7 +297,7 @@ describe('UI helpers (Task 12)', () => {
     const body = (await request(app).get(`/api/runs/${runId}`)).body;
     expect(body.today).toBe('2026-10-23');
     expect(Object.keys(body.family).sort()).toEqual(FAMILY_VIEW_KEYS); // display fields and the Q4/Q5 answers, nothing else leaked
-    expect(body.family).toEqual({ name: 'leo', birthDate: null, dueDate: '2026-12-07', state: 'MA', household: null, parent1Work: null, parent2Work: null, insurance: null, hasItems: false }); // this test's stand-in family has no answers
+    expect(body.family).toEqual({ name: 'leo', birthDate: null, dueDate: '2026-12-07', state: 'MA', zip: '02139', household: null, parent1Work: null, parent2Work: null, insurance: null, hasItems: false }); // this test's stand-in family has no answers
     expect(JSON.stringify(body)).not.toContain('14500000');
   });
 
@@ -371,13 +371,13 @@ describe('W1-OWNER: owner view split (parent response trimmed on the server)', (
     expect(parentCard(r.cards[0]).valueScore!.payoutWaitDays).toEqual({ min: 14, max: 28 });
   });
 
-  it('?wait=true returns the family with exactly the display fields and onboarding answers (no income, zip, employer)', async () => {
+  it('?wait=true returns the family with exactly the display fields and onboarding answers (no income, employer)', async () => {
     const { app } = withLeakyCards();
     for (const headers of [{}, { 'x-reviewer-token': 'sekret' }]) {
       const res = await request(app).post('/api/run?wait=true').set(headers).send({ familyId: 'leo' });
       expect(res.status).toBe(200);
       expect(Object.keys(res.body.family).sort()).toEqual(FAMILY_VIEW_KEYS);
-      expect(JSON.stringify(res.body)).not.toMatch(/income|zip|employer|householdSize/i);
+      expect(JSON.stringify(res.body)).not.toMatch(/income|employer|householdSize/i); // the ZIP goes back only as the family's own display field (the Account tab shows it)
     }
   });
 

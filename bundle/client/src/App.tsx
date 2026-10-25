@@ -4,7 +4,7 @@ import { Component, ErrorInfo, ReactNode } from "react";
 import { queryClient } from "./lib/queryClient";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import Onboarding from "@/pages/Onboarding";
+import Start from "@/pages/Start";
 import Feed from "@/pages/Feed";
 import CardDetail from "@/pages/CardDetail";
 import Smarter from "@/pages/Smarter";
@@ -51,8 +51,8 @@ class ErrorBoundary extends Component<
 function Router() {
   return (
     <Switch>
-      <Route path="/" component={Onboarding} />
-      <Route path="/feed/:runId" component={Feed} />
+      <Route path="/" component={Start} />
+      <Route path="/feed/:runId">{(p) => <Feed key={p.runId} />}</Route>
       <Route path="/card/:id" component={CardDetail} />
       <Route path="/smarter" component={Smarter} />
       <Route component={NotFound} />

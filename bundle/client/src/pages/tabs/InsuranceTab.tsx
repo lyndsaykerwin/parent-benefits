@@ -5,10 +5,11 @@ import { tabForCard, urgentDeadlines } from '@/lib/tabs';
 import { insuranceDeadline, insuranceLabel, daycareRoute } from '@shared/eligibility';
 import { CardStack, CategoryHeader, ClaimDrawers, type TabProps } from './shared';
 import HrQuestions from './HrQuestions';
+import { askEdit } from '@/lib/account';
 
 const CARRIERS = ['Aetna', 'BCBS', 'UnitedHealthcare', 'Kaiser', 'Other'] as const;
 const carrierKey = (familyId: string) => `bundle:carrier:${familyId}`;
-const loadCarrier = (familyId: string): string | null => { try { return localStorage.getItem(carrierKey(familyId)); } catch { return null; } };
+export const loadCarrier = (familyId: string): string | null => { try { return localStorage.getItem(carrierKey(familyId)); } catch { return null; } };
 const saveCarrier = (familyId: string, c: string | null) => { try { if (c) localStorage.setItem(carrierKey(familyId), c); else localStorage.removeItem(carrierKey(familyId)); } catch { /* the choice lasts until the page closes */ } };
 
 const noteBox = 'bundle-card mt-3 p-4';
@@ -50,7 +51,12 @@ export default function InsuranceTab(props: TabProps) {
       {info.kind === 'countdown' && expecting && <p className="mt-2 text-[14px] font-bold text-ink-2">The clock starts on your due date{family?.dueDate ? ` (${fmtDate(family.dueDate, props.run.today)})` : ''}.</p>}
       {info.todo && <p className="mt-2 rounded-xl bg-cream px-3 py-2 text-[14px] text-ink-2">{info.todo}</p>}
       {info.apply && <p className="mt-2 text-[14px] font-bold text-ink-2">Ask your state’s Medicaid office whether your baby qualifies. It’s free to check.</p>}
-      {answerLabel && <p className="mt-2 text-[13px] text-ink-2">Your answer: {answerLabel}</p>}
+      {answerLabel && (
+        <p className="mt-2 flex flex-wrap items-center gap-x-2 text-[13px] text-ink-2">
+          <span>Your answer: {answerLabel}</span>
+          <button type="button" onClick={() => { askEdit('insurance'); props.go('account'); }} className="min-h-[44px] px-1 text-[13px] font-bold text-coral-deep underline decoration-2 underline-offset-4">Change</button>
+        </p>
+      )}
     </div>
   );
 

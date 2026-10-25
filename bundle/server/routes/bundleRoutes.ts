@@ -16,6 +16,7 @@ import { SEED_FAMILY_IDS, isSeedFamily } from '../demoDate';
 import { dateRangeError } from '../../shared/dateRange';
 import { isInlineFamily } from '../agents/sql';
 import { getSharedPhotoStore } from '../ingest/photo';
+import { profileFacts } from '../../shared/familyFacts';
 export { SEED_FAMILY_IDS };
 export const ZIP_ERROR = 'Enter a valid US ZIP code';
 const WINDOW_MS = 10 * 60 * 1000;
@@ -26,7 +27,9 @@ export interface ApiDeps {
   makeRunDeps: (family: Family) => Omit<RunDeps, 'loadFamily' | 'runId'>;
   loadSeedFamily: (id: string) => Promise<Family>;
   store: BundleStore;
-  memory: Pick<BundleMemory, 'addRule'>;
+  memory: Pick<BundleMemory, 'addRule'> & Partial<Pick<BundleMemory, 'rememberFamily' | 'familyFacts' | 'forgetFamily' | 'learnedItems'>>;
+  /** "Forget everything": deletes the family's saved gear, receipts and photos; returns how many items. Default: the photo store. Tests inject a fake. */
+  forgetItems?: (familyId: string) => Promise<number>;
   llm: Generator;
   /** Reviewer-mode token (env REVIEWER_MODE_TOKEN). Empty means Reviewer mode is off. */
   reviewerToken: () => string;
@@ -47,6 +50,8 @@ export interface ApiDeps {
 type FamilyView = {
   name: string; birthDate: string | null; dueDate: string | null;
   state?: string; // optional because runs saved before this field existed lack it
+  /** The ZIP the family gave (the Account tab shows it). Absent on runs saved before the Account tab existed. */
+  zip?: string;
   /** V2 onboarding answers (the checking screen and the Insurance tab read them). Absent on older runs, null when the parent chose not to say. */
   household?: Household | null; parent1Work?: WorkStatus | null; parent2Work?: WorkStatus | null; insurance?: InsuranceType | null;
   /** True when Bundle has saved purchases to check for this family (so the checking screen may show the recall line). */
@@ -58,11 +63,14 @@ const HOUSEHOLDS: readonly string[] = ['one', 'two'];
 const WORK: readonly string[] = ['paycheck', 'self_employed', 'not_working'];
 const INSURANCE: readonly string[] = ['job', 'marketplace', 'medicaid', 'tricare', 'none_or_not_sure'];
 const ANSWER_ERROR = 'Choose one of the listed answers.';
+const GUEST_ID = /^guest-[0-9a-f]{8}$/;
+const FAMILY_ID = /^[A-Za-z0-9_-]{1,40}$/;
+const PROFILE_NOT_FOUND = 'We could not find your saved profile on our side. Please answer the five questions again.';
 
 /** The display fields of a family that the screens need. Never income. */
 export function familyView(f: Family, savedItems = false): FamilyView {
   return {
-    name: f.name, birthDate: f.birthDate, dueDate: f.dueDate, state: f.state,
+    name: f.name, birthDate: f.birthDate, dueDate: f.dueDate, state: f.state, zip: f.zip,
     household: f.household ?? null, parent1Work: f.parent1Work ?? null, parent2Work: f.parent2Work ?? null, insurance: f.insurance ?? null,
     // A typed-in family has no connected data, but it does have items once it has saved gear or receipts.
     hasItems: isInlineFamily(f) ? savedItems : f.dataConnected,
@@ -230,12 +238,25 @@ export function createBundleRouter(deps: ApiDeps): Router {
     } catch { return false; }
   }
 
-  /** Seed family id, or a new unsaved family built from the form. Returns an error message instead when invalid. */
-  async function resolveFamily(body: any): Promise<{ family?: Family; error?: string }> {
+  /**
+   * The family a request is about: a sample family id, a saved family id (`guest-xxxxxxxx`, optionally with new answers, which
+   * edits that family in place), or a new family built from the form. Returns an error message (and its status) instead when invalid.
+   */
+  async function resolveFamily(body: any): Promise<{ family?: Family; error?: string; status?: number }> {
     if (typeof body?.familyId === 'string') {
-      if (!(SEED_FAMILY_IDS as readonly string[]).includes(body.familyId)) return { error: 'Choose a sample family, or enter your details.' };
-      return { family: await deps.loadSeedFamily(body.familyId) };
+      if ((SEED_FAMILY_IDS as readonly string[]).includes(body.familyId) && body.zip === undefined) return { family: await deps.loadSeedFamily(body.familyId) };
+      if (GUEST_ID.test(body.familyId)) {
+        const saved = await deps.store.getFamily(body.familyId);
+        if (!saved) return { error: PROFILE_NOT_FOUND, status: 404 };
+        return body.zip === undefined ? { family: saved } : buildFamily(body, saved.id);
+      }
+      return { error: 'Choose a sample family, or enter your details.' };
     }
+    return buildFamily(body, `guest-${crypto.randomBytes(4).toString('hex')}`);
+  }
+
+  /** A family from the answers in a request body (new, or an edit of a saved one with the same id). */
+  async function buildFamily(body: any, id: string): Promise<{ family?: Family; error?: string }> {
     const zip = body?.zip;
     if (typeof zip !== 'string' || !/^\d{5}$/.test(zip)) return { error: ZIP_ERROR };
     const state = await deps.store.zipState(zip.slice(0, 3));
@@ -253,7 +274,7 @@ export function createBundleRouter(deps: ApiDeps): Router {
     if (!answers) return { error: answerError };
     return {
       family: {
-        id: `guest-${crypto.randomBytes(4).toString('hex')}`, userId: null, isGuest: true, name: 'Guest',
+        id, userId: null, isGuest: true, name: 'Guest',
         birthDate: hasBirth ? body.birthDate : null, dueDate: hasDue ? body.dueDate : null,
         zip, state, employer, householdSize: answers.household === 'one' ? 2 : 3, annualIncomeCents: null, dcfsaOffered: true, dataConnected: false,
         ...answers,
@@ -265,6 +286,9 @@ export function createBundleRouter(deps: ApiDeps): Router {
     const base = deps.makeRunDeps(family);
     const runId = newRunId(family.id);
     knownFamilies.add(family.id);
+    // What Bundle remembers about this family: its answers, written into memory (the Account tab shows them).
+    try { deps.memory.rememberFamily?.(family.id, 'setup', profileFacts(family)); }
+    catch (e) { console.error('Saving family memory failed:', family.id, (e as Error)?.message); }
     const entry: RunEntry = {
       runId, familyId: family.id, status: 'running', startedAt: new Date().toISOString(), logsDir: base.logsDir,
       family: familyView(family, savedItems), today: base.today, demoDate: isSeedFamily(family.id),
@@ -297,8 +321,8 @@ export function createBundleRouter(deps: ApiDeps): Router {
 
   router.post('/api/run', runLimiter, async (req: Request, res: Response) => {
     try {
-      const { family, error } = await resolveFamily(req.body);
-      if (!family) return res.status(400).json({ error });
+      const { family, error, status } = await resolveFamily(req.body);
+      if (!family) return res.status(status ?? 400).json({ error });
       if (inFlight >= maxInFlight) return res.status(503).json({ error: 'Bundle is busy right now. Please try again in a minute.' });
       const ip = req.ip ?? 'unknown';
       if ((inFlightByIp.get(ip) ?? 0) >= maxPerIp) return res.status(429).json({ error: `You already have ${maxPerIp} runs going. Please wait for one to finish.` });
@@ -336,6 +360,17 @@ export function createBundleRouter(deps: ApiDeps): Router {
     }
   }
 
+  /** A sample family, one started since the server woke up, or one saved earlier (a saved family survives a restart). */
+  async function isKnownFamily(id: string): Promise<boolean> {
+    if (knownFamilies.has(id)) return true;
+    if (!GUEST_ID.test(id)) return false;
+    try {
+      if (!(await deps.store.getFamily(id))) return false;
+      knownFamilies.add(id);
+      return true;
+    } catch { return false; }
+  }
+
   const runBody = (req: Request, e: RunEntry) => ({
     runId: e.runId, familyId: e.familyId, status: e.status, startedAt: e.startedAt, family: e.family, today: e.today, demoDate: e.demoDate,
     result: e.result ? view(req, e.result) : null, error: e.error ?? null, progress: progressFor(e), owner: isOwner(req),
@@ -356,7 +391,7 @@ export function createBundleRouter(deps: ApiDeps): Router {
 
   /** The newest saved result for a family, for the instant feed. Same parent/owner split as a normal run. */
   router.get('/api/families/:familyId/latest-run', async (req, res) => {
-    if (!knownFamilies.has(req.params.familyId)) return res.status(404).json({ error: 'No saved run for this family' });
+    if (!FAMILY_ID.test(req.params.familyId)) return res.status(404).json({ error: 'No saved run for this family' });
     try {
       const saved = await deps.store.latestRunResult(req.params.familyId);
       if (!saved) return res.status(404).json({ error: 'No saved run for this family' });
@@ -367,9 +402,40 @@ export function createBundleRouter(deps: ApiDeps): Router {
     }
   });
 
+  /** What Bundle remembers about one family (its answers and gear) and what it has learned from parents, for the Account tab. */
+  router.get('/api/families/:familyId/memory', (req, res) => {
+    if (!FAMILY_ID.test(req.params.familyId)) return res.status(400).json({ error: 'familyId is required.' });
+    try {
+      return res.json({ family: deps.memory.familyFacts?.(req.params.familyId) ?? [], learned: deps.memory.learnedItems?.() ?? [] });
+    } catch (e) {
+      console.error('GET memory failed:', (e as Error)?.message);
+      return res.status(500).json({ error: 'Could not read what Bundle remembers.' });
+    }
+  });
+
+  /**
+   * "Forget everything": deletes the family's saved answers, claims, feedback and runs, its gear and photos, and the memory entries
+   * about it. A sample family keeps its built-in answers (they are not the parent's), but everything saved for it is deleted.
+   */
+  router.delete('/api/families/:familyId', feedbackLimiter, async (req, res) => {
+    const id = req.params.familyId;
+    if (!FAMILY_ID.test(id)) return res.status(400).json({ error: 'familyId is required.' });
+    try {
+      await deps.store.deleteFamily(id, { keepFamily: isSeedFamily(id) });
+      const items = await (deps.forgetItems ?? ((f: string) => getSharedPhotoStore().deleteForFamily(f)))(id);
+      const memory = deps.memory.forgetFamily?.(id) ?? 0;
+      for (const [runId, e] of runs) if (e.familyId === id) runs.delete(runId);
+      if (!isSeedFamily(id)) knownFamilies.delete(id);
+      return res.json({ ok: true, deleted: { items, memory } });
+    } catch (e) {
+      console.error('DELETE family failed:', (e as Error)?.message);
+      return res.status(500).json({ error: 'Could not forget everything. Please try again.' });
+    }
+  });
+
   router.post('/api/feedback', feedbackLimiter, async (req, res) => {
     const { familyId, cardId, kind, note } = req.body ?? {};
-    if (typeof familyId !== 'string' || !knownFamilies.has(familyId)) return res.status(400).json({ error: 'Unknown family' });
+    if (typeof familyId !== 'string' || !(await isKnownFamily(familyId))) return res.status(400).json({ error: 'Unknown family' });
     if (typeof cardId !== 'string' || !cardId || cardId.length > 200) return res.status(400).json({ error: 'Missing card' });
     if (kind !== 'got_it' && kind !== 'issue' && kind !== 'not_relevant') return res.status(400).json({ error: 'kind must be got_it, issue or not_relevant' });
     if (note !== undefined && typeof note !== 'string') return res.status(400).json({ error: 'note must be text' });
@@ -411,7 +477,7 @@ export function createBundleRouter(deps: ApiDeps): Router {
   /** Undo: take back an "I got this" or "Not relevant". The feedback row stays as history; the Coach only counts answers that still stand. */
   router.post('/api/claims/undo', feedbackLimiter, async (req, res) => {
     const { familyId, cardId } = req.body ?? {};
-    if (typeof familyId !== 'string' || !knownFamilies.has(familyId)) return res.status(400).json({ error: 'Unknown family' });
+    if (typeof familyId !== 'string' || !(await isKnownFamily(familyId))) return res.status(400).json({ error: 'Unknown family' });
     if (typeof cardId !== 'string' || !cardId || cardId.length > 200) return res.status(400).json({ error: 'Missing card' });
     try {
       await deps.store.clearClaim(familyId, cardId);

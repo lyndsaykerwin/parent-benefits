@@ -13,6 +13,7 @@ import {
 } from '../ingest/photo';
 import { checkCarSeat, checkItemRecall, isCarSeat, moneyBackFor, registrationUrl, type RecallResult, type SqlRunner } from '../ingest/gearRecall';
 import { makeZetarisClient } from '../bundleDeps';
+import { resolveToday } from '../demoDate';
 
 export interface PhotoApiDeps {
   /** Fresh dependencies for one photo (model, store, trace, saved answers). Tests inject fakes. */
@@ -23,6 +24,10 @@ export interface PhotoApiDeps {
   recallRunner?: () => SqlRunner | null;
   /** The date a check is stamped with ("as of ..."). Tests pin it. */
   now?: () => Date;
+  /** Writes "what Bundle remembers" for a family (a piece of gear it saved). Optional: the app wires it to Meterless memory. */
+  rememberGear?: (familyId: string, text: string) => void;
+  /** Deletes the gear entries written by `rememberGear` for a family ("Forget my items"). */
+  forgetGear?: (familyId: string) => void;
 }
 
 const defaultStore = (): PhotoStore => getSharedPhotoStore();
@@ -53,6 +58,8 @@ export function createDefaultPhotoDeps(): PhotoApiDeps {
 
 const KINDS: PhotoKind[] = ['item', 'receipt'];
 const FAMILY_ID = /^[A-Za-z0-9_-]{1,40}$/;
+/** The date a check is stamped with. A sample family is always checked as of the demo date, the same date the banner shows. */
+const checkDate = (api: PhotoApiDeps, familyId: string): string => api.now ? api.now().toISOString().slice(0, 10) : resolveToday(familyId).today;
 const regLink = (brand: string | null | undefined) => { const u = registrationUrl(brand); return u ? { registerUrl: u } : {}; };
 
 /** One item as the parent sees it: the product facts plus its recall check (and, on a receipt, the money-back check). */
@@ -89,10 +96,12 @@ export function createPhotoRouter(api: PhotoApiDeps = createDefaultPhotoDeps()):
       if (out.status === 'invalid') return res.status(400).json({ status: out.status, error: out.message });
       if (out.status === 'needs_clearer_photo' && kind === 'item') return res.json({ status: out.status, message: NO_MODEL_MESSAGE });
       if (out.status !== 'ok') return res.json({ status: out.status, message: out.message });
-      const today = (api.now?.() ?? new Date()).toISOString().slice(0, 10);
+      const today = checkDate(api, familyId);
       const z = api.recallRunner ? api.recallRunner() : null;
       // The recall check (and, for a receipt, the money-back check) runs here, straight from the photo, for every family.
       const items = await Promise.all(out.items.map((i) => describeItem(i, kind as PhotoKind, today, z)));
+      // Gear (not receipts) is written into Bundle's memory for this family, so the Account tab can show it.
+      if (kind === 'item') for (const i of out.items) { try { if (i.productName) api.rememberGear?.(familyId, `Has: ${i.productName}`); } catch { /* memory is a bonus, never a blocker */ } }
       // Parent-safe: product facts only (no hashes, no model details, no read text).
       return res.json({
         status: 'ok',
@@ -118,7 +127,7 @@ export function createPhotoRouter(api: PhotoApiDeps = createDefaultPhotoDeps()):
     try {
       const store = api.makeDeps().store;
       const [rows, photos] = await Promise.all([store.listItems(familyId), store.listPhotos(familyId)]);
-      const today = (api.now?.() ?? new Date()).toISOString().slice(0, 10);
+      const today = checkDate(api, familyId);
       const photoOf = new Map(photos.map((p) => [p.id, p]));
       const gear = rows.filter((r) => r.source === 'photo_item' || r.source === 'barcode').map((r) => {
         const thumb = r.photoId != null ? photoOf.get(r.photoId)?.thumbnail ?? null : null;
@@ -145,7 +154,9 @@ export function createPhotoRouter(api: PhotoApiDeps = createDefaultPhotoDeps()):
     const { familyId } = (req.body ?? {}) as Record<string, unknown>;
     if (typeof familyId !== 'string' || !FAMILY_ID.test(familyId)) return res.status(400).json({ error: 'familyId is required.' });
     try {
-      return res.json({ deleted: await forgetItems(familyId, api.makeDeps().store) });
+      const deleted = await forgetItems(familyId, api.makeDeps().store);
+      try { api.forgetGear?.(familyId); } catch { /* nothing more to delete */ }
+      return res.json({ deleted });
     } catch {
       return res.status(500).json({ error: 'Could not remove your items. Please try again.' });
     }

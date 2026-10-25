@@ -19,12 +19,12 @@ const tab = (name: string) => within(screen.getByRole('navigation', { name: 'Mai
 const plus = () => screen.getByRole('button', { name: /^Scan$/ });
 
 describe('Version B tabs, baby is here (Maya)', () => {
-  it('shows Home, Taxes, Savings, Insurance and Deals, starting on Home, with a "+" on every tab', () => {
+  it('shows Home, Taxes, Savings, Insurance, Deals and Account, starting on Home, with a "+" on every tab', () => {
     show('maya');
     const bar = screen.getByRole('navigation', { name: 'Main' });
-    expect(within(bar).getAllByRole('button').map((b) => b.textContent?.replace(/\d+$/, ''))).toEqual(['Home', 'Taxes', 'Savings', 'Insurance', 'Deals']);
+    expect(within(bar).getAllByRole('button').map((b) => b.textContent?.replace(/\d+$/, ''))).toEqual(['Home', 'Taxes', 'Savings', 'Insurance', 'Deals', 'Account']);
     expect(tab('Home').getAttribute('aria-current')).toBe('page');
-    for (const name of ['Home', 'Taxes', 'Savings', 'Insurance', 'Deals']) {
+    for (const name of ['Home', 'Taxes', 'Savings', 'Insurance', 'Deals', 'Account']) {
       fireEvent.click(tab(name));
       expect(tab(name).getAttribute('aria-current')).toBe('page');
       expect(plus()).toBeTruthy();
@@ -186,13 +186,18 @@ describe('light extras', () => {
     delete (navigator as any).share;
   });
 
-  it('"Save your list" is a labelled demo and saves nothing', () => {
+  it('"Save your plan" has no sign-in: the plan is saved on this device and a name is optional', () => {
     show('maya');
+    expect(screen.queryByText(/Continue with Google/)).toBeNull();
+    expect(screen.queryByText(/Save your list so you do not lose it/)).toBeNull();
     const card = screen.getByTestId('save-card');
-    expect(within(card).getByText('Demo: not built yet')).toBeTruthy();
-    const btn = within(card).getByRole('button', { name: /Continue with Google/ }) as HTMLButtonElement;
-    expect(btn.disabled).toBe(true);
-    expect(card.textContent).toMatch(/does nothing for now/);
+    expect(card.textContent).toMatch(/Your plan is saved on this device\./);
+    expect(card.textContent).toMatch(/Add a name for it/);
+    expect(card.textContent).not.toMatch(/email|password|sign[- ]?in/i);
+    fireEvent.change(within(card).getByTestId('save-name-input'), { target: { value: 'Our baby plan' } });
+    fireEvent.click(within(card).getByRole('button', { name: 'Save name' }));
+    expect(screen.getByTestId('save-confirm').textContent).toMatch(/Saved as “Our baby plan”/);
+    expect(localStorage.getItem('bundle:plan:maya')).toMatch(/Our baby plan/);
   });
 });
 

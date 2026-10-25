@@ -6,7 +6,7 @@ import { URGENT_DAYS, daysUntil, deadlineText, fmtUsd, isCheckWithJob, type Fami
 import { COVERED_STATES, UNCOVERED_STATE_NOTE } from './onboarding';
 import { minutesOf } from '@shared/cardMeta';
 
-export type TabId = 'home' | 'taxes' | 'savings' | 'insurance' | 'deals';
+export type TabId = 'home' | 'taxes' | 'savings' | 'insurance' | 'deals' | 'account';
 export const TABS: { id: TabId; label: string }[] = [
   { id: 'home', label: 'Home' },
   { id: 'taxes', label: 'Taxes' },
@@ -14,7 +14,9 @@ export const TABS: { id: TabId; label: string }[] = [
   { id: 'insurance', label: 'Insurance' },
   { id: 'deals', label: 'Deals' },
 ];
-export const isTabId = (x: unknown): x is TabId => TABS.some((t) => t.id === x);
+/** The five money tabs, then Account (the family's answers, memory and privacy). The bottom bar shows all six. */
+export const ALL_TABS: { id: TabId; label: string }[] = [...TABS, { id: 'account', label: 'Account' }];
+export const isTabId = (x: unknown): x is TabId => ALL_TABS.some((t) => t.id === x);
 
 export type Stage = 'expecting' | 'born';
 /** Expecting = a due date and no birth date. Anything else (including no information) is treated as "baby's here". */

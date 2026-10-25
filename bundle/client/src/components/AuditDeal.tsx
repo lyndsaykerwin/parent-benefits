@@ -1,4 +1,5 @@
 import { useId, useRef, useState, type ChangeEvent } from 'react';
+import { useFreezeSpot } from '@/lib/scrollSpot';
 import type { AuditReply } from '@shared/offers';
 import { checkPickedFile, preparePhoto } from '@/lib/photoPrep';
 import { sendAudit, verdictLabel } from '@/lib/offers';
@@ -66,6 +67,7 @@ function Verdict({ reply, store, offer }: { reply: AuditReply; store: string; of
  * The verdict names the store you typed. Nothing is invented on this screen: it shows what the server's court answered.
  */
 export default function AuditDeal({ onBack, onSaved }: { onBack: () => void; onSaved?: () => void }) {
+  useFreezeSpot();
   const ids = { store: useId(), offer: useId(), link: useId(), text: useId(), file: useId() };
   const [store, setStore] = useState('');
   const [offer, setOffer] = useState('');
