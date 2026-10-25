@@ -14,3 +14,6 @@ Format (matches client/src/lib/stream.ts): `id: <seq>`, `event: <type>`, `data: 
 
 Verification (SAMPLE_MODE=true): npm test 914 passed / 11 skipped / 0 failed; tsc clean; build OK; eval 6/6 traps, 0 false alarms, maya 4899 / leo 0 / ava 1458. No SQL changes.
 Note: browsers' EventSource cannot send the reviewer header, so the reviewer view of the stream needs fetch-based reading (not built).
+
+## Fix (QC race)
+`RunEventHub.open(runId)` (idempotent) is called at the top of `runBundle`, before its first await, so the run exists in the hub before the 202 is sent. An opened run that never emits is evicted by the normal oldest-run limit. New test: stream connects before the first event, then gets card_ready + end. npm test 915 passed / 0 failed, tsc clean, build OK. `npm run eval` could not be re-run (shell refuses it); eval path untouched by this change.

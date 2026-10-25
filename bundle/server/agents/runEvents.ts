@@ -98,6 +98,9 @@ export class RunEventHub {
     return (this.runs.get(runId)?.events ?? []).filter((e) => e.seq > afterSeq).map((e) => ({ ...e }));
   }
 
+  /** Register a run before its first event (idempotent). Uses the normal oldest-run eviction, so an opened run that never emits cannot pile up. */
+  open(runId: string): void { this.log(runId); }
+
   /** True when the hub has ever heard of this run (asking never creates it). */
   has(runId: string): boolean { return this.runs.has(runId); }
   isFinished(runId: string): boolean { return this.runs.get(runId)?.finished ?? false; }

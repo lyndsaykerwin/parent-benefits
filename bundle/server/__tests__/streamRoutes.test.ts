@@ -109,6 +109,20 @@ describe('live updates route', () => {
     expect(hub.has('nope')).toBe(false);
   });
 
+  it('a stream opened before the first event still gets card_ready and end', async () => {
+    const hub = new RunEventHub();
+    hub.open('r1');
+    hub.open('r1'); // idempotent
+    await start(hub);
+    const p = get('/api/runs/r1/events');
+    await wait(50);
+    expect(hub.listenerCount('r1')).toBe(1);
+    hub.emit('r1', { type: 'card_ready', card: ownerCard });
+    hub.finish('r1');
+    expect(parse((await p).text).map((e) => e.event)).toEqual(['card_ready', 'end']);
+    expect(hub.listenerCount('r1')).toBe(0);
+  });
+
   it('removes its listener when the browser disconnects', async () => {
     const hub = new RunEventHub();
     hub.emit('r1', { type: 'agent_status', agent: 'recall', state: 'working' });
