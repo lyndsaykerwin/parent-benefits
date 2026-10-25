@@ -3,7 +3,7 @@ import path from 'path';
 import crypto from 'crypto';
 import { Router, type Request, type Response } from 'express';
 import rateLimit from 'express-rate-limit';
-import type { BundleReceipt, BundleResult, Family, FeedCard, ValueScore } from '../../shared/bundle';
+import type { BundleReceipt, BundleResult, Family, FeedCard } from '../../shared/bundle';
 import type { Generator } from '../adapters/llm';
 import type { BundleMemory } from '../adapters/memory';
 import { runBundle, newRunId, type RunDeps } from '../agents/orchestrator';
