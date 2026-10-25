@@ -46,3 +46,10 @@ Secrets are NOT in the repo. In the new account's cloud environment settings, ad
 - "Save your list" ships as a labelled demo card; real sign-in ≈ 4–6 h + Google OAuth keys only she can create [keep as demo].
 - H-MEM note writes are logged as `recall_hmem` [keep]; run notes kept forever [keep]; `universal_rule` definition [keep].
 - Maya's crib mattress is dated ~10 months before her pregnancy (forced by the real recall window) — describe as a hand-me-down/earlier purchase in the demo.
+
+## Update: cloud session, Oct 25 (waves 4-6 done)
+- **Built, independently QC'd, merged to main:** W4 (orchestrator wiring, Value Score cards, instant saved feed + streaming cards + status pills, server event stream with parent whitelist), W5 (coverage audit, 8-trap scoreboard, README with Meterless honesty note, Mac checklist `bundle/docs/mac-flip-on-checklist.md`, year-one table, Forget-my-items button, family profile via Zetaris), W6 (offline evidence regenerated + labelled, browser smoke test, clean-download rehearsal PASS). Plaid tile removed (Lyndsay). Parent wording polished.
+- **Checks:** `SAMPLE_MODE=true npm test` 1000 passed / 11 skipped; tsc + build clean; eval 8/8 traps, 0 false alarms, Maya $48.99 / Leo $0 / Ava $14.58. No Zetaris SQL changed → no re-record needed.
+- **Known, left as is (Lyndsay's call):** `eval.test.ts` "stable across 3 runs" fails occasionally (suspect: shared memory across the 3 runs, scripts/eval.ts:348).
+- **Open decisions:** CLAUDE.md "memory + safety" wording vs. Meterless used for memory + Nightshift only (qc-reports/meterless-safety-research.md); deck still says $9,210 and "6 of 6"; recall columns on offer_checks need a new Zetaris question (Mac); verify IRS Form 4547 wording in bundle/docs/year-one-table.md.
+- **Mac only:** Nightshift settings after Meterless's update, live re-record if ever needed, live demo + video — see the Mac checklist.
