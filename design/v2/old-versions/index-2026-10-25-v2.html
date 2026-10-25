@@ -1,0 +1,1094 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bundle V2 Mockups</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --cream:#FBF6EF; --paper:#FFFFFF; --ink:#1B1714; --ink-2:#5C534B; --ink-3:#8A8076;
+  --line:#E9E0D4; --coral:#E4572E; --coral-deep:#B93E1A; --coral-tint:#FCE6DC;
+  --green:#1E6B47; --green-2:#1E8A5A; --green-tint:#E3F2EA; --amber:#B7791F; --amber-tint:#FBF0D9;
+  --red:#C9352B; --red-tint:#FBE3E0; --sand:#F2EDE6;
+  --shadow:0 1px 2px rgba(27,23,20,.04),0 12px 32px rgba(27,23,20,.06);
+}
+*{box-sizing:border-box}
+html,body{margin:0;overflow-x:hidden}
+body{background:#EFE7DB;color:var(--ink);font-family:Manrope,system-ui,sans-serif;
+  background-image:radial-gradient(rgba(27,23,20,.07) 1px,transparent 1px);background-size:18px 18px;}
+button{font-family:inherit;color:inherit;cursor:pointer}
+a{color:inherit}
+.layout{display:grid;grid-template-columns:300px 1fr;min-height:100vh}
+aside.menu{padding:28px 22px;border-right:1px solid var(--line);background:rgba(251,246,239,.92);position:sticky;top:0;height:100vh;overflow-y:auto}
+.menu h1{margin:0;font-size:26px;font-weight:800;letter-spacing:-.03em}
+.menu h1 span{color:var(--coral)}
+.menu .sub{margin:4px 0 18px;font-size:13px;color:var(--ink-2);line-height:1.4}
+.menu h2{margin:18px 0 8px;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3)}
+.jump{display:flex;gap:10px;align-items:center;width:100%;text-align:left;padding:9px 10px;margin:2px 0;border:0;background:transparent;border-radius:12px;font-size:14px;font-weight:700}
+.jump:hover,.jump:focus-visible{background:var(--coral-tint);outline:none}
+.jump b{display:inline-flex;min-width:28px;height:22px;align-items:center;justify-content:center;border-radius:99px;background:var(--ink);color:var(--cream);font-size:11px}
+.jump.boost b{background:var(--coral)}
+.ctl{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 10px;font-size:13px;font-weight:700}
+.switch{width:44px;height:26px;border-radius:99px;border:0;background:var(--line);position:relative;flex-shrink:0}
+.switch::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:99px;background:#fff;transition:left .2s}
+.switch[aria-checked="true"]{background:var(--green-2)}
+.switch[aria-checked="true"]::after{left:21px}
+.note{font-size:12px;color:var(--ink-2);line-height:1.45;padding:0 10px}
+main.stage{display:flex;flex-direction:column;align-items:center;padding:28px 16px 40px;gap:12px}
+.storytag{font-size:12px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--coral-deep);background:var(--coral-tint);padding:6px 12px;border-radius:99px}
+.phone{width:390px;max-width:100%;height:844px;position:relative;overflow:hidden;background:var(--cream);border-radius:46px;border:10px solid var(--ink);box-shadow:0 30px 80px rgba(27,23,20,.25)}
+.screen{position:absolute;inset:0;overflow-y:auto;overflow-x:hidden;padding:18px 18px 110px}
+.screen.no-tabs{padding-bottom:28px;display:flex;flex-direction:column}
+.topbar{display:flex;align-items:center;gap:12px;min-height:44px}
+.wordmark{font-size:24px;font-weight:800;letter-spacing:-.03em}
+.wordmark span{color:var(--coral)}
+.prog{flex-grow:1;height:6px;background:var(--line);border-radius:99px;overflow:hidden}
+.prog i{display:block;height:100%;background:var(--coral);border-radius:99px;transition:width .3s}
+.count{font-size:13px;font-weight:700;color:var(--ink-2);white-space:nowrap}
+.iconbtn{width:44px;height:44px;margin-left:-10px;border:0;background:transparent;display:flex;align-items:center;justify-content:center;border-radius:12px}
+.back{display:inline-flex;align-items:center;gap:4px;border:0;background:transparent;font-size:15px;font-weight:800;padding:10px 4px;min-height:44px}
+h2.q{margin:22px 0 0;font-size:29px;font-weight:800;line-height:1.1;letter-spacing:-.03em}
+p.lede{margin:10px 0 0;font-size:16px;line-height:1.45;color:var(--ink-2)}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:99px;background:var(--coral-tint);color:var(--coral-deep);font-size:13px;font-weight:800}
+.pill.green{background:var(--green-tint);color:var(--green)}
+.pill.amber{background:var(--amber-tint);color:#8A5A12}
+.pill.ink{background:var(--ink);color:var(--cream)}
+.opts{display:flex;flex-direction:column;gap:10px;margin-top:22px}
+.opt{display:flex;align-items:center;gap:12px;width:100%;min-height:60px;padding:14px 16px;background:var(--paper);border:1.5px solid var(--line);border-radius:18px;text-align:left;font-size:16px;font-weight:700;box-shadow:var(--shadow);transition:transform .12s,border-color .15s}
+.opt:active{transform:scale(.98)}
+.opt[aria-pressed="true"]{border-color:var(--coral);background:#FFF8F4}
+.opt .dot{width:20px;height:20px;border-radius:99px;border:2px solid var(--line);flex-shrink:0;display:flex;align-items:center;justify-content:center}
+.opt[aria-pressed="true"] .dot{border-color:var(--coral);background:var(--coral)}
+.opt[aria-pressed="true"] .dot::after{content:"";width:8px;height:8px;border-radius:99px;background:#fff}
+.bigopts{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:22px}
+.bigopt{display:flex;flex-direction:column;gap:10px;min-height:168px;padding:18px;background:var(--paper);border:1.5px solid var(--line);border-radius:24px;text-align:left;box-shadow:var(--shadow)}
+.bigopt[aria-pressed="true"]{border-color:var(--coral)}
+.bigopt .ic{width:44px;height:44px;border-radius:14px;background:var(--coral-tint);display:flex;align-items:center;justify-content:center;color:var(--coral-deep)}
+.bigopt strong{font-size:18px;font-weight:800;letter-spacing:-.01em}
+.bigopt span{font-size:14px;color:var(--ink-2);line-height:1.35}
+.quiet{border:0;background:transparent;font-size:14px;font-weight:700;color:var(--ink-2);text-decoration:underline;text-underline-offset:3px;padding:12px 4px;min-height:44px;text-align:left}
+.why{margin-top:6px;font-size:13px;color:var(--ink-2);background:var(--sand);border-radius:12px;padding:10px 12px;line-height:1.4}
+.field{margin-top:24px;display:block;padding:10px 16px 12px;background:var(--paper);border:2px solid var(--coral);border-radius:16px}
+.field small{display:block;font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-2)}
+.field input{margin-top:2px;width:100%;border:0;outline:none;background:transparent;font-family:inherit;font-size:24px;font-weight:800;color:var(--ink)}
+.okline{margin:12px 0 0;display:flex;align-items:center;gap:8px;font-size:15px;font-weight:700;color:var(--green)}
+.payoff{margin-top:14px;display:flex;gap:8px;align-items:center;padding:10px 12px;background:var(--green-tint);color:var(--green);border-radius:14px;font-size:14px;font-weight:700;animation:pop .35s ease}
+.spacer{flex-grow:1}
+.cta{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:56px;border:0;border-radius:16px;background:var(--ink);color:var(--cream);font-size:17px;font-weight:800;margin-top:16px}
+.cta:disabled{opacity:.35;cursor:not-allowed}
+.cta.coral{background:var(--coral);color:#fff}
+.btn2{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:44px;padding:0 14px;border-radius:14px;border:1.5px solid var(--line);background:var(--paper);font-size:14px;font-weight:800}
+.btn2.dark{background:var(--ink);color:var(--cream);border-color:var(--ink)}
+.card{background:var(--paper);border:1px solid var(--line);border-radius:22px;padding:18px;box-shadow:var(--shadow);margin-top:12px}
+.label{font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-2)}
+.label.coral{color:var(--coral-deep)}
+.section{margin:22px 4px 0}
+.big{font-size:44px;font-weight:800;letter-spacing:-.04em;line-height:1;font-variant-numeric:tabular-nums}
+.row{display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:9px 0;border-top:1px solid var(--line);font-size:15px}
+.row:first-of-type{border-top:0}
+.row b{font-variant-numeric:tabular-nums;white-space:nowrap}
+.muted{color:var(--ink-2)}
+.small{font-size:13px;line-height:1.4}
+.link{border:0;background:transparent;padding:0;font-weight:800;color:var(--coral-deep);font-size:14px;text-decoration:none;min-height:32px}
+/* checking */
+.steps{list-style:none;padding:0;margin:26px 0 0;display:flex;flex-direction:column;gap:14px}
+.steps li{display:flex;gap:12px;align-items:flex-start;opacity:.25;transition:opacity .3s}
+.steps li.on{opacity:1}
+.tick{width:26px;height:26px;border-radius:99px;background:var(--line);color:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:14px;font-weight:800;transition:background .3s}
+.steps li.on .tick{background:var(--green-2)}
+.steps strong{display:block;font-size:16px}
+.steps span{font-size:13px;color:var(--ink-2)}
+.reveal{margin-top:22px;padding:20px;border-radius:24px;background:var(--ink);color:var(--cream);animation:pop .4s ease}
+.reveal .big{color:#fff}
+/* tabs */
+.tabbar{position:absolute;left:0;right:0;bottom:0;height:84px;background:rgba(255,255,255,.96);border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(6,1fr);padding:6px 4px 18px;backdrop-filter:blur(8px)}
+.tab{border:0;background:transparent;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:10.5px;font-weight:700;color:var(--ink-3);border-radius:12px}
+.tab[aria-selected="true"]{color:var(--coral-deep)}
+.tab[aria-selected="true"] svg{stroke:var(--coral)}
+/* money summary */
+.split{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+.stat{background:var(--paper);border:1px solid var(--line);border-radius:20px;padding:14px;box-shadow:var(--shadow)}
+.stat .n{font-size:28px;font-weight:800;letter-spacing:-.03em;font-variant-numeric:tabular-nums;margin-top:4px}
+.stat.claimed .n{color:var(--green)}
+.stat.still .n{color:var(--coral)}
+.bucket{border-left:5px solid var(--coral)}
+.bucket.tax{border-left-color:var(--ink)}
+.bucket.leave{border-left-color:var(--green-2)}
+.bucket.gift{border-left-color:var(--amber)}
+.bucket h3{margin:4px 0 2px;font-size:18px;font-weight:800;letter-spacing:-.01em}
+.babyacct{display:inline-block;margin-top:2px;font-size:12px;font-weight:800;color:var(--green);background:var(--green-tint);padding:2px 8px;border-radius:99px}
+.empty{margin-top:10px;display:flex;gap:10px;align-items:center;padding:12px;border:1.5px dashed var(--line);border-radius:16px;font-size:14px;font-weight:700}
+/* tasks */
+.filters{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+.fpill{min-height:36px;padding:0 14px;border-radius:99px;border:1.5px solid var(--line);background:var(--paper);font-size:13px;font-weight:800}
+.fpill[aria-pressed="true"]{background:var(--ink);color:var(--cream);border-color:var(--ink)}
+.task{transition:transform .28s ease,opacity .28s ease,max-height .3s ease;max-height:400px}
+.task.leaving{transform:translateX(30px);opacity:0}
+.task h4{margin:6px 0 4px;font-size:16px;font-weight:800}
+.task .meta{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.task .acts{display:flex;gap:8px;margin-top:12px}
+.task .acts .btn2{flex:1}
+.drawer{margin-top:14px;border-radius:20px;background:var(--sand);border:1px solid var(--line)}
+.drawer > button{width:100%;display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border:0;background:transparent;font-size:15px;font-weight:800;min-height:48px}
+.drawer .items{padding:0 12px 12px;display:flex;flex-direction:column;gap:8px}
+.ditem{display:flex;justify-content:space-between;align-items:center;gap:8px;background:var(--paper);border-radius:14px;padding:10px 12px;font-size:14px;font-weight:700}
+.ditem small{display:block;font-weight:600;color:var(--ink-2)}
+/* gear */
+.gear{display:flex;gap:12px;align-items:center;padding:12px 0;border-top:1px solid var(--line)}
+.gear:first-child{border-top:0}
+.thumb{width:56px;height:56px;border-radius:14px;background:var(--sand);flex-shrink:0;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.result{border:2px solid var(--green-2)}
+.shield{display:flex;gap:10px;align-items:flex-start;padding:12px;margin-top:12px;background:var(--green-tint);border-radius:14px;color:var(--green);font-size:14px;line-height:1.4}
+.ex{font-size:11px;font-weight:800;color:#8A5A12;background:var(--amber-tint);padding:1px 6px;border-radius:6px;margin-left:4px;letter-spacing:.02em}
+/* sheet */
+.scrim{position:absolute;inset:0;background:rgba(27,23,20,.45);z-index:20;display:flex;align-items:flex-end;animation:fade .2s}
+.sheet{width:100%;max-height:92%;overflow-y:auto;background:var(--cream);border-radius:28px 28px 0 0;padding:10px 18px 26px;animation:up .28s ease}
+.grab{width:40px;height:5px;border-radius:99px;background:var(--line);margin:4px auto 12px}
+.seg{display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:4px;background:var(--sand);border-radius:14px;margin-top:12px}
+.seg button{min-height:40px;border:0;border-radius:11px;background:transparent;font-size:14px;font-weight:800}
+.seg button[aria-pressed="true"]{background:var(--paper);box-shadow:var(--shadow)}
+.spinner{width:44px;height:44px;border-radius:99px;border:4px solid var(--line);border-top-color:var(--coral);animation:spin .8s linear infinite;margin:20px auto}
+/* booster */
+.booster{background:linear-gradient(160deg,#FFF4EC,#FFFFFF 60%);border:1.5px solid #F5C4B0}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.chip{min-height:40px;padding:0 14px;border-radius:99px;border:1.5px solid var(--line);background:var(--paper);font-size:14px;font-weight:800}
+.chip[aria-pressed="true"]{border-color:var(--coral);background:var(--coral-tint);color:var(--coral-deep)}
+.flip{animation:flip .5s ease}
+.minichip{display:inline-flex;align-items:center;gap:6px;margin-top:12px;min-height:40px;padding:0 14px;border-radius:99px;border:1.5px dashed var(--coral);background:var(--paper);color:var(--coral-deep);font-size:14px;font-weight:800}
+/* deals */
+.status{display:flex;gap:8px;align-items:center;padding:10px 12px;border-radius:14px;background:var(--paper);border:1px solid var(--line);font-size:13px;font-weight:700;margin-top:12px}
+.status i{width:8px;height:8px;border-radius:99px;background:var(--green-2);flex-shrink:0}
+.bar{display:flex;height:10px;border-radius:99px;overflow:hidden;background:var(--sand);flex-grow:1}
+.bar i{display:block;height:100%}
+.store{display:grid;grid-template-columns:92px 1fr 52px;align-items:center;gap:10px;padding:8px 0;font-size:13px;font-weight:700}
+textarea{width:100%;min-height:120px;border:2px solid var(--line);border-radius:16px;padding:12px;font-family:inherit;font-size:15px;line-height:1.4;resize:vertical;background:var(--paper)}
+textarea:focus{outline:none;border-color:var(--coral)}
+.verdict{display:grid;gap:10px;margin-top:12px}
+.voice{padding:12px;border-radius:16px;background:var(--sand);font-size:14px;line-height:1.4}
+.voice b{display:block;font-size:12px;letter-spacing:.1em;text-transform:uppercase;margin-bottom:4px}
+.thanks{margin-top:10px;padding:12px;border-radius:14px;background:var(--green-tint);color:var(--green);font-size:14px;font-weight:700;line-height:1.4;animation:pop .3s}
+/* account */
+.ring{display:flex;gap:16px;align-items:center}
+.prow{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--line)}
+.prow:first-child{border-top:0}
+.prow small{display:block;font-size:12px;color:var(--ink-2);font-weight:700}
+.prow span{font-size:15px;font-weight:800}
+.mem{display:flex;gap:10px;padding:8px 0;border-top:1px solid var(--line);font-size:14px}
+.mem:first-child{border-top:0}
+.mem code{font-family:ui-monospace,Menlo,monospace;font-size:12px;background:var(--sand);padding:2px 6px;border-radius:6px;height:fit-content;white-space:nowrap}
+.danger{color:var(--red);border-color:#F2C2BC}
+.toast{pointer-events:none;position:absolute;left:16px;right:16px;bottom:100px;z-index:30;background:var(--ink);color:var(--cream);padding:12px 14px;border-radius:14px;font-size:14px;font-weight:700;animation:pop .25s}
+.check{display:flex;gap:10px;align-items:flex-start;padding:10px 0;border-top:1px solid var(--line);font-size:15px;line-height:1.4}
+.check:first-child{border-top:0}
+.check input{width:20px;height:20px;margin-top:2px;accent-color:var(--coral);flex-shrink:0}
+.modal{position:absolute;inset:0;z-index:40;background:rgba(27,23,20,.5);display:flex;align-items:center;justify-content:center;padding:20px}
+.modal .card{margin:0;width:100%}
+/* v2.1 additions */
+.scanbtn{display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:0 14px;border-radius:99px;border:1.5px solid var(--ink);background:var(--paper);font-size:14px;font-weight:800}
+.scancard{background:linear-gradient(160deg,#FFF4EC,#FFFFFF 60%);border:1.5px solid #F5C4B0}
+.house{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:18px}
+.house .opt{justify-content:center;min-height:56px}
+.earnrow{margin-top:14px}
+.earnrow .label{margin:0 4px}
+.eopt{display:flex;flex-direction:column;align-items:flex-start;gap:2px;width:100%;min-height:52px;padding:10px 14px;margin-top:8px;background:var(--paper);border:1.5px solid var(--line);border-radius:16px;text-align:left;font-size:15px;font-weight:800;box-shadow:var(--shadow);transition:transform .12s,border-color .15s}
+.eopt:active{transform:scale(.98)}
+.eopt small{font-size:12.5px;font-weight:600;color:var(--ink-3)}
+.eopt[aria-pressed="true"]{border-color:var(--coral);background:#FFF8F4}
+.slidein{animation:slidein .25s ease}
+.memsrc{display:inline-flex;font-size:12px;font-weight:800;color:var(--green);background:var(--green-tint);padding:2px 8px;border-radius:99px;margin:4px 4px 0 0}
+.memtag{display:inline-flex;font-size:11px;font-weight:700;color:var(--ink-3);background:var(--sand);padding:2px 8px;border-radius:99px;margin-top:4px}
+.flabel{display:block;margin-top:14px;font-size:14px;font-weight:800}
+.tinput{width:100%;min-height:48px;margin-top:6px;border:2px solid var(--line);border-radius:14px;padding:0 12px;font-family:inherit;font-size:15px;background:var(--paper);color:var(--ink)}
+.tinput:focus{outline:none;border-color:var(--coral)}
+.shotpick{display:flex;gap:12px;align-items:center;margin-top:10px;min-height:72px;padding:12px;border:2px dashed var(--line);border-radius:16px;background:var(--paper);font-size:15px;font-weight:800;cursor:pointer;position:relative}
+.sr{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden}
+.rrow{padding:10px 0;border-top:1px solid var(--line);font-size:14px}
+.searching{width:8px;height:8px;border-radius:99px;background:var(--coral);flex-shrink:0;animation:blink 1s ease-in-out infinite}
+.vchips{display:flex;flex-wrap:wrap;gap:6px;padding:0 10px}
+.vchips .chip{min-height:34px;font-size:12.5px;padding:0 10px}
+@keyframes slidein{from{transform:translateY(-10px);opacity:0}}
+@keyframes blink{50%{opacity:.25}}
+@keyframes pop{from{transform:scale(.96);opacity:0}to{transform:none;opacity:1}}
+@keyframes fade{from{opacity:0}}
+@keyframes up{from{transform:translateY(40px);opacity:0}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes flip{0%{transform:rotateX(0)}50%{transform:rotateX(90deg)}100%{transform:rotateX(0)}}
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{animation:none!important;transition:none!important}
+}
+@media (max-width:900px){
+  .layout{grid-template-columns:1fr}
+  aside.menu{position:static;height:auto;border-right:0;border-bottom:1px solid var(--line);padding:18px 16px}
+  .jumps{display:flex;flex-wrap:wrap;gap:4px}
+  .jump{width:auto;padding:6px 8px;font-size:13px;background:var(--paper)}
+  main.stage{padding:16px 0 30px}
+}
+@media (max-width:480px){
+  .phone{border:0;border-radius:0;width:100%;box-shadow:none;height:780px}
+}
+</style>
+</head>
+<body>
+<div class="layout">
+  <aside class="menu" aria-label="Jump to a story">
+    <h1>bundle<span>.</span> V2</h1>
+    <p class="sub">Clickable mockups of the V2 feedback changes (plans/v2-feedback-response.md). Sample family only: Maya, baby born Oct 3, 2026, ZIP 02139. Demo date Oct 23, 2026.</p>
+    <h2>Stories</h2>
+    <div class="jumps">
+      <button class="jump" data-jump="q1" data-testid="jump-s1-onboarding"><b>S1</b> 5-question setup</button>
+      <button class="jump" data-jump="checking" data-testid="jump-s1-checking"><b>S1</b> Checking screen</button>
+      <button class="jump" data-jump="insurance" data-testid="jump-s1-insurance"><b>S1</b> Insurance deadline</button>
+      <button class="jump" data-jump="gear" data-testid="jump-s2-gear"><b>S2</b> Gear Locker + photo</button>
+      <button class="jump" data-jump="home" data-testid="jump-s3-home"><b>S3</b> Home: money buckets</button>
+      <button class="jump" data-jump="tasks" data-testid="jump-s4-tasks"><b>S4</b> Tasks + quick wins</button>
+      <button class="jump" data-jump="deals" data-testid="jump-s5-deals"><b>S5</b> Deals + report card</button>
+      <button class="jump" data-jump="audit" data-testid="jump-s5-audit"><b>S5</b> Audit a deal</button>
+      <button class="jump" data-jump="live" data-testid="jump-s5-live"><b>S5</b> Deals: live search</button>
+      <button class="jump" data-jump="account" data-testid="jump-s6-account"><b>S6</b> Account + memory</button>
+      <button class="jump" data-jump="save" data-testid="jump-save-account"><b>S7</b> Save your plan</button>
+      <button class="jump boost" data-jump="taxes" data-testid="jump-booster-taxes"><b>B</b> Taxes booster</button>
+      <button class="jump boost" data-jump="hr" data-testid="jump-booster-hr"><b>B</b> Questions to ask HR</button>
+    </div>
+    <h2>Demo switches</h2>
+    <div class="ctl">Family has items <button class="switch" role="switch" aria-checked="false" data-act="toggleItems" data-testid="toggle-has-items" aria-label="Family has items"></button></div>
+    <div class="ctl">Receipt added <button class="switch" role="switch" aria-checked="false" data-act="toggleReceipt" data-testid="toggle-receipt" aria-label="Receipt added"></button></div>
+    <div class="ctl">Deals: live mode <button class="switch" role="switch" aria-checked="false" data-act="toggleLive" data-testid="toggle-live-mode" aria-label="Deals live mode"></button></div>
+    <p class="note">"Family has items" shows the recall line on the checking screen (rule: only show a step the run really does). "Receipt added" swaps the empty "Money back now" bucket for the filled one and puts a receipt in the gear locker. "Live mode" shows the Deals search for new offers; off = practice mode.</p>
+    <p class="note" style="margin-top:10px;font-weight:700">Checking screen: daycare line by work answer</p>
+    <div class="vchips" style="margin-top:6px">
+      <button class="chip" data-act="checkVariant" data-v="fsa" data-testid="check-variant-fsa">Paycheck</button>
+      <button class="chip" data-act="checkVariant" data-v="self" data-testid="check-variant-self">Self-employed</button>
+      <button class="chip" data-act="checkVariant" data-v="nowork" data-testid="check-variant-nowork">Partner not working</button>
+      <button class="chip" data-act="checkVariant" data-v="skip" data-testid="check-variant-skip">Prefer not to say</button>
+    </div>
+    <h2>Numbers</h2>
+    <p class="note">Money amounts are the sample run's numbers from the spec. Minute estimates, offer grades and lesson counts are labeled "example" or "sample numbers".</p>
+  </aside>
+  <main class="stage">
+    <div class="storytag" id="storytag" data-testid="story-tag">S1 · Onboarding</div>
+    <div class="phone" id="phone" data-testid="phone"></div>
+  </main>
+</div>
+
+<script>
+(function(){
+'use strict';
+var DEMO = new Date(2026, 9, 23);
+var MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+function fmt(d){ return MONTHS[d.getMonth()] + ' ' + d.getDate() + ', ' + d.getFullYear(); }
+function addDays(d, n){ var x = new Date(d); x.setDate(x.getDate() + n); return x; }
+function parseDate(s){ if(!s) return null; var p = s.split('-'); return new Date(+p[0], +p[1]-1, +p[2]); }
+function money(n){ return '$' + Math.round(n).toLocaleString('en-US'); }
+function esc(s){ return String(s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+
+var WORK = [
+  {id:'both', label:'We both work for an employer', advice:'You may be able to set aside up to $7,500 tax-free for daycare (Dependent Care FSA). Check with HR.'},
+  {id:'onehome', label:'One of us works for an employer, one stays home', advice:"A Dependent Care FSA usually needs both parents earning. There's an exception if the stay-home parent is a full-time student or disabled."},
+  {id:'self', label:'One or both of us is self-employed or freelance', advice:'No work FSA, but the childcare tax credit can give back up to $1,500 for one child ($3,000 for two or more).'},
+  {id:'single', label:"I'm a single parent with a job", advice:'You may be able to set aside up to $7,500 tax-free for daycare (Dependent Care FSA) if your employer offers one. Check with HR.'},
+  {id:'nowork', label:'Not working right now', advice:'Daycare tax savings usually need earned income (a paycheck or self-employment). We’ll show other ways to save.'}
+];
+var EARN = [['pay','Paycheck from a job','taxes come out of your pay'],['self','Self-employed or freelance','you pay your own taxes'],['none','Not working right now','staying home, studying or between jobs']];
+function earnLabel(v){ var e = EARN.filter(function(x){ return x[0] === v; })[0]; return e ? e[1] : '—'; }
+function earnRows(){ return state.a.house === 'two' ? [['me','You'],['partner','Your partner']] : state.a.house === 'solo' ? [['me','']] : []; }
+function q4Complete(){ var r = earnRows(); return r.length > 0 && r.every(function(x){ return state.a.earn && state.a.earn[x[0]]; }); }
+function deriveWork(){
+  if(!q4Complete()) return null;
+  var vals = earnRows().map(function(x){ return state.a.earn[x[0]]; }), two = state.a.house === 'two';
+  if(vals.indexOf('none') >= 0) return two ? 'onehome' : 'nowork';
+  if(vals.indexOf('pay') >= 0) return two ? 'both' : 'single';
+  return 'self';
+}
+// fsa = all earners + at least one paycheck; self = earners, no paycheck; nowork = a parent not working; skip = prefer not to say
+function workKind(w){ return (w === 'both' || w === 'single') ? 'fsa' : w === 'self' ? 'self' : (w === 'onehome' || w === 'nowork') ? 'nowork' : w === 'skip' ? 'skip' : null; }
+function q4Line(w){
+  var k = workKind(w);
+  if(k === 'fsa') return 'You may be able to set aside up to $7,500 tax-free for daycare.';
+  if(k === 'self') return 'The childcare tax credit can give back up to $1,500 (one child).';
+  if(w === 'onehome') return 'Daycare tax savings usually need both parents earning — we’ll show other ways to save.';
+  if(w === 'nowork') return 'Daycare tax savings usually need earned income — we’ll show other ways to save.';
+  return '';
+}
+function workLabel(){
+  var a = state.a;
+  if(a.work === 'skip') return 'Prefer not to say';
+  if(a.house === 'solo' && a.earn) return 'Just me · ' + earnLabel(a.earn.me);
+  if(a.house === 'two' && a.earn) return 'Two of us · You: ' + earnLabel(a.earn.me) + ' · Partner: ' + earnLabel(a.earn.partner);
+  var w = WORK.filter(function(x){ return x.id === a.work; })[0];
+  return w ? w.label : '—';
+}
+var SAMPLE_PASTE = 'FREE baby welcome box! Just pay $9.99 shipping. Includes a 30-day trial membership that renews at $14.99/month unless cancelled.';
+var TRUST = 'Photos are saved to your account only. We strip location data. Delete anytime.';
+var WORK_SKIP = {id:'skip', label:'Prefer not to say', advice:'Daycare can come with tax savings through work or a tax credit. Add this later for your exact daycare savings.'};
+
+function insOptions(){
+  var ma = isMA();
+  return [
+    {id:'job', label:"Through a job (mine or my partner's)"},
+    {id:'connector', label:ma ? 'Health Connector / Healthcare.gov' : 'Healthcare.gov / state marketplace'},
+    {id:'masshealth', label:ma ? 'MassHealth / Medicaid / CHIP' : 'Medicaid / CHIP'},
+    {id:'tricare', label:'TRICARE (military)'}
+  ];
+}
+var INS_NONE = {id:'none', label:'No insurance right now / not sure'};
+function insInfo(id){
+  var b = babyDate(), born = state.a.stage === 'here';
+  var map = {
+    job:{days:30, pill:'30 days from birth to add baby', detail:'The federal minimum is 30 days; some plans give 60. Check your plan. Coverage goes back to the birth date.'},
+    connector:{days:60, pill:'60 days from birth to add baby', detail:'Coverage can start on the birth date.'},
+    masshealth:{days:null, pill:'Baby is covered automatically for 1 year', detail:'Report the birth within 10 days.', todo:true},
+    tricare:{days:90, pill:'90 days to register baby in DEERS', detail:"DEERS is the military's family-records system. 120 days if you're overseas."},
+    none:{days:null, pill:'Your baby may qualify for MassHealth', detail:'Newborns without coverage may qualify. Check if your baby qualifies →', apply:true}
+  };
+  var i = map[id] || map.job;
+  if(i.days && b){
+    var dl = addDays(b, i.days);
+    if(born){ var left = Math.round((dl - DEMO)/86400000); i.when = 'Deadline ' + fmt(dl) + ' · ' + (left >= 0 ? left + ' days left' : 'passed'); }
+    else { i.when = 'The clock starts on your due date (' + fmt(b) + ').'; }
+  }
+  return i;
+}
+
+var defaults = {stage:'here', date:'2026-10-03', zip:'02139', work:'both', house:'two', earn:{me:'pay', partner:'pay'}, ins:'job'};
+var state;
+function fresh(){
+  state = {view:'q1', a:{stage:null, date:'', zip:'', work:null, house:null, earn:null, ins:null}, hasItems:false, receipt:false,
+    q4Anim:false, visitedResults:false, save:null, signedOut:false, memTech:false, live:false, liveDone:false,
+    auditForm:{store:'Store A', offer:'free welcome box', link:'', text:SAMPLE_PASTE, mode:'paste', file:null},
+    tab:'home', sub:null, sheet:null, device:'phone', tasks:{}, drawer:false, quick:false,
+    filing:null, filingSkipped:false, flipped:false, carrier:null, gear:[], audit:null, reported:{}, reports:0,
+    editing:null, toast:null, modal:null, payoff:false, checkStep:0, story:'S1 · Onboarding'};
+}
+fresh();
+var prevNum = {};
+
+function isMA(){ var z = state.a.zip || ''; return /^0[12]/.test(z); }
+function babyDate(){ return parseDate(state.a.date); }
+function ageDays(){ var b = babyDate(); return b ? Math.round((DEMO - b)/86400000) : 0; }
+function taxYear(){ var b = babyDate(); return b ? b.getFullYear() : 2026; }
+function taxWhen(){ var y = taxYear(); return 'When you file your ' + y + ' taxes (spring ' + (y+1) + ')'; }
+function fillDefaults(){
+  var hadWork = !!state.a.work;
+  for(var k in defaults){ if((k === 'house' || k === 'earn') && hadWork) continue; if(!state.a[k]) state.a[k] = JSON.parse(JSON.stringify(defaults[k])); }
+}
+
+function taxItems(){
+  var t = [{id:'ctc', name:'Child Tax Credit', amt:2200, note:'up to $1,700 refundable'}];
+  if(isMA()) t.push({id:'ma', name:'MA child credit', amt:440});
+  t.push({id:'trump', name:'Trump Account', amt:1000, baby:true});
+  return t;
+}
+function tasks(){
+  var ins = insInfo(state.a.ins);
+  var list = [
+    {id:'ins', title:'Add baby to your health insurance', amt:0, min:15, minNote:'', pill:ins.pill, tone:'coral', sub:ins.when || ins.detail},
+    {id:'ctc', title:'Claim the Child Tax Credit', amt:2200, min:10, minNote:' (example)', pill:taxWhen(), sub:'Up to $1,700 refundable.'}
+  ];
+  if(isMA()) list.push({id:'ma', title:'Claim the MA child credit', amt:440, min:5, minNote:' (example)', pill:taxWhen(), sub:'Massachusetts credit per child.'});
+  list.push({id:'trump', title:"Open your baby's Trump Account", amt:1000, min:10, minNote:' (example)', pill:'Goes into your baby’s account', tone:'green', sub:'$1,000 is deposited into the baby’s account, not your pocket.'});
+  if(isMA()) list.push({id:'pfml', title:'Apply for MA paid family leave', amt:0, min:20, minNote:' (example)', pill:'Up to $1,230 a week', tone:'green', sub:'Up to 12 weeks. The amount depends on your pay.'});
+  if(state.a.ins === 'job' || state.a.ins === 'connector') list.push({id:'pump', title:'Order your $0 breast pump', amt:0, min:5, minNote:' (example)', pill:'$0 with your plan', tone:'green', sub:'A federal law makes most plans cover this.'});
+  if(hasSeat()) list.push({id:'seat', title:'Register your car seat with Graco', amt:0, min:3, minNote:' (example)', pill:'Hear about future recalls', tone:'green', sub:'From your gear locker.'});
+  return list;
+}
+function hasSeat(){ return state.gear.some(function(g){ return g.id === 'seat'; }); }
+function totals(){
+  var still = 0, claimed = 0, all = 0;
+  tasks().forEach(function(t){ all += t.amt; var s = state.tasks[t.id]; if(s === 'done') claimed += t.amt; else if(!s) still += t.amt; });
+  return {still:still, claimed:claimed, all:all};
+}
+
+/* ---------- icons ---------- */
+var I = {
+  back:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>',
+  clock:'<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
+  heart:'<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-4.5-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 11c0 5.5-7 10-7 10z"/></svg>',
+  shield:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/></svg>',
+  check:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg>',
+  plus:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>',
+  camera:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>',
+  upload:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M4 20h16"/></svg>',
+  chev:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>'
+};
+var TABI = {
+  home:'<path d="M4 11l8-7 8 7v9h-5v-6H9v6H4z"/>',
+  taxes:'<path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/>',
+  savings:'<circle cx="12" cy="12" r="8"/><path d="M12 8v8M9.5 10.5c0-1 1-1.5 2.5-1.5s2.5.6 2.5 1.6c0 2.4-5 1.4-5 3.8 0 1 1 1.6 2.5 1.6s2.5-.5 2.5-1.5"/>',
+  insurance:'<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/>',
+  deals:'<path d="M3 12l9-9h8v8l-9 9z"/><circle cx="16" cy="8" r="1.5"/>',
+  account:'<circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6"/>'
+};
+function tabIcon(k){ return '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + TABI[k] + '</svg>'; }
+function seatThumb(){ return '<svg width="44" height="44" viewBox="0 0 48 48" aria-hidden="true"><path d="M10 34c0-10 4-22 14-22s14 12 14 22z" fill="#E4572E" opacity=".85"/><path d="M8 34h32l-3 6H11z" fill="#1B1714"/><path d="M14 14c4-6 16-6 20 0" fill="none" stroke="#1B1714" stroke-width="3" stroke-linecap="round"/><circle cx="24" cy="26" r="5" fill="#FBF6EF"/><rect x="30" y="38" width="7" height="3" rx="1" fill="#FCE6DC"/></svg>'; }
+function receiptThumb(){ return '<svg width="44" height="44" viewBox="0 0 48 48" aria-hidden="true"><path d="M13 5h22v38l-3.7-2.5-3.6 2.5-3.7-2.5-3.7 2.5-3.6-2.5L13 43z" fill="#FFFFFF" stroke="#1B1714" stroke-width="2" stroke-linejoin="round"/><path d="M18 13h12M18 19h9M18 25h12" stroke="#8A8076" stroke-width="2" stroke-linecap="round"/><path d="M18 32h6M27 32h3" stroke="#E4572E" stroke-width="2.4" stroke-linecap="round"/></svg>'; }
+function swingThumb(){ return '<svg width="44" height="44" viewBox="0 0 48 48" aria-hidden="true"><path d="M8 42L20 8M40 42L28 8M18 8h12" stroke="#5C534B" stroke-width="3" stroke-linecap="round" fill="none"/><path d="M14 26h20l-3 9H17z" fill="#1E8A5A"/><path d="M24 8v18" stroke="#5C534B" stroke-width="2"/></svg>'; }
+
+/* ---------- shared bits ---------- */
+function progress(n){
+  var pct = 20 + (n-1)*18;
+  return '<div class="topbar">' + (n > 1 ? '<button class="iconbtn" data-act="qback" data-testid="q-back" aria-label="Back">' + I.back + '</button>' : '<span class="wordmark">bundle<span>.</span></span>') +
+    '<div class="prog" role="progressbar" aria-label="Setup progress" aria-valuenow="' + pct + '" aria-valuemin="0" aria-valuemax="100"><i style="width:' + pct + '%"></i></div>' +
+    '<span class="count" data-testid="step-count">' + n + ' of 5</span></div>';
+}
+function tabbar(){
+  var tabs = [['home','Home'],['taxes','Taxes'],['savings','Savings'],['insurance','Insurance'],['deals','Deals'],['account','Account']];
+  return '<nav class="tabbar" role="tablist" aria-label="Main">' + tabs.map(function(t){
+    return '<button class="tab" role="tab" aria-selected="' + (state.tab === t[0] && !state.sub) + '" data-act="tab" data-v="' + t[0] + '" data-testid="tab-' + t[0] + '">' + tabIcon(t[0]) + t[1] + '</button>';
+  }).join('') + '</nav>';
+}
+function header(title){
+  return '<div class="topbar"><span class="wordmark">bundle<span>.</span></span><span class="spacer"></span><button class="scanbtn" data-act="scan" data-testid="header-scan" aria-label="Scan gear or a receipt">' + I.camera + 'Scan</button><span class="pill ink" data-testid="baby-age">' + (state.a.stage === 'here' ? 'Day ' + ageDays() : 'Expecting') + '</span></div>' +
+    (title ? '<h2 class="q" style="margin-top:10px;font-size:26px">' + title + '</h2>' : '');
+}
+function subHeader(title, testid){
+  return '<button class="back" data-act="subback" data-testid="' + testid + '">' + I.back + ' Back</button><h2 class="q" style="margin-top:4px;font-size:26px">' + title + '</h2>';
+}
+function num(key, val, cls){ return '<span class="' + (cls||'') + '" data-count="' + key + '" data-to="' + val + '" data-testid="num-' + key + '">' + money(prevNum[key] == null ? val : prevNum[key]) + '</span>'; }
+
+/* ---------- onboarding ---------- */
+function vQ1(){
+  var s = state.a.stage;
+  return '<div class="screen no-tabs" data-testid="screen-q1">' + progress(1) +
+    '<h2 class="q" style="font-size:34px">Let’s find what your family is <span style="color:var(--coral)">owed.</span></h2>' +
+    '<p class="lede">Cash, credits and free stuff, checked for you. About 30 seconds. No sign-up.</p>' +
+    '<p style="margin:26px 0 0;font-size:19px;font-weight:800">Where are you right now?</p>' +
+    '<div class="bigopts" style="margin-top:12px">' +
+      '<button class="bigopt" aria-pressed="' + (s==='expecting') + '" data-act="ans" data-k="stage" data-v="expecting" data-testid="q1-expecting"><span class="ic">' + I.clock + '</span><strong>We’re expecting</strong><span>Free registry boxes now, money once baby arrives</span></button>' +
+      '<button class="bigopt" aria-pressed="' + (s==='here') + '" data-act="ans" data-k="stage" data-v="here" data-testid="q1-here"><span class="ic">' + I.heart + '</span><strong>Baby’s here</strong><span>Deadlines to catch, money to claim, savings on what you buy</span></button>' +
+    '</div><div class="spacer"></div>' +
+    '<button class="quiet" style="text-align:center" data-act="sample" data-testid="q1-sample-family">Try a sample family (Maya, fictional) →</button></div>';
+}
+function vQ2(){
+  var here = state.a.stage !== 'expecting';
+  var val = state.a.date || (here ? '2026-10-03' : '2027-01-15');
+  return '<div class="screen no-tabs" data-testid="screen-q2">' + progress(2) +
+    '<span class="pill" style="margin-top:26px;align-self:flex-start">' + (here ? 'Baby’s here' : 'Expecting') + '</span>' +
+    '<h2 class="q">' + (here ? 'Congrats! What’s your baby’s birthday?' : 'When is your baby due?') + '</h2>' +
+    '<p class="lede">Some deadlines count from the exact day, so we need the date.</p>' +
+    '<label class="field"><small>' + (here ? 'Birth date' : 'Due date') + '</small><input type="date" id="dateIn" value="' + val + '" min="2025-01-01" max="2027-12-31" data-testid="q2-date"></label>' +
+    '<p class="okline" data-testid="q2-ok">' + I.check + ' <span id="dateOk">' + dateLine(val) + '</span></p>' +
+    '<div class="spacer"></div><button class="cta" data-act="q2next" data-testid="q2-next">Next</button></div>';
+}
+function dateLine(v){
+  var d = parseDate(v); if(!d) return 'Pick a date';
+  var days = Math.round((DEMO - d)/86400000);
+  return days >= 0 ? 'Your baby is ' + days + ' days old. Taxes: your ' + d.getFullYear() + ' return.' : 'Due in ' + (-days) + ' days. Taxes: your ' + d.getFullYear() + ' return.';
+}
+function vQ3(){
+  var z = state.a.zip || '02139';
+  return '<div class="screen no-tabs" data-testid="screen-q3">' + progress(3) +
+    '<h2 class="q" style="margin-top:30px">What’s your ZIP code?</h2>' +
+    '<p class="lede">Your state decides which programs you get. We never ask for your address.</p>' +
+    '<label class="field"><small>ZIP code</small><input inputmode="numeric" maxlength="5" id="zipIn" value="' + esc(z) + '" data-testid="q3-zip" aria-label="ZIP code"></label>' +
+    '<p class="okline" data-testid="q3-ok">' + I.check + ' <span id="zipOk">' + zipLine(z) + '</span></p>' +
+    '<div class="spacer"></div><button class="cta" data-act="q3next" data-testid="q3-next"' + (/^\d{5}$/.test(z) ? '' : ' disabled') + '>Next</button></div>';
+}
+function zipLine(z){ if(!/^\d{5}$/.test(z)) return 'Enter 5 digits'; return /^0[12]/.test(z) ? 'Got it — showing Massachusetts programs' : 'Got it — federal benefits now, your state’s programs coming soon'; }
+function vQ4(){
+  var a = state.a, rows = earnRows(), anim = state.q4Anim;
+  state.q4Anim = false;
+  var h = '<div class="screen no-tabs" data-testid="screen-q4">' + progress(4) +
+    '<h2 class="q" style="margin-top:26px">Who’s raising this baby?</h2>' +
+    '<div class="house" role="group" aria-label="Who’s raising this baby">' + [['solo','Just me'],['two','Two of us']].map(function(o){
+      return '<button class="opt" aria-pressed="' + (a.house === o[0]) + '" data-act="house" data-v="' + o[0] + '" data-testid="q4-house-' + o[0] + '">' + o[1] + '</button>';
+    }).join('') + '</div>';
+  if(rows.length){
+    h += '<div class="' + (anim ? 'slidein' : '') + '" data-testid="q4-earn">' +
+      '<p style="margin:22px 4px 0;font-size:19px;font-weight:800">' + (a.house === 'two' ? 'How does each of you earn money?' : 'How do you earn money?') + '</p>' +
+      rows.map(function(r){
+        return '<div class="earnrow" role="group" aria-label="' + (r[1] || 'You') + '" data-testid="q4-row-' + r[0] + '">' + (r[1] ? '<div class="label">' + r[1] + '</div>' : '') +
+          EARN.map(function(e){
+            return '<button class="eopt" aria-pressed="' + (!!a.earn && a.earn[r[0]] === e[0]) + '" data-act="earn" data-who="' + r[0] + '" data-v="' + e[0] + '" data-testid="q4-earn-' + r[0] + '-' + e[0] + '">' + e[1] + '<small>' + e[2] + '</small></button>';
+          }).join('') + '</div>';
+      }).join('') + '</div>';
+  }
+  var line = a.work === 'skip' ? '' : q4Line(deriveWork());
+  if(line) h += '<div class="payoff" data-testid="q4-payoff-live">' + I.check + ' ' + line + '</div>';
+  h += '<button class="quiet" data-act="ans" data-k="work" data-v="skip" data-testid="q4-skip">Something else / prefer not to say</button>' +
+    '<details data-testid="q4-why"><summary class="quiet" style="list-style:none;display:inline-block">Why we ask</summary><div class="why">Work benefits like daycare tax savings depend on how each parent earns.</div></details>' +
+    '<div class="spacer"></div><button class="cta" data-act="q4next" data-testid="q4-next"' + (q4Complete() ? '' : ' disabled') + '>Continue</button></div>';
+  return h;
+}
+function vQ5(){
+  var v = state.a.ins, w = state.a.work;
+  var line = w === 'skip' ? 'No problem — we’ll show general daycare savings. Add this later for your exact number.' : workKind(w) === 'nowork' ? 'Got it — we’ll show other ways to save on childcare.' : 'Got it — checking daycare tax savings for you.';
+  return '<div class="screen no-tabs" data-testid="screen-q5">' + progress(5) +
+    (w ? '<div class="payoff" data-testid="q4-payoff">' + I.check + ' ' + line + '</div>' : '') +
+    '<h2 class="q" style="margin-top:18px">Where do you get your health insurance?</h2>' +
+    '<div class="opts">' + insOptions().map(function(o){
+      return '<button class="opt" aria-pressed="' + (v===o.id) + '" data-act="ans" data-k="ins" data-v="' + o.id + '" data-testid="q5-' + o.id + '"><span class="dot"></span>' + o.label + '</button>';
+    }).join('') + '</div>' +
+    '<button class="quiet" data-act="ans" data-k="ins" data-v="none" data-testid="q5-none"' + (v==='none' ? ' style="color:var(--coral-deep)"' : '') + '>No insurance right now / not sure</button>' +
+    '<details data-testid="q5-why"><summary class="quiet" style="list-style:none;display:inline-block">Why we ask</summary><div class="why">So we can give you the right deadline.</div></details>' +
+    '</div>';
+}
+function checkSteps(){
+  var k = workKind(state.a.work);
+  var steps = [
+    ['State and federal family benefits','Based on your ZIP and baby’s age'],
+    ['Insurance deadline to add your baby','Based on your insurance']
+  ];
+  // daycare line depends on Q4: only show a check the run really does
+  if(k === 'fsa') steps.push(['Daycare tax savings and Dependent Care FSA','Based on how each of you earns', 'daycare']);
+  else if(k === 'self') steps.push(['Childcare tax credit','Based on your self-employment', 'daycare']);
+  else if(k === 'skip') steps.push(['Daycare tax savings (general)','You chose not to say, so we checked the general rules', 'daycare']);
+  steps.push(['Free registry gifts and welcome boxes','Checked for your baby’s exact age']);
+  if(state.hasItems) steps.push(['Your items vs. official recall lists','Shown because your family has items']);
+  steps.push(['Every result double-checked against its official source','A Fact-Checker re-reads each card']);
+  return steps;
+}
+function vChecking(){
+  var steps = checkSteps();
+  var done = state.checkStep >= steps.length;
+  var t = totals();
+  return '<div class="screen no-tabs" data-testid="screen-checking"><div class="topbar"><span class="wordmark">bundle<span>.</span></span></div>' +
+    '<h2 class="q">' + (done ? 'All checked.' : 'We’re checking for you…') + '</h2>' +
+    '<ul class="steps" data-testid="checking-steps">' + steps.map(function(s, i){
+      return '<li class="' + (i < state.checkStep ? 'on' : '') + '" data-testid="check-line-' + (i+1) + '"><span class="tick">✓</span><div><strong' + (s[2] ? ' data-testid="check-daycare"' : '') + '>' + s[0] + '</strong><span>' + s[1] + '</span></div></li>';
+    }).join('') + '</ul>' +
+    (done ? '<div class="reveal" data-testid="checking-reveal"><div class="label" style="color:#E9E0D4">Sample run</div><div style="font-size:20px;font-weight:800;margin-top:6px">We found</div><div class="big" data-testid="found-total">' + money(t.all) + '</div><div style="font-size:20px;font-weight:800">for your family.</div>' +
+      '<button class="cta coral" data-act="results" data-testid="view-results">View my results →</button></div>' : '') +
+    '</div>';
+}
+
+/* ---------- tabs ---------- */
+function vHome(){
+  var t = totals();
+  var tx = taxItems(), txSum = tx.reduce(function(s,x){return s+x.amt;},0);
+  var h = '<div class="screen" data-testid="screen-home">' + header('') +
+    '<p class="muted" style="margin:6px 4px 0;font-size:15px;font-weight:700">Maya’s family · ZIP ' + esc(state.a.zip) + '</p>' +
+    '<div class="split" data-testid="money-summary"><div class="stat still"><div class="label">Still to claim</div><div class="n">' + num('still', t.still) + '</div></div>' +
+    '<div class="stat claimed"><div class="label">Claimed so far</div><div class="n">' + num('claimed', t.claimed) + '</div></div></div>' +
+    saveCard() + scanCard('home') +
+    '<div class="section label coral">Your money, by when it arrives</div>';
+  // bucket 1
+  h += '<div class="card bucket" data-testid="bucket-money-back"><div class="label">Money back now</div><h3>Within weeks of filing a claim</h3>';
+  if(state.receipt){
+    h += '<div class="row"><span>Price-drop refund on a stroller <span class="ex">example</span></span><b class="muted small">amount from the run</b></div><div class="row"><span>FSA reimbursement <span class="ex">example</span></span><b class="muted small">amount from the run</b></div>';
+  } else {
+    h += '<button class="empty" style="width:100%;background:transparent;text-align:left" data-act="toggleReceipt" data-testid="add-receipt">' + I.plus + ' Add a receipt to find money back</button>';
+  }
+  h += '</div>';
+  // bucket 2
+  h += '<div class="card bucket tax" data-testid="bucket-tax-time"><div class="label">At tax time</div><h3 data-testid="tax-when">' + taxWhen() + '</h3>' +
+    tx.map(function(x){ return '<div class="row"><span>' + x.name + (x.note ? ' <span class="muted small">(' + x.note + ')</span>' : '') + (x.baby ? '<br><span class="babyacct" data-testid="trump-label">Goes into your baby’s account</span>' : '') + '</span><b>' + money(x.amt) + '</b></div>'; }).join('') +
+    '<div class="row"><span style="font-weight:800">Total</span><b>' + money(txSum) + '</b></div></div>';
+  // bucket 3
+  if(isMA()) h += '<div class="card bucket leave" data-testid="bucket-leave"><div class="label">Paid family leave</div><h3>Up to $1,230 a week for 12 weeks</h3><p class="small muted" style="margin:4px 0 0">Depends on your pay. Paid weekly, during leave (MA paid family leave).</p></div>';
+  // gifts
+  h += '<div class="card bucket gift" data-testid="bucket-gifts"><div class="label">Free gifts</div><h3>Registry and welcome boxes</h3><p class="small muted" style="margin:4px 0 0">Shipped to you. Fine print checked.</p><button class="link" data-act="tab" data-v="deals" data-testid="home-see-gifts">See free gifts →</button></div>';
+  h += tasksBlock();
+  return h + '</div>' + tabbar();
+}
+function scanCard(where){
+  return '<div class="card scancard" data-testid="' + where + '-scan-card"><div style="font-weight:800;font-size:16px;line-height:1.35">📷 Snap your baby gear — we’ll check recalls and find money back</div>' +
+    '<button class="btn2 dark" style="margin-top:12px;width:100%" data-act="scan" data-testid="' + where + '-scan-btn">' + I.camera + ' Scan gear or a receipt</button></div>';
+}
+function saveCard(){
+  if(!state.visitedResults || state.save === 'dismissed') return '';
+  var demo = '<span class="ex" data-testid="save-demo-label">Demo</span>';
+  if(state.save && state.save.done){
+    var g = state.save.done === 'google';
+    return '<div class="card" style="border:2px solid var(--green-2)" data-testid="save-confirm"><div style="display:flex;justify-content:space-between;align-items:center"><div class="label" style="color:var(--green)">Plan saved</div>' + demo + '</div>' +
+      '<h3 style="margin:6px 0 2px;font-size:18px">' + (g ? 'You’re signed in with Google' : 'Check your email — we sent a sign-in link') + '</h3>' +
+      '<p class="small muted" style="margin:0">' + (g ? 'Demo: the real app would open Google’s sign-in window here.' : 'Sent to ' + esc(state.save.email) + '. Demo: no email is really sent.') + '</p></div>';
+  }
+  return '<div class="card" data-testid="save-account-card"><div style="display:flex;justify-content:space-between;align-items:center"><div class="label coral">Save your plan</div>' + demo + '</div>' +
+    '<h3 style="margin:6px 0 2px;font-size:18px">Save your plan so you don’t lose it</h3><p class="small muted" style="margin:0">No password needed.</p>' +
+    '<button class="btn2 dark" style="width:100%;margin-top:12px" data-act="saveGoogle" data-testid="save-google">Continue with Google</button>' +
+    '<label class="flabel" for="saveEmail">Or get a sign-in link by email</label><input class="tinput" type="email" id="saveEmail" placeholder="you@example.com" autocomplete="email" data-testid="save-email-input">' +
+    '<button class="btn2" style="width:100%;margin-top:8px" data-act="saveEmail" data-testid="save-email-send">Email me a sign-in link</button>' +
+    '<button class="quiet" style="display:block;margin:2px auto 0" data-act="saveNotNow" data-testid="save-not-now">Not now</button></div>';
+}
+function tasksBlock(){
+  var all = tasks();
+  var open = all.filter(function(t){ return !state.tasks[t.id] && (!state.quick || t.min <= 5); });
+  var gone = all.filter(function(t){ return state.tasks[t.id]; });
+  var h = '<div class="section label coral" id="tasks-anchor">Do these next</div>' +
+    '<div class="filters"><button class="fpill" aria-pressed="' + !state.quick + '" data-act="quick" data-v="0" data-testid="filter-all">All</button>' +
+    '<button class="fpill" aria-pressed="' + state.quick + '" data-act="quick" data-v="1" data-testid="filter-quick-wins">⚡ Quick wins (under 5 min)</button></div>' +
+    '<div data-testid="task-list">';
+  if(!open.length) h += '<div class="card small muted" data-testid="tasks-empty">' + (state.quick ? 'No quick wins left. Nice work.' : 'Everything is handled. Nice work.') + '</div>';
+  h += open.map(function(t){
+    return '<div class="card task" data-task="' + t.id + '" data-testid="task-' + t.id + '"><div class="meta"><span class="pill ' + (t.tone||'') + '">' + t.pill + '</span><span class="pill amber" data-testid="task-min-' + t.id + '">about ' + t.min + ' min' + t.minNote + '</span></div>' +
+      '<h4>' + t.title + (t.amt ? ' · ' + money(t.amt) : '') + '</h4><p class="small muted" style="margin:0">' + t.sub + '</p>' +
+      '<div class="acts"><button class="btn2 dark" data-act="task" data-id="' + t.id + '" data-v="done" data-testid="task-got-' + t.id + '">' + I.check + ' I got this</button>' +
+      '<button class="btn2" data-act="task" data-id="' + t.id + '" data-v="skip" data-testid="task-skip-' + t.id + '">Not relevant</button></div></div>';
+  }).join('') + '</div>';
+  h += '<div class="drawer" data-testid="done-drawer"><button data-act="drawer" aria-expanded="' + state.drawer + '" data-testid="drawer-toggle"><span>Done / not for us (' + gone.length + ')</span><span style="transform:rotate(' + (state.drawer ? 180 : 0) + 'deg);display:flex">' + I.chev + '</span></button>';
+  if(state.drawer){
+    h += '<div class="items">' + (gone.length ? gone.map(function(t){
+      return '<div class="ditem" data-testid="drawer-item-' + t.id + '"><div>' + t.title + '<small>' + (state.tasks[t.id] === 'done' ? 'Done' + (t.amt ? ' · ' + money(t.amt) + ' claimed' : '') : 'Not for us · told the Coach') + '</small></div><button class="btn2" data-act="undo" data-id="' + t.id + '" data-testid="undo-' + t.id + '">Undo</button></div>';
+    }).join('') : '<p class="small muted" style="margin:0 4px">Cards you finish or skip land here.</p>') + '</div>';
+  }
+  return h + '</div>';
+}
+function vTaxes(){
+  var tx = taxItems(), range = '$2,200–$3,100';
+  var b = '';
+  if(state.filingSkipped && !state.filing){
+    b = '<button class="minichip" data-act="unskipFiling" data-testid="booster-taxes-chip">' + I.plus + ' Make my tax number exact</button>';
+  } else if(state.filing){
+    var exact = state.filing !== 'unsure';
+    var exactAmt = 2200 + (isMA() ? 440 : 0);
+    b = '<div class="card booster ' + (state.flipped ? 'flip' : '') + '" data-testid="booster-taxes-result"><div class="label coral">Your tax refund</div>' +
+      (exact ? '<div class="big" style="margin-top:6px">' + num('exact', exactAmt) + '</div><p class="small muted" style="margin:6px 0 0">Now exact for "' + filingLabel(state.filing) + '". Sample run: Child Tax Credit $2,200' + (isMA() ? ' + MA child credit $440' : '') + '.</p>'
+             : '<div class="big" style="margin-top:6px;font-size:36px">' + range + '</div><p class="small muted" style="margin:6px 0 0">No problem. We’ll keep the range; your tax preparer can confirm.</p>') +
+      '<button class="btn2" style="margin-top:12px" data-act="toast" data-msg="Opens your phone’s share menu. Bundle sends nothing itself." data-testid="booster-share-partner">Send these to your partner or tax preparer</button></div>';
+  } else {
+    b = '<div class="card booster" data-testid="booster-taxes"><div class="label coral">Your tax refund</div><div class="big" style="margin-top:6px;font-size:36px">' + range + '</div><p style="margin:6px 0 0;font-weight:800">One tap makes it exact →</p>' +
+      '<p class="small muted" style="margin:10px 0 0">How will you file taxes this year?</p><div class="chips">' +
+      [['joint','Married filing together'],['single','Single'],['hoh','Head of household'],['unsure','Not sure']].map(function(c){
+        return '<button class="chip" data-act="filing" data-v="' + c[0] + '" data-testid="filing-' + c[0] + '">' + c[1] + '</button>';
+      }).join('') + '</div><p class="small muted" style="margin:8px 0 0">Head of household = single parent who pays most home costs.</p>' +
+      '<button class="quiet" data-act="skipFiling" data-testid="booster-not-now">Not now</button></div>';
+  }
+  var five29 = state.filing === 'joint' ? '$2,000 (filing together)' : (state.filing === 'single' || state.filing === 'hoh') ? '$1,000 (filing single)' : '$1,000 single / $2,000 together';
+  var work = WORK.filter(function(w){return w.id===state.a.work;})[0] || WORK_SKIP;
+  return '<div class="screen" data-testid="screen-taxes">' + header('Taxes') + b +
+    '<div class="card bucket tax"><div class="label">' + taxWhen() + '</div>' + tx.map(function(x){ return '<div class="row"><span>' + x.name + (x.baby ? '<br><span class="babyacct">Goes into your baby’s account</span>' : '') + '</span><b>' + money(x.amt) + '</b></div>'; }).join('') + '</div>' +
+    (isMA() ? '<div class="card" data-testid="card-529"><div class="label">529 college savings (MA)</div><h3 style="margin:4px 0">State tax deduction: ' + five29 + '</h3><p class="small muted" style="margin:0">A 529 is a savings account for school with tax breaks. Massachusetts lets you deduct what you put in, up to this amount.</p></div>' : '') +
+    '<div class="card" data-testid="card-w4"><div class="label">For your tax preparer</div><h3 style="margin:4px 0">Update your paycheck tax form (W-4)</h3><p class="small muted" style="margin:0">The W-4 tells your employer how much tax to take from each paycheck.</p><div class="why" style="margin-top:10px">Add your baby in Step 3 (dependents) so less tax is taken from each paycheck.</div></div>' +
+    '<div class="card" data-testid="card-daycare"><div class="label">Daycare tax savings</div><p style="margin:6px 0 0;font-size:15px;line-height:1.45">' + work.advice + '</p></div>' +
+    '</div>' + tabbar();
+}
+function filingLabel(v){ return {joint:'Married filing together', single:'Single', hoh:'Head of household', unsure:'Not sure'}[v]; }
+function gearList(compact, noBtn){
+  if(!state.gear.length && !state.receipt) return '<p class="small muted" style="margin:8px 0 0" data-testid="gear-empty">No gear yet — scan a car seat sticker or a receipt to start</p>' +
+    (noBtn ? '' : '<button class="btn2 dark" style="margin-top:10px;width:100%" data-act="scan" data-testid="gear-empty-scan">' + I.camera + ' Scan gear or a receipt</button>');
+  var sh = I.shield.replace('width="20" height="20"','width="14" height="14"');
+  var h = state.gear.map(function(g){
+    return '<div class="gear" data-testid="gear-item-' + g.id + '"><div class="thumb">' + (g.id === 'seat' ? seatThumb() : swingThumb()) + '</div><div style="flex:1;min-width:0"><div style="font-weight:800;font-size:15px">' + g.name + '</div>' +
+      '<div class="small" style="color:var(--green);font-weight:700">' + sh + ' No recalls found as of Oct 25, 2026</div>' + (compact ? '' : '<div class="small muted">' + g.src + '</div>') + '</div></div>';
+  }).join('');
+  if(state.receipt) h += '<div class="gear" data-testid="gear-item-receipt"><div class="thumb">' + receiptThumb() + '</div><div style="flex:1;min-width:0"><div style="font-weight:800;font-size:15px" data-testid="receipt-label">Receipt · 3 items</div>' +
+    '<div class="small" style="color:var(--green);font-weight:700">' + sh + ' No recalls found on any item as of Oct 25, 2026</div>' +
+    (compact ? '' : '<div class="small muted">1 FSA-eligible item, 1 price drop <span class="ex">example</span></div>') + '</div></div>';
+  return h;
+}
+function vSavings(){
+  return '<div class="screen" data-testid="screen-savings">' + header('Savings') + scanCard('savings') +
+    '<div class="card bucket" data-testid="savings-money-back"><div class="label">Money back now</div>' + (state.receipt ? '<div class="row"><span>Price-drop refund <span class="ex">example</span></span><b class="small muted">amount from the run</b></div>' : '<button class="empty" style="width:100%;background:transparent;text-align:left" data-act="toggleReceipt" data-testid="savings-add-receipt">' + I.plus + ' Add a receipt to find money back</button>') +
+    '<p class="small muted" style="margin:8px 0 0" data-testid="savings-trust">' + TRUST + '</p></div>' +
+    '<div class="card" data-testid="savings-gear-locker"><div style="display:flex;justify-content:space-between;align-items:center"><div class="label">Your gear locker</div><button class="link" data-act="openSub" data-v="gear" data-testid="savings-open-gear">Open ›</button></div>' + gearList(true) + '</div>' +
+    '</div>' + tabbar();
+}
+function vInsurance(){
+  var i = insInfo(state.a.ins);
+  var opt = insOptions().concat([INS_NONE]).filter(function(o){return o.id===state.a.ins;})[0] || {label:''};
+  var showPump = state.a.ins === 'job' || state.a.ins === 'connector';
+  var h = '<div class="screen" data-testid="screen-insurance">' + header('Insurance') +
+    '<div class="card" style="border:2px solid var(--coral)" data-testid="insurance-deadline"><div class="label">Add baby to your insurance</div>' +
+    '<div style="margin-top:10px"><span class="pill" style="font-size:15px;padding:8px 14px" data-testid="countdown-pill">' + i.pill + '</span></div>' +
+    (i.when ? '<p style="margin:10px 0 0;font-weight:800" data-testid="countdown-when">' + i.when + '</p>' : '') +
+    '<p class="small muted" style="margin:8px 0 0">' + (i.apply ? 'Newborns without coverage may qualify.' : i.detail) + '</p>' +
+    (i.apply ? '<button class="link" data-act="toast" data-msg="Mockup: this would open the MassHealth application." data-testid="masshealth-apply">Check if your baby qualifies →</button>' : '') +
+    (i.todo ? '<div class="why" style="margin-top:10px">To-do: report the birth within 10 days. No countdown needed.</div>' : '') +
+    '<p class="small muted" style="margin:10px 0 0">Your answer: ' + opt.label + ' · <button class="link" data-act="edit" data-v="ins" data-testid="insurance-change-answer">Change</button></p></div>';
+  if(showPump) h += '<div class="card" data-testid="card-breast-pump"><div class="label">Covered at $0</div><h3 style="margin:4px 0">Your plan covers a breast pump at $0.</h3><p class="small muted" style="margin:0"><b>Why?</b> A federal law makes most plans cover this, whichever company runs your plan. Older “grandfathered” plans and short-term plans are the exceptions. Baby vaccines: check your plan.</p></div>';
+  h += '<div class="card" data-testid="card-hr-entry"><div class="label">Things we can’t see</div><h3 style="margin:4px 0">' + (state.a.work === 'self' ? 'Questions for your tax preparer' : 'Questions to ask HR') + '</h3><p class="small muted" style="margin:0">Your employer’s handbook is private, so here’s what to ask.</p><button class="btn2 dark" style="margin-top:12px" data-act="openSub" data-v="hr" data-testid="open-hr-checklist">See the questions ›</button></div>';
+  if(showPump){
+    if(state.carrier){
+      h += '<div class="card booster flip" data-testid="booster-carrier-result"><div class="label coral">' + esc(state.carrier) + '</div><h3 style="margin:4px 0">Here’s how to order your free pump through ' + esc(state.carrier === 'Other' ? 'your plan' : state.carrier) + '</h3><button class="link" data-act="toast" data-msg="Mockup: this would open the carrier’s maternity program page." data-testid="carrier-link">Open the maternity program →</button></div>';
+    } else {
+      h += '<div class="card booster" data-testid="booster-carrier"><div class="label coral">Optional</div><h3 style="margin:4px 0">Which company is on your insurance card?</h3><p class="small muted" style="margin:0">One tap gets you the exact steps to order your free pump.</p><div class="chips">' +
+        ['Aetna','BCBS','UnitedHealthcare','Kaiser','Other'].map(function(c){ return '<button class="chip" data-act="carrier" data-v="' + c + '" data-testid="carrier-' + c.toLowerCase() + '">' + c + '</button>'; }).join('') + '</div></div>';
+    }
+  }
+  return h + '</div>' + tabbar();
+}
+var OFFERS = [
+  {id:'o1', name:'Registry welcome box', store:'Store A', age:'0–12 months', grade:'approved'},
+  {id:'o2', name:'Free diaper sample pack', store:'Store B', age:'0–6 months', grade:'catch', why:'Free, but signs you up for emails and a paid trial.'},
+  {id:'o3', name:'Completion discount on registry items', store:'Store C', age:'0–12 months', grade:'approved'},
+  {id:'o4', name:'Free baby formula starter kit', store:'Store D', age:'0–3 months', grade:'approved'}
+];
+var LIVE_OFFERS = [
+  {name:'Free nursing pillow cover with registry', store:'Store E', age:'0–12 months', grade:'approved'},
+  {name:'Free baby wipes sample box', store:'Store F', age:'0–6 months', grade:'catch', why:'Free, but you need to create a store account and agree to marketing texts.'}
+];
+var liveTimer = null;
+function vDeals(){
+  var age = ageDays(), here = state.a.stage === 'here';
+  var h = '<div class="screen" data-testid="screen-deals">' + header('Deals') +
+    '<div style="margin-top:8px">' + (state.live ? '<span class="pill ink" data-testid="live-mode-label">Live mode</span>' : '<span class="pill" style="background:var(--sand);color:var(--ink-2)" data-testid="practice-mode-label">Practice mode · saved offers</span>') + '</div>' +
+    '<button class="card" style="width:100%;text-align:left;display:block;border:2px dashed var(--coral)" data-act="openSub" data-v="audit" data-testid="open-audit"><div class="label coral">Audit a deal</div><div style="font-weight:800;font-size:16px;margin-top:4px">Tell us about any offer. We’ll read the fine print. ›</div></button>' +
+    (state.live
+      ? (state.liveDone
+          ? '<div class="status" data-testid="deals-status"><i></i>Searched 14 trusted baby-offer sites · 2 new offers found today <span class="ex">example</span></div>'
+          : '<div class="status" data-testid="deals-status" role="status"><span class="searching"></span>Searching 14 trusted baby-offer sites for new offers…</div>')
+      : '<div class="status" data-testid="deals-status"><i></i>Checking 16 saved offers against your baby’s age (' + (here ? 'Day ' + age : 'expecting') + ')</div>') +
+    (state.live && state.liveDone ? '<div class="section label coral">New today</div>' + LIVE_OFFERS.map(function(o, i){
+      return '<div class="card" style="border:1.5px solid #F5C4B0" data-testid="offer-new-' + (i+1) + '"><div style="display:flex;gap:6px;flex-wrap:wrap"><span class="pill" data-testid="offer-new-tag-' + (i+1) + '">New · found today</span><span class="pill ' + (o.grade === 'approved' ? 'green' : 'amber') + '">' + (o.grade === 'approved' ? 'Fine print checked' : 'Has a catch') + '</span><span class="pill" style="background:var(--sand);color:var(--ink-2)">' + o.store + ' <span class="ex">example</span></span></div>' +
+        '<h3 style="margin:8px 0 4px;font-size:17px">' + o.name + '</h3><p class="small" style="margin:0;font-weight:700">This offer is for babies ' + o.age + '.</p>' + (o.why ? '<p class="small muted" style="margin:6px 0 0">' + o.why + '</p>' : '') +
+        '<p class="small" style="margin:8px 0 0;font-weight:800;color:var(--green)">' + I.shield.replace('width="20" height="20"','width="14" height="14"') + ' Graded by Bundle</p></div>';
+    }).join('') : '') +
+    '<div class="card" data-testid="report-card"><div style="display:flex;justify-content:space-between;align-items:center"><div class="label">Offer report card</div><span class="ex" data-testid="sample-numbers-label">sample numbers</span></div>' +
+    '<p style="margin:6px 0 8px;font-size:14px;font-weight:700">We’ve graded 16 offers. 4 had a catch. $48 in hidden costs caught.</p>' +
+    [['Store A',4,1,0],['Store B',3,2,1],['Store C',2,1,1],['Store D',1,0,0]].map(function(s){
+      var n = s[1]+s[2]+s[3];
+      return '<div class="store" data-testid="report-row-' + s[0].slice(-1).toLowerCase() + '"><span>' + s[0] + '</span><span class="bar"><i style="width:' + (s[1]/n*100) + '%;background:var(--green-2)"></i><i style="width:' + (s[2]/n*100) + '%;background:#E0A93B"></i><i style="width:' + (s[3]/n*100) + '%;background:var(--red)"></i></span><span class="muted">' + n + ' graded</span></div>';
+    }).join('') +
+    '<p class="small muted" style="margin:6px 0 0">Green approved · amber has a catch · red blocked</p></div>' +
+    '<div class="section label coral">Free gifts for your baby</div>';
+  h += OFFERS.map(function(o){
+    return '<div class="card" data-testid="offer-' + o.id + '"><div class="meta" style="display:flex;gap:6px;flex-wrap:wrap"><span class="pill ' + (o.grade === 'approved' ? 'green' : 'amber') + '">' + (o.grade === 'approved' ? 'Fine print checked' : 'Has a catch') + '</span><span class="pill" style="background:var(--sand);color:var(--ink-2)">' + o.store + ' <span class="ex">example</span></span></div>' +
+      '<h3 style="margin:8px 0 4px;font-size:17px">' + o.name + '</h3>' +
+      '<p class="small" style="margin:0;font-weight:700" data-testid="offer-age-' + o.id + '">' + (here ? 'Your baby is ' + age + ' days old. ' : 'Your baby isn’t born yet. ') + 'This offer is for babies ' + o.age + '.</p>' +
+      (o.why ? '<p class="small muted" style="margin:6px 0 0">' + o.why + '</p>' : '') +
+      (state.reported[o.id] ? '<div class="thanks" data-testid="thanks-' + o.id + '">Thanks. Your report is in the review queue. Once approved, it protects every family checking this offer. You’re helping other parents.</div>'
+        : '<button class="quiet" style="padding:8px 0 0" data-act="report" data-id="' + o.id + '" data-testid="report-' + o.id + '">Report issue</button>') + '</div>';
+  }).join('') + '<p class="small muted" style="text-align:center">Showing 4 of 16 saved offers</p>';
+  return h + '</div>' + tabbar();
+}
+function auditCheck(text){
+  var t = text.toLowerCase(), catches = [];
+  var dollars = text.match(/\$\d+(?:\.\d{2})?(?:\/\w+)?/g) || [];
+  if(/shipping|handling/.test(t)) catches.push('You pay for shipping' + (dollars[0] ? ' (' + dollars[0] + ')' : '') + '.');
+  if(/renew|subscription|membership|trial/.test(t)) catches.push('It starts a trial that turns into a paid plan' + (dollars[1] ? ' (' + dollars[1] + ')' : '') + ' unless you cancel.');
+  if(/credit card|card required/.test(t)) catches.push('It asks for a card up front.');
+  if(/survey|share your|data/.test(t)) catches.push('It asks for personal details in exchange.');
+  return catches;
+}
+function vAudit(){
+  var a = state.audit, f = state.auditForm, paste = f.mode === 'paste';
+  var h = '<div class="screen" data-testid="screen-audit">' + subHeader('Audit a deal', 'audit-back') +
+    '<p class="lede">Tell us about the offer. We’ll read the fine print for hidden catches. Offers you check aren’t saved.</p>' +
+    '<label class="flabel" for="auditStore">Who’s offering it?</label><input class="tinput" id="auditStore" data-f="store" placeholder="Store or brand" value="' + esc(f.store) + '" data-testid="audit-store">' +
+    '<label class="flabel" for="auditOffer">What do you get?</label><input class="tinput" id="auditOffer" data-f="offer" placeholder="e.g. free welcome box" value="' + esc(f.offer) + '" data-testid="audit-offer">' +
+    '<label class="flabel" for="auditLink">Link <span class="muted" style="font-weight:600">(optional)</span></label><input class="tinput" type="url" inputmode="url" id="auditLink" data-f="link" placeholder="https://" value="' + esc(f.link) + '" data-testid="audit-link">' +
+    '<div class="flabel">Fine print</div><div class="seg" style="margin-top:6px"><button aria-pressed="' + paste + '" data-act="auditMode" data-v="paste" data-testid="audit-mode-paste">Paste the text</button><button aria-pressed="' + !paste + '" data-act="auditMode" data-v="shot" data-testid="audit-mode-shot">Add a screenshot</button></div>';
+  if(paste) h += '<textarea id="auditText" data-f="text" style="margin-top:10px" data-testid="audit-input" aria-label="Fine print text">' + esc(f.text) + '</textarea>';
+  else h += '<label class="shotpick" data-testid="audit-shot-pick">' +
+    (f.file ? '<span class="thumb" data-testid="audit-shot-thumb"><svg width="40" height="48" viewBox="0 0 40 48" aria-hidden="true"><rect x="3" y="2" width="34" height="44" rx="6" fill="#FFFFFF" stroke="#1B1714" stroke-width="2"/><rect x="8" y="8" width="24" height="10" rx="2" fill="#FCE6DC"/><path d="M8 24h24M8 29h18M8 34h22M8 39h12" stroke="#8A8076" stroke-width="2" stroke-linecap="round"/></svg></span><span style="min-width:0"><span style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(f.file) + '</span><span class="small muted" style="font-weight:600">Tap to choose a different screenshot</span></span>'
+            : I.upload + '<span>Choose a screenshot<br><span class="small muted" style="font-weight:600">A photo of the offer’s fine print</span></span>') +
+    '<input type="file" accept="image/*" id="auditFile" class="sr" data-testid="audit-file" aria-label="Add a screenshot of the fine print"></label>';
+  h += '<button class="cta" data-act="audit" data-testid="audit-submit">Check this deal</button>';
+  if(a){
+    var c = a.catches;
+    h += '<div class="card" data-testid="audit-result"><div class="label">Verdict</div><div style="margin-top:6px"><span class="pill ' + (c.length ? 'amber' : 'green') + '" style="font-size:15px" data-testid="audit-verdict">' + (c.length ? 'Has a catch' : 'No catch found') + '</span></div>' +
+      '<p style="margin:10px 0 0;font-weight:800;font-size:15px" data-testid="audit-summary">' + esc(a.store) + '’s “' + esc(a.offer) + '”: ' + (c.length ? 'has a catch.' : 'no catch found.') + '</p>' +
+      '<div class="verdict"><div class="voice" data-testid="audit-deal-hunter"><b style="color:var(--green)">Deal Hunter</b>' + (c.length ? 'There’s a real ' + esc(a.offer) + ' from ' + esc(a.store) + ' here, which could be worth it if you’d use it.' : 'Looks like a straightforward ' + esc(a.offer) + ' from ' + esc(a.store) + '.') + '</div>' +
+      '<div class="voice" data-testid="audit-lawyer"><b style="color:var(--coral-deep)">Fine-Print Lawyer</b>' + (c.length ? c.join(' ') : 'No shipping fees, trials or card requests found.') + '</div></div>' +
+      '<div class="why" data-testid="audit-practice-note">Quick check. The full AI review runs in live mode.' + (a.shot ? ' Practice mode can’t read screenshots, so this check used the sample fine print.' : '') + '</div></div>';
+  }
+  return h + '</div>' + tabbar();
+}
+function hrQuestions(){
+  var w = state.a.work, ins = state.a.ins, q = [];
+  if(w === 'self') return {title:'Questions for your tax preparer', items:['Can we claim the childcare tax credit for daycare costs?','Should we change our estimated tax payments now that baby is here?','Which baby tax credits go on our ' + taxYear() + ' return?']};
+  if(ins === 'job') q.push('Do we have 30 or 60 days to add our baby?');
+  q.push('Does our plan offer paid parental leave top-up (extra pay on top of state leave)?');
+  if(w !== 'onehome' && w !== 'nowork'){ q.push('Do we offer a Dependent Care FSA, and what’s the cap?'); q.push('When does the FSA life-event window close?'); }
+  return {title:'Questions to ask HR', items:q};
+}
+function vHR(){
+  var q = hrQuestions();
+  return '<div class="screen" data-testid="screen-hr">' + subHeader(q.title, 'hr-back') +
+    '<p class="lede">Built from your answers. Tick them off as you ask.</p>' +
+    '<div class="card" data-testid="hr-list">' + q.items.map(function(x, i){ return '<label class="check"><input type="checkbox" data-testid="hr-q-' + (i+1) + '"><span>' + x + '</span></label>'; }).join('') + '</div>' +
+    '<div style="display:flex;gap:10px;margin-top:14px"><button class="btn2 dark" style="flex:1" data-act="copyHR" data-testid="hr-copy">Copy</button><button class="btn2" style="flex:1" data-act="toast" data-msg="Opens your phone’s share menu so you can email yourself. Bundle sends nothing." data-testid="hr-email">Email to myself</button></div>' +
+    '</div>' + tabbar();
+}
+function vGear(){
+  return '<div class="screen" data-testid="screen-gear">' + subHeader('Your gear locker', 'gear-back') +
+    '<p class="lede">We check each item against official recall lists.</p>' +
+    '<div class="card" data-testid="gear-list">' + gearList(false, true) + '</div>' +
+    '<button class="cta coral" data-act="sheet" data-testid="gear-add">' + I.camera + ' Scan gear or a receipt</button>' +
+    '<p class="small muted" style="text-align:center" data-testid="gear-trust">' + TRUST + '</p>' +
+    '</div>' + tabbar();
+}
+function vSheet(){
+  var s = state.sheet, h = '<div class="scrim" data-act="closeSheet" data-testid="photo-sheet-scrim"><div class="sheet" data-testid="photo-sheet" role="dialog" aria-label="Scan gear or a receipt">' + '<div class="grab"></div>';
+  var phone = state.device === 'phone';
+  var sheetBack = '<button class="back" style="margin-top:-8px" data-act="sheetStep" data-v="what" data-testid="sheet-back">' + I.back + ' Back</button>';
+  var cancel = '<button class="quiet" style="display:block;margin:4px auto 0" data-act="closeSheet" data-testid="photo-cancel">Cancel</button>';
+  var seg = '<div class="seg"><button aria-pressed="' + phone + '" data-act="device" data-v="phone" data-testid="device-phone">On my phone</button><button aria-pressed="' + !phone + '" data-act="device" data-v="computer" data-testid="device-computer">On a computer</button></div>';
+  var locker = '<button class="cta coral" data-act="toLocker" data-testid="photo-see-locker">See your gear locker →</button><button class="quiet" style="display:block;margin:4px auto 0" data-act="closeSheet" data-testid="photo-done">Done</button>';
+  if(s === 'what'){
+    h += '<h3 style="margin:0;font-size:22px;font-weight:800" data-testid="scan-what">What are you scanning?</h3><div class="opts" style="margin-top:14px">' +
+      '<button class="opt" data-act="sheetStep" data-v="choose" data-testid="scan-type-gear"><span class="thumb" style="width:48px;height:48px">' + seatThumb() + '</span><span>Gear (the sticker on the item)<br><span class="small muted" style="font-weight:600">We check it against official recall lists</span></span></button>' +
+      '<button class="opt" data-act="sheetStep" data-v="rchoose" data-testid="scan-type-receipt"><span class="thumb" style="width:48px;height:48px">' + receiptThumb() + '</span><span>A receipt<br><span class="small muted" style="font-weight:600">Money back (FSA-eligible items, price drops) and a recall check on each item</span></span></button></div>' +
+      '<p class="small muted" style="margin:14px 4px 0;text-align:center" data-testid="photo-trust">' + TRUST + '</p>' + cancel;
+  } else if(s === 'rchoose'){
+    h += sheetBack + '<h3 style="margin:0;font-size:22px;font-weight:800">Snap the receipt</h3>' + seg +
+      '<div class="card" style="text-align:center" data-testid="receipt-guidance"><svg width="200" height="120" viewBox="0 0 200 120" aria-hidden="true"><rect x="20" y="8" width="160" height="104" rx="14" fill="#FCE6DC"/><path d="M76 16h48v88l-6-4-6 4-6-4-6 4-6-4-6 4-6-4-6 4z" fill="#FFFFFF" stroke="#1B1714" stroke-width="2" stroke-linejoin="round"/><path d="M84 32h32M84 44h24M84 56h32M84 68h20" stroke="#8A8076" stroke-width="3" stroke-linecap="round"/><path d="M40 22v-8h8M160 22v-8h-8M40 98v8h8M160 98v8h-8" stroke="#E4572E" stroke-width="3" fill="none" stroke-linecap="round"/></svg>' +
+      '<p style="margin:8px 0 0;font-weight:800;font-size:15px">' + (phone ? 'Lay the receipt flat and fit the whole thing in the frame.' : 'Upload a photo of the whole receipt.') + '</p><p class="small muted" style="margin:4px 0 0">We read each item, the store and the date.</p></div>' +
+      '<button class="cta" data-act="snapReceipt" data-testid="' + (phone ? 'receipt-take' : 'receipt-upload') + '">' + (phone ? I.camera + ' Take photo' : I.upload + ' Upload a photo') + '</button>' +
+      '<p class="small muted" style="margin:10px 4px 0;text-align:center">' + TRUST + '</p>' + cancel;
+  } else if(s === 'rreading'){
+    h += '<div data-testid="receipt-reading" style="text-align:center;padding:20px 0"><div class="spinner"></div><h3 style="margin:0;font-size:20px">Reading the receipt…</h3><p class="small muted">Then checking each item for money back and recalls.</p></div>';
+  } else if(s === 'rresult'){
+    var sh = I.shield.replace('width="20" height="20"','width="14" height="14"');
+    h += '<div class="card result" data-testid="receipt-result"><div style="display:flex;gap:12px;align-items:center"><div class="thumb">' + receiptThumb() + '</div><div><div style="font-weight:800;font-size:16px">Receipt · 3 items</div><div class="small muted">Store A <span class="ex">example</span> · Oct 25, 2026</div></div></div>' +
+      RECEIPT_ITEMS.map(function(r, i){
+        return '<div class="rrow" data-testid="receipt-item-' + (i+1) + '"><div style="font-weight:800">' + r.name + ' <span class="ex">example</span></div>' +
+          '<div style="margin-top:4px"><span class="pill ' + (r.tone || '') + '" style="font-size:12px;padding:4px 10px">' + r.money + '</span></div>' +
+          '<div class="small" style="color:var(--green);font-weight:700;margin-top:4px">' + sh + ' No recalls found · checked against 10,058 CPSC recalls</div></div>';
+      }).join('') +
+      '<p class="small muted" style="margin:6px 0 0">Money back amounts come from the run.</p>' +
+      '<p class="okline" style="font-size:14px" data-testid="receipt-saved">' + I.check + ' Saved to your gear locker.</p></div>' + locker;
+  } else if(s === 'choose'){
+    h += sheetBack + '<h3 style="margin:0;font-size:22px;font-weight:800">Take a photo</h3>' +
+      '<div class="seg"><button aria-pressed="' + phone + '" data-act="device" data-v="phone" data-testid="device-phone">On my phone</button><button aria-pressed="' + !phone + '" data-act="device" data-v="computer" data-testid="device-computer">On a computer</button></div>' +
+      '<div class="card" style="text-align:center" data-testid="camera-guidance">' +
+      '<svg width="200" height="120" viewBox="0 0 200 120" aria-hidden="true"><path d="M40 92c0-34 22-66 60-66s60 32 60 66z" fill="#FCE6DC"/><path d="M30 92h140l-10 18H40z" fill="#1B1714"/><rect x="118" y="98" width="30" height="9" rx="2" fill="#FBF6EF" stroke="#E4572E" stroke-width="2"/><path d="M133 70v22" stroke="#E4572E" stroke-width="2.5" stroke-dasharray="4 3"/><circle cx="133" cy="64" r="7" fill="none" stroke="#E4572E" stroke-width="2.5"/></svg>' +
+      '<p style="margin:8px 0 0;font-weight:800;font-size:15px">' + (phone ? 'Point at the sticker on the bottom of the car seat.' : 'Upload a photo of the sticker on the bottom of the car seat.') + '</p><p class="small muted" style="margin:4px 0 0">The sticker has the model number and the date it was made.</p></div>' +
+      '<button class="cta" data-act="snap" data-testid="' + (phone ? 'photo-take' : 'photo-upload') + '">' + (phone ? I.camera + ' Take photo' : I.upload + ' Upload a photo') + '</button>' +
+      '<button class="quiet" style="display:block;margin:4px auto 0" data-act="closeSheet" data-testid="photo-cancel">Cancel</button>';
+  } else if(s === 'reading'){
+    h += '<div data-testid="photo-reading" style="text-align:center;padding:20px 0"><div class="spinner"></div><h3 style="margin:0;font-size:20px">Reading the sticker…</h3><p class="small muted">Then checking it against 69 NHTSA car-seat recalls.</p></div>';
+  } else {
+    h += '<div class="card result" data-testid="photo-result"><div style="display:flex;gap:12px;align-items:center"><div class="thumb">' + seatThumb() + '</div><div><div style="font-weight:800;font-size:16px" data-testid="result-name">Graco SnugRide 35 Lite infant car seat</div>' +
+      '<div class="small muted" data-testid="result-model">Model 2120349 <span class="ex">example</span> · UPC 047406173005 <span class="ex">example</span></div></div></div>' +
+      '<div class="shield" data-testid="result-recall">' + I.shield + '<span><b>No recalls found</b> as of Oct 25, 2026. Checked against 69 NHTSA car-seat recalls.</span></div>' +
+      '<button class="link" style="margin-top:10px" data-act="toast" data-msg="Mockup: this would open Graco’s product registration page." data-testid="result-register">Register it with Graco →</button><p class="small muted" style="margin:0">This is how you’d hear about a future recall.</p>' +
+      '<p class="okline" style="font-size:14px" data-testid="result-saved">' + I.check + ' Saved to your gear locker.</p></div>' + locker;
+  }
+  return h + '</div></div>';
+}
+var RECEIPT_ITEMS = [
+  {name:'Breast pump bottles', money:'FSA-eligible: claim it back from your FSA', tone:'green'},
+  {name:'Baby monitor', money:'Price dropped since you bought it: ask for the difference', tone:'green'},
+  {name:'Swaddle blankets', money:'No money back found', tone:'amber'}
+];
+function vAccount(){
+  var a = state.a;
+  var pct = 70 + (state.filing ? 15 : 0) + (state.carrier ? 15 : 0);
+  var left = (state.filing ? 0 : 1) + (state.carrier ? 0 : 1);
+  var C = 2*Math.PI*30;
+  var work = {label:workLabel()};
+  var ins = insOptions().concat([INS_NONE]).filter(function(o){return o.id===a.ins;})[0] || {label:'—'};
+  var rows = [['stage','Stage', a.stage === 'expecting' ? 'Expecting' : 'Baby’s here'],['date', a.stage === 'expecting' ? 'Due date' : 'Birth date', a.date ? fmt(babyDate()) : '—'],['zip','ZIP code', a.zip],['work','Work setup', work.label],['ins','Health insurance', ins.label]];
+  var SETUP = 'Remembered from your setup · Oct 23', GEAR = 'Learned from your gear scan · Oct 25';
+  var mem = [{t:'Stage: ' + rows[0][2], s:SETUP},{t:rows[1][1] + ': ' + rows[1][2], s:SETUP},{t:'ZIP: ' + a.zip, s:SETUP},{t:'Work setup: ' + work.label, s:SETUP},{t:'Insurance: ' + ins.label, s:SETUP}];
+  state.gear.forEach(function(g){ mem.push({t:'Gear: ' + g.name, s:GEAR}); });
+  if(state.receipt) mem.push({t:'Receipt: 3 items (breast pump bottles, baby monitor, swaddle blankets)', s:'Learned from your receipt scan · Oct 25'});
+  var memHtml = mem.map(function(m, i){
+    var id = 'mem-' + (i < 9 ? '0' : '') + (i+1);
+    return '<div class="mem" data-testid="mem-row-' + (i+1) + '"><div style="min-width:0"><div>' + esc(m.t) + '</div><span class="memsrc" data-testid="mem-src-' + (i+1) + '">' + m.s + '</span><span class="memtag">Saved in Meterless memory</span>' +
+      (state.memTech ? '<div style="margin-top:6px"><code data-testid="mem-id-' + (i+1) + '">id ' + id + ' · example</code></div>' : '') + '</div></div>';
+  }).join('');
+  var h = '<div class="screen" data-testid="screen-account">' + header('Account') +
+    '<div class="card" style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:12px 16px" data-testid="account-signed-in"><span class="small" style="font-weight:700">' +
+      (state.signedOut ? 'Signed out' : 'Signed in as maya@example.com') + ' <span class="ex">example</span></span>' +
+      (state.signedOut ? '' : '<span class="small muted">· <button class="link" data-act="signOut" data-testid="account-sign-out">Sign out</button></span>') + '</div>' +
+    '<div class="card ring" data-testid="progress-ring"><svg width="76" height="76" viewBox="0 0 76 76" aria-hidden="true"><circle cx="38" cy="38" r="30" fill="none" stroke="#E9E0D4" stroke-width="8"/><circle cx="38" cy="38" r="30" fill="none" stroke="#E4572E" stroke-width="8" stroke-linecap="round" stroke-dasharray="' + C + '" stroke-dashoffset="' + (C*(1-pct/100)) + '" transform="rotate(-90 38 38)"/><text x="38" y="43" text-anchor="middle" font-family="Manrope" font-weight="800" font-size="16" fill="#1B1714">' + pct + '%</text></svg>' +
+    '<div><div style="font-weight:800;font-size:17px" data-testid="ring-text">Your plan is ' + pct + '% exact.</div><div class="small muted">' + (left ? left + ' answer' + (left>1?'s':'') + ' left could change your numbers.' : 'Every number is as exact as we can make it.') + '</div>' +
+    (left ? '<button class="link" data-act="tab" data-v="' + (state.filing ? 'insurance' : 'taxes') + '" data-testid="ring-next">Answer the next one →</button>' : '') + '</div></div>' +
+    '<div class="section label coral">Your family profile</div><div class="card" data-testid="profile">' + rows.map(function(r){
+      return '<div class="prow" data-testid="profile-' + r[0] + '"><div><small>' + r[1] + '</small><span>' + esc(r[2]) + '</span></div><button class="btn2" data-act="edit" data-v="' + r[0] + '" data-testid="edit-' + r[0] + '">Edit</button></div>';
+    }).join('') + '<p class="small muted" style="margin:8px 0 0">Changing an answer re-runs the check.</p></div>' +
+    '<div class="section label coral">Gear locker</div><div class="card" data-testid="account-gear">' + gearList(true) + '<button class="link" data-act="openSub" data-v="gear" data-testid="account-open-gear">Open gear locker ›</button></div>' +
+    '<div class="section label coral">What Bundle remembers about your family</div><div class="card" data-testid="memory-family">' + memHtml +
+      '<div style="display:flex;align-items:center;gap:6px;margin-top:8px;border-top:1px solid var(--line);padding-top:4px"><button class="link" style="color:var(--ink-3);font-size:12px" data-act="memTech" aria-expanded="' + state.memTech + '" data-testid="memory-tech-toggle">' + (state.memTech ? 'Hide technical details' : 'Technical details') + '</button><span class="ex" data-testid="example-ids-label">example ids</span></div></div>' +
+    '<div class="section label coral">What Bundle has learned from parents</div><div class="card" data-testid="memory-lessons"><span class="ex">sample counts</span>' +
+    [['Registry boxes that charge shipping get flagged as “has a catch.”', 12],['Offers for 0–3 months are hidden once a baby is past 3 months.', 8],['“Add baby to insurance” goes first when the deadline is under 2 weeks away.', 5]].map(function(l){ return '<div class="mem"><span>' + l[0] + '<br><span class="small muted">Learned from ' + l[1] + ' parent reports</span></span></div>'; }).join('') +
+    '<p class="small muted" style="margin:8px 0 0" data-testid="reports-helped">' + (state.reports ? 'Your reports helped grade ' + state.reports + ' offer' + (state.reports>1?'s':'') + '.' : 'When you report an offer, it helps protect every family checking it.') + '</p></div>' +
+    '<div style="display:flex;gap:10px;margin-top:18px"><button class="btn2" style="flex:1" data-act="startOver" data-testid="start-over">Start over</button><button class="btn2 danger" style="flex:1" data-act="forgetAsk" data-testid="forget-everything">Forget everything</button></div>' +
+    '</div>' + tabbar();
+  return h;
+}
+
+/* ---------- render ---------- */
+var STORY = {q1:'S1 · Onboarding Q1',q2:'S1 · Onboarding Q2',q3:'S1 · Onboarding Q3',q4:'S1 · Onboarding Q4',q5:'S1 · Onboarding Q5',checking:'S1 · Checking screen',
+  home:'S3 + S4 · Home',taxes:'Booster · Taxes',savings:'S2 · Savings',insurance:'S1 · Insurance deadline',deals:'S5 · Deals',account:'S6 · Account',
+  gear:'S2 · Gear Locker',audit:'S5 · Audit a deal',hr:'Booster · Questions to ask HR'};
+function render(keepScroll){
+  var phone = document.getElementById('phone');
+  var old = phone.querySelector('.screen'), top = keepScroll && old ? old.scrollTop : 0;
+  var v = state.view, html, key;
+  if(v === 'app'){
+    key = state.sub || state.tab;
+    html = ({home:vHome,taxes:vTaxes,savings:vSavings,insurance:vInsurance,deals:vDeals,account:vAccount,gear:vGear,audit:vAudit,hr:vHR})[key]();
+    if(state.sheet) html += vSheet();
+  } else {
+    key = v;
+    html = ({q1:vQ1,q2:vQ2,q3:vQ3,q4:vQ4,q5:vQ5,checking:vChecking})[v]();
+  }
+  if(state.modal) html += '<div class="modal" data-testid="forget-modal"><div class="card"><h3 style="margin:0 0 6px">Forget everything?</h3><p class="small muted" style="margin:0">This deletes your answers, gear and receipt photos, and the memory entries about your family. It can’t be undone.</p><div style="display:flex;gap:10px;margin-top:14px"><button class="btn2" style="flex:1" data-act="forgetNo" data-testid="forget-cancel">Keep my data</button><button class="btn2 dark" style="flex:1;background:var(--red);border-color:var(--red)" data-act="forgetYes" data-testid="forget-confirm">Forget</button></div></div></div>';
+  if(state.toast) html += '<div class="toast" role="status" data-testid="toast">' + state.toast + '</div>';
+  phone.innerHTML = html;
+  document.getElementById('storytag').textContent = STORY[key] || '';
+  var s = phone.querySelector('.screen'); if(s && keepScroll) s.scrollTop = top;
+  document.querySelectorAll('[data-act="toggleItems"]').forEach(function(b){ b.setAttribute('aria-checked', state.hasItems); });
+  document.querySelectorAll('.menu [data-act="toggleReceipt"]').forEach(function(b){ b.setAttribute('aria-checked', state.receipt); });
+  document.querySelectorAll('[data-act="toggleLive"]').forEach(function(b){ b.setAttribute('aria-checked', state.live); });
+  var wk = workKind(state.a.work);
+  document.querySelectorAll('.menu [data-act="checkVariant"]').forEach(function(b){ b.setAttribute('aria-pressed', state.view === 'checking' && b.getAttribute('data-v') === wk); });
+  if(key === 'deals' && state.live && !state.liveDone && !liveTimer){
+    liveTimer = setTimeout(function(){ liveTimer = null; state.liveDone = true; if(state.view === 'app' && !state.sub && state.tab === 'deals') render(true); }, reduce ? 0 : 2200);
+  }
+  animateNums();
+  state.flipped = false;
+}
+function animateNums(){
+  document.querySelectorAll('[data-count]').forEach(function(el){
+    var k = el.getAttribute('data-count'), to = +el.getAttribute('data-to'), from = prevNum[k] == null ? to : prevNum[k];
+    prevNum[k] = to;
+    if(from === to || reduce){ el.textContent = money(to); return; }
+    var t0 = performance.now(), dur = 600;
+    (function step(now){ var p = Math.min(1, (now - t0)/dur), e = 1 - Math.pow(1-p, 3); el.textContent = money(from + (to-from)*e); if(p < 1) requestAnimationFrame(step); })(t0);
+  });
+}
+var toastTimer;
+function toast(msg){ state.toast = msg; render(true); clearTimeout(toastTimer); toastTimer = setTimeout(function(){ state.toast = null; render(true); }, 2600); }
+
+var checkTimer;
+function runChecking(){
+  state.view = 'checking'; state.checkStep = 0; render();
+  var total = checkSteps().length;
+  clearInterval(checkTimer);
+  if(reduce){ state.checkStep = total; render(); return; }
+  checkTimer = setInterval(function(){ state.checkStep++; render(); if(state.checkStep >= total) clearInterval(checkTimer); }, 1300);
+}
+function afterAnswer(){
+  if(state.editing){ var back = state.editing; state.editing = null; state.afterCheck = back; runChecking(); return; }
+}
+function goApp(tab, sub){ fillDefaults(); clearInterval(checkTimer); state.visitedResults = true; state.view = 'app'; state.tab = tab; state.sub = sub || null; state.sheet = null; render(); var s = document.querySelector('.screen'); if(s) s.scrollTop = 0; }
+
+var QORDER = ['q1','q2','q3','q4','q5'];
+var KEYQ = {stage:'q1', date:'q2', zip:'q3', work:'q4', ins:'q5'};
+document.addEventListener('click', function(e){
+  var el = e.target.closest('[data-act],[data-jump]'); if(!el) return;
+  if(el.classList.contains('scrim') && e.target !== el) return;
+  var act = el.getAttribute('data-act'), v = el.getAttribute('data-v');
+  if(el.hasAttribute('data-jump')) return jump(el.getAttribute('data-jump'));
+  switch(act){
+    case 'house':
+      if(state.a.house !== v){ state.a.house = v; state.a.earn = {}; state.q4Anim = true; }
+      state.a.work = deriveWork(); render(true); break;
+    case 'earn':
+      state.a.earn = state.a.earn || {}; state.a.earn[el.getAttribute('data-who')] = v;
+      state.a.work = deriveWork(); render(true); break;
+    case 'q4next':
+      if(!q4Complete()) break;
+      state.a.work = deriveWork();
+      if(state.editing) afterAnswer(); else { state.view = 'q5'; render(); }
+      break;
+    case 'checkVariant':
+      clearInterval(checkTimer); state.sheet = null; state.modal = null; state.editing = null; state.afterCheck = null;
+      fillDefaults();
+      var VAR = {fsa:{house:'two', earn:{me:'pay', partner:'pay'}}, self:{house:'solo', earn:{me:'self'}}, nowork:{house:'two', earn:{me:'pay', partner:'none'}}};
+      if(v === 'skip'){ state.a.work = 'skip'; state.a.house = null; state.a.earn = null; }
+      else { state.a.house = VAR[v].house; state.a.earn = JSON.parse(JSON.stringify(VAR[v].earn)); state.a.work = deriveWork(); }
+      runChecking(); break;
+    case 'scan': state.sheet = 'what'; render(true); break;
+    case 'sheetStep': state.sheet = v; render(true); break;
+    case 'snapReceipt':
+      state.sheet = 'rreading'; render(true);
+      setTimeout(function(){ state.sheet = 'rresult'; state.receipt = true; render(true); }, reduce ? 300 : 1600);
+      break;
+    case 'toLocker': state.sheet = null; state.view = 'app'; state.tab = 'savings'; state.sub = 'gear'; render(); var gs = document.querySelector('.screen'); if(gs) gs.scrollTop = 0; break;
+    case 'saveGoogle': state.save = {done:'google'}; render(true); break;
+    case 'saveEmail':
+      var em = (document.getElementById('saveEmail') || {}).value || '';
+      state.save = {done:'email', email: em.trim() || 'your email'}; render(true); break;
+    case 'saveNotNow': state.save = 'dismissed'; render(true); break;
+    case 'signOut': state.signedOut = true; render(true); toast('Demo: signed out. Your plan is still saved.'); break;
+    case 'memTech': state.memTech = !state.memTech; render(true); break;
+    case 'toggleLive': state.live = !state.live; state.liveDone = false; clearTimeout(liveTimer); liveTimer = null; render(true); break;
+    case 'auditMode': state.auditForm.mode = v; render(true); break;
+    case 'ans':
+      var k = el.getAttribute('data-k');
+      if(k === 'work' && v === 'skip'){ state.a.house = null; state.a.earn = null; }
+      if(k === 'stage' && state.a.stage && state.a.stage !== v){ state.a.date = ''; }
+      state.a[k] = v;
+      render(true);
+      setTimeout(function(){
+        if(state.editing){ if(k === 'stage'){ state.view = 'q2'; render(); } else afterAnswer(); return; }
+        var i = QORDER.indexOf(state.view);
+        if(i < 4){ state.view = QORDER[i+1]; render(); } else runChecking();
+      }, reduce ? 0 : 220);
+      break;
+    case 'qback':
+      if(state.editing){ state.editing = null; goApp('account'); break; }
+      state.view = QORDER[Math.max(0, QORDER.indexOf(state.view)-1)]; render(); break;
+    case 'q2next': state.a.date = document.getElementById('dateIn').value || state.a.date; if(state.editing) afterAnswer(); else { state.view = 'q3'; render(); } break;
+    case 'q3next': state.a.zip = document.getElementById('zipIn').value; if(state.editing) afterAnswer(); else { state.view = 'q4'; render(); } break;
+    case 'sample': state.a = JSON.parse(JSON.stringify(defaults)); state.hasItems = true; if(!state.gear.length) state.gear.push(SWING); runChecking(); break;
+    case 'results':
+      var dest = state.afterCheck; state.afterCheck = null;
+      if(dest){ goApp('account'); toast('Updated. We re-checked your plan with your new answer.'); } else goApp('home');
+      break;
+    case 'tab': state.sub = null; state.tab = v; state.sheet = null; render(); document.querySelector('.screen').scrollTop = 0; break;
+    case 'openSub': state.sub = v; render(); break;
+    case 'subback': state.sub = null; render(); break;
+    case 'toggleItems':
+      state.hasItems = !state.hasItems;
+      if(state.hasItems){ if(!state.gear.some(function(g){return g.id==='swing';})) state.gear.push(SWING); }
+      else state.gear = state.gear.filter(function(g){ return g.id !== 'swing'; });
+      if(state.view === 'checking') runChecking(); else render(true);
+      break;
+    case 'toggleReceipt': state.receipt = !state.receipt; render(true); break;
+    case 'quick': state.quick = v === '1'; render(true); break;
+    case 'drawer': state.drawer = !state.drawer; render(true); break;
+    case 'task':
+      var id = el.getAttribute('data-id'), card = el.closest('.task');
+      var commit = function(){ state.tasks[id] = v; render(true); if(v === 'skip') toast('Got it. The Coach will learn from this. Undo anytime in “Done / not for us.”'); };
+      if(card && !reduce){ card.classList.add('leaving'); setTimeout(commit, 280); } else commit();
+      break;
+    case 'undo': delete state.tasks[el.getAttribute('data-id')]; render(true); break;
+    case 'filing': state.filing = v; state.flipped = true; render(true); break;
+    case 'skipFiling': state.filingSkipped = true; render(true); break;
+    case 'unskipFiling': state.filingSkipped = false; render(true); break;
+    case 'carrier': state.carrier = v; render(true); break;
+    case 'copyHR':
+      var txt = hrQuestions().items.join('\n');
+      try{ if(navigator.clipboard) navigator.clipboard.writeText(txt).catch(function(){}); }catch(err){}
+      toast('Copied ' + hrQuestions().items.length + ' questions.'); break;
+    case 'toast': toast(el.getAttribute('data-msg')); break;
+    case 'report': state.reported[el.getAttribute('data-id')] = true; state.reports++; render(true); break;
+    case 'audit':
+      var af = state.auditForm, shot = af.mode === 'shot';
+      if(shot && !af.file){ toast('Add a screenshot first, or paste the text.'); break; }
+      var text = (shot ? SAMPLE_PASTE : af.text).slice(0, 2000);
+      state.audit = {store: af.store.trim() || 'This store', offer: af.offer.trim() || 'offer', shot: shot, catches:auditCheck(text)}; render(true);
+      var r = document.querySelector('[data-testid="audit-result"]'); if(r) r.scrollIntoView({block:'nearest'});
+      break;
+    case 'sheet': state.sheet = 'what'; render(true); break;
+    case 'device': state.device = v; render(true); break;
+    case 'snap':
+      state.sheet = 'reading'; render(true);
+      setTimeout(function(){ state.sheet = 'result'; if(!hasSeat()) state.gear.unshift(SEAT); render(true); }, reduce ? 300 : 1600);
+      break;
+    case 'closeSheet': state.sheet = null; render(true); break;
+    case 'edit': state.editing = v; state.view = KEYQ[v]; render(); break;
+    case 'startOver': clearInterval(checkTimer); var items = state.hasItems; fresh(); state.hasItems = items; if(items) state.gear = [SWING]; prevNum = {}; render(); break;
+    case 'forgetAsk': state.modal = true; render(true); break;
+    case 'forgetNo': state.modal = false; render(true); break;
+    case 'forgetYes': clearInterval(checkTimer); fresh(); prevNum = {}; render(); break;
+  }
+});
+document.addEventListener('input', function(e){
+  if(e.target.id === 'zipIn'){ var z = e.target.value.replace(/\D/g,'').slice(0,5); e.target.value = z; document.getElementById('zipOk').textContent = zipLine(z); document.querySelector('[data-act="q3next"]').disabled = !/^\d{5}$/.test(z); }
+  if(e.target.getAttribute && e.target.getAttribute('data-f') && state.auditForm){ state.auditForm[e.target.getAttribute('data-f')] = e.target.value.slice(0, 2000); }
+  if(e.target.id === 'dateIn'){ document.getElementById('dateOk').textContent = dateLine(e.target.value); }
+});
+document.addEventListener('change', function(e){
+  if(e.target.id === 'auditFile' && e.target.files && e.target.files[0]){ state.auditForm.file = e.target.files[0].name; render(true); }
+});
+var SEAT = {id:'seat', name:'Graco SnugRide 35 Lite infant car seat', src:'Checked against 69 NHTSA car-seat recalls'};
+var SWING = {id:'swing', name:'Baby swing (example item)', src:'Checked against 10,058 CPSC recalls'};
+
+function jump(where){
+  clearInterval(checkTimer); state.sheet = null; state.modal = null; state.editing = null; state.afterCheck = null;
+  if(where === 'q1'){ fresh(); prevNum = {}; render(); return; }
+  fillDefaults();
+  if(where === 'checking') return runChecking();
+  if(where === 'live'){ state.live = true; state.liveDone = false; clearTimeout(liveTimer); liveTimer = null; return goApp('deals'); }
+  if(where === 'save'){ state.save = null; return goApp('home'); }
+  if(where === 'tasks'){ goApp('home'); var a = document.getElementById('tasks-anchor'); if(a) a.scrollIntoView({block:'start'}); return; }
+  if(where === 'gear' || where === 'audit' || where === 'hr') return goApp(where === 'audit' ? 'deals' : where === 'hr' ? 'insurance' : 'savings', where);
+  goApp(where);
+}
+render();
+})();
+</script>
+</body>
+</html>

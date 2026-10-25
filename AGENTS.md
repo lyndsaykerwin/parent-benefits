@@ -11,7 +11,7 @@ Every file lives in one of the folders below. Only `CLAUDE.md`, `AGENTS.md` and 
   - `plans/lyndsay-directives/` — Lyndsay's own instructions and feedback.
 - `hackathon-resources/` — the hackathon's rules and guides: `hackathon-overview.md` (judging rules), `strong-submission-examples.md`, `weak-submission-examples.md`, the FAQ and the checklist.
 - `research/` — research notes, `research-boston-baby-benefits.html` (benefit amounts and sources), the learning brief (`research/learning-brief/`), the class book (`research/class-book/`) and small experiments (`research/experiments/`).
-- `design/` — screen mockups and design notes: `design/onboarding/` (the first-run screens) and `design/inspiration-military-benefits/` (screenshots used for ideas).
+- `design/` — screen mockups and design notes: `design/onboarding/` (the first-run screens), `design/v2/` (clickable V2 mockups of the Oct 25 feedback changes, with screenshots in `design/v2/screens/`) and `design/inspiration-military-benefits/` (screenshots used for ideas).
 - `presentation/` — what judges see: the slide deck (`presentation/deck/`), the demo video script and rehearsal notes (`presentation/demo-video/`), and the week-1 check-in slides.
 - `setup/` — how the outside services were set up (Zetaris, Meterless, Neon, accounts list). `setup/zetaris-getting-started/` is a copy of Zetaris's public starter kit and is not uploaded to GitHub.
 - `progress/` — the work diary:
