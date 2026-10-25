@@ -1,4 +1,7 @@
 import { askJson, type Generator } from '../adapters/llm';
+import { coachIssuesSql } from './savedVerdicts';
+import { col } from './sql';
+import type { ZetarisClient } from '../adapters/zetaris';
 
 export interface FeedbackRow {
   id: number;
@@ -21,6 +24,36 @@ const isClusters = (x: unknown): x is Clusters =>
   && (x as Clusters).clusters.every((c) => c && typeof c.rule === 'string' && Array.isArray(c.feedbackIds));
 
 export const MAX_ISSUES = 40;
+
+/** Matches COACH_ISSUE_LIMIT in scripts/zetaris/record.ts: the size of the saved (recorded) Coach question. */
+export const ZETARIS_ISSUE_READ = 50;
+
+const toDate = (v: unknown): Date | null => {
+  if (v === null || v === undefined || v === '') return null;
+  const d = new Date(/^\d{4}-\d{2}-\d{2} \d/.test(String(v)) ? `${String(v).replace(' ', 'T')}Z` : String(v));
+  return Number.isNaN(d.getTime()) ? null : d;
+};
+
+/**
+ * The Coach's input: the newest parent "issue" reports, read through Zetaris (view v_coach_feedback) instead of straight from Neon.
+ * The question text is the exported coachIssuesSql, unchanged, so the saved sample answer replays for it.
+ * If Zetaris cannot answer this throws (the feedback route logs it and still saves the report); it never quietly reads Neon instead.
+ */
+export async function fetchRecentIssues(z: Pick<ZetarisClient, 'runQuery'>, limit: number): Promise<FeedbackRow[]> {
+  // Always the same question (newest 50), the one the live recording saved; asking for fewer is done after the answer arrives.
+  const res = await z.runQuery(coachIssuesSql(Math.max(limit, ZETARIS_ISSUE_READ)));
+  return res.rows
+    .filter((r) => String(col(r, 'kind') ?? '') === 'issue')
+    .map((r) => ({
+      id: Number(col(r, 'id')),
+      familyId: String(col(r, 'family_id') ?? ''),
+      cardId: String(col(r, 'card_id') ?? ''),
+      kind: 'issue' as const,
+      note: String(col(r, 'note') ?? ''),
+      createdAt: toDate(col(r, 'created_at')),
+    }))
+    .slice(0, limit);
+}
 
 export const confidenceFor = (reports: number): number => Math.round(Math.min(0.9, 0.5 + 0.1 * reports) * 100) / 100;
 
