@@ -123,13 +123,15 @@ describe('loops 6 and the newsroom: saved grades', () => {
     only(counts(none.trace.agentLines()), 'saved_verdict', 0);
   });
 
-  it('past grades from the same store used as context for a second offer are counted', async () => {
+  it('past grades used only as context for a second offer are NOT counted as a reuse (the AI still runs)', async () => {
     const llm = new FakeGenerator(['p', 'c', APPROVE, 'p', 'c', APPROVE]);
     const { ctx, trace } = courtCtx([offer(1), offer(2)], llm);
     await judgeOffers(ctx, IN);
-    const ctxLines = trace.agentLines().filter((l) => /^used \d+ past grade/.test(l.output_summary));
+    const ctxLines = trace.agentLines().filter((l) => /^(?:\w+: )?used [1-9]\d* past grade/.test(l.output_summary));
     expect(ctxLines.length).toBeGreaterThanOrEqual(1);
-    expect(counts(trace.agentLines()).saved_verdict).toBe(ctxLines.filter((l) => /used [1-9]/.test(l.output_summary)).length);
+    expect(llm.calls).toBeGreaterThan(0);
+    for (const l of ctxLines) expect(loopsOf(l)).not.toContain('saved_verdict');
+    expect(counts(trace.agentLines()).saved_verdict).toBe(0);
   });
 });
 

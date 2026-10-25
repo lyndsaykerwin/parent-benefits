@@ -16,8 +16,9 @@ import type { AgentLogLine } from './agentLog';
  *                   that follows a failed retry is a separate rejected line and is not counted as another retry.
  *  - recall_check:  the Fact-Checker checking a recall alert against the recall record (any outcome: an alert is only shown
  *                   after this check passes).
- *  - saved_verdict: a saved grade reused (AI skipped), or past grades from the same store used as context. "No saved grades yet"
- *                   is not a reuse.
+ *  - saved_verdict: a saved grade reused so the AI is skipped ("the saved grade is reused (no AI)"). Past grades handed to the Judge
+ *                   only as background ("used N past grade(s)") do NOT count, because the AI still runs; neither does
+ *                   "no saved grades yet".
  *  - safety_kill:   a money-back deal stopped before the Judge because the item is under a recall.
  */
 export type LoopKind = 'send_back' | 'rebuttal' | 'eligibility' | 'photo_retry' | 'recall_check' | 'saved_verdict' | 'safety_kill';
@@ -34,7 +35,7 @@ export function loopsOf(
   if (l.agent_name === 'PhotoReader' && l.action === 'retry_request' && l.status === 'retrying') out.push('photo_retry');
   if (l.agent_name === 'FinePrintCourt' && l.action === 'court_debate') {
     if (/\brebuttal round \d+ of \d+/i.test(input)) out.push('rebuttal');
-    if (/\bsaved grade is reused\b/i.test(output) || /^(?:\w+: )?used [1-9]\d* past grade/i.test(output)) out.push('saved_verdict');
+    if (/\bsaved grade is reused\b/i.test(output)) out.push('saved_verdict');
   }
   if (l.agent_name === 'BenefitsPlanner' && l.action === 'evaluate_offer' && l.retry_count >= 1 && /^rule \S+ \(/.test(input)) out.push('eligibility');
   if (l.agent_name === 'FactChecker' && l.action === 'fact_check' && /^recall card /.test(input)) out.push('recall_check');

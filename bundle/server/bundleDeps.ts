@@ -35,6 +35,31 @@ export function makeOfferCheckWriter(): OfferCheckWriter | undefined {
   };
 }
 
+function makeZetarisClient(sample: boolean): ZetarisClient {
+  return new ZetarisClient({
+    baseUrl: process.env.ZETARIS_BASE_URL || 'http://sample-mode.invalid', orgId: process.env.ZETARIS_ORG_ID || 'sample',
+    apiKey: process.env.ZETARIS_API_KEY || 'sample',
+    timeoutMs: (Number(process.env.SOURCE_TIMEOUT_SECONDS) || 20) * 1000 * 4, sampleMode: sample,
+    cacheDir: path.resolve('data/sample/zetaris-cache'),
+  });
+}
+
+/**
+ * Loads a sample family through Zetaris (the saved replay in SAMPLE_MODE). With no Zetaris keys outside SAMPLE_MODE it says so and
+ * reads Neon directly; if Zetaris fails the loader logs it and falls back the same way.
+ */
+export function makeSeedFamilyLoader(opts: LiveOpts = {}): (id: string) => Promise<Family> {
+  return (id) => {
+    const sample = isSampleMode() && !opts.live;
+    const keysMissing = ['ZETARIS_BASE_URL', 'ZETARIS_ORG_ID', 'ZETARIS_API_KEY'].some((k) => !process.env[k]);
+    if (keysMissing && !sample) {
+      console.warn(`Family profile for ${id}: Zetaris settings are missing; reading it straight from Neon instead.`);
+      return defaultLoadFamily(id);
+    }
+    return defaultLoadFamily(id, { z: makeZetarisClient(sample) });
+  };
+}
+
 /** Real Zetaris + model + memory for one run. Shared by the API and scripts/run-family.ts. */
 export function makeRealRunDeps(memory: BundleMemory, familyId?: string, opts: LiveOpts = {}): Omit<RunDeps, 'loadFamily' | 'runId'> {
   const sample = isSampleMode() && !opts.live;
@@ -42,12 +67,7 @@ export function makeRealRunDeps(memory: BundleMemory, familyId?: string, opts: L
   // SAMPLE_MODE needs no keys and ignores any that are present: Zetaris answers come only from the saved responses
   // in data/sample/zetaris-cache (the client never calls out and never writes the cache in this mode).
   if (missing.length && !sample) throw new Error(`Missing settings: ${missing.join(', ')}`);
-  const z = new ZetarisClient({
-    baseUrl: process.env.ZETARIS_BASE_URL || 'http://sample-mode.invalid', orgId: process.env.ZETARIS_ORG_ID || 'sample',
-    apiKey: process.env.ZETARIS_API_KEY || 'sample',
-    timeoutMs: (Number(process.env.SOURCE_TIMEOUT_SECONDS) || 20) * 1000 * 4, sampleMode: sample,
-    cacheDir: path.resolve('data/sample/zetaris-cache'),
-  });
+  const z = makeZetarisClient(sample);
   // Real runs save agreed court grades to Neon. The database is opened only when a grade is saved (server/db.ts throws without
   // DATABASE_URL), and SAMPLE_MODE never saves.
   const offerChecks = makeOfferCheckWriter();
@@ -59,7 +79,7 @@ export function createDefaultApiDeps(opts: LiveOpts = {}): ApiDeps {
   const llm = makeGenerator(opts);
   return {
     makeRunDeps: (family: Family) => ({ ...makeRealRunDeps(memory, family.id, opts), llm }),
-    loadSeedFamily: defaultLoadFamily,
+    loadSeedFamily: makeSeedFamilyLoader(opts),
     // SAMPLE_MODE keeps everything in memory (no database); otherwise Neon through Drizzle.
     store: isSampleMode() ? new MemoryStore(zipStateMap()) : new DrizzleStore(),
     memory,

@@ -2,7 +2,7 @@ import { Link } from 'wouter';
 import { fmtUsdShort } from '@/lib/bundle';
 import { categorySummary, claimableCards, claimedCents, giftValue, homeTotals, urgentDeadlines, type TabId } from '@/lib/tabs';
 import { ComingSoonState, SectionTitle, CardStack, type TabProps } from './shared';
-import { HowWeGotThisNumber, SaveListCard, ShareBar } from './Extras';
+import { ForgetItemsCard, HowWeGotThisNumber, SaveListCard, ShareBar } from './Extras';
 
 function Tile({ label, big, small, onClick }: { label: string; big: string; small: string; onClick: () => void }) {
   return (
@@ -116,6 +116,7 @@ export default function HomeTab(props: TabProps) {
 
       {claimed > 0 && <ShareBar claimedCents={claimed} />}
       <SaveListCard />
+      <ForgetItemsCard familyId={run.familyId} />
 
       <Link
         href="/smarter"

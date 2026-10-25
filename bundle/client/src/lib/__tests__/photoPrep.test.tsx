@@ -1,4 +1,4 @@
-import { fitWithin, checkPickedFile, preparePhoto, sendPhoto, MAX_SIDE, MAX_PICK_BYTES, type PhotoCodec } from '../photoPrep';
+import { fitWithin, checkPickedFile, preparePhoto, sendPhoto, forgetMyItems, MAX_SIDE, MAX_PICK_BYTES, type PhotoCodec } from '../photoPrep';
 
 const file = (type: string, size = 1000) => ({ type, size, name: 'x' }) as unknown as File;
 
@@ -54,5 +54,26 @@ describe('sendPhoto', () => {
   it('turns a server error into a plain message', async () => {
     const fetchFn = jest.fn(async () => ({ ok: false, status: 413, json: async () => ({ error: 'too big' }) })) as unknown as typeof fetch;
     await expect(sendPhoto({ familyId: 'maya', kind: 'item', mimeType: 'image/jpeg', imageBase64: 'x' }, fetchFn)).rejects.toThrow('too big');
+  });
+});
+
+describe('forgetMyItems', () => {
+  it('posts only the family id to the existing forget route and returns how many were removed', async () => {
+    const fetchFn = jest.fn(async () => ({ ok: true, status: 200, json: async () => ({ deleted: 3 }) })) as unknown as typeof fetch;
+    expect(await forgetMyItems('maya', fetchFn)).toBe(3);
+    const [url, init] = (fetchFn as unknown as jest.Mock).mock.calls[0] as [string, RequestInit];
+    expect(url).toBe('/api/photo/forget');
+    expect(init.method).toBe('POST');
+    expect(JSON.parse(init.body as string)).toEqual({ familyId: 'maya' });
+  });
+  it('turns a server error into a plain message', async () => {
+    const fetchFn = jest.fn(async () => ({ ok: false, status: 500, json: async () => ({ error: 'Could not remove your items. Please try again.' }) })) as unknown as typeof fetch;
+    await expect(forgetMyItems('maya', fetchFn)).rejects.toThrow('Could not remove your items. Please try again.');
+  });
+  it('has a plain fallback message when the server sends nothing readable, or the network is down', async () => {
+    const empty = jest.fn(async () => ({ ok: false, status: 502, json: async () => { throw new Error('x'); } })) as unknown as typeof fetch;
+    await expect(forgetMyItems('maya', empty)).rejects.toThrow(/could not remove/i);
+    const down = jest.fn(async () => { throw new TypeError('Failed to fetch'); }) as unknown as typeof fetch;
+    await expect(forgetMyItems('maya', down)).rejects.toThrow(/could not remove/i);
   });
 });
