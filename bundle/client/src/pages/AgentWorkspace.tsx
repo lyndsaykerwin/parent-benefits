@@ -48,11 +48,13 @@ const ACTION_LABEL: Record<AgentLogLine['action'], string> = {
 export function loopsOf(l: AgentLogLine): LoopKind[] {
   const text = `${l.input_summary} ${l.output_summary}`;
   const out: LoopKind[] = [];
+  // One photo retry writes two lines (the retry request, then the second read): count the request only.
   if (l.action === 'retry_request' && l.agent_name === 'PhotoReader') out.push('photo_retry');
-  else if (l.action === 'vision_extract' && l.retry_count >= 1) out.push('photo_retry');
   else if (l.action === 'retry_request' && l.status === 'needs_revision') out.push('send_back');
   if (l.action === 'court_debate' && (l.retry_count >= 1 || /rebuttal/i.test(text))) out.push('rebuttal');
-  if (l.action === 'fact_check' && /\brecall\b/i.test(l.input_summary)) out.push('recall_check');
+  // Only a check that went against the recall record (or needed a redo) is a recall verification;
+  // an ordinary "verified" on a recall card is not a loop.
+  if (l.action === 'fact_check' && /\brecall\b/i.test(l.input_summary) && (l.retry_count >= 1 || /recall record|recall verification|evidence/i.test(text))) out.push('recall_check');
   if (/saved (verdict|grade)|past grade/i.test(text)) out.push('saved_verdict');
   return out;
 }
@@ -78,6 +80,9 @@ function subjectIn(text: string, cards: CardRef[]): { key: string; label: string
   };
   let m = /\bcard ([\w-]+)/.exec(text);
   if (m) return byId(m[1]) ? { key: m[1], label: byId(m[1])!.title } : { key: m[1], label: m[1] };
+  // The orchestrator writes send-backs as "<cardId> to <agent>", with no word "card": match a known card id.
+  const known = cards.filter((c) => text.startsWith(`${c.id} `) || text.includes(` ${c.id} `)).sort((a, b) => b.id.length - a.id.length)[0];
+  if (known) return { key: known.id, label: known.title };
   m = /\boffer[ -]?(\d+)\b/i.exec(text);
   if (m) return named(`offer ${m[1]}`, `Offer ${m[1]}`, `discount-${m[1]}`, `blocked-${m[1]}`);
   m = /\bitem (\d+)\b/i.exec(text);

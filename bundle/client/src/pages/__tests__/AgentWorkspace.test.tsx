@@ -20,16 +20,19 @@ function realLog(): AgentLogData {
     t.log({ agent_name, action, input_summary, output_summary, target_agent: null, confidence: null, retry_count, status });
   ev('benefits', 'evaluate', 'rule MA_PFML', '$0.00');
   // Fact-Checker sends a card back once (a send-back), then passes it
-  ev('fact_checker', 'send_back', 'card clawback-price-5 from clawback: wrong amount', 'asked clawback to redo the amount', 'retry', 1);
+  ev('fact_checker', 'send_back', 'clawback-price-5 to clawback', 'wrong amount (corrected values: {})', 'retry', 1);
   ev('fact_checker', 'fact_check', 'card clawback-price-5 from clawback: claim {"type":"price_adjustment"}', 'verified');
   // Court: one rebuttal round on offer 1302
   ev('deal_hunter', 'argue', 'offer 1302', 'looks fine');
   ev('fine_print_lawyer', 'rebuttal', 'offer 1302 round 1', 'answered the lawyer', 'ok', 1);
   ev('judge', 'rule', 'offer 1302', 'approve');
   // a recall alert verified against the recall record
-  ev('fact_checker', 'fact_check', 'recall card recall-cpsc-10560 from recall: claim {"type":"recall","recallId":10560}', 'verified');
+  ev('fact_checker', 'fact_check', 'recall card recall-cpsc-10560 from recall: claim {"type":"recall","recallId":10560}', 'verified against the recall record');
+  // an ordinary recall card check that is not a verification loop
+  ev('fact_checker', 'fact_check', 'recall card recall-fda-7 from recall: claim {"type":"recall"}', 'verified');
   // a photo retry
   ev('photo_reader', 'photo_retry', 'receipt photo 1', 'second read', 'retry', 1);
+  ev('photo_reader', 'vision_extract', 'receipt photo 1 round 2', 'read 3 items', 'ok', 1);
   // a saved verdict reused
   ev('fine_print_court', 'court_debate', 'offer 1303', 'reused saved verdict from offer_checks:12, no AI call');
   // something that belongs to the whole run
@@ -55,10 +58,11 @@ describe('loopsOf: which loop a log line belongs to', () => {
   const data = realLog();
   const find = (re: RegExp) => data.lines.find((l) => re.test(l.input_summary))!;
   it('recognises send-backs, the rebuttal round, photo retries, recall verifications and saved verdicts', () => {
-    expect(loopsOf(find(/wrong amount/))).toEqual(['send_back']);
+    expect(loopsOf(data.lines.find((l) => /wrong amount/.test(l.output_summary))!)).toEqual(['send_back']);
     expect(loopsOf(find(/round 1/))).toEqual(['rebuttal']);
     expect(loopsOf(find(/receipt photo/))).toEqual(['photo_retry']);
-    expect(loopsOf(find(/^recall card/))).toEqual(['recall_check']);
+    expect(loopsOf(data.lines.find((l) => /recall record/.test(l.output_summary))!)).toEqual(['recall_check']);
+    expect(loopsOf(find(/recall-fda-7/))).toEqual([]);
     expect(loopsOf(data.lines.find((l) => /reused saved verdict/.test(l.output_summary))!)).toEqual(['saved_verdict']);
   });
   it('plain lines are in no loop', () => {
@@ -77,7 +81,7 @@ describe('groupAgentLog: per card and per loop', () => {
   });
   it('puts a card\'s lines together under the card\'s title, offers matched to their cards', () => {
     expect(byKey('clawback-price-5').label).toBe('Price drop on your Graco playard');
-    expect(byKey('clawback-price-5').lines).toHaveLength(2);
+    expect(byKey('clawback-price-5').lines).toHaveLength(2); // the send-back is found by its bare card id
     expect(byKey('discount-1302').label).toBe('Newborn diaper offer');
     expect(byKey('discount-1302').lines).toHaveLength(3); // hunter, lawyer rebuttal, judge
     expect(byKey('recall-cpsc-10560').lines).toHaveLength(1);
