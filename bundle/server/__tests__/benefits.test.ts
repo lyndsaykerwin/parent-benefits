@@ -176,7 +176,7 @@ describe('benefits planner', () => {
     const truth = jest.fn(async (sql: string) => {
       const code = /code = '([A-Z_]+)'/.exec(sql)![1];
       const r = RULES.find((x) => x.code === code)!;
-      return res([{ amount_cents: r.amount_cents, window_end_days_from_birth: r.window_end_days_from_birth }]);
+      return res([{ amount_cents: r.amount_cents, window_end_days_from_birth: r.window_end_days_from_birth, scope: r.scope }]);
     });
     const checkCtx = { ...ctx, z: { runQuery: truth } as any };
     const out = await planBenefits(ctx, TODAY);
