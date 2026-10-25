@@ -77,16 +77,8 @@ function parentCard(c: FeedCard, caught = false): ParentCard {
   const out = {} as Record<string, unknown>;
   for (const k of PARENT_CARD_KEYS) out[k] = (c as unknown as Record<string, unknown>)[k];
   out.sources = (c.sources ?? []).map((s) => ({ label: s.label, url: s.url }));
-  out.body = caught ? parentCaughtReason(c.body) : parentBody(c.body);
+  out.body = caught ? parentCaughtReason(c.body) : c.body;
   return out as ParentCard;
-}
-
-/** finePrintCourt's offline approval says "Not reviewed by the AI court." Parents get plain words instead. */
-export const PARENT_UNCHECKED_TEXT = "We couldn't fully check this offer's fine print.";
-export function parentBody(body: string): string {
-  return body
-    .replace(/Offline screen:\s*no flagged terms found\./gi, 'No flagged terms found.')
-    .replace(/Not reviewed by the AI court\./g, PARENT_UNCHECKED_TEXT);
 }
 
 /** Receipt fields copied one by one, so a field added later never reaches parents by accident. */
