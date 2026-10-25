@@ -86,10 +86,8 @@ async function check(c: Candidate, ctx: AgentContext): Promise<VerifyResult> {
     const sql = `SELECT value_cents, max_age_days FROM bundle_pg.v_judge_offers WHERE id = ${id}`;
     const { rows } = await ctx.z.runQuery(sql);
     if (!rows.length) return fail(`source not found: offer ${id}`);
-    const max = col(rows[0], 'max_age_days');
-    const a = anchor(ctx);
-    const deadline = typeof max === 'number' && a ? addDays(a, max) : null;
-    return compare(c, col(rows[0], 'value_cents') as number | null, deadline);
+    // max_age_days is the oldest baby age the offer fits, not an end date, and offers have no end date: nothing to check a deadline against.
+    return compare(c, col(rows[0], 'value_cents') as number | null, null);
   }
 
   if (type === 'recall') {

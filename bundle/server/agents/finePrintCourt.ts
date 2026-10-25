@@ -1,5 +1,5 @@
 import { askJson } from '../adapters/llm';
-import { col, quoteInt, InvalidId, addDays, today, fmtUsd } from './sql';
+import { col, quoteInt, InvalidId, today, fmtUsd, eligibilityText } from './sql';
 import type { FeedCard } from '../../shared/bundle';
 import type { AgentContext, Candidate, CourtRuling } from './types';
 import { offlineProblem } from './offerScreen';
@@ -119,15 +119,15 @@ async function judgeOne(ctx: AgentContext, offer: Offer, note: string): Promise<
 }
 
 function toCandidate(ctx: AgentContext, offer: Offer, ruling: CourtRuling, retry: number, sql: string, usedFallback: boolean): Candidate {
-  const anchor = ctx.family.birthDate ?? ctx.family.dueDate;
   const worth = offer.valueCents !== null ? ` worth about ${fmtUsd(offer.valueCents)}` : '';
   const traceId = ctx.trace.lines().filter((l) => l.agent_name === 'judge' && l.input_summary === `offer ${offer.id}`).pop()?.trace_id ?? '';
   return {
     id: `discount-${offer.id}`, kind: 'discount', title: offer.title,
     body: usedFallback
-      ? `${offer.store} has an offer${worth}. ${ruling.reason}`
-      : `${offer.store} has an offer${worth}. Our fine-print check found nothing that makes it costly. Likely a good deal.`,
-    amountCents: offer.valueCents, deadline: anchor ? addDays(anchor, offer.maxAgeDays) : null,
+      ? `${offer.store} has an offer${worth}. ${ruling.reason} ${eligibilityText(offer.maxAgeDays)}`
+      : `${offer.store} has an offer${worth}. Our fine-print check found nothing that makes it costly. Likely a good deal. ${eligibilityText(offer.maxAgeDays)}`,
+    // The offers data has no end date (max_age_days is the oldest baby age it fits), so there is no deadline to show.
+    amountCents: offer.valueCents, deadline: null,
     verdict: 'likely', sources: [{ label: `${offer.store} offer page`, url: offer.sourceUrl }], traceId,
     agent: AGENT, claim: { type: 'offer', offerId: offer.id }, evidenceSql: sql, retryCount: retry,
   };

@@ -58,3 +58,8 @@ export const fmtUsd = (cents: number): string =>
 /** Dedupe key used everywhere: merchant + date + amount. */
 export const dupKey = (merchant: string, date: string, amountCents: number): string =>
   `${merchant.toLowerCase()}|${date}|${amountCents}`;
+
+/** "Fits babies up to 12 months old." The offer's oldest eligible baby age, shown as eligibility text. It is NOT an end date. */
+export function eligibilityText(maxAgeDays: number): string {
+  return `Fits babies up to ${Math.max(1, Math.round(maxAgeDays / 30.4))} months old.`;
+}

@@ -39,6 +39,13 @@ describe('fact-checker', () => {
     expect(runQuery.mock.calls[0][0]).toMatch(/v_judge_offers/);
   });
 
+  it('an offer card is never given or corrected to a deadline made from max_age_days', async () => {
+    const { ctx } = ctxWith(() => res([{ value_cents: 2899, max_age_days: 365 }]));
+    // family born 2026-10-01: the old code "corrected" any other date to 2027-10-01 (birth + 365).
+    const out = await verify(cand({ deadline: '2026-12-01' }), ctx);
+    expect(out).toEqual({ ok: true, reason: null, corrected: null });
+  });
+
   it('fails with amount mismatch and offers the corrected amount', async () => {
     const { ctx } = ctxWith(() => res([{ value_cents: 2499, max_age_days: 365 }]));
     const out = await verify(cand(), ctx);

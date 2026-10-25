@@ -35,6 +35,15 @@ const IN = { ageDays: 20, purchaseKeywords: [] as string[], includeGeneral: true
 describe('fine print court', () => {
   beforeEach(() => { process.env.TODAY = '2026-10-23'; });
 
+  it('an approved offer has NO deadline (max_age_days is an eligibility limit, not an end date) and says who it fits', async () => {
+    const llm = new FakeGenerator(['pro', 'con', APPROVE]);
+    const { ctx } = setup([offer(3, { max_age_days: 365 })], llm);
+    const out = await judgeOffers(ctx, IN);
+    expect(out).toHaveLength(1);
+    expect(out[0].deadline).toBeNull(); // used to be due/birth date + 365 days = "Ends Oct 3, 2027"
+    expect(out[0].body).toContain('Fits babies up to 12 months old.');
+  });
+
   it('rejects the trap when the Judge says reject, and traces it as blocked', async () => {
     const llm = new FakeGenerator(['Great free box!', 'Auto-renews into $40 shipping subscription.', REJECT]);
     const { ctx, trace } = setup([trap], llm);
@@ -92,7 +101,7 @@ describe('fine print court', () => {
     const court = trace.lines().filter((l) => ['deal_hunter', 'fine_print_lawyer', 'judge'].includes(l.agent_name));
     expect(court.map((l) => l.agent_name)).toEqual(['deal_hunter', 'fine_print_lawyer', 'judge', 'deal_hunter', 'fine_print_lawyer', 'judge']);
     expect(out).toHaveLength(2);
-    expect(out[0]).toMatchObject({ kind: 'discount', verdict: 'likely', claim: { type: 'offer', offerId: 1 }, amountCents: 1000, deadline: '2027-10-03' });
+    expect(out[0]).toMatchObject({ kind: 'discount', verdict: 'likely', claim: { type: 'offer', offerId: 1 }, amountCents: 1000, deadline: null });
   });
 
   it('judges at most 5 offers, triggered ones first', async () => {
