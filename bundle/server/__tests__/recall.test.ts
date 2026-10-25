@@ -380,4 +380,16 @@ describe('W3-SAFETY: recallMatch wired in, evidence on every alert, formula lot 
     expect(by['recall-fda-F-2-2026']).toMatchObject({ evidenceType: 'lot', evidenceCode: '26A1234' });
     expect(by['recall-cpsc-21']).toMatchObject({ evidenceType: 'model', evidenceCode: 'RV001' });
   });
+
+  it("Maya's planted KEAWIS purchase (from the sample purchase file) matches the REAL recall 10560 record", () => {
+    const { matchRecall, fromCpsc } = require('../agents/recallMatch');
+    const sample = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../../data/sample/purchase-items.json'), 'utf8'));
+    const receipt = sample.receipts.find((r: any) => r.familyId === 'maya' && r.items.some((i: any) => /KEAWIS/.test(i.productName)));
+    const item = receipt.items.find((i: any) => /KEAWIS/.test(i.productName));
+    const feed = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../../../experiments/entity-resolution/data/cpsc.json'), 'utf8'));
+    const rec = fromCpsc(feed.find((r: any) => r.RecallID === 10560));
+    const m = matchRecall({ text: item.productName, date: receipt.purchasedOn, source: receipt.source }, rec);
+    expect(m.match).toBe(true);
+    expect(receipt.purchasedOn >= '2024-08' && receipt.purchasedOn <= '2025-07').toBe(true);
+  });
 });
