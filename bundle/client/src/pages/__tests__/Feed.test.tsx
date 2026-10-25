@@ -30,3 +30,29 @@ describe('Feed "Checking" screen (W1-OWNER)', () => {
     expect(fetchMock.mock.calls.some(([u]) => String(u).includes('/trace'))).toBe(false);
   });
 });
+
+describe('Feed hands a finished run to Version B (W3-VERSIONB)', () => {
+  const finished = () => {
+    const { sampleRun } = jest.requireActual('../../test-support/sampleRuns') as typeof import('../../test-support/sampleRuns');
+    const run = sampleRun('maya');
+    const body = { runId: run.runId, familyId: 'maya', status: 'done', startedAt: new Date().toISOString(), family: run.family, today: run.today, demoDate: true, result: run.result, error: null, progress: [], owner: false };
+    (global as any).fetch = jest.fn(async () => ({ ok: true, status: 200, json: async () => body }));
+    window.scrollTo = jest.fn() as unknown as typeof window.scrollTo;
+    const { hook } = memoryLocation({ path: `/feed/${run.runId}` });
+    render(<Router hook={hook}><Route path="/feed/:runId" component={Feed} /></Router>);
+  };
+
+  it('opens on the Home tab of the five-tab app, using the run\'s own numbers', async () => {
+    finished();
+    await waitFor(() => expect(screen.getByRole('navigation', { name: 'Main' })).toBeTruthy());
+    expect(screen.getByTestId('home-total-amount').textContent).toBe('$3,688.99');
+    expect(screen.getByRole('button', { name: /take a photo/i })).toBeTruthy();
+    expect(screen.queryByTestId('owner-panel-slot')).toBeNull(); // a parent never gets the owner slot
+  });
+
+  it('gives the owner (reviewer code set) the empty slot for the agent panel', async () => {
+    sessionStorage.setItem('bundle:reviewerToken', 'test-code');
+    finished();
+    await waitFor(() => expect(screen.getByTestId('owner-panel-slot')).toBeTruthy());
+  });
+});

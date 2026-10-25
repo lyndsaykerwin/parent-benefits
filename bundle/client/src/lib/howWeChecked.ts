@@ -73,7 +73,10 @@ function cardKeyPatterns(card: FeedCard): RegExp[] {
   if ((m = id.match(/^recall-cpsc-(\d+)$/))) return [new RegExp(`cpsc_recalls\\b[^;]*\\bRecallID\\s*=\\s*${m[1]}\\b`, 'i')];
   if ((m = id.match(/^(?:discount|blocked)-(\d+)$/))) return [new RegExp(`v_judge_offers\\s+WHERE\\s+id\\s*=\\s*${m[1]}\\b`, 'i')];
   if ((m = id.match(/^benefit-(.+)$/))) return [new RegExp(`benefit_rules\\s+WHERE\\s+code\\s*=\\s*'${esc(m[1])}'`, 'i')];
-  if ((m = id.match(/^clawback-(?:fsa|price)-(.+)$/))) return [new RegExp(`v_purchase_items\\s+WHERE\\s+id\\s*=\\s*${esc(m[1])}\\b`, 'i')];
+  // The Fact-Checker re-reads the purchase row by id: the FSA check reads `v_purchase_items WHERE id = N`, the price-drop
+  // check joins the store policy and price tables and reads `WHERE p.id = N` (re-verified against factChecker.ts).
+  if ((m = id.match(/^clawback-fsa-(.+)$/))) return [new RegExp(`v_purchase_items\\s+WHERE\\s+id\\s*=\\s*${esc(m[1])}\\b`, 'i')];
+  if ((m = id.match(/^clawback-price-(.+)$/))) return [new RegExp(`v_purchase_items\\s+p\\s+JOIN\\b[^;]*\\bWHERE\\s+p\\.id\\s*=\\s*${esc(m[1])}\\b`, 'i')];
   return [];
 }
 
@@ -81,6 +84,11 @@ function cardKeyPatterns(card: FeedCard): RegExp[] {
 function kindOriginPatterns(card: FeedCard): RegExp[] {
   switch (card.kind) {
     case 'recall': return [/\bitem_text\b[^]*\bv_purchase_items\b/i]; // recall queries name item_text; money-back queries name item
+    // The run-wide money-back queries (clawback.ts): the FSA list joins the FSA table; the price query is the only one comparing prices.
+    case 'clawback':
+      if (/^clawback-fsa-/.test(card.id)) return [/\bfsa_eligible_categories\b/i];
+      if (/^clawback-price-/.test(card.id)) return [/\bpo\.price_cents\s*<\s*p\.price_cents\b/i];
+      return [];
     case 'discount': return [/\bv_judge_offers\s+ORDER\s+BY\b/i];
     case 'benefit': return [/\bbenefit_rules\s+ORDER\s+BY\b/i];
     default: return [];

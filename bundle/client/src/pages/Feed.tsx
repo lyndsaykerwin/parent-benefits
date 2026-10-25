@@ -1,10 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'wouter';
 import AppShell from '@/components/AppShell';
-import ReceiptCard from '@/components/ReceiptCard';
-import FeedCardView from '@/components/FeedCardView';
-import { CaughtForYou } from '@/components/HowWeCheckedSections';
-import { KIND_META, UNCHECKED_DEALS_SECTION, api, demoDateLabel, describeLine, familyChip, groupCards, loadRun, saveRun, type SavedRun, type TraceLine } from '@/lib/bundle';
+import VersionB from '@/pages/tabs/VersionB';
+import { describeLine, familyChip, loadRun, saveRun, type SavedRun, type TraceLine } from '@/lib/bundle';
 import { pollRun } from '@/lib/poll';
 import { ownerApi, ownerToken, type OwnerRunStatus, type ParentStep } from '@/lib/howWeChecked';
 import { cn } from '@/lib/utils';
@@ -156,15 +154,12 @@ export default function Feed() {
   const family = run?.family ?? chipInfo.family;
   const today = run?.today ?? chipInfo.today;
   const chip = familyChip(family, today);
-  const demoLabel = demoDateLabel(run?.demoDate ?? chipInfo.demoDate, today);
 
   // The finished run's full audit log (owner only); only needed for the "We caught these" detail.
   const [doneLines, setDoneLines] = useState<TraceLine[]>([]);
   useEffect(() => {
-    if (owner && run?.result.blocked?.length) ownerApi().trace(run.runId).then(setDoneLines).catch(() => {});
+    if (owner && run?.result.blocked?.length) ownerApi().trace(run.runId).then((l) => setDoneLines(Array.isArray(l) ? l : [])).catch(() => {});
   }, [run?.runId, owner]);
-
-  const grouped = useMemo(() => (run ? groupCards(run.result.cards) : null), [run]);
 
   if (error) {
     return (
@@ -176,58 +171,19 @@ export default function Feed() {
     );
   }
 
-  if (!run || !grouped) {
+  if (!run) {
     return <AppShell chip={chip}>{owner ? <Progress lines={lines} elapsed={elapsed} /> : <ParentProgress steps={steps} elapsed={elapsed} />}</AppShell>;
   }
 
-  const { result } = run;
-  const recallCount = result.cards.filter((c) => c.kind === 'recall' && c.verdict === 'verified').length;
-  const href = (id: string) => `/card/${encodeURIComponent(id)}?run=${encodeURIComponent(runId)}`;
-
+  // The finished run opens as Version B: five tabs, starting on Home. The tabs read everything from the run's own result.
   return (
-    <AppShell chip={chip}>
-      {demoLabel && <p data-testid="demo-date" className="mt-3 text-[13px] font-semibold text-ink-2">{demoLabel}. Sample families are checked as of this date so the demo stays the same.</p>}
-      <ReceiptCard receipt={result.receipt} recallCount={recallCount} today={today} />
-
-      {result.banner && (
-        <p role="status" className="mt-4 rounded-2xl border border-[#F5C4B0] bg-coral-tint px-4 py-3 text-[15px] font-semibold text-coral-deep">
-          {result.banner}
-        </p>
-      )}
-
-      {grouped.pinned && (
-        <section className="mt-6" aria-label="Pinned">
-          <FeedCardView card={grouped.pinned} pinned today={today} detailHref={href(grouped.pinned.id)} />
-        </section>
-      )}
-
-      {grouped.groups.map((g) => (
-        <section key={g.unchecked ? `${g.kind}-unchecked` : g.kind} className="mt-7" aria-labelledby={`sec-${g.kind}${g.unchecked ? '-unchecked' : ''}`}>
-          <h2 id={`sec-${g.kind}${g.unchecked ? '-unchecked' : ''}`} className="eyebrow text-ink-2">{g.unchecked ? UNCHECKED_DEALS_SECTION : KIND_META[g.kind].section}</h2>
-          <div className={cn('mt-2', g.kind === 'coming_soon' ? 'grid gap-2' : 'space-y-3')}>
-            {g.cards.map((c) => (
-              <FeedCardView key={c.id} card={c} today={today} detailHref={href(c.id)} />
-            ))}
-          </div>
-        </section>
-      ))}
-
-      <CaughtForYou blocked={result.blocked ?? []} lines={doneLines} href={href} />
-
-      <Link
-        href="/smarter"
-        className="mt-8 flex min-h-[64px] items-center justify-between gap-3 rounded-3xl bg-ink px-5 py-4 text-cream"
-      >
-        <span>
-          <span className="block text-[17px] font-bold">Bundle got smarter</span>
-          <span className="block text-[14px] text-[#D9CFC4]">See what parents taught it, and how it scores</span>
-        </span>
-        <span aria-hidden="true" className="text-[22px]">›</span>
-      </Link>
-
-      <Link href="/" className="mt-3 flex min-h-[48px] items-center justify-center text-[15px] font-bold text-ink-2 underline decoration-line decoration-2 underline-offset-4">
-        Start over with your own details
-      </Link>
-    </AppShell>
+    <VersionB
+      run={run}
+      owner={owner}
+      lines={doneLines}
+      // W3-PANEL SLOT (owner only): pass the panel here once it is merged, for example
+      //   ownerPanel={<AgentWorkspace runId={runId} />}   with   import AgentWorkspace from '@/pages/AgentWorkspace';
+      ownerPanel={null}
+    />
   );
 }

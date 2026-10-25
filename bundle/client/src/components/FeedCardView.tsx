@@ -1,6 +1,7 @@
 import { Link } from 'wouter';
 import type { FeedCard } from '@shared/bundle';
-import { KIND_META, VERDICT_LABEL, amountCaption, cardDeadline, fmtUsd, safeSources } from '@/lib/bundle';
+import { KIND_META, VERDICT_LABEL, amountCaption, cardDeadline, fmtUsd, isCheckWithJob, safeSources } from '@/lib/bundle';
+import { valueScoreLines } from '@/lib/tabs';
 import { cn } from '@/lib/utils';
 
 interface Props {
@@ -11,6 +12,10 @@ interface Props {
   pinned?: boolean;
   /** Where "How we checked" goes. Omit to hide the link (e.g. on the detail page itself). */
   detailHref?: string;
+  /** Shows an "I got this" tick. The parent ticks it once they have claimed the money or done the step. */
+  claim?: { checked: boolean; onToggle: () => void };
+  /** Replaces the deadline countdown (e.g. "Starts at birth" for an expecting family). */
+  deadlineLabel?: string;
 }
 
 function ExternalIcon() {
@@ -29,12 +34,14 @@ const verdictStyle: Record<FeedCard['verdict'], string> = {
   blocked: 'bg-[#FBE3E0] text-[#9E2A21]',
 };
 
-export default function FeedCardView({ card, today, pinned = false, detailHref }: Props) {
+export default function FeedCardView({ card, today, pinned = false, detailHref, claim, deadlineLabel }: Props) {
   const meta = KIND_META[card.kind];
   const caption = amountCaption(card);
   const soon = card.kind === 'coming_soon';
   const sources = safeSources(card.sources);
-  const due = card.deadline ? cardDeadline(card.kind, card.deadline, today) : null;
+  const due = deadlineLabel ? { text: deadlineLabel, urgent: false } : card.deadline ? cardDeadline(card.kind, card.deadline, today) : null;
+  const checkWithJob = isCheckWithJob(card);
+  const scoreLines = card.valueScore ? valueScoreLines(card.valueScore) : [];
   // Coming-soon tiles already say "Coming soon" in the eyebrow, so drop the repeat from the body.
   const body = soon ? card.body.replace(/^coming soon:\s*/i, '') : card.body;
   const eyebrow = pinned ? 'Pinned · Deadline' : card.deadline && card.kind === 'benefit' ? 'Benefit · Deadline' : meta.label;
@@ -52,13 +59,19 @@ export default function FeedCardView({ card, today, pinned = false, detailHref }
         </p>
         {!soon && (
           <span className={cn('shrink-0 rounded-full px-2 py-0.5 text-[12px] font-bold', verdictStyle[card.verdict])}>
-            {VERDICT_LABEL[card.verdict]}
+            {checkWithJob ? 'Check with your job' : VERDICT_LABEL[card.verdict]}
           </span>
         )}
       </div>
 
       <h3 className="mt-2 text-[17px] font-extrabold leading-snug tracking-[-0.01em] text-ink">{card.title}</h3>
       <p className="mt-1 text-[15px] leading-relaxed text-ink-2">{body.charAt(0).toUpperCase() + body.slice(1)}</p>
+
+      {scoreLines.length > 0 && (
+        <ul className="mt-2 space-y-0.5 text-[13.5px] font-semibold text-ink-2" aria-label="Value and time" data-testid="value-score">
+          {scoreLines.map((l) => <li key={l}>{l}</li>)}
+        </ul>
+      )}
 
       {(card.amountCents !== null || card.deadline) && (
         <div className="mt-3 flex flex-wrap items-baseline gap-x-4 gap-y-1">
@@ -94,14 +107,22 @@ export default function FeedCardView({ card, today, pinned = false, detailHref }
         </ul>
       )}
 
-      {detailHref && !soon && (
-        <div className="mt-2 flex justify-end border-t border-dashed border-line pt-1">
+      {(claim || (detailHref && !soon)) && (
+        <div className="mt-2 flex items-center justify-between gap-2 border-t border-dashed border-line pt-1">
+          {claim ? (
+            <label className="inline-flex min-h-[44px] cursor-pointer items-center gap-2 text-[14px] font-bold text-ink">
+              <input type="checkbox" checked={claim.checked} onChange={claim.onToggle} className="h-5 w-5 accent-[#E4572E]" />
+              I got this
+            </label>
+          ) : <span />}
+          {detailHref && !soon && (
           <Link
             href={detailHref}
             className="inline-flex min-h-[44px] items-center gap-1 px-1 text-[14px] font-bold text-ink-2 hover:text-ink"
           >
             How we checked <span aria-hidden="true">›</span>
           </Link>
+          )}
         </div>
       )}
     </article>
