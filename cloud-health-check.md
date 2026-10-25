@@ -11,7 +11,7 @@
 | 3. Start the server | `SAMPLE_MODE=true PORT=5050 npx tsx server/index.ts` (what `npm run dev` does) | Started: "serving on port 5050" |
 | 4. Check it responds | home page `/` | 200 OK, page title "Bundle" |
 | | `GET /api/health` | 200 OK, `{"ok":true}` |
-| | `GET /api/scoreboard` | 200 OK: 6 of 6 traps caught, 0 false alarms, offline mode |
+| | `GET /api/scoreboard` | 200 OK: 8 of 8 traps caught, 0 false alarms (was 6: minus the retired empty refund check, plus the subtler learning trap and 2 recall checks; checks were added, the app did not change), offline mode |
 | | `POST /api/run` with `input_examples/maya.json` | 202 Accepted (the run was started and given a run ID) |
 | 5. Stop the server | stopped the process | Confirmed: nothing answering on port 5050 afterwards |
 

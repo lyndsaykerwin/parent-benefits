@@ -244,7 +244,7 @@ Rules carried in: no bank details or sign-up up front; nothing fixed to Massachu
 
 Other measures: false alarms (missing required cards), % of cards with a source link, stable across 3 runs, learning (run 1 approves, run 2 blocks and cites), and an **honesty label** `llmMode` that says which AI (if any) was behind the numbers (`eval.ts:94-106`).
 
-**Latest saved result (Oct 23):** 6 of 6 traps, 0 false alarms, 100% sourced, stable, learning cites `mem-1`, **`llmMode: offline-fallback`** (no real AI). Scout uses a scripted fake model on purpose.
+**Latest saved result (Oct 23):** 6 of 6 traps on Oct 23; the eval now has 8 (6, minus the retired empty refund check, plus the subtler learning trap and 2 recall checks: checks were added, the app did not improve), 0 false alarms, 100% sourced, stable, learning cites `mem-1`, **`llmMode: offline-fallback`** (no real AI). Scout uses a scripted fake model on purpose.
 
 Plus 268 unit and integration tests (`server/__tests__/`, `client/src/**/__tests__/`), including an "offline guarantee" test and the learning loop end to end (`sampleMode.test.ts`).
 

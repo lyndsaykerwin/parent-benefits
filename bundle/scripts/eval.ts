@@ -111,11 +111,11 @@ export interface EvalOptions {
 }
 
 const FAMILIES = ['maya', 'leo', 'ava'];
-/** Fake parent reports for the subtler trap: no "free trial" or "auto-renew" words, just savings that depend on a plan. */
+/** Fake parent reports written for the offline demo (no real people): no "free trial" or "auto-renew" words, just savings that depend on a plan. */
 export const SUBTLE_ISSUE_FIXTURES = [
   'My savings disappeared the moment I stopped the delivery plan, and the price kept changing.',
   'The discount only counts while the plan stays active; the price changed on the second order, so the savings were gone.',
-  'Savings looked great but the price went up after the first shipment.',
+  'The discount vanished as soon as I cancelled my subscription, and then the price went up.',
 ];
 export const ISSUE_FIXTURES = [
   'The free diaper box needed a card, and then I was charged $29.99 for a membership I never signed up for.',
@@ -393,7 +393,7 @@ export async function runEval(opts: EvalOptions = {}): Promise<Scoreboard> {
   if (learn.learning.collateralBlocked) failures.push(`learning: ${learn.learning.collateralBlocked} good offer(s) wrongly blocked after learning`);
   for (const id of wrongRecalls) failures.push(`recall: wrong recall card shown (${id})`);
   const recall = {
-    expected: 1, caught: mayaRuns.length > 0 && mayaRuns.every((r) => r.cards.some((c) => c.id === T.recalled_item.cardId && c.verdict === 'verified')) ? 1 : 0,
+    expected: Object.values(T).filter((t) => (t as { cardId?: string }).cardId?.startsWith('recall-')).length, caught: mayaRuns.length > 0 && mayaRuns.every((r) => r.cards.some((c) => c.id === T.recalled_item.cardId && c.verdict === 'verified')) ? 1 : 0,
     wrongShown: wrongRecalls.length, lookAlikesChecked: lookAlikes.length,
   };
   const loops: Scoreboard['loops'] = {};

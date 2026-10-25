@@ -4,6 +4,19 @@ import { FakeGenerator } from '../adapters/llm';
 
 const issue = (id: number, note: string) => ({ id, familyId: 'maya', cardId: 'discount-1', kind: 'issue' as const, note, createdAt: null });
 
+describe('Coach offline theme: savings that depend on a subscription', () => {
+  it('a differently worded set of reports gets the subscription-savings rule', async () => {
+    const rows = [issue(1, 'The coupon price only held while my autoship was running'), issue(2, 'Once I cancelled the subscription the discount was gone'), issue(3, 'Deal ended when I paused my delivery plan')];
+    const out = await proposeRules(rows, new FakeGenerator(['not json']));
+    expect(out).toHaveLength(1);
+    expect(out[0].text).toMatch(/subscription/i);
+  });
+  it('reports that merely mention savings or price do not trigger it', async () => {
+    const rows = [issue(1, 'Great savings but the box came late'), issue(2, 'The price on the page looked different at checkout'), issue(3, 'Savings were smaller than advertised')];
+    expect(await proposeRules(rows, new FakeGenerator(['not json']))).toEqual([]);
+  });
+});
+
 describe('Coach.proposeRules', () => {
   it('3 shipping issue notes -> 1 proposal at confidence 0.8', async () => {
     const rows = [issue(1, 'shipping fee was $9'), issue(2, 'surprise shipping charge'), issue(3, 'shipping cost not mentioned')];

@@ -149,7 +149,7 @@ export default function Smarter() {
             </div>
             {board.learning && (
               <div className="mt-3 rounded-2xl border border-line bg-paper p-4 text-[15px] leading-relaxed text-ink">
-                <p><span className="font-bold">Run 1:</span> {board.learning.run1Approved ? 'the court approved the “free” trap offer.' : 'the court already rejected the trap offer.'}</p>
+                <p><span className="font-bold">Run 1:</span> {board.learning.run1Approved ? 'the court approved the trap offer (savings that depend on a subscription).' : 'the court already rejected the trap offer.'}</p>
                 <p><span className="font-bold">Run 2:</span> {board.learning.run2Blocked ? `blocked it${board.learning.citedRuleId ? `, citing ${board.learning.citedRuleId}` : ''}.` : 'not blocked yet.'}</p>
                 {board.llm && <p className="mt-1 text-[13px] text-ink-2">Model: {board.llm}</p>}
               </div>
