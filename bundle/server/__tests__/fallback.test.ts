@@ -23,4 +23,11 @@ describe('bundled stand-ins (I2)', () => {
     expect(titles).not.toContain('Babylist registry welcome box');
     expect(titles).toContain('15% registry completion discount');
   });
+
+  it('stand-in offers carry no deadline (max age is an eligibility limit, not an end date)', () => {
+    for (const o of buildFallbackFillers(fam, '2026-10-23').approvedGeneralOffers) {
+      expect(o.deadline).toBeNull();
+      expect(o.body).toMatch(/Fits babies up to \d+ months old\./);
+    }
+  });
 });

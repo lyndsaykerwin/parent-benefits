@@ -3,7 +3,7 @@ import path from 'path';
 import type { Family } from '../../shared/bundle';
 import type { Candidate } from './types';
 import { screenRule, ruleFallbackText, isCheckWithJob } from './benefits';
-import { addDays, fmtUsd } from './sql';
+import { fmtUsd, eligibilityText } from './sql';
 import { offlineProblem } from './offerScreen';
 
 export const NOT_VERIFIED = "Not yet verified: some sources didn't respond.";
@@ -47,8 +47,9 @@ export function buildFallbackFillers(family: Family, today: string): { approvedG
     .filter((o) => offlineProblem(o.finePrint) === null) // never offer a stand-in whose fine print needs a membership or has a big fee
     .map((o, i) => ({
       id: `fallback-offer-${i + 1}`, kind: 'discount' as const, title: o.title,
-      body: `${o.store} has an offer${o.valueCents !== null ? ` worth about ${fmtUsd(o.valueCents)}` : ''}. ${NOT_VERIFIED} Fine Print Court has not checked it.`,
-      amountCents: o.valueCents, deadline: anchor ? addDays(anchor, o.maxAgeDays) : null, verdict: 'info' as const,
+      body: `${o.store} has an offer${o.valueCents !== null ? ` worth about ${fmtUsd(o.valueCents)}` : ''}. ${NOT_VERIFIED} Fine Print Court has not checked it. ${eligibilityText(o.maxAgeDays)}`,
+      amountCents: o.valueCents, deadline: null, // no end date in the data; max age is eligibility only
+      verdict: 'info' as const,
       sources: [{ label: `${o.store} offer page`, url: o.sourceUrl }], traceId: 'fallback', agent: 'fallback',
       claim: { type: 'offer', title: o.title }, evidenceSql: '', retryCount: 0,
     }));
