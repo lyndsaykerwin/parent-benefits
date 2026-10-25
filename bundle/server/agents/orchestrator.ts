@@ -191,6 +191,7 @@ type TracedAgent = (typeof AGENT_NAMES_FOR_TRACE)[number];
 export async function runBundle(familyId: string, deps: RunDeps): Promise<BundleResult> {
   const runId = deps.runId ?? newRunId(familyId);
   const events = deps.events ?? defaultRunEvents;
+  events.open(runId); // before the first await, so a stream opened right after the 202 finds the run
   try {
     return await runBundleInner(familyId, runId, events, deps);
   } finally {

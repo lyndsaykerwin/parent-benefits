@@ -46,7 +46,7 @@ type RunEntry = { runId: string; familyId: string; status: 'running' | 'done' | 
 const isIsoDate = (v: unknown): v is string =>
   typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) && !Number.isNaN(Date.parse(`${v}T00:00:00Z`)) && new Date(`${v}T00:00:00Z`).toISOString().slice(0, 10) === v;
 
-function tokenOk(supplied: unknown, expected: string): boolean {
+export function tokenOk(supplied: unknown, expected: string): boolean {
   if (!expected || typeof supplied !== 'string' || !supplied) return false;
   const a = crypto.createHash('sha256').update(supplied).digest();
   const b = crypto.createHash('sha256').update(expected).digest();
