@@ -15,6 +15,13 @@
       "when": 1792870761492,
       "tag": "0001_drop_poverty_guidelines",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792955466170,
+      "tag": "0002_v2_foundation",
+      "breakpoints": true
     }
   ]
 }

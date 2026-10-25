@@ -110,7 +110,13 @@ export async function defaultLoadFamily(id: string, opts: LoadFamilyOpts = {}): 
   const log = opts.log ?? ((m: string) => console.warn(m));
   if (opts.z) {
     try {
-      return await loadFamilyViaZetaris(opts.z, id);
+      const fam = await loadFamilyViaZetaris(opts.z, id);
+      // The saved Zetaris replay predates the V2 onboarding answers, so in practice mode they come from the sample file.
+      if (sample) {
+        const s = await loadSampleFamily(id).catch(() => null);
+        if (s) return { ...fam, household: s.household, parent1Work: s.parent1Work, parent2Work: s.parent2Work, insurance: s.insurance };
+      }
+      return fam;
     } catch (e: any) {
       log(`Family profile for ${id}: Zetaris could not answer (${String(e?.message ?? e).slice(0, 120)}); reading it ${sample ? 'from the sample file' : 'straight from Neon'} instead.`);
     }

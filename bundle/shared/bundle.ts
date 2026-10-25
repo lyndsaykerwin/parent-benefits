@@ -1,10 +1,18 @@
 export type CardKind = 'clawback' | 'recall' | 'discount' | 'benefit' | 'coming_soon';
+export type CardCategory = 'money_back' | 'tax_time' | 'leave' | 'gift' | 'info';
+export type Household = 'one' | 'two';
+export type WorkStatus = 'paycheck' | 'self_employed' | 'not_working';
+export type InsuranceType = 'job' | 'marketplace' | 'medicaid' | 'tricare' | 'none_or_not_sure';
 export type Verdict = 'verified' | 'likely' | 'all_clear' | 'info' | 'blocked';
 export interface Source { label: string; url: string }
 export interface FeedCard {
   id: string; kind: CardKind; title: string; body: string;
   amountCents: number | null; deadline: string | null; // ISO date
   verdict: Verdict; sources: Source[]; traceId: string;
+  /** Which Home bucket the card belongs in. Set by the server; absent on older saved runs. */
+  category?: CardCategory;
+  /** Rough minutes the parent needs to act on it. Set by the server; absent on older saved runs. */
+  minutes?: number;
   /** Discount cards only: the value-and-time grade, computed by code from the quoted fine print. */
   valueScore?: ValueScore;
 }
@@ -57,4 +65,7 @@ export interface Family {
   birthDate: string | null; dueDate: string | null; zip: string; state: string;
   employer: string; householdSize: number; annualIncomeCents: number | null;
   dcfsaOffered: boolean; dataConnected: boolean;
+  /** V2 onboarding answers (optional: older families don't have them). */
+  household?: Household | null; parent1Work?: WorkStatus | null; parent2Work?: WorkStatus | null;
+  insurance?: InsuranceType | null;
 }

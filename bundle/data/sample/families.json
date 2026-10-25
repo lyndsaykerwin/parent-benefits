@@ -12,7 +12,11 @@
     "householdSize": 3,
     "annualIncomeCents": null,
     "dcfsaOffered": true,
-    "dataConnected": true
+    "dataConnected": true,
+    "household": "two",
+    "parent1Work": "paycheck",
+    "parent2Work": "paycheck",
+    "insurance": "job"
   },
   {
     "id": "leo",
@@ -27,7 +31,11 @@
     "householdSize": 2,
     "annualIncomeCents": null,
     "dcfsaOffered": false,
-    "dataConnected": false
+    "dataConnected": false,
+    "household": "two",
+    "parent1Work": "paycheck",
+    "parent2Work": "self_employed",
+    "insurance": "marketplace"
   },
   {
     "id": "ava",
@@ -42,7 +50,10 @@
     "householdSize": 3,
     "annualIncomeCents": null,
     "dcfsaOffered": false,
-    "dataConnected": true
+    "dataConnected": true,
+    "household": "one",
+    "parent1Work": "paycheck",
+    "insurance": "job"
   },
   {
     "id": "noor",
@@ -57,7 +68,11 @@
     "householdSize": 3,
     "annualIncomeCents": null,
     "dcfsaOffered": false,
-    "dataConnected": false
+    "dataConnected": false,
+    "household": "two",
+    "parent1Work": "paycheck",
+    "parent2Work": "paycheck",
+    "insurance": "job"
   },
   {
     "id": "cal",
@@ -72,7 +87,11 @@
     "householdSize": 3,
     "annualIncomeCents": null,
     "dcfsaOffered": false,
-    "dataConnected": false
+    "dataConnected": false,
+    "household": "two",
+    "parent1Work": "paycheck",
+    "parent2Work": "paycheck",
+    "insurance": "job"
   },
   {
     "id": "fern",
@@ -87,6 +106,10 @@
     "householdSize": 2,
     "annualIncomeCents": null,
     "dcfsaOffered": false,
-    "dataConnected": false
+    "dataConnected": false,
+    "household": "two",
+    "parent1Work": "paycheck",
+    "parent2Work": "paycheck",
+    "insurance": "job"
   }
 ]

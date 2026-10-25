@@ -33,7 +33,9 @@ describe('family profile through Zetaris', () => {
     const misses: string[] = [];
     const { z, traced } = sampleZ(misses);
     for (const id of SEED_FAMILY_IDS) {
-      expect(await loadFamilyViaZetaris(z, id)).toEqual(await loadSampleFamily(id));
+      // The saved replay predates the V2 answers (household, work, insurance); defaultLoadFamily adds those from the sample file.
+      const { household, parent1Work, parent2Work, insurance, ...profile } = await loadSampleFamily(id);
+      expect(await loadFamilyViaZetaris(z, id)).toEqual(profile);
     }
     expect(misses).toEqual([]);
     expect(traced).toHaveLength(SEED_FAMILY_IDS.length);

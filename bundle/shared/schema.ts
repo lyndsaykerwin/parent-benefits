@@ -29,6 +29,12 @@ export const families = pgTable("families", {
   annualIncomeCents: integer("annual_income_cents"),
   dcfsaOffered: boolean("dcfsa_offered").notNull().default(false),
   dataConnected: boolean("data_connected").notNull().default(false),
+  // V2 onboarding answers (all optional so older rows keep working).
+  household: text("household", { enum: ["one", "two"] }),
+  parent1Work: text("parent1_work", { enum: ["paycheck", "self_employed", "not_working"] }),
+  parent2Work: text("parent2_work", { enum: ["paycheck", "self_employed", "not_working"] }),
+  insurance: text("insurance", { enum: ["job", "marketplace", "medicaid", "tricare", "none_or_not_sure"] }),
+  savedAt: timestamp("saved_at"),
 });
 
 export const transactions = pgTable("transactions", {
@@ -95,7 +101,7 @@ export const feedback = pgTable("feedback", {
   id: serial("id").primaryKey(),
   familyId: varchar("family_id").notNull(),
   cardId: varchar("card_id").notNull(),
-  kind: text("kind", { enum: ["got_it", "issue"] }).notNull(),
+  kind: text("kind", { enum: ["got_it", "issue", "not_relevant"] }).notNull(),
   note: text("note").notNull().default(""),
   createdAt: timestamp("created_at").defaultNow(),
 });
@@ -153,6 +159,8 @@ export const purchaseItems = pgTable("purchase_items", {
   inputHash: text("input_hash").notNull(),
   /** 0-based position of this item within its source receipt/photo. */
   lineIndex: integer("line_index").notNull().default(0),
+  /** Points at item_photos.id when the item came from a saved gear/receipt photo. */
+  photoId: integer("photo_id"),
   createdAt: timestamp("created_at").defaultNow(),
 }, (t) => [unique("purchase_items_family_input_hash_line_unique").on(t.familyId, t.inputHash, t.lineIndex)]);
 
@@ -206,6 +214,8 @@ export const offerChecks = pgTable("offer_checks", {
   recallStatus: text("recall_status", { enum: ["none_found", "open_recall", "finished"] }).notNull().default("none_found"),
   recallIds: jsonb("recall_ids").$type<string[]>().notNull().default([]),
   recallCheckedAt: timestamp("recall_checked_at"),
+  /** 'court' = graded by our own scan; 'user_audit' = a parent pasted it into Audit-a-deal. */
+  source: text("source", { enum: ["court", "user_audit"] }).notNull().default("court"),
 });
 
 /** Saved run results so a run is still served after a server restart. */
@@ -217,6 +227,25 @@ export const runResults = pgTable("run_results", {
   result: jsonb("result").$type<unknown>().notNull(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
+
+/** Gear and receipt photos a family chose to keep (thumbnail and receipt image stored as text, e.g. data URLs). */
+export const itemPhotos = pgTable("item_photos", {
+  id: serial("id").primaryKey(),
+  familyId: varchar("family_id").notNull(),
+  kind: text("kind", { enum: ["gear", "receipt"] }),
+  thumbnail: text("thumbnail"),
+  receiptImage: text("receipt_image"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+/** One row per card a parent marked "I got this" or "Not relevant" (latest wins per family + card). */
+export const claims = pgTable("claims", {
+  id: serial("id").primaryKey(),
+  familyId: varchar("family_id").notNull(),
+  cardId: varchar("card_id").notNull(),
+  status: text("status", { enum: ["got_it", "not_relevant"] }).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (t) => [unique("claims_family_card_unique").on(t.familyId, t.cardId)]);
 
 /** Federal tax/benefit figures (e.g. IRS 2026 Child Tax Credit), one per year + code, with source link. */
 export const taxParameters = pgTable("tax_parameters", {
@@ -248,5 +277,5 @@ export const BUNDLE_TABLE_NAMES = [
   "users", "families", "transactions", "amazon_orders", "fsa_eligible_categories",
   "store_policies", "benefit_rules", "offers", "feedback", "case_law_proposals",
   "price_observations", "zip_states",
-  "purchase_items", "offer_checks", "run_results", "tax_parameters", "state_programs",
+  "purchase_items", "offer_checks", "run_results", "item_photos", "claims", "tax_parameters", "state_programs",
 ] as const;
