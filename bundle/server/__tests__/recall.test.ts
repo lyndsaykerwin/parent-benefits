@@ -23,7 +23,7 @@ const ITEMS = [
   { item_text: 'Pampers Swaddlers newborn diapers', source: 'photo_receipt' },
 ];
 const CPSC_PAIR = {
-  item_text: 'KEAWIS Crib Mattress, Dual-Sided Firm Baby Mattress', purchased_on: '2026-09-10', source: 'email',
+  item_text: 'KEAWIS Crib Mattress, Dual-Sided Firm Baby Mattress', purchased_on: '2026-01-20', source: 'email',
   recall_source: 'cpsc', recall_id: 10560, recall_number: '26191', recall_date: '2026-01-15',
   recall_title: 'Yixing Trading Recalls KEAWIS Crib Mattresses Due to Risk of Serious Injury or Death from Entrapment and Suffocation',
   recall_url: 'https://www.cpsc.gov/Recalls/2026/Yixing-Trading-Recalls-KEAWIS-Crib-Mattresses', recalled_product: 'KEAWIS Crib Mattress',
@@ -40,11 +40,15 @@ const FDA_PAIR = {
   recall_title: 'Infant formula recall', recall_url: 'https://www.fda.gov/safety/recalls', recalled_product: 'Enfamil NeuroPro Infant Formula powder 12.5 oz',
 };
 
-function ctxWith(family: any, items: any[], pairs: any[], llm: any) {
+function ctxWith(family: any, items: any[], pairs: any[], llm: any, details: any[] | 'throw' = []) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'rc-'));
   const trace = new TraceLogger('t', dir);
   const runQuery = jest.fn(async (sql: string) => {
     if (sql.includes("= 'terminated'")) return { headers: ['recall_number'], rows: [], ms: 1 };
+    if (sql.includes('AS description')) {
+      if (details === 'throw') throw new Error('No saved response for this query');
+      return res(details);
+    }
     if (sql.includes('LATERAL VIEW')) return res(pairs);
     if (sql.includes('v_purchase_items')) return res(items);
     throw new Error('unexpected sql ' + sql);
@@ -99,10 +103,19 @@ describe('recall checker', () => {
     expect(llm.prompts.some((p) => p.includes('SAME product'))).toBe(false);
   });
 
-  it('a loose pair accepted by the model is only likely', async () => {
-    const { ctx } = ctxWith(maya, ITEMS, [LOOSE_PAIR], yes());
-    const out = await checkRecalls(ctx);
-    expect(out.candidates[0].verdict).toBe('likely');
+  it('a loose pair (different brand) is rejected by the fixed rules even if a model would say yes', async () => {
+    const llm = yes();
+    const { ctx } = ctxWith(maya, ITEMS, [LOOSE_PAIR], llm);
+    expect((await checkRecalls(ctx)).candidates).toEqual([]);
+    expect(llm.prompts.some((p) => p.includes('SAME product'))).toBe(false);
+  });
+
+  it('a same-brand, same-type match with no exact name is accepted by the rules, as likely, with an evidence line', async () => {
+    const RULES = { ...CPSC_PAIR, item_text: 'KEAWIS Mini Crib Mattress 38 x 24', recalled_product: 'KEAWIS Crib Mattress' };
+    const { ctx } = ctxWith(maya, ITEMS, [RULES], no());
+    const c = (await checkRecalls(ctx)).candidates[0];
+    expect(c.verdict).toBe('likely');
+    expect(c.body).toMatch(/Matched on: .*brand "keawis".*type (mattress|crib)/i);
   });
 
   it('keeps every exact pair even when 30 noise pairs sort ahead of it', async () => {
@@ -209,7 +222,8 @@ describe('W2-PURCH: purchase_items is the only purchase source (#8)', () => {
     const { ctx, runQuery } = ctxWith(maya, ITEMS, [CPSC_PAIR], yes());
     await checkRecalls(ctx);
     const sqls = runQuery.mock.calls.map((c) => String(c[0]));
-    for (const s of sqls.filter((x) => !x.includes("= 'terminated'"))) {
+    // The finished-FDA list and the recall-record query read recall tables only (no family data); every other query reads the view.
+    for (const s of sqls.filter((x) => !x.includes("= 'terminated'") && !x.includes('AS description'))) {
       expect(s).toContain('bundle_pg.v_purchase_items');
       expect(s).not.toMatch(/v_recall_orders|v_clawback_tx|transactions|amazon_orders|bank|plaid/i);
     }
@@ -254,5 +268,128 @@ describe('W2-PURCH: purchase_items is the only purchase source (#8)', () => {
     const SHORT = { ...FDA_PAIR, item_text: 'Little Sprout Infant Formula', upc: null, lot_code: '12', model_number: null, recalled_product: 'Brightstar Infant Formula lot 1234' };
     const { ctx } = ctxWith(maya, ITEMS, [SHORT], new UnavailableGenerator('off'));
     expect((await checkRecalls(ctx)).candidates).toEqual([]);
+  });
+});
+
+
+describe('W3-SAFETY: recallMatch wired in, evidence on every alert, formula lot line', () => {
+  const KEA_DETAILS = {
+    recall_source: 'cpsc', recall_id: 10560, recall_number: null,
+    description: 'This recall involves KEAWIS crib mattresses. Model number "XX-BM-01" is printed on a label.',
+    sold_at: 'Online at Amazon.com from August 2024 through July 2025 for between $50 and $60.', firm: '', models: '', upcs: '', lots: '',
+  };
+
+  it('every alert carries an evidence line: exact-name, rules-matched and code-matched alike', async () => {
+    const RULES = { ...CPSC_PAIR, recall_id: 11, recall_number: '11', item_text: 'KEAWIS Mini Crib Mattress', recalled_product: 'KEAWIS Crib Mattress' };
+    const UPC = { ...FDA_PAIR, item_text: 'Little Sprout Infant Formula 12.4 oz', upc: '070074123456', recalled_product: 'Brightstar Infant Formula 12.4 oz UPC 070074123456' };
+    const { ctx } = ctxWith(maya, ITEMS, [CPSC_PAIR, RULES, UPC], no());
+    const out = (await checkRecalls(ctx)).candidates;
+    expect(out).toHaveLength(3);
+    for (const c of out) {
+      expect(String(c.claim.evidence).length).toBeGreaterThan(10);
+      expect(c.body).toContain('Matched on:');
+      expect(c.body).toContain(String(c.claim.evidence).replace(/\.$/, ''));
+    }
+  });
+
+  it('uses the recall record read through Zetaris: a purchase outside the real sale window gives no alert', async () => {
+    const late = { ...CPSC_PAIR, purchased_on: '2026-09-10' };
+    const { ctx } = ctxWith(maya, ITEMS, [late], no(), [KEA_DETAILS]);
+    expect((await checkRecalls(ctx)).candidates).toEqual([]);
+    const inside = { ...CPSC_PAIR, purchased_on: '2025-03-10' };
+    const h = ctxWith(maya, ITEMS, [inside], no(), [KEA_DETAILS]);
+    const c = (await checkRecalls(h.ctx)).candidates[0];
+    expect(c.claim.recallId).toBe(10560);
+    expect(c.body).toContain('Matched on:');
+  });
+
+  it('a purchase long after a recall began, with no sale window known, is not shown (newer product)', async () => {
+    const late = { ...CPSC_PAIR, purchased_on: '2026-09-10' };
+    const { ctx } = ctxWith(maya, ITEMS, [late], no());
+    expect((await checkRecalls(ctx)).candidates).toEqual([]);
+  });
+
+  it('the recall-record query is separate (the three recorded queries keep their exact text) and reads only recall tables', async () => {
+    const m = await import('../agents/recall');
+    const sql = m.recallDetailsSql([{ source: 'cpsc', id: 10560 }, { source: 'fda', id: 'F-0123-2026' }]);
+    expect(sql).toContain('bundle_live.cpsc_recalls');
+    expect(sql).toContain('bundle_live.fda_food_recalls');
+    expect(sql).toContain('10560');
+    expect(sql).toContain("'F-0123-2026'");
+    expect(sql).not.toMatch(/family_id|v_purchase_items/);
+    expect(sql).not.toMatch(/;\s*$/);
+    expect(() => m.recallDetailsSql([{ source: 'fda', id: "x'; DROP" }])).toThrow();
+  });
+
+  it('if the recall record cannot be read, the match still runs on the pair row and the fallback is logged', async () => {
+    const { ctx } = ctxWith(maya, ITEMS, [CPSC_PAIR], no(), 'throw');
+    const out = await checkRecalls(ctx);
+    expect(out.candidates).toHaveLength(1);
+    expect((ctx.trace as any).lines().some((l: any) => l.action === 'recall_record' && l.status === 'fallback')).toBe(true);
+  });
+
+  it('pad / liner / insert count as one product type', async () => {
+    const PAD = { ...CPSC_PAIR, recall_id: 12, recall_number: '12', item_text: 'Foobar Cooling Gel Car Seat Liner', recalled_product: 'Foobar Car Seat Pad', recall_title: 'Foobar Recalls Car Seat Pads' };
+    const { ctx } = ctxWith(maya, ITEMS, [PAD], no());
+    expect((await checkRecalls(ctx)).candidates).toHaveLength(1);
+  });
+
+  it('formula recall cards say "check the lot number on the can" (once), whichever way they matched', async () => {
+    const rules = { ...FDA_PAIR, purchased_on: '2026-03-20' };
+    const upc = { ...FDA_PAIR, recall_number: 'F-9-2026', item_text: 'Little Sprout Infant Formula 12.4 oz', upc: '070074123456', recalled_product: 'Brightstar Infant Formula 12.4 oz UPC 070074123456' };
+    const { ctx } = ctxWith(maya, ITEMS, [rules, upc], no());
+    const out = (await checkRecalls(ctx)).candidates;
+    expect(out).toHaveLength(2);
+    for (const c of out) expect(c.body.toLowerCase().match(/check the lot number on the can/g)).toHaveLength(1);
+  });
+
+  it('non-formula recall cards do not carry the lot line', async () => {
+    const { ctx } = ctxWith(maya, ITEMS, [CPSC_PAIR], no());
+    expect((await checkRecalls(ctx)).candidates[0].body.toLowerCase()).not.toContain('lot number on the can');
+  });
+
+  it('no_false_recall still holds with the real matcher: 10490 and 10453 never appear for a Pack n Play', async () => {
+    const mk = (id: number, product: string) => ({ ...CPSC_PAIR, item_text: 'Graco Pack n Play Portable Playard', recall_id: id, recall_number: String(id), recall_title: `Recall ${id}`, recalled_product: product });
+    const { ctx } = ctxWith(maya, ITEMS, [mk(10490, 'Play Yards'), mk(10453, 'Organic Cotton Pack N Play Mattress Dual-Sided Portable Baby Crib Pad')], no());
+    expect((await checkRecalls(ctx)).candidates).toEqual([]);
+  });
+
+  it('shares one lookup between the recall card and the clawback check (one pairs query per run) but revise re-reads', async () => {
+    const m = await import('../agents/recall');
+    const h = ctxWith(maya, ITEMS, [CPSC_PAIR], no());
+    await checkRecalls(h.ctx);
+    await m.findRecalledItems(h.ctx);
+    const pairsCalls = () => h.runQuery.mock.calls.filter((c) => String(c[0]).includes('LATERAL VIEW')).length;
+    expect(pairsCalls()).toBe(1);
+    const first = (await checkRecalls(h.ctx)).candidates[0];
+    await revise(first, 'x', h.ctx);
+    expect(pairsCalls()).toBe(2);
+  });
+
+  it('every recall claim carries structured proof for the Fact-Checker: evidence, evidenceType, evidenceCode, recalledProduct, itemText', async () => {
+    const UPC = { ...FDA_PAIR, item_text: 'Little Sprout Infant Formula 12.4 oz', upc: '070074123456', recalled_product: 'Brightstar Infant Formula 12.4 oz UPC 070074123456' };
+    const LOT = { ...FDA_PAIR, recall_number: 'F-2-2026', item_text: 'Little Sprout Infant Formula 12.4 oz', lot_code: '26A1234', recalled_product: 'Brightstar Infant Formula lot 26A1234' };
+    const MODEL = { ...CPSC_PAIR, recall_id: 21, recall_number: '21', item_text: 'Zed Walker', model_number: 'RV001', recalled_product: 'Zed Walker Model RV001' };
+    const RULES = { ...CPSC_PAIR, recall_id: 11, recall_number: '11', item_text: 'KEAWIS Mini Crib Mattress', recalled_product: 'KEAWIS Crib Mattress' };
+    const { ctx } = ctxWith(maya, ITEMS, [CPSC_PAIR, RULES, UPC, LOT, MODEL], no());
+    const by = Object.fromEntries((await checkRecalls(ctx)).candidates.map((c) => [c.id, c.claim]));
+    expect(by['recall-cpsc-10560']).toMatchObject({ evidenceType: 'name', evidenceCode: '', recalledProduct: 'KEAWIS Crib Mattress', itemText: ITEMS[0].item_text });
+    expect(String(by['recall-cpsc-10560'].evidence)).toContain('keawis');
+    expect(by['recall-cpsc-11']).toMatchObject({ evidenceType: 'confirmed', itemText: 'KEAWIS Mini Crib Mattress' });
+    expect(by['recall-fda-F-0123-2026']).toMatchObject({ evidenceType: 'upc', evidenceCode: '070074123456', recalledProduct: UPC.recalled_product });
+    expect(by['recall-fda-F-2-2026']).toMatchObject({ evidenceType: 'lot', evidenceCode: '26A1234' });
+    expect(by['recall-cpsc-21']).toMatchObject({ evidenceType: 'model', evidenceCode: 'RV001' });
+  });
+
+  it("Maya's planted KEAWIS purchase (from the sample purchase file) matches the REAL recall 10560 record", () => {
+    const { matchRecall, fromCpsc } = require('../agents/recallMatch');
+    const sample = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../../data/sample/purchase-items.json'), 'utf8'));
+    const receipt = sample.receipts.find((r: any) => r.familyId === 'maya' && r.items.some((i: any) => /KEAWIS/.test(i.productName)));
+    const item = receipt.items.find((i: any) => /KEAWIS/.test(i.productName));
+    const feed = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../../../experiments/entity-resolution/data/cpsc.json'), 'utf8'));
+    const rec = fromCpsc(feed.find((r: any) => r.RecallID === 10560));
+    const m = matchRecall({ text: item.productName, date: receipt.purchasedOn, source: receipt.source }, rec);
+    expect(m.match).toBe(true);
+    expect(receipt.purchasedOn >= '2024-08' && receipt.purchasedOn <= '2025-07').toBe(true);
   });
 });

@@ -27,15 +27,23 @@ const PRICE_ROWS = [
   { item_id: 2, merchant: 'Target', date: '2026-10-09', amount_cents: 8999, item: "Graco Pack 'n Play playard", window_days: 14, observed_price_cents: 6999, observed_at: '2026-10-20', store_source_url: 'https://help.target.com/x', price_source_url: 'https://www.target.com/c/playards/-/N-5xtbz' },
 ];
 
-function ctxWith(family: any, rows: { fsa?: any[]; price?: any[] }, llm = new FakeGenerator([])) {
+function ctxWith(family: any, rows: { fsa?: any[]; price?: any[]; items?: any[]; pairs?: any[]; recallFails?: boolean }, llm = new FakeGenerator([]), workspace?: any) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cb-'));
   const trace = new TraceLogger('t', dir);
   const runQuery = jest.fn(async (sql: string) => {
     if (sql.includes('store_policies')) return res(rows.price ?? []);
     if (sql.includes('fsa_eligible_categories')) return res(rows.fsa ?? []);
+    // The Recall Checker's questions (the safety check before a deal is published).
+    if (sql.includes('bundle_live.') || sql.includes('SELECT DISTINCT item_text')) {
+      if (rows.recallFails) throw new Error('No saved response for this query');
+      if (sql.includes("= 'terminated'")) return res([]);
+      if (sql.includes('AS description')) return res([]);
+      if (sql.includes('LATERAL VIEW')) return res(rows.pairs ?? []);
+      return res(rows.items ?? []);
+    }
     throw new Error('unexpected sql ' + sql);
   });
-  const ctx = { runId: 't', family, z: { runQuery } as any, llm, memory: {} as any, trace } as AgentContext;
+  const ctx = { runId: 't', family, z: { runQuery } as any, llm, memory: {} as any, trace, workspace } as AgentContext;
   return { ctx, runQuery, trace };
 }
 
@@ -66,7 +74,8 @@ describe('clawback hunter', () => {
   it('reads only purchase_items (through v_purchase_items): never card transactions, Amazon orders or the old views', async () => {
     const { ctx, runQuery } = ctxWith(maya, { fsa: FSA_ROWS, price: PRICE_ROWS });
     await findClawbacks(ctx);
-    expect(runQuery.mock.calls.length).toBe(2); // FSA + price; the daycare query is gone
+    const money = runQuery.mock.calls.filter(([q]) => /fsa_eligible_categories|store_policies/.test(String(q)));
+    expect(money.length).toBe(2); // FSA + price; the daycare query is gone
     for (const [sql] of runQuery.mock.calls) {
       expect(sql).toContain('bundle_pg.v_purchase_items');
       expect(sql).not.toMatch(/v_clawback_tx|v_recall_orders|transactions|amazon_orders|DCFSA/i);
@@ -89,7 +98,7 @@ describe('clawback hunter', () => {
   it('a seller-only receipt (no store) still gets cards: the store falls back to the seller in every query', async () => {
     const { ctx, runQuery } = ctxWith(maya, { fsa: FSA_ROWS, price: PRICE_ROWS });
     await findClawbacks(ctx);
-    for (const [sql] of runQuery.mock.calls) {
+    for (const [sql] of runQuery.mock.calls.filter(([q]) => /fsa_eligible_categories|store_policies/.test(String(q)))) {
       expect(sql).toContain('COALESCE(p.store, p.seller)');
       expect(String(sql).split('COALESCE(p.store, p.seller)').join('')).not.toMatch(/\bp\.store/);
     }
@@ -102,6 +111,7 @@ describe('clawback hunter', () => {
     const { ctx, runQuery } = ctxWith(maya, {});
     await findClawbacks(ctx);
     for (const [sql] of runQuery.mock.calls) expect(sql).toMatch(/price_cents > 0/);
+    expect(runQuery.mock.calls.length).toBe(2); // nothing to publish, so no safety question is asked
   });
 
   it('ignores a price observation outside the store window or not lower', async () => {
@@ -165,5 +175,95 @@ describe('I4: typed-in family', () => {
     const { ctx, runQuery } = ctxWith({ ...maya, id: 'guest-ab12cd34', dataConnected: false }, {});
     expect(await findClawbacks(ctx)).toEqual([]);
     expect(runQuery).not.toHaveBeenCalled();
+  });
+});
+
+
+describe('W3-SAFETY: the safety-value loop (Clawback Hunter asks the Recall Checker before publishing a deal)', () => {
+  beforeEach(() => { process.env.TODAY = '2026-10-23'; });
+  // A made-up recalled item: it is in the planted purchase_items AND in a (made-up) recall pair; no recall is invented.
+  const RECALLED_PRICE = { ...PRICE_ROWS[0], item_id: 9, date: '2026-10-08', item: 'KEAWIS Crib Mattress, Dual-Sided Firm Baby Mattress' };
+  const KEA_ITEMS = [{ item_text: 'KEAWIS Crib Mattress, Dual-Sided Firm Baby Mattress', source: 'email' }, { item_text: "Graco Pack 'n Play playard", source: 'photo_receipt' }];
+  const KEA_PAIR = {
+    item_text: 'KEAWIS Crib Mattress, Dual-Sided Firm Baby Mattress', purchased_on: '2026-01-20', source: 'email',
+    recall_source: 'cpsc', recall_id: 10560, recall_number: '26191', recall_date: '2026-01-15',
+    recall_title: 'Yixing Trading Recalls KEAWIS Crib Mattresses', recall_url: 'https://www.cpsc.gov/Recalls/2026/Yixing', recalled_product: 'KEAWIS Crib Mattress',
+  };
+  function fakeWorkspace() {
+    const notes: any[] = [];
+    return { notes, post: (n: any) => { notes.push(n); return n; } };
+  }
+
+  it("a recalled item's price-drop deal is killed before it is published; the other deal stays", async () => {
+    const { ctx } = ctxWith(maya, { price: [RECALLED_PRICE, PRICE_ROWS[0]], items: KEA_ITEMS, pairs: [KEA_PAIR] });
+    const out = await findClawbacks(ctx);
+    expect(out.map((c) => c.claim.itemId)).toEqual(['2']);
+  });
+
+  it("a recalled item's FSA reimbursement is killed too", async () => {
+    const fsa = { ...FSA_ROWS[0], item_id: 9, item: 'KEAWIS Crib Mattress, Dual-Sided Firm Baby Mattress' };
+    const { ctx } = ctxWith(maya, { fsa: [fsa, FSA_ROWS[2]], items: KEA_ITEMS, pairs: [KEA_PAIR] });
+    const out = await findClawbacks(ctx);
+    expect(out.map((c) => c.claim.itemId)).toEqual(['5']);
+  });
+
+  it('the kill is explained in the trace: blocked line with the recall and its evidence, "do not encourage buying or claiming a rebate"', async () => {
+    const { ctx, trace } = ctxWith(maya, { price: [RECALLED_PRICE], items: KEA_ITEMS, pairs: [KEA_PAIR] });
+    await findClawbacks(ctx);
+    const kill = trace.lines().find((l) => l.action === 'safety_kill')!;
+    expect(kill.status).toBe('blocked');
+    expect(kill.output_summary).toContain('cpsc-10560');
+    expect(kill.output_summary).toMatch(/do not encourage buying or claiming a rebate/i);
+    expect(kill.output_summary).toContain('Matches recall cpsc-10560');
+  });
+
+  it("the two agents talk through the workspace: a question, the Recall Checker's answer with evidence, and a kill verdict", async () => {
+    const ws = fakeWorkspace();
+    const { ctx } = ctxWith(maya, { price: [RECALLED_PRICE, PRICE_ROWS[0]], items: KEA_ITEMS, pairs: [KEA_PAIR] }, new FakeGenerator([]), ws);
+    await findClawbacks(ctx);
+    const mine = ws.notes.filter((n) => n.about === 'clawback-price-9');
+    expect(mine.map((n) => [n.from_agent, n.to_agent, n.type])).toEqual([
+      ['ClawbackHunter', 'RecallChecker', 'question'],
+      ['RecallChecker', 'ClawbackHunter', 'answer'],
+      ['ClawbackHunter', 'Orchestrator', 'verdict'],
+    ]);
+    expect(mine[1].body).toContain('cpsc-10560');
+    expect(mine[1].body).toContain('Matches recall');
+    expect(mine[2].body).toMatch(/do not encourage buying or claiming a rebate/i);
+    // the clean item gets a question and a "no recall" answer, no verdict
+    expect(ws.notes.filter((n) => n.about === 'clawback-price-2').map((n) => n.type)).toEqual(['question', 'answer']);
+  });
+
+  it('works without a workspace (the orchestrator creates it later): the trace still shows the check', async () => {
+    const { ctx, trace } = ctxWith(maya, { price: [PRICE_ROWS[0]], items: KEA_ITEMS, pairs: [] });
+    expect((await findClawbacks(ctx)).length).toBe(1);
+    expect(trace.lines().some((l) => l.action === 'safety_check' && /no recall/i.test(l.output_summary))).toBe(true);
+  });
+
+  it('a workspace that fails never breaks the check', async () => {
+    const broken = { post: () => { throw new Error('H-MEM down'); } };
+    const { ctx } = ctxWith(maya, { price: [RECALLED_PRICE, PRICE_ROWS[0]], items: KEA_ITEMS, pairs: [KEA_PAIR] }, new FakeGenerator([]), broken);
+    expect((await findClawbacks(ctx)).map((c) => c.claim.itemId)).toEqual(['2']);
+  });
+
+  it('asks Zetaris once per run for all deals (no per-deal query), only about this family', async () => {
+    const { ctx, runQuery } = ctxWith(maya, { fsa: FSA_ROWS, price: PRICE_ROWS, items: KEA_ITEMS, pairs: [] });
+    await findClawbacks(ctx);
+    const recallQs = runQuery.mock.calls.map(([q]) => String(q)).filter((q) => q.includes('SELECT DISTINCT item_text') || q.includes('LATERAL VIEW'));
+    expect(recallQs.length).toBe(2);
+    for (const q of recallQs) expect(q).toContain("family_id = 'maya'");
+  });
+
+  it('if the recall check cannot run, the deals are kept and the trace says the safety check was unavailable', async () => {
+    const { ctx, trace } = ctxWith(maya, { price: PRICE_ROWS, recallFails: true });
+    expect(await findClawbacks(ctx)).toHaveLength(1);
+    expect(trace.lines().some((l) => l.action === 'safety_check' && l.status === 'fallback')).toBe(true);
+  });
+
+  it('a revised deal for a recalled item is still killed (revise gives up)', async () => {
+    const h = ctxWith(maya, { price: [PRICE_ROWS[0], RECALLED_PRICE], items: KEA_ITEMS, pairs: [KEA_PAIR] });
+    const first = (await findClawbacks(h.ctx))[0];
+    const killed = { ...first, claim: { ...first.claim, itemId: '9' } };
+    expect(await revise(killed, 'amount mismatch', h.ctx)).toBeNull();
   });
 });
