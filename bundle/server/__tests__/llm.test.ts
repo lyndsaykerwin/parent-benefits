@@ -377,3 +377,105 @@ describe('settings → chain', () => {
     expect(isLiveModel({})).toBe(false);
   });
 });
+
+describe('busy AI service (429 / 503 / ResourceExhausted): retries with growing pauses', () => {
+  let srv: FakeOpenAiServer;
+  afterEach(async () => { await srv?.close(); });
+  const EXHAUSTED = 'ResourceExhausted: Worker local total request limit reached (16/16)';
+  /** Records each pause instead of really waiting, so the tests are fast. */
+  const mk = (extra: Record<string, unknown> = {}) => {
+    const pauses: number[] = [];
+    const g = new OpenAICompatGenerator('k', srv.baseUrl, { reasoning: 'r', fast: 'f' }, undefined, 2000,
+      { provider: 'nvidia', sleep: async (ms: number) => { pauses.push(ms); }, random: () => 1, ...extra });
+    return { g, pauses };
+  };
+
+  it('a 503 "ResourceExhausted" is retried with doubling pauses (about 1 s, 2 s, 4 s) and then answers', async () => {
+    srv = await startFakeOpenAiServer({ script: [
+      { kind: 'status', status: 503, body: EXHAUSTED }, { kind: 'status', status: 503, body: EXHAUSTED },
+      { kind: 'status', status: 503, body: EXHAUSTED }, { kind: 'reply', content: 'fourth' },
+    ] });
+    const { g, pauses } = mk();
+    expect(await g.generate('q')).toBe('fourth');
+    expect(srv.requests.length).toBe(4);
+    expect(pauses).toEqual([1000, 2000, 4000]);
+    expect(g.details.retried).toBe(1); // counted per call that needed a retry, as before
+    expect(g.lastAnswer?.retried).toBe(true);
+  });
+
+  it('adds random spread to each pause (between half and the full pause), so many callers do not retry at once', async () => {
+    srv = await startFakeOpenAiServer({ script: [{ kind: 'status', status: 429 }, { kind: 'status', status: 429 }, { kind: 'reply', content: 'ok' }] });
+    const { g, pauses } = mk({ random: () => 0 });
+    expect(await g.generate('q')).toBe('ok');
+    expect(pauses).toEqual([500, 1000]);
+  });
+
+  it('gives up after 4 tries and says the service is busy (reason "busy")', async () => {
+    srv = await startFakeOpenAiServer({ script: [{ kind: 'status', status: 503, body: EXHAUSTED }] });
+    const { g, pauses } = mk();
+    const err = await g.generate('q').catch((e) => e);
+    expect(err).toBeInstanceOf(ModelUnavailable);
+    expect(err.reason).toBe('busy');
+    expect(srv.requests.length).toBe(4);
+    expect(pauses).toHaveLength(3);
+    expect(g.stats.failed).toBe(1);
+  });
+
+  it('waits as long as the Retry-After header asks', async () => {
+    srv = await startFakeOpenAiServer({ script: [{ kind: 'status', status: 429, headers: { 'retry-after': '3' } }, { kind: 'reply', content: 'ok' }] });
+    const { g, pauses } = mk();
+    expect(await g.generate('q')).toBe('ok');
+    expect(pauses).toEqual([3000]);
+  });
+
+  it('does not wait at all when Retry-After asks for longer than the time allowed', async () => {
+    srv = await startFakeOpenAiServer({ script: [{ kind: 'status', status: 429, headers: { 'retry-after': '120' } }, { kind: 'reply', content: 'ok' }] });
+    const { g, pauses } = mk();
+    const err = await g.generate('q').catch((e) => e);
+    expect(err.reason).toBe('busy');
+    expect(srv.requests.length).toBe(1);
+    expect(pauses).toEqual([]);
+  });
+
+  it('stops retrying once the total waiting time would go over the limit', async () => {
+    srv = await startFakeOpenAiServer({ script: [{ kind: 'status', status: 503 }] });
+    const { g, pauses } = mk({ retryBudgetMs: 2500 });
+    const err = await g.generate('q').catch((e) => e);
+    expect(err.reason).toBe('busy');
+    expect(pauses).toEqual([1000]); // the next pause (2 s) would make 3 s, over the 2.5 s limit
+    expect(srv.requests.length).toBe(2);
+  });
+
+  it('a plain server error (500) still gets exactly one retry, and is not called "busy"', async () => {
+    srv = await startFakeOpenAiServer({ script: [{ kind: 'status', status: 500 }] });
+    const { g } = mk();
+    const err = await g.generate('q').catch((e) => e);
+    expect(err.reason).toBe('server');
+    expect(srv.requests.length).toBe(2);
+  });
+
+  it('spots "ResourceExhausted" or "rate limit" in the message even without a status number', async () => {
+    const create = jest.fn().mockRejectedValueOnce(new Error(EXHAUSTED)).mockResolvedValue({ choices: [{ message: { content: 'ok' } }] });
+    const pauses: number[] = [];
+    const g = new OpenAICompatGenerator('k', 'http://x', { reasoning: 'r', fast: 'f' }, { chat: { completions: { create } } }, 1000,
+      { provider: 'nvidia', sleep: async (ms: number) => { pauses.push(ms); }, random: () => 1 });
+    expect(await g.generate('q')).toBe('ok');
+    expect(create).toHaveBeenCalledTimes(2);
+    expect(pauses).toEqual([1000]);
+  });
+
+  it('askJson does not stack a second round of retries on top of a busy call', async () => {
+    srv = await startFakeOpenAiServer({ script: [{ kind: 'status', status: 503, body: EXHAUSTED }] });
+    const { g } = mk();
+    const r = await askJson(g, 'p', isOk, { ok: false });
+    expect(r.usedFallback).toBe(true);
+    expect(srv.requests.length).toBe(4);
+  });
+
+  it('the default limits keep all waiting for one call under 15 seconds (live search gives each result 20 s)', async () => {
+    srv = await startFakeOpenAiServer({ script: [{ kind: 'status', status: 503, body: EXHAUSTED }] });
+    const { g, pauses } = mk({ random: () => 1 });
+    await g.generate('q').catch(() => undefined);
+    expect(pauses.reduce((a, b) => a + b, 0)).toBeLessThanOrEqual(15_000);
+  });
+});

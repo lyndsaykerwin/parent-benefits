@@ -27,6 +27,10 @@ import type { TabProps } from './shared';
 const tabKey = (runId: string) => `bundle:tab:${runId}`;
 const loadTab = (runId: string): TabId => { try { const t = sessionStorage.getItem(tabKey(runId)); return isTabId(t) ? t : 'home'; } catch { return 'home'; } };
 const saveTab = (runId: string, t: TabId) => { try { sessionStorage.setItem(tabKey(runId), t); } catch { /* ignore */ } };
+// Opening Account adds a step to the browser's history (same web address), marked with the tab it was opened from,
+// so the phone's or browser's Back returns to that tab instead of leaving the app. The mark survives a reload.
+const ACCOUNT_MARK = 'bundleAccountFrom';
+const accountMark = (): TabId | null => { try { const t = (window.history.state as Record<string, unknown> | null)?.[ACCOUNT_MARK]; return isTabId(t) && t !== 'account' ? t : null; } catch { return null; } };
 
 interface Props {
   run: SavedRun;
@@ -60,6 +64,30 @@ function VersionBInner({ run: runProp, owner, lines = [], ownerPanel }: Props) {
 
   const { closeLocker } = scan;
   const change = useCallback((t: TabId) => { closeLocker(); setTab(t); saveTab(run.runId, t); }, [run.runId, closeLocker]);
+
+  // ----- Account and Back (phone/browser Back and the "‹ Back" button both return to the tab Account was opened from) -----
+  const accountFrom = useRef<TabId>(accountMark() ?? 'home');
+  const openAccount = useCallback(() => {
+    if (tab === 'account') return;
+    accountFrom.current = tab;
+    try { window.history.pushState({ ...((window.history.state as object | null) ?? {}), [ACCOUNT_MARK]: tab }, ''); } catch { /* Back still works from the button */ }
+    change('account');
+  }, [tab, change]);
+  const leaveAccount = useCallback(() => {
+    if (accountMark()) window.history.back(); // the popstate listener below changes the tab
+    else change(accountFrom.current);
+  }, [change]);
+  useEffect(() => {
+    if (tab !== 'account') return;
+    const onPop = () => change(accountFrom.current); // any Back (or Forward) step while on Account leaves it
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, [tab, change]);
+  // Leaving Account by a bottom tab also takes its history step back off, so a later Back does not land on a dead step.
+  const changeTab = useCallback((t: TabId) => {
+    if (tab === 'account' && t !== 'account' && accountMark()) { accountFrom.current = t; window.history.back(); }
+    change(t);
+  }, [tab, change]);
 
   // Back keeps your place: the scroll spot of each tab is remembered while you scroll, and put back when you come to the tab again
   // (from a card's detail page, from another tab, or from a sub-view such as the gear locker).
@@ -103,7 +131,6 @@ function VersionBInner({ run: runProp, owner, lines = [], ownerPanel }: Props) {
     }
   }, [navigate]);
   const switchFromChip = useCallback((t: SwitchTarget) => { closeLocker(); return switchTo(t, 'home'); }, [switchTo, closeLocker]);
-  const openAccount = useCallback(() => change('account'), [change]);
   const startOver = useCallback(() => navigate('/'), [navigate]);
   const forgot = useCallback(() => navigate('/'), [navigate]);
   const rerun = useCallback((runId: string) => { saveTab(runId, 'account'); navigate(`/feed/${encodeURIComponent(runId)}`); }, [navigate]);
@@ -119,10 +146,10 @@ function VersionBInner({ run: runProp, owner, lines = [], ownerPanel }: Props) {
   }), [claim, undo, dismiss, run.result]);
 
   const props: TabProps = useMemo(() => ({
-    run, stage, cards, claims, dismissed, act, go: change, lines: owner ? lines : [],
+    run, stage, cards, claims, dismissed, act, go: changeTab, lines: owner ? lines : [],
     href: (id: string) => `/card/${encodeURIComponent(id)}?run=${encodeURIComponent(run.runId)}`,
     stateNote: comingSoonNote(run),
-  }), [run, stage, cards, claims, dismissed, act, change, owner, lines]);
+  }), [run, stage, cards, claims, dismissed, act, changeTab, owner, lines]);
 
   const demoLabel = demoDateLabel(run.demoDate, run.today);
   const Screen = { home: HomeTab, taxes: TaxesTab, savings: SavingsTab, insurance: InsuranceTab, deals: DealsTab, account: null }[tab];
@@ -131,7 +158,7 @@ function VersionBInner({ run: runProp, owner, lines = [], ownerPanel }: Props) {
     <AppShell
       chipSlot={(() => { const label = familyChipParts(run.family, run.today, run.familyId); return label ? <FamilyChipMenu label={label} familyId={run.familyId} onSwitch={switchFromChip} onOpenAccount={openAccount} /> : null; })()}
       action={<ScanHeaderButton />}
-      footer={<TabBar current={tab} onChange={change} badge={badgeCount(cards, today, stage, run.family)} />}
+      footer={<TabBar current={tab} onChange={changeTab} badge={badgeCount(cards, today, stage, run.family)} />}
     >
       {demoLabel && <p data-testid="demo-date" className="mt-3 text-[13px] font-semibold text-ink-2">{demoLabel}. Sample families are checked as of this date so the demo stays the same.</p>}
       {run.result.banner && (
@@ -141,7 +168,7 @@ function VersionBInner({ run: runProp, owner, lines = [], ownerPanel }: Props) {
         <GearLockerView familyId={run.familyId} />
       ) : (
         <div role="region" aria-label={TAB_NAMES[tab]} data-testid={`tab-${tab}`}>
-          {Screen ? <Screen {...props} /> : <AccountTab {...props} onSwitch={(t) => switchTo(t)} onStartOver={startOver} onForgot={forgot} onRerun={rerun} />}
+          {Screen ? <Screen {...props} /> : <AccountTab {...props} onSwitch={(t) => switchTo(t)} onStartOver={startOver} onForgot={forgot} onRerun={rerun} onBack={leaveAccount} />}
         </div>
       )}
       <ScanSheet familyId={run.familyId} />

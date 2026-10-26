@@ -1,6 +1,6 @@
 /**
  * A tiny stand-in for an OpenAI-compatible AI service (the layout Nightshift and NVIDIA both use).
- * Tests script what each request gets back: a reply, a server error, a hang, or a "not allowed".
+ * Tests script what each request gets back: a reply, a server error (optionally with headers such as Retry-After), a hang, or a "not allowed".
  * Runs on 127.0.0.1 on a random free port; nothing leaves this machine.
  */
 import http from 'node:http';
@@ -8,7 +8,7 @@ import type { AddressInfo } from 'node:net';
 
 export type FakeStep =
   | { kind: 'reply'; content: string; model?: string }
-  | { kind: 'status'; status: number; body?: string }
+  | { kind: 'status'; status: number; body?: string; headers?: Record<string, string> }
   | { kind: 'hang' };
 
 export interface FakeRequest {
@@ -47,8 +47,8 @@ export async function startFakeOpenAiServer(opts: { script?: FakeStep[]; token?:
       let body: any = null;
       try { body = raw ? JSON.parse(raw) : null; } catch { body = raw; }
       state.requests.push({ method: req.method ?? '', url: req.url ?? '', headers: req.headers, body });
-      const send = (status: number, obj: unknown) => {
-        res.writeHead(status, { 'content-type': 'application/json' });
+      const send = (status: number, obj: unknown, headers: Record<string, string> = {}) => {
+        res.writeHead(status, { 'content-type': 'application/json', ...headers });
         res.end(JSON.stringify(obj));
       };
       if (state.token && req.headers.authorization !== `Bearer ${state.token}`) {
@@ -61,7 +61,7 @@ export async function startFakeOpenAiServer(opts: { script?: FakeStep[]; token?:
         const step = state.script[Math.min(chatCalls, state.script.length - 1)];
         chatCalls++;
         if (step.kind === 'hang') { hung.push(res); return; }
-        if (step.kind === 'status') return send(step.status, { error: { message: step.body ?? `status ${step.status}` } });
+        if (step.kind === 'status') return send(step.status, { error: { message: step.body ?? `status ${step.status}` } }, step.headers);
         return send(200, {
           id: `chatcmpl-${chatCalls}`,
           object: 'chat.completion',

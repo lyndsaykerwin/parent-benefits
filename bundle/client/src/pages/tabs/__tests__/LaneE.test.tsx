@@ -182,3 +182,84 @@ describe('Back keeps your place between tabs', () => {
     expect(scrollTo).toHaveBeenLastCalledWith({ top: 0 });
   });
 });
+
+describe('Account fixes (final QA, Oct 25)', () => {
+  const accountPage = () => screen.getByRole('region', { name: 'Account' });
+
+  it('the Back button on Account returns to the tab it was opened from', async () => {
+    fakeServer(QUIET);
+    showVersionB(mayaRun());
+    goTab('Deals');
+    openAccount();
+    const back = within(accountPage()).getByRole('button', { name: /^Back$/ });
+    expect(back.className).toMatch(/min-h-\[44px\]/);
+    fireEvent.click(back);
+    await waitFor(() => expect(screen.getByRole('region', { name: 'Deals' })).toBeTruthy());
+  });
+
+  it('opening Account adds a browser history step, so the phone or browser Back returns to the earlier tab', async () => {
+    fakeServer(QUIET);
+    showVersionB(mayaRun());
+    goTab('Taxes');
+    const before = window.history.state;
+    openAccount();
+    expect(window.history.state).not.toBe(before);
+    expect(window.history.state).toMatchObject({ bundleAccountFrom: 'taxes' });
+    accountPage();
+    window.history.back();
+    await waitFor(() => expect(screen.getByRole('region', { name: 'Taxes' })).toBeTruthy());
+  });
+
+  it('Account opened again after a reload still goes Back to the tab it came from (kept in session storage and history)', async () => {
+    fakeServer(QUIET);
+    showVersionB(mayaRun());
+    goTab('Savings');
+    openAccount();
+    cleanup();
+    fakeServer(QUIET);
+    showVersionB(mayaRun()); // a reload: the saved tab is Account
+    fireEvent.click(within(accountPage()).getByRole('button', { name: /^Back$/ }));
+    await waitFor(() => expect(screen.getByRole('region', { name: 'Savings' })).toBeTruthy());
+  });
+
+  it('lessons from parents use plain words, not internal codes', async () => {
+    fakeServer([
+      [/\/memory/, () => ({ family: [], learned: [
+        { id: 'mem-7', text: 'Enfamil offer "Free box" graded approve_with_catch: true value $5.00, about 5 minutes of effort; catches: required_membership, shipping_fee', reports: null },
+        { id: 'mem-8', text: 'Hello offer "Kit" graded reject: no dollar value stated, about 3 minutes of effort; catches: negative_value', reports: null },
+      ] })],
+      [/\/gear/, () => ({ items: [], receipts: [] })],
+    ]);
+    showVersionB(mayaRun());
+    openAccount();
+    const learned = await within(accountPage()).findByRole('region', { name: 'Lessons from parents' });
+    await waitFor(() => expect(learned.textContent).toMatch(/graded approved with a catch/));
+    expect(learned.textContent).toMatch(/paid membership required, shipping fee/);
+    expect(learned.textContent).toMatch(/graded blocked/);
+    expect(learned.textContent).toMatch(/costs more than it is worth/);
+    expect(learned.textContent).not.toMatch(/approve_with_catch|required_membership|negative_value|graded reject/);
+  });
+
+  it('a sample family shows its demo date on memory entries, not the day the entry was written', async () => {
+    fakeServer([
+      [/\/memory/, () => ({ family: [{ id: 'mem-1', text: 'Lives in ZIP 02139', source: 'setup', savedOn: '2026-10-25' }], learned: [] })],
+      [/\/gear/, () => ({ items: [], receipts: [] })],
+    ]);
+    showVersionB(mayaRun()); // Maya: demo date Oct 23
+    openAccount();
+    const fam = await within(accountPage()).findByRole('region', { name: 'Memory about your family' });
+    await waitFor(() => expect(fam.textContent).toMatch(/Remembered from your setup · Oct 23/));
+    expect(fam.textContent).not.toMatch(/Oct 25/);
+  });
+
+  it('a saved (non-sample) family keeps the real saved date', async () => {
+    fakeServer([
+      [/\/memory/, () => ({ family: [{ id: 'mem-1', text: 'Lives in ZIP 02139', source: 'setup', savedOn: '2026-10-25' }], learned: [] })],
+      [/\/gear/, () => ({ items: [], receipts: [] })],
+    ]);
+    showVersionB(mayaRun({ familyId: 'guest-ab12cd34' }));
+    openAccount();
+    const fam = await within(accountPage()).findByRole('region', { name: 'Memory about your family' });
+    await waitFor(() => expect(fam.textContent).toMatch(/Oct 25/));
+  });
+});

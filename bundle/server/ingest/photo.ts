@@ -6,7 +6,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import type * as s from '../../shared/schema';
-import { ModelUnavailable, type Generator, type SeeRequest } from '../adapters/llm';
+import { ModelUnavailable, type FailReason, type Generator, type SeeRequest } from '../adapters/llm';
 import type { TraceLogger } from '../agents/trace';
 import { stripJpegMetadata } from './imageClean';
 
@@ -17,6 +17,17 @@ export const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
 const MIME_OK = new Set(['image/jpeg', 'image/png']);
 
 export const NEEDS_LIVE_MODEL_MESSAGE = 'Photo reading needs the live model, which is not switched on here. You can still add items another way.';
+/** Real mode, but the AI service is full, rate-limited or too slow right now (it was already retried a few times). */
+export const PHOTO_BUSY_MESSAGE = 'The photo reader is busy right now. Try again in a minute.';
+/** Real mode, any other failure (wrong key, retired model, server error...). Honest, and never says the model is switched off. */
+export const PHOTO_FAILED_MESSAGE = 'We could not read that photo just now. Please try again, or add items another way.';
+
+/** Which message a failed model call gets: "not switched on" only when there really is no model set up. */
+export function photoFailureMessage(reason: FailReason): string {
+  if (reason === 'config') return NEEDS_LIVE_MODEL_MESSAGE;
+  if (reason === 'busy' || reason === 'timeout' || reason === 'deadline') return PHOTO_BUSY_MESSAGE;
+  return PHOTO_FAILED_MESSAGE;
+}
 export const CLEARER_PHOTO_MESSAGE = 'We could not read that photo clearly. Please send a clearer photo: a close-up with the label or receipt filling the frame, in good light, no people.';
 /** Gear photos: said exactly like this when the label could not be read. We never guess a model number. */
 export const NO_MODEL_MESSAGE = "We couldn't find a model number. Try the white label.";
@@ -458,7 +469,7 @@ export async function readPhoto(input: PhotoInput, d: PhotoDeps): Promise<PhotoR
     } catch (e) {
       if (e instanceof ModelUnavailable) {
         log(d, { action: 'vision_extract', input: 'photo', output: `vision model unavailable (${e.reason})`, status: 'fallback', retry: 0 });
-        return { status: 'unavailable', message: NEEDS_LIVE_MODEL_MESSAGE };
+        return { status: 'unavailable', message: photoFailureMessage(e.reason) };
       }
       throw e;
     }

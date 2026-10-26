@@ -6,6 +6,7 @@ import { stateForZip } from '@/lib/onboarding';
 import { dateLimits, dateRangeError } from '@shared/dateRange';
 import { HOUSEHOLD_LABEL, WORK_LABEL, profileRows } from '@shared/familyFacts';
 import { insuranceChoices } from '@shared/eligibility';
+import { plainLesson } from '@/lib/offers';
 import type { Household, InsuranceType, WorkStatus } from '@shared/bundle';
 import { cn } from '@/lib/utils';
 import { loadCarrier } from './InsuranceTab';
@@ -24,6 +25,8 @@ export interface AccountProps extends TabProps {
   onForgot: () => void;
   /** After the answers were saved and a new check started. */
   onRerun: (runId: string) => void;
+  /** "‹ Back": returns to the tab Account was opened from. */
+  onBack: () => void;
 }
 
 const WORK_ORDER: WorkStatus[] = ['paycheck', 'self_employed', 'not_working'];
@@ -43,6 +46,8 @@ export default function AccountTab(props: AccountProps) {
   const family = run.family;
   const guest = !isSampleId(run.familyId);
   const rows = profileRows({ ...family, state: family?.state });
+  // A sample family is shown as of its demo date (like the rest of the app), so its memory entries carry that date too.
+  const memoryDate = (savedOn: string) => shortDate(!guest && run.demoDate && run.today ? run.today : savedOn);
 
   // ----- progress ring: how many answers that shape the numbers are in -----
   const filing = useFiling(run.familyId);
@@ -202,7 +207,8 @@ export default function AccountTab(props: AccountProps) {
 
   return (
     <>
-      <h1 className="mt-5 text-[30px] font-extrabold leading-[1.1] tracking-[-0.03em]">Account</h1>
+      <button type="button" onClick={props.onBack} className="-ml-1 mt-3 flex min-h-[44px] items-center gap-1 px-1 text-[15px] font-bold text-ink"><span aria-hidden="true">‹</span> Back</button>
+      <h1 className="mt-2 text-[30px] font-extrabold leading-[1.1] tracking-[-0.03em]">Account</h1>
 
       <section aria-label="Family" data-testid="family-switcher" className="bundle-card mt-3 p-4">
         <div className="flex items-center justify-between gap-3">
@@ -282,7 +288,7 @@ export default function AccountTab(props: AccountProps) {
               <li key={`${m.id}-${i}`} className="py-3">
                 <p className="text-[15.5px] leading-snug">{m.text}</p>
                 <p className="mt-1.5 flex flex-wrap gap-1.5 text-[12px] font-bold">
-                  <span className="rounded-full bg-[#E3F3EA] px-2.5 py-0.5 text-[#17643F]">{SOURCE_LABEL[m.source] ?? 'Remembered by Bundle'}{shortDate(m.savedOn) ? ` · ${shortDate(m.savedOn)}` : ''}</span>
+                  <span className="rounded-full bg-[#E3F3EA] px-2.5 py-0.5 text-[#17643F]">{SOURCE_LABEL[m.source] ?? 'Remembered by Bundle'}{memoryDate(m.savedOn) ? ` · ${memoryDate(m.savedOn)}` : ''}</span>
                   <span className="rounded-full bg-[#F1ECE4] px-2.5 py-0.5 text-ink-2">Saved in Meterless memory</span>
                 </p>
                 {techFamily && <p className="mt-1 font-mono text-[12px] text-ink-2">{m.id} · source: {m.source}</p>}
@@ -302,7 +308,7 @@ export default function AccountTab(props: AccountProps) {
           <ul className="divide-y divide-line">
             {memory.learned.map((m, i) => (
               <li key={`${m.id}-${i}`} className="py-3">
-                <p className="text-[15.5px] leading-snug">{m.text}</p>
+                <p className="text-[15.5px] leading-snug">{plainLesson(m.text)}</p>
                 <p className="mt-1 text-[13px] text-ink-2">{m.reports === null ? 'Bundle learned this while grading an offer' : `Bundle learned from ${m.reports} parent ${m.reports === 1 ? 'report' : 'reports'}`}</p>
                 {techLearned && <p className="mt-1 font-mono text-[12px] text-ink-2">{m.id}</p>}
               </li>

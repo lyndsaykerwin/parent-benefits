@@ -28,7 +28,8 @@ export interface Generator {
 }
 
 /** Why a model call did not give text. */
-export type FailReason = 'config' | 'deadline' | 'auth' | 'connect' | 'model' | 'timeout' | 'server' | 'empty' | 'unknown';
+/** 'busy' = the service is full or rate-limited for a moment (429, 503, "ResourceExhausted"); 'server' = any other server error. */
+export type FailReason = 'config' | 'deadline' | 'auth' | 'connect' | 'model' | 'timeout' | 'server' | 'busy' | 'empty' | 'unknown';
 
 export class ModelUnavailable extends Error {
   constructor(message: string, readonly reason: FailReason = 'unknown') {
@@ -114,19 +115,44 @@ export function withRunDeadline<T>(p: Promise<T>, ms: number, what = 'run deadli
   return Promise.race([p, late]).finally(() => clearTimeout(timer));
 }
 
+/** Words a full or rate-limited service uses (NVIDIA's free service says "503 ResourceExhausted ... request limit reached"). */
+const BUSY_WORDS = /ResourceExhausted|rate.?limit|too many requests|request limit reached|overloaded|over capacity/i;
+
 function classify(e: unknown): FailReason {
   if (e instanceof ModelUnavailable) return e.reason;
   const err = e as { status?: number; name?: string; message?: string; constructor?: { name?: string } };
   const status = typeof err?.status === 'number' ? err.status : undefined;
   if (status === 401 || status === 403) return 'auth';
   if (status === 404) return 'model';
-  if (status === 429 || (status !== undefined && status >= 500)) return 'server';
+  if (status === 429 || status === 503 || BUSY_WORDS.test(err?.message ?? '')) return 'busy';
+  if (status !== undefined && status >= 500) return 'server';
   const name = `${err?.constructor?.name ?? ''} ${err?.name ?? ''}`;
   if (/Timeout|Abort/i.test(name) || /timed? ?out|aborted/i.test(err?.message ?? '')) return 'timeout';
   if (/Connection/i.test(name) || /ECONNREFUSED|ENOTFOUND|fetch failed|Connection error/i.test(err?.message ?? '')) return 'connect';
   return 'unknown';
 }
-const RETRYABLE: FailReason[] = ['timeout', 'server'];
+/** Retried once, after a short pause (a timed-out call already used up a whole call time limit, so only once). */
+const RETRY_ONCE: FailReason[] = ['timeout', 'server'];
+
+/** How long the error asks us to wait (the Retry-After header: seconds, or a date), in ms; undefined when it does not say. */
+export function retryAfterMs(e: unknown, now: number = Date.now()): number | undefined {
+  const h = (e as { headers?: unknown })?.headers as { get?: (k: string) => string | null } | Record<string, string | undefined> | undefined;
+  if (!h) return undefined;
+  const raw = typeof (h as { get?: unknown }).get === 'function'
+    ? (h as { get: (k: string) => string | null }).get('retry-after')
+    : (h as Record<string, string | undefined>)['retry-after'];
+  if (!raw) return undefined;
+  const secs = Number(raw);
+  if (Number.isFinite(secs) && secs >= 0) return secs * 1000;
+  const at = Date.parse(raw);
+  return Number.isFinite(at) ? Math.max(0, at - now) : undefined;
+}
+
+/** Busy-service retries: at most this many tries in all, pauses doubling from 1 s, and at most this much waiting in all. */
+export const BUSY_MAX_TRIES = 4;
+export const BUSY_FIRST_PAUSE_MS = 1000;
+/** 1 + 2 + 4 s of pauses fits; kept well under live search's 20 s per result and the photo scan's patience. */
+export const BUSY_WAIT_BUDGET_MS = 10_000;
 
 export interface ProviderOptions {
   provider?: ProviderName;
@@ -137,8 +163,13 @@ export interface ProviderOptions {
   thinking?: 'off' | 'low' | 'on';
   /** Extra request fields merged into every call (e.g. Nightshift's "thinking off" option once Meterless names it). */
   extraBody?: Record<string, unknown>;
-  /** Pause before the one retry; default a random 1–3 s. */
+  /** Fixed pause before every retry (tests use 0). Default: a random 1–3 s for one retry; growing pauses for a busy service. */
   retryDelayMs?: number;
+  /** Most waiting, in ms, across all busy-service retries of one call (default BUSY_WAIT_BUDGET_MS). */
+  retryBudgetMs?: number;
+  /** Test hooks: how to wait, and the random number (0–1) that spreads the pauses. */
+  sleep?: (ms: number) => Promise<void>;
+  random?: () => number;
   vision?: { item: string; receipt: string };
   runDeadlineMs?: number;
 }
@@ -206,18 +237,9 @@ export class OpenAICompatGenerator implements Generator {
     const t0 = Date.now();
     let retried = false;
     try {
-      let out: { text: string; model: string };
-      try {
-        out = await this.callOnce(model, messages);
-      } catch (e) {
-        if (!RETRYABLE.includes(classify(e))) throw e;
-        retried = true;
-        this.details.retried++;
-        const pause = this.opts.retryDelayMs ?? 1000 + Math.random() * 2000;
-        if (pause > 0) await new Promise((r) => setTimeout(r, pause));
-        this.clock.check();
-        out = await this.callOnce(model, messages);
-      }
+      const out = await this.withRetries(() => this.callOnce(model, messages), () => {
+        if (!retried) { retried = true; this.details.retried++; }
+      });
       this.stats.ok++;
       this.lastAnswer = { provider: this.provider, requested: model, model: out.model, ms: Date.now() - t0, retried };
       if (!this.details.answeredBy.includes(out.model)) this.details.answeredBy.push(out.model);
@@ -226,6 +248,48 @@ export class OpenAICompatGenerator implements Generator {
       this.stats.failed++;
       const reason = classify(e);
       throw new ModelUnavailable(`${this.provider} (${reason}) model call failed: ${(e as Error).message}`, reason);
+    }
+  }
+
+  /**
+   * Tries again after short-lived failures.
+   * - Busy service (429, 503, "ResourceExhausted"): up to BUSY_MAX_TRIES tries, pauses of about 1, 2, 4 s (each spread at random
+   *   between half and the full pause so many callers do not all come back at once), or exactly what Retry-After asks.
+   *   Stops early, without waiting, when the next pause would take the total waiting past the budget.
+   * - Time-out or other server error: one more try after a short pause, as before.
+   * Everything else (wrong key, no such model, not running) is not retried.
+   */
+  private async withRetries<T>(once: () => Promise<T>, onRetry: () => void): Promise<T> {
+    const sleep = this.opts.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
+    const random = this.opts.random ?? Math.random;
+    const budget = this.opts.retryBudgetMs ?? BUSY_WAIT_BUDGET_MS;
+    let waited = 0;
+    let busyRetries = 0;
+    let otherRetries = 0;
+    for (;;) {
+      try {
+        return await once();
+      } catch (e) {
+        const reason = classify(e);
+        let pause: number;
+        if (reason === 'busy') {
+          if (busyRetries + otherRetries + 1 >= BUSY_MAX_TRIES) throw e;
+          const step = BUSY_FIRST_PAUSE_MS * 2 ** busyRetries;
+          pause = this.opts.retryDelayMs ?? retryAfterMs(e) ?? step / 2 + random() * (step / 2);
+          if (waited + pause > budget) throw e;
+          busyRetries++;
+        } else if (RETRY_ONCE.includes(reason)) {
+          if (otherRetries >= 1 || busyRetries + otherRetries + 1 >= BUSY_MAX_TRIES) throw e;
+          pause = this.opts.retryDelayMs ?? 1000 + random() * 2000;
+          otherRetries++;
+        } else {
+          throw e;
+        }
+        onRetry();
+        if (pause > 0) await sleep(pause);
+        waited += pause;
+        this.clock.check();
+      }
     }
   }
 
@@ -502,6 +566,7 @@ export async function askJson<T>(
       const parsed = parseLoose(raw);
       if (validate(parsed)) return { value: parsed, usedFallback: false };
     } catch (e) {
+      // 'busy' is not tried again here: the call already waited and retried several times inside withRetries.
       if (e instanceof ModelUnavailable && !['timeout', 'server', 'empty'].includes(e.reason)) break;
     }
     p = `${prompt}\n\nYour last reply was not valid JSON in the requested shape. Reply with JSON only.`;

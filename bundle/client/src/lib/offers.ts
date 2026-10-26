@@ -4,6 +4,7 @@ import type { FeedCard, FinePrintVerdict, OfferFacts } from '@shared/bundle';
 import { OFFER_SITES_COUNT, type AuditReply, type AuditRequest, type LiveSearchReply, type ReportCardReply } from '@shared/offers';
 import { fmtUsd, fmtUsdShort, type FamilyView } from './bundle';
 import { daysUntil } from './bundle';
+import { catchWord } from './tabs';
 
 export { OFFER_SITES_COUNT };
 /** The live search gives up after this long and quietly keeps the saved offers (R3). */
@@ -124,3 +125,10 @@ export async function fetchReportCard(): Promise<ReportCardReply | null> {
 }
 
 export const verdictLabel: Record<FinePrintVerdict, string> = { approve: 'Approved', approve_with_catch: 'Approved with a catch', reject: 'Blocked' };
+
+/** A saved grading lesson ("… graded approve_with_catch …; catches: required_membership") in plain words, using the same labels as the offer cards. */
+export function plainLesson(text: string): string {
+  return text
+    .replace(/\bgraded (approve_with_catch|approve|reject)\b/g, (_, v: FinePrintVerdict) => `graded ${verdictLabel[v].toLowerCase()}`)
+    .replace(/\bcatches: ([a-z_]+(?:, [a-z_]+)*)/g, (_, list: string) => `catches: ${list.split(', ').map(catchWord).join(', ')}`);
+}

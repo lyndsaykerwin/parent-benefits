@@ -9,6 +9,7 @@ import { TraceLogger } from '../agents/trace';
 import {
   checkReading, cleanUpc, upcCheckDigitOk, visionKindFor, readPhoto, forgetItems, hashImage,
   recordVisionAnswers, createMemoryPhotoStore, NEEDS_LIVE_MODEL_MESSAGE, CLEARER_PHOTO_MESSAGE, NO_MODEL_MESSAGE,
+  PHOTO_BUSY_MESSAGE, PHOTO_FAILED_MESSAGE,
   type PhotoDeps,
 } from '../ingest/photo';
 import { createPhotoRouter } from '../routes/photoRoutes';
@@ -217,6 +218,36 @@ describe('readPhoto: the retry loop', () => {
     const { gen } = fakeVision([new ModelUnavailable('no key', 'config')]);
     const out = await readPhoto(input(), deps(gen));
     expect(out).toMatchObject({ status: 'unavailable', message: NEEDS_LIVE_MODEL_MESSAGE });
+  });
+
+  it('says the photo reader is busy (not "switched off") when the live model is overloaded or too slow', async () => {
+    for (const reason of ['busy', 'timeout', 'deadline'] as const) {
+      const { gen } = fakeVision([new ModelUnavailable('nvidia (busy) model call failed: 503 ResourceExhausted', reason)]);
+      const out = await readPhoto(input(), deps(gen));
+      expect(out).toMatchObject({ status: 'unavailable', message: PHOTO_BUSY_MESSAGE });
+    }
+  });
+
+  it('a busy model on the receipt\'s second round also gets the busy message', async () => {
+    const { gen } = fakeVision(['not json', new ModelUnavailable('503 ResourceExhausted', 'busy')]);
+    const out = await readPhoto(input('receipt'), deps(gen));
+    expect(out).toMatchObject({ status: 'unavailable', message: PHOTO_BUSY_MESSAGE });
+  });
+
+  it('any other model failure gets a plain "did not work" message, never "not switched on"', async () => {
+    for (const reason of ['server', 'auth', 'model', 'connect', 'empty', 'unknown'] as const) {
+      const { gen } = fakeVision([new ModelUnavailable('failed', reason)]);
+      const out = await readPhoto(input(), deps(gen));
+      expect(out).toMatchObject({ status: 'unavailable', message: PHOTO_FAILED_MESSAGE });
+    }
+  });
+
+  it('the failure messages are short, plain and in sentence case', () => {
+    for (const m of [PHOTO_BUSY_MESSAGE, PHOTO_FAILED_MESSAGE]) {
+      for (const sentence of m.split(/(?<=\.) /)) expect(sentence).toMatch(/^[A-Z][^A-Z]*\.$/); // capital only at each sentence start
+      expect(m.length).toBeLessThan(110);
+      expect(m).not.toMatch(/model|503|429|NVIDIA|error/i);
+    }
   });
 
   it('rejects files that are not pictures or are too big, before calling the model', async () => {
