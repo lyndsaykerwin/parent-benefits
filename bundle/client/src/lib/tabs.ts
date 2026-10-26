@@ -14,7 +14,7 @@ export const TABS: { id: TabId; label: string }[] = [
   { id: 'insurance', label: 'Insurance' },
   { id: 'deals', label: 'Deals' },
 ];
-/** The five money tabs, then Account (the family's answers, memory and privacy). The bottom bar shows all six. */
+/** The five money tabs, then Account (the family's answers, memory and privacy). The bottom bar shows only the five; Account opens from the family chip in the header. */
 export const ALL_TABS: { id: TabId; label: string }[] = [...TABS, { id: 'account', label: 'Account' }];
 export const isTabId = (x: unknown): x is TabId => ALL_TABS.some((t) => t.id === x);
 

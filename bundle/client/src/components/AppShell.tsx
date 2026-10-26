@@ -16,6 +16,8 @@ export function backClick(e: MouseEvent, href: string): void {
 
 interface Props {
   chip?: string | null;
+  /** Replaces the plain chip with a control (Version B's family chip menu). */
+  chipSlot?: ReactNode;
   children: ReactNode;
   back?: { href: string; label: string };
   /** A control at the right end of the header (Version B puts the "+" photo button here, so it is on every tab). */
@@ -25,19 +27,19 @@ interface Props {
 }
 
 /** Phone-width page frame: "bundle." wordmark, optional family chip, 16px side padding. */
-export default function AppShell({ chip, children, back, action, footer }: Props) {
+export default function AppShell({ chip, chipSlot, children, back, action, footer }: Props) {
   useEffect(() => { visited.push(window.location.pathname); if (visited.length > 20) visited.shift(); }, []);
   return (
     <div className="min-h-[100dvh] bg-cream text-ink">
       <div className={`mx-auto w-full max-w-[480px] px-4 pt-5 ${footer ? 'pb-32' : 'pb-16'}`}>
-        <header className="flex min-h-[44px] items-center justify-between gap-3">
+        <header className="relative flex min-h-[44px] items-center justify-between gap-3">
           <Link href="/" className="text-[24px] font-extrabold tracking-[-0.03em] text-ink" aria-label="Bundle home">
             bundle<span className="text-coral">.</span>
           </Link>
           <div className="flex min-w-0 items-center gap-2">
-            {chip && (
+            {chipSlot ?? (chip && (
               <span className="truncate rounded-full border border-line bg-paper px-3 py-1 text-[13px] font-semibold text-ink-2">{chip}</span>
-            )}
+            ))}
             {action}
           </div>
         </header>

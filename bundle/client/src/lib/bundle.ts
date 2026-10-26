@@ -85,16 +85,27 @@ export function deadlineText(iso: string, today?: string): string {
   return `${d} days left`;
 }
 
-/** Header chip, e.g. "Baby Maya · day 20" or "Baby due in 45 days". */
-export function familyChip(f: FamilyView | undefined, today?: string): string | null {
+/**
+ * Header chip, e.g. "Baby Maya · day 20" or "Leo · due in 45 days" for a sample family. A family the parent typed in is
+ * "Your family · day 20" / "Your family · due in 45 days": onboarding never asks for a name, so none is shown (never "Baby Guest").
+ * Typed in = a saved `guest-` id, or a name that is not a sample family's.
+ */
+export function familyChip(f: FamilyView | undefined, today?: string, familyId?: string): string | null {
+  return familyChipParts(f, today, familyId)?.full ?? null;
+}
+
+/** The chip in two sizes: `short` is just who it is ("Maya", "Your family"), for a narrow phone header; `full` adds the stage. */
+export function familyChipParts(f: FamilyView | undefined, today?: string, familyId?: string): { short: string; full: string } | null {
   if (!f) return null;
+  const typedIn = (familyId !== undefined && /^guest-/.test(familyId)) || !/\(sample family\)\s*$/i.test(f.name ?? '');
   const first = f.name.replace(/\s*\(.*\)\s*$/, '').trim() || 'Baby';
-  if (f.birthDate) return `Baby ${first} · day ${Math.max(0, -daysUntil(f.birthDate, today))}`;
+  const short = typedIn ? 'Your family' : first;
+  if (f.birthDate) return { short, full: `${typedIn ? 'Your family' : `Baby ${first}`} · day ${Math.max(0, -daysUntil(f.birthDate, today))}` };
   if (f.dueDate) {
     const d = daysUntil(f.dueDate, today);
-    return d > 0 ? `${first} · due in ${d} days` : `${first} · due now`;
+    return { short, full: d > 0 ? `${short} · due in ${d} days` : `${short} · due now` };
   }
-  return first;
+  return { short, full: short };
 }
 
 /** "Demo date: Oct 23, 2026" for the sample families (they run at a fixed date), otherwise null. */

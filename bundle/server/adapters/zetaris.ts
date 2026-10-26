@@ -23,6 +23,12 @@ export interface ZetarisOptions {
   timeoutMs: number;
   sampleMode: boolean;
   cacheDir: string;
+  /**
+   * Save each live answer to cacheDir (the recorded answers SAMPLE_MODE and the tests replay). Only the deliberate recording
+   * scripts turn this on (npm run zetaris:record, examples:regen --live, the *-live scripts). Ordinary live runs only read
+   * cacheDir (as a fallback when Zetaris is down) so they never overwrite the recording.
+   */
+  record?: boolean;
   fetchFn?: typeof fetch;
   trace?: TraceLogger;
   /** Raw name of the agent making the queries (e.g. 'recall'), so its trace lines go under that agent. */
@@ -133,7 +139,7 @@ export class ZetarisClient {
         return o;
       });
       const res: QueryResult = { headers, rows, ms: Date.now() - started };
-      this.writeCache(text, res);
+      if (this.opts.record) this.writeCache(text, res);
       this.trace('query', text, `${rows.length} rows in ${res.ms} ms`, 'ok');
       return res;
     } catch (e: any) {

@@ -6,7 +6,7 @@ import { Router } from 'wouter';
 import { memoryLocation } from 'wouter/memory-location';
 import App from '@/App';
 import Start from '@/pages/Start';
-import { fakeServer, callsTo, type FakeRoute, goTab, mayaRun, showVersionB, tab } from '../../../__acceptance__/v2/helpers';
+import { fakeServer, callsTo, type FakeRoute, goTab, mayaRun, openAccount, showVersionB } from '../../../__acceptance__/v2/helpers';
 
 afterEach(() => { cleanup(); for (const k of ['scrollY', 'pageYOffset']) delete (window as any)[k]; try { sessionStorage.clear(); localStorage.clear(); } catch { /* ignore */ } delete (global as any).EventSource; });
 
@@ -19,7 +19,7 @@ describe('Account tab actions', () => {
   it('editing the ZIP re-runs the check for the same saved family, with every answer, and comes back to Account', async () => {
     const server = fakeServer([...QUIET, [/\/api\/run$/, () => ({ runId: 'run-new', familyId: 'guest-ab12cd34' })]]);
     const loc = showVersionB(mayaRun({ familyId: 'guest-ab12cd34' }));
-    goTab('Account');
+    openAccount();
     fireEvent.click(screen.getByRole('button', { name: 'Edit ZIP code' }));
     const editor = screen.getByTestId('editor-zip');
     fireEvent.change(within(editor).getByLabelText('ZIP code'), { target: { value: '10001' } });
@@ -35,7 +35,7 @@ describe('Account tab actions', () => {
   it('a wrong ZIP is explained and nothing is sent', () => {
     const server = fakeServer(QUIET);
     showVersionB(mayaRun({ familyId: 'guest-ab12cd34' }));
-    goTab('Account');
+    openAccount();
     fireEvent.click(screen.getByRole('button', { name: 'Edit ZIP code' }));
     const editor = screen.getByTestId('editor-zip');
     fireEvent.change(within(editor).getByLabelText('ZIP code'), { target: { value: '12' } });
@@ -47,7 +47,7 @@ describe('Account tab actions', () => {
   it('a sample family says an edit makes a copy, and sends no family id', async () => {
     const server = fakeServer([...QUIET, [/\/api\/run$/, () => ({ runId: 'run-mine', familyId: 'guest-0a0a0a0a' })]]);
     showVersionB(mayaRun());
-    goTab('Account');
+    openAccount();
     fireEvent.click(screen.getByRole('button', { name: 'Edit Health insurance' }));
     const editor = screen.getByTestId('editor-insurance');
     expect(editor.textContent).toMatch(/sample family, so saving makes a copy/);
@@ -64,7 +64,7 @@ describe('Account tab actions', () => {
     showVersionB(mayaRun({ familyId: 'guest-ab12cd34' }));
     goTab('Insurance');
     fireEvent.click(screen.getByRole('button', { name: 'Change' }));
-    expect(tab('Account').getAttribute('aria-current')).toBe('page');
+    expect(screen.getByRole('region', { name: 'Account' })).toBeTruthy();
     expect(screen.getByTestId('editor-insurance')).toBeTruthy();
   });
 
@@ -74,7 +74,7 @@ describe('Account tab actions', () => {
     localStorage.setItem('bundle_family_id', 'guest-ab12cd34');
     localStorage.setItem('bundle:claimed:guest-ab12cd34', '{"x":true}');
     const loc = showVersionB(mayaRun({ familyId: 'guest-ab12cd34' }));
-    goTab('Account');
+    openAccount();
     fireEvent.click(screen.getByRole('button', { name: /Forget everything/ }));
     const dialog = screen.getByRole('alertdialog');
     expect(dialog.textContent).toMatch(/can’t be undone/);
@@ -100,7 +100,7 @@ describe('Save your plan', () => {
     void first;
     fireEvent.change(screen.getByTestId('save-name-input'), { target: { value: 'Our baby plan' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save name' }));
-    goTab('Account');
+    openAccount();
     expect(screen.getByTestId('family-name').textContent).toBe('Our baby plan');
     goTab('Home');
     expect(screen.getByTestId('save-confirm')).toBeTruthy();
@@ -178,7 +178,7 @@ describe('Back keeps your place between tabs', () => {
     set(90);
     goTab('Home');
     expect(scrollTo.mock.calls.some((a) => a[0]?.top === 420)).toBe(true);
-    goTab('Account');
+    openAccount();
     expect(scrollTo).toHaveBeenLastCalledWith({ top: 0 });
   });
 });

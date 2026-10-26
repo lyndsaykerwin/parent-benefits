@@ -10,6 +10,12 @@ const STOP = new Set(['the', 'and', 'for', 'not', 'are', 'was', 'with', 'this', 
 const WORKSPACE_TAG = 'workspace';
 const LESSON_TAG = 'lesson';
 const OFFER_CHECK_REF = 'offer_checks:';
+/**
+ * Only workspace notes carry a chatId (their run id). H-MEM skips every record whose chatId differs from the one asked for, so
+ * asking with a chatId no run uses drops all run notes BEFORE the top-N cut. Without it, notes from earlier runs (which quote the
+ * same fine print) filled the top-N slots and the learned rule fell out at random (the eval "stable" flake).
+ */
+const NO_RUN_NOTES = '\u0000no-run-notes';
 /** Marks what Bundle remembers about one family (its answers and gear). Each record also carries `family:<id>`. */
 const FAMILY_TAG = 'family_profile';
 const familyTag = (familyId: string) => `family:${familyId}`;
@@ -63,7 +69,7 @@ export class BundleMemory {
     // H-MEM's default cut-off (0.35) is tuned for a real embedder; its built-in
     // hash embedder scores short rules lower, so use 0.15 and then require at least
     // one shared word so unrelated queries return nothing.
-    const res = this.hmem.query(query, { topN: topN + 20, threshold: 0.15 });
+    const res = this.hmem.query(query, { topN: topN + 20, threshold: 0.15, chatId: NO_RUN_NOTES });
     const words = new Set(tokenize(query).filter((w) => w.length > 2 && !STOP.has(w)));
     const out = res.memories
       .filter((m) => !m.memory.tags.includes(WORKSPACE_TAG) && !m.memory.tags.includes(LESSON_TAG) && !m.memory.tags.includes(FAMILY_TAG))
@@ -119,7 +125,7 @@ export class BundleMemory {
 
   /** Grading lessons related to a query (same matching rule as case law: at least one shared word). */
   recallLessons(query: string, topN = 5): StoredLesson[] {
-    const res = this.hmem.query(query, { topN: topN + 20, threshold: 0.15 });
+    const res = this.hmem.query(query, { topN: topN + 20, threshold: 0.15, chatId: NO_RUN_NOTES });
     const words = new Set(tokenize(query).filter((w) => w.length > 2 && !STOP.has(w)));
     return res.memories
       .filter((m) => m.memory.tags.includes(LESSON_TAG))

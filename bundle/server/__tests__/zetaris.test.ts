@@ -63,13 +63,41 @@ describe('ZetarisClient', () => {
     expect(fetchFn).not.toHaveBeenCalled();
   });
 
-  it('writes the cache on live success and serves it in sampleMode without calling out', async () => {
+  it('record mode: writes the cache on live success and serves it in sampleMode without calling out', async () => {
     const live = jest.fn().mockResolvedValue(jsonResponse({ headers: ['n'], data: [['4']] }));
-    await make(live).runQuery('SELECT 4');
+    await make(live, { record: true }).runQuery('SELECT 4');
     const offline = jest.fn();
     const res = await make(offline, { sampleMode: true }).runQuery('SELECT 4');
     expect(res.rows).toEqual([{ n: 4 }]);
     expect(offline).not.toHaveBeenCalled();
+  });
+
+  it('live mode without record never writes the saved answers (only the record scripts may)', async () => {
+    const fetchFn = jest.fn().mockResolvedValue(jsonResponse({ headers: ['n'], data: [['6']] }));
+    const res = await make(fetchFn).runQuery('SELECT 6');
+    expect(res.rows).toEqual([{ n: 6 }]);
+    expect(fetchFn).toHaveBeenCalledTimes(1);
+    expect(fs.readdirSync(dir)).toEqual([]);
+  });
+
+  it('live mode without record leaves an existing saved answer untouched', async () => {
+    const sql = 'SELECT 7';
+    const file = path.join(dir, `${crypto.createHash('sha256').update(sql).digest('hex')}.json`);
+    const saved = JSON.stringify({ headers: ['n'], rows: [{ n: 1 }], ms: 5 });
+    fs.writeFileSync(file, saved);
+    const fetchFn = jest.fn().mockResolvedValue(jsonResponse({ headers: ['n'], data: [['7']] }));
+    expect((await make(fetchFn).runQuery(sql)).rows).toEqual([{ n: 7 }]);
+    expect(fs.readFileSync(file, 'utf8')).toBe(saved);
+  });
+
+  it('withTrace copies keep the record setting', async () => {
+    jest.spyOn(process.stdout, 'write').mockImplementation(() => true);
+    const t = new TraceLogger('z2', path.join(dir, 'logs'));
+    const fetchFn = jest.fn().mockImplementation(async () => jsonResponse({ headers: ['n'], data: [['8']] }));
+    await make(fetchFn).withTrace(t, 'recall').runQuery('SELECT 8');
+    expect(fs.readdirSync(dir).filter((f) => f.endsWith('.json'))).toEqual([]);
+    await make(fetchFn, { record: true }).withTrace(t, 'recall').runQuery('SELECT 8');
+    expect(fs.readdirSync(dir).filter((f) => f.endsWith('.json'))).toHaveLength(1);
   });
 
   it('sample mode: a cache miss is "unavailable", never calls live Zetaris and never writes the cache', async () => {

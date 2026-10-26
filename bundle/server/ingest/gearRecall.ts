@@ -152,9 +152,41 @@ export function registrationUrl(brand: string | null | undefined): string | null
 
 export interface MoneyBack { fsaEligible: boolean; fsaCategory?: string; fsaAccount?: string; fsaSourceUrl?: string }
 
-/** Is this receipt line on the FSA/HSA eligible list (the same keyword list the Money-back agent uses)? Plain keyword match, no guessing. */
+/** Split a receipt line or keyword into lower-case words. */
+function receiptWords(text: string): string[] {
+  return text.toLowerCase().split(/[^a-z]+/).filter(Boolean);
+}
+
+/** The word without a plural "s" ("pads" -> "pad", "thermometers" -> "thermometer"). */
+function singular(w: string): string {
+  return w.length > 3 && w.endsWith('s') && !w.endsWith('ss') ? w.slice(0, -1) : w;
+}
+
+/** True when every letter of `short` appears in `word`, in the same order (e.g. "asprtr" inside "aspirator"). */
+function lettersInOrder(short: string, word: string): boolean {
+  let i = 0;
+  for (const ch of word) if (ch === short[i]) i++;
+  return i === short.length;
+}
+
+/**
+ * Does one receipt word stand for one keyword word? Receipts shorten names in two ways:
+ *   cut off the end ("THERMO", "THERM" for thermometer)   -> a start of the word, at least 4 letters
+ *   drop the vowels ("ASPRTR", "THERMOMTR")               -> same first and last letter, at least 4 letters, rest in order
+ * Short or loose guesses are refused, so "THERMAL", "THERMOS", "SALT" and "SUN" do not match.
+ */
+function wordMatches(token: string, word: string): boolean {
+  if (singular(token) === singular(word)) return true; // same word, maybe plural (the plural trim is never used for short forms: "THERMOS" is not "THERMO")
+  if (token.length < 4 || token.length > word.length) return false;
+  if (word.startsWith(token)) return true;
+  return token[0] === word[0] && token[token.length - 1] === word[word.length - 1] && lettersInOrder(token, word);
+}
+
+/** Is this receipt line on the FSA/HSA eligible list (the same keyword list the Money-back agent uses)?
+ *  Every word of the keyword must appear on the line, written in full or as a standard receipt short form. */
 export function moneyBackFor(productName: string): MoneyBack {
-  const name = productName.toLowerCase();
-  const hit = FSA_CATEGORIES.find((c) => (c.account === 'FSA' || c.account === 'HSA') && name.includes(c.keyword.toLowerCase()));
+  const tokens = receiptWords(productName);
+  const hit = FSA_CATEGORIES.find((c) => (c.account === 'FSA' || c.account === 'HSA') &&
+    receiptWords(c.keyword).every((w) => tokens.some((t) => wordMatches(t, w))));
   return hit ? { fsaEligible: true, fsaCategory: hit.category, fsaAccount: hit.account, fsaSourceUrl: hit.sourceUrl ?? undefined } : { fsaEligible: false };
 }

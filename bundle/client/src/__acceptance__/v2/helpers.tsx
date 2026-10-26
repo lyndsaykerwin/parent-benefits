@@ -43,6 +43,15 @@ export const tab = (name: string) =>
 
 export const goTab = (name: string) => fireEvent.click(tab(name));
 
+/** The family chip in the header: a button that opens the family menu (Switch family, Your plan and memory). */
+export const chipButton = () => screen.getByRole('button', { name: /^Family menu/ });
+
+/** Opens the Account screen the way a parent does: tap the family chip, then "Your plan and memory". */
+export function openAccount() {
+  fireEvent.click(chipButton());
+  fireEvent.click(within(screen.getByRole('menu', { name: /Family menu/i })).getByRole('menuitem', { name: /Your plan and memory/ }));
+}
+
 export type FakeRoute = [RegExp, (init: RequestInit | undefined, url: string) => unknown];
 
 /** Fake server: answers each request whose URL matches a pattern; anything else gets a 404. Returns the jest mock. */

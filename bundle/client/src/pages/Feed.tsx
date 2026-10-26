@@ -253,7 +253,7 @@ export default function Feed() {
 
   const family = run?.family ?? finished?.family ?? chipInfo.family;
   const today = run?.today ?? chipInfo.today;
-  const chip = familyChip(family, today);
+  const chip = familyChip(family, today, run?.familyId ?? finished?.familyId);
 
   // The checking lines: built from the family's answers, shown one at a time.
   const familyKey = JSON.stringify(family ?? null);

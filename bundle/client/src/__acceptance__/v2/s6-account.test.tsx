@@ -7,7 +7,7 @@ import App from '@/App';
 import VersionB from '@/pages/tabs/VersionB';
 import CardDetail from '@/pages/CardDetail';
 import { saveRun } from '@/lib/bundle';
-import { FakeES, callsTo, fakeServer, leoRun, mayaRun, showVersionB, tab, goTab } from './helpers';
+import { FakeES, callsTo, chipButton, fakeServer, leoRun, mayaRun, openAccount, showVersionB, tab, goTab } from './helpers';
 
 afterEach(() => { cleanup(); for (const k of ['scrollY', 'pageYOffset']) delete (window as any)[k]; delete (document.documentElement as any).scrollTop; try { sessionStorage.clear(); localStorage.clear(); } catch { /* ignore */ } delete (global as any).EventSource; });
 
@@ -35,9 +35,9 @@ describe('S6a: Account tab with friendly memory labels', () => {
 
     expect(screen.queryByText(/Start over with your own details/)).toBeNull();
 
-    expect(tab('Account')).toBeTruthy();
-    goTab('Account');
-    expect(tab('Account').getAttribute('aria-current')).toBe('page');
+    // Option B (Oct 25): Account is no longer a bottom tab; it opens from the family chip's "Your plan and memory".
+    expect(within(screen.getByRole('navigation', { name: 'Main' })).queryByRole('button', { name: /^Account/ })).toBeNull();
+    openAccount();
     const page = screen.getByRole('region', { name: 'Account' });
 
     // the 5 answers (Q4 in its new two-part wording)
@@ -73,18 +73,11 @@ describe('S6a: Account tab with friendly memory labels', () => {
   });
 });
 
-/** Opens the "Switch family" control (a drop-down list or a menu button) and picks a family by name. */
+/** Opens the "Switch family" menu on the Account screen and picks a family by name. */
 function switchFamily(name: RegExp) {
   const page = screen.getByRole('region', { name: 'Account' });
-  const select = within(page).queryByRole('combobox', { name: /Switch family/i });
-  if (select) {
-    const option = within(select).getAllByRole('option').find((o) => name.test(o.textContent ?? ''));
-    if (!option) throw new Error(`No "${name}" choice in the Switch family list`);
-    fireEvent.change(select, { target: { value: (option as HTMLOptionElement).value } });
-    return;
-  }
   fireEvent.click(within(page).getByRole('button', { name: /Switch family/i }));
-  const item = screen.queryAllByRole('menuitem', { name }).concat(screen.queryAllByRole('menuitemradio', { name }), screen.queryAllByRole('option', { name }))[0];
+  const item = within(page).queryAllByRole('menuitemradio', { name })[0];
   if (!item) throw new Error(`No "${name}" choice in the Switch family menu`);
   fireEvent.click(item);
 }
@@ -107,7 +100,7 @@ describe('S6b: saved families, Switch family, and Back keeps your place', () => 
       [/gear|purchase|items/i, () => ({ items: [], receipts: [] })],
     ]);
     showVersionB(mayaRun());
-    goTab('Account');
+    openAccount();
     switchFamily(/Leo/);
 
     await waitFor(() => {
@@ -117,6 +110,22 @@ describe('S6b: saved families, Switch family, and Back keeps your place', () => 
     });
     const page = screen.getByRole('region', { name: 'Account' });
     expect(page.textContent).not.toMatch(/02139/);
+  });
+
+  // Option B (Oct 25) — "Switch family" is also in the header's family chip menu; picking Leo there loads Leo on Home.
+  it('the family chip menu → Leo loads Leo\'s results', async () => {
+    const leo = leoRun();
+    fakeServer([
+      [/\/api\/families\/leo/i, () => familyReply(leo)],
+      [/\/api\/runs\/run-leo$/, () => familyReply(leo).run],
+      [/memory/i, () => ({ family: [], learned: [] })],
+      [/gear|purchase|items/i, () => ({ items: [], receipts: [] })],
+    ]);
+    showVersionB(mayaRun());
+    fireEvent.click(chipButton());
+    fireEvent.click(within(screen.getByRole('menu', { name: /Family menu/i })).getByRole('menuitemradio', { name: /Leo/ }));
+    await waitFor(() => expect(chipButton().textContent).toMatch(/^Family menu: Leo/));
+    expect(tab('Home').getAttribute('aria-current')).toBe('page');
   });
 
   // S6 (R1) — "The browser remembers the family id (localStorage 'bundle_family_id'). Opening the app with a saved id loads

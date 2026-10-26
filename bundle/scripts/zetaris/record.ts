@@ -3,7 +3,7 @@
  *
  *   npm run zetaris:record        (needs real Zetaris keys; refuses to run in SAMPLE_MODE)
  *
- * It asks, LIVE: the saved-verdict question for every offer, the per-brand audit, each sample family's profile
+ * It asks, LIVE: the saved-verdict question for every offer, the per-brand audit, the V2 report card (per brand and source), each sample family's profile
  * (the rerouted live-mode read) and the Coach's newest issue reports. The Zetaris client saves each live answer into
  * data/sample/zetaris-cache/ (keyed by the exact SQL text). Nothing is written by hand: if a question fails or the
  * view is not registered yet, no answer is saved for it and sample mode keeps saying "no saved verdicts".
@@ -15,7 +15,7 @@ import fs from 'fs';
 import path from 'path';
 import { loadEnv } from '../../server/env';
 import { ZetarisClient } from '../../server/adapters/zetaris';
-import { savedVerdictsSql, offerAuditSql, familyProfileSql, coachIssuesSql } from '../../server/agents/savedVerdicts';
+import { savedVerdictsSql, offerAuditSql, offerAuditBySourceSql, familyProfileSql, coachIssuesSql } from '../../server/agents/savedVerdicts';
 
 export interface Question { label: string; sql: string }
 type Asker = { runQuery(sql: string): Promise<{ rows: Record<string, unknown>[]; ms?: number }> };
@@ -27,6 +27,7 @@ export function buildQuestions(o: { offerIds: (string | number)[]; familyIds: st
   const qs: Question[] = [];
   if (o.offerIds.length) qs.push({ label: 'saved verdicts', sql: savedVerdictsSql(o.offerIds) });
   qs.push({ label: 'offer audit (all brands)', sql: offerAuditSql() });
+  qs.push({ label: 'offer report card (by source)', sql: offerAuditBySourceSql() });
   for (const id of o.familyIds) qs.push({ label: `family profile ${id}`, sql: familyProfileSql(id) });
   qs.push({ label: 'coach issue reports', sql: coachIssuesSql(o.issueLimit ?? COACH_ISSUE_LIMIT) });
   return qs;
@@ -56,7 +57,7 @@ async function main() {
 
   const z = new ZetarisClient({
     baseUrl: process.env.ZETARIS_BASE_URL!, orgId: process.env.ZETARIS_ORG_ID!, apiKey: process.env.ZETARIS_API_KEY!,
-    timeoutMs: 90_000, sampleMode: false, cacheDir: path.resolve('data/sample/zetaris-cache'),
+    timeoutMs: 90_000, sampleMode: false, cacheDir: path.resolve('data/sample/zetaris-cache'), record: true,
   });
   const families: { id: string }[] = JSON.parse(fs.readFileSync(path.resolve('data/sample/families.json'), 'utf8'));
   const offers = await z.runQuery('SELECT id FROM bundle_pg.v_judge_offers ORDER BY id');

@@ -19,12 +19,12 @@ const tab = (name: string) => within(screen.getByRole('navigation', { name: 'Mai
 const plus = () => screen.getByRole('button', { name: /^Scan$/ });
 
 describe('Version B tabs, baby is here (Maya)', () => {
-  it('shows Home, Taxes, Savings, Insurance, Deals and Account, starting on Home, with a "+" on every tab', () => {
+  it('shows Home, Taxes, Savings, Insurance and Deals (Account opens from the family chip), starting on Home, with a "+" on every tab', () => {
     show('maya');
     const bar = screen.getByRole('navigation', { name: 'Main' });
-    expect(within(bar).getAllByRole('button').map((b) => b.textContent?.replace(/\d+$/, ''))).toEqual(['Home', 'Taxes', 'Savings', 'Insurance', 'Deals', 'Account']);
+    expect(within(bar).getAllByRole('button').map((b) => b.textContent?.replace(/\d+$/, ''))).toEqual(['Home', 'Taxes', 'Savings', 'Insurance', 'Deals']);
     expect(tab('Home').getAttribute('aria-current')).toBe('page');
-    for (const name of ['Home', 'Taxes', 'Savings', 'Insurance', 'Deals', 'Account']) {
+    for (const name of ['Home', 'Taxes', 'Savings', 'Insurance', 'Deals']) {
       fireEvent.click(tab(name));
       expect(tab(name).getAttribute('aria-current')).toBe('page');
       expect(plus()).toBeTruthy();

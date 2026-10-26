@@ -26,7 +26,7 @@ async function main() {
     const trace = new TraceLogger(`court-${family.id}`, logDir);
     const z = new ZetarisClient({
       baseUrl: process.env.ZETARIS_BASE_URL!, orgId: process.env.ZETARIS_ORG_ID!, apiKey: process.env.ZETARIS_API_KEY!,
-      timeoutMs: 90_000, sampleMode: false, cacheDir: path.resolve('data/sample/zetaris-cache'), trace,
+      timeoutMs: 90_000, sampleMode: false, cacheDir: path.resolve('data/sample/zetaris-cache'), record: true, trace,
     });
     const memory = new BundleMemory(fs.mkdtempSync(path.join(os.tmpdir(), 'court-mem-')), trace);
     const ctx: AgentContext = { runId: `court-${family.id}`, family, z, llm: createGenerator(), memory, trace };

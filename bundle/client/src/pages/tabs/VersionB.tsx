@@ -4,7 +4,7 @@ import { ScanProvider, useScan } from '@/components/scan/ScanContext';
 import { ScanHeaderButton } from '@/components/scan/ScanButtons';
 import ScanSheet from '@/components/scan/ScanSheet';
 import { GearLockerView } from '@/components/scan/GearLocker';
-import { api, demoDateLabel, familyChip, FAMILY_ID_KEY, runFromStatus, savedFamilyId, saveRun, type SavedRun, type TraceLine } from '@/lib/bundle';
+import { api, demoDateLabel, familyChipParts, FAMILY_ID_KEY, runFromStatus, savedFamilyId, saveRun, type SavedRun, type TraceLine } from '@/lib/bundle';
 import { markStartOver } from '@/lib/account';
 import { clearSpotContext, currentScroll, recordSpot, restoreSpot, setSpotContext } from '@/lib/scrollSpot';
 import { applyInsuranceAnswer } from '@/lib/insurance';
@@ -21,6 +21,7 @@ import InsuranceTab from './InsuranceTab';
 import DealsTab from './DealsTab';
 import AccountTab, { type SwitchTarget } from './AccountTab';
 import TabBar from './TabBar';
+import FamilyChipMenu from './FamilyChipMenu';
 import type { TabProps } from './shared';
 
 const tabKey = (runId: string) => `bundle:tab:${runId}`;
@@ -73,8 +74,9 @@ function VersionBInner({ run: runProp, owner, lines = [], ownerPanel }: Props) {
     return () => { window.removeEventListener('scroll', onScroll); clearSpotContext(); };
   }, []);
 
-  // ----- the Account tab's actions -----
-  const switchTo = useCallback(async (t: SwitchTarget): Promise<string | null> => {
+  // ----- the Account screen's actions (Switch family is also in the header's family chip menu) -----
+  // `land` is where the parent ends up: the Account screen when switching from there, Home when switching from the chip.
+  const switchTo = useCallback(async (t: SwitchTarget, land: TabId = 'account'): Promise<string | null> => {
     const id = t === 'saved' ? savedFamilyId() : t;
     if (!id) { markStartOver(); navigate('/'); return null; } // no saved profile yet: the five questions
     try {
@@ -84,14 +86,14 @@ function VersionBInner({ run: runProp, owner, lines = [], ownerPanel }: Props) {
       if (!next) {
         // Nothing saved for this family yet (a fresh server): check them now, on the checking screen.
         const { runId } = await api.startRun({ familyId: id });
-        saveTab(runId, 'account');
+        saveTab(runId, land);
         navigate(`/feed/${encodeURIComponent(runId)}`);
         return null;
       }
       saveRun(next);
-      saveTab(next.runId, 'account');
+      saveTab(next.runId, land);
       setRun(next);
-      setTab('account');
+      setTab(land);
       navigate(`/feed/${encodeURIComponent(next.runId)}`, { replace: true });
       return null;
     } catch (e) {
@@ -100,6 +102,8 @@ function VersionBInner({ run: runProp, owner, lines = [], ownerPanel }: Props) {
       return err.message || 'Could not open that family. Please try again.';
     }
   }, [navigate]);
+  const switchFromChip = useCallback((t: SwitchTarget) => { closeLocker(); return switchTo(t, 'home'); }, [switchTo, closeLocker]);
+  const openAccount = useCallback(() => change('account'), [change]);
   const startOver = useCallback(() => navigate('/'), [navigate]);
   const forgot = useCallback(() => navigate('/'), [navigate]);
   const rerun = useCallback((runId: string) => { saveTab(runId, 'account'); navigate(`/feed/${encodeURIComponent(runId)}`); }, [navigate]);
@@ -125,7 +129,7 @@ function VersionBInner({ run: runProp, owner, lines = [], ownerPanel }: Props) {
 
   return (
     <AppShell
-      chip={familyChip(run.family, run.today)}
+      chipSlot={(() => { const label = familyChipParts(run.family, run.today, run.familyId); return label ? <FamilyChipMenu label={label} familyId={run.familyId} onSwitch={switchFromChip} onOpenAccount={openAccount} /> : null; })()}
       action={<ScanHeaderButton />}
       footer={<TabBar current={tab} onChange={change} badge={badgeCount(cards, today, stage, run.family)} />}
     >
@@ -137,7 +141,7 @@ function VersionBInner({ run: runProp, owner, lines = [], ownerPanel }: Props) {
         <GearLockerView familyId={run.familyId} />
       ) : (
         <div role="region" aria-label={TAB_NAMES[tab]} data-testid={`tab-${tab}`}>
-          {Screen ? <Screen {...props} /> : <AccountTab {...props} onSwitch={switchTo} onStartOver={startOver} onForgot={forgot} onRerun={rerun} />}
+          {Screen ? <Screen {...props} /> : <AccountTab {...props} onSwitch={(t) => switchTo(t)} onStartOver={startOver} onForgot={forgot} onRerun={rerun} />}
         </div>
       )}
       <ScanSheet familyId={run.familyId} />

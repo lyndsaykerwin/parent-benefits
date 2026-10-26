@@ -77,7 +77,7 @@ export default function CardDetail() {
   }, [run?.runId, owner]);
 
   const feedHref = run ? `/feed/${encodeURIComponent(run.runId)}` : '/';
-  const chip = familyChip(run?.family, run?.today);
+  const chip = familyChip(run?.family, run?.today, run?.familyId);
 
   if (looking) {
     return <AppShell back={{ href: feedHref, label: 'Back' }}><p className="mt-6 text-[16px] text-ink-2">Loading this card…</p></AppShell>;

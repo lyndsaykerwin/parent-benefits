@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { GearLockerCard } from '@/components/scan/GearLocker';
-import { api, localToday, rememberFamilyId, savedFamilyId, type FamilyMemory, type RunRequest } from '@/lib/bundle';
+import { api, localToday, rememberFamilyId, type FamilyMemory, type RunRequest } from '@/lib/bundle';
 import { clearBrowserData, clearEdit, loadPlan, markStartOver, peekEdit, type EditKey } from '@/lib/account';
 import { stateForZip } from '@/lib/onboarding';
 import { dateLimits, dateRangeError } from '@shared/dateRange';
@@ -11,16 +11,9 @@ import { cn } from '@/lib/utils';
 import { loadCarrier } from './InsuranceTab';
 import { useFiling } from './TaxBooster';
 import type { TabProps } from './shared';
+import { FamilyChoices, isSampleId, openingLabel, useFamilySwitch, type SwitchTarget } from './FamilySwitch';
 
-/** A choice in the "Switch family" menu: one of the three sample families, or the parent's own saved profile. */
-export type SwitchTarget = 'maya' | 'leo' | 'ava' | 'saved';
-
-// Descriptions of the made-up sample families (data/sample/families.json). Fictional data only.
-const SAMPLES: { id: Exclude<SwitchTarget, 'saved'>; name: string; line: string }[] = [
-  { id: 'maya', name: 'Maya', line: 'Baby born Oct 3, 2026 · ZIP 02139' },
-  { id: 'leo', name: 'Leo', line: 'Expecting, due Dec 7, 2026 · ZIP 02446' },
-  { id: 'ava', name: 'Ava', line: 'Baby born Aug 24, 2026 · ZIP 43215 (Ohio)' },
-];
+export type { SwitchTarget } from './FamilySwitch';
 
 export interface AccountProps extends TabProps {
   /** Opens another family's saved results. Resolves with a plain-English problem, or null once it has switched. */
@@ -32,8 +25,6 @@ export interface AccountProps extends TabProps {
   /** After the answers were saved and a new check started. */
   onRerun: (runId: string) => void;
 }
-
-const isSampleId = (id: string) => SAMPLES.some((s) => s.id === id);
 
 const WORK_ORDER: WorkStatus[] = ['paycheck', 'self_employed', 'not_working'];
 
@@ -108,22 +99,10 @@ export default function AccountTab(props: AccountProps) {
     }
   }
 
-  // ----- switch family -----
+  // ----- switch family (shared with the header's family chip menu) -----
   const [menu, setMenu] = useState(false);
-  const [switching, setSwitching] = useState<SwitchTarget | null>(null);
-  const [switchError, setSwitchError] = useState<string | null>(null);
-  const current: SwitchTarget = isSampleId(run.familyId) ? (run.familyId as SwitchTarget) : 'saved';
-  const hasSaved = guest || !!savedFamilyId();
-  async function pick(t: SwitchTarget) {
-    setSwitchError(null);
-    if (t === current) { setMenu(false); return; }
-    setMenu(false);
-    setSwitching(t);
-    const problem = await props.onSwitch(t);
-    // On success the screen shows the other family. On a problem, say so under the family name.
-    if (problem) setSwitchError(problem);
-    setSwitching(null);
-  }
+  const { current, switching, switchError, hasSaved, pick: pickFamily } = useFamilySwitch(run.familyId, props.onSwitch);
+  const pick = (t: SwitchTarget) => { setMenu(false); void pickFamily(t); };
 
   // ----- what Bundle remembers -----
   const [memory, setMemory] = useState<FamilyMemory | null>(null);
@@ -241,31 +220,10 @@ export default function AccountTab(props: AccountProps) {
         </div>
         {menu && (
           <div role="menu" aria-label="Families" className="mt-3 space-y-2">
-            {SAMPLES.map((s) => (
-              <button
-                key={s.id} type="button" role="menuitemradio" aria-checked={current === s.id} disabled={switching !== null} onClick={() => pick(s.id)}
-                className={cn('flex w-full items-start gap-3 rounded-2xl border-2 p-3 text-left disabled:opacity-60', current === s.id ? 'border-coral bg-coral-tint' : 'border-line bg-paper')}
-              >
-                <span aria-hidden="true" className={cn('mt-1 h-5 w-5 shrink-0 rounded-full border-2', current === s.id ? 'border-coral bg-coral' : 'border-line')} />
-                <span className="min-w-0">
-                  <span className="flex items-center gap-2 text-[16px] font-extrabold">{s.name} <span className="rounded-full bg-[#FBEFC9] px-2 py-0.5 text-[11.5px] font-bold text-[#7A5A00]">Sample</span></span>
-                  <span className="block text-[13.5px] text-ink-2">{s.line}</span>
-                </span>
-              </button>
-            ))}
-            <button
-              type="button" role="menuitemradio" aria-checked={current === 'saved'} disabled={switching !== null} onClick={() => pick('saved')}
-              className={cn('flex w-full items-start gap-3 rounded-2xl border-2 p-3 text-left disabled:opacity-60', current === 'saved' ? 'border-coral bg-coral-tint' : 'border-line bg-paper')}
-            >
-              <span aria-hidden="true" className={cn('mt-1 h-5 w-5 shrink-0 rounded-full border-2', current === 'saved' ? 'border-coral bg-coral' : 'border-line')} />
-              <span className="min-w-0">
-                <span className="block text-[16px] font-extrabold">My saved profile</span>
-                <span className="block text-[13.5px] text-ink-2">{hasSaved ? 'Your own answers, kept on this device' : 'Not set up yet: answer the 5 questions'}</span>
-              </span>
-            </button>
+            <FamilyChoices current={current} hasSaved={hasSaved} disabled={switching !== null} onPick={pick} />
           </div>
         )}
-        {switching && <p role="status" className="mt-3 text-[14px] font-semibold text-ink-2">Opening {switching === 'saved' ? 'your saved profile' : SAMPLES.find((s) => s.id === switching)?.name}…</p>}
+        {switching && <p role="status" className="mt-3 text-[14px] font-semibold text-ink-2">Opening {openingLabel(switching)}…</p>}
         {switchError && <p role="alert" className="mt-3 rounded-xl bg-[#FBE3E0] px-3 py-2 text-[14px] font-semibold text-[#9E2A21]">{switchError}</p>}
         <p className="mt-3 text-[13.5px] font-semibold text-ink-2" data-testid="trust-line">Saved on this device. No account needed.</p>
       </section>

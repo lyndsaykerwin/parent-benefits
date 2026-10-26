@@ -41,6 +41,8 @@ export function makeZetarisClient(sample: boolean): ZetarisClient {
     apiKey: process.env.ZETARIS_API_KEY || 'sample',
     timeoutMs: (Number(process.env.SOURCE_TIMEOUT_SECONDS) || 20) * 1000 * 4, sampleMode: sample,
     cacheDir: path.resolve('data/sample/zetaris-cache'),
+    // Live runs only read the recorded answers; examples:regen --live sets ZETARIS_RECORD=true to refresh them on purpose.
+    record: !sample && process.env.ZETARIS_RECORD === 'true',
   });
 }
 

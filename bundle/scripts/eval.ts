@@ -174,15 +174,29 @@ export function llmModeOf(llm: Generator): LlmMode {
   return 'real-model';
 }
 
-/** Zetaris for the eval: the saved replay cache first; with credentials, a cache miss goes live (`live` refreshes everything). */
-export function makeEvalZetaris(opts: { live?: boolean } = {}): ZetarisClient {
+/** Zetaris for the eval: the saved replay cache first; `live` asks Zetaris for real but never rewrites the saved answers (only the record scripts do). */
+export function makeEvalZetaris(opts: { live?: boolean; freshVerdicts?: boolean } = {}): ZetarisClient {
   const have = process.env.ZETARIS_BASE_URL && process.env.ZETARIS_ORG_ID && process.env.ZETARIS_API_KEY;
-  return new ZetarisClient({
+  const z = new ZetarisClient({
     baseUrl: process.env.ZETARIS_BASE_URL ?? 'http://127.0.0.1:9', orgId: process.env.ZETARIS_ORG_ID ?? 'none', apiKey: process.env.ZETARIS_API_KEY ?? 'none',
     timeoutMs: (Number(process.env.SOURCE_TIMEOUT_SECONDS) || 20) * 4000, sampleMode: !opts.live,
     cacheDir: path.resolve('data/sample/zetaris-cache'),
     ...(have ? {} : { fetchFn: (async () => { throw new Error('no Zetaris credentials: replay cache only'); }) as unknown as typeof fetch }),
   });
+  return opts.freshVerdicts ? withNoSavedVerdicts(z) : z;
+}
+
+/**
+ * The eval measures the Court judging each offer itself, so it gets its own empty set of saved grades: the saved-verdict
+ * question (view v_offer_verdicts) answers "none yet" and every offer is judged fresh. Every other question replays as usual.
+ * The per-agent copies made by withTrace get the same treatment.
+ */
+function withNoSavedVerdicts(z: ZetarisClient): ZetarisClient {
+  const ask = z.runQuery.bind(z);
+  const copy = z.withTrace.bind(z);
+  z.runQuery = async (sql: string) => (/\bv_offer_verdicts\b/.test(sql) ? { headers: [], rows: [], ms: 0 } : ask(sql));
+  z.withTrace = (...a: Parameters<ZetarisClient['withTrace']>) => withNoSavedVerdicts(copy(...a));
+  return z;
 }
 
 const sig = (r: BundleResult) => r.cards.map((c) => `${c.id}|${c.verdict}|${c.amountCents}|${c.deadline}`).sort().join('\n') + `\n${JSON.stringify(r.receipt)}`;
@@ -456,7 +470,7 @@ async function main() {
   }
   const store: BundleStore = args.has('--neon') ? new (await import('../server/bundleStore')).DrizzleStore() : new MemoryStore();
   const sb = await runEval({
-    z: makeEvalZetaris({ live: args.has('--live') }), llm, store, logsDir: path.resolve('logs'),
+    z: makeEvalZetaris({ live: args.has('--live'), freshVerdicts: true }), llm, store, logsDir: path.resolve('logs'),
     copyTracesTo: path.resolve('output_examples/learning'), learningOnly: args.has('--learning'),
   });
   fs.mkdirSync(path.resolve('logs'), { recursive: true });

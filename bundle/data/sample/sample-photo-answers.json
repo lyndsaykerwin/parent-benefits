@@ -1,12 +1,21 @@
 {
-  "note": "FICTIONAL practice-mode answers. SAMPLE_MODE has no vision key, and the real recordings (npm run record-vision, needs NVIDIA on the Mac) are not made yet, so a photo with no recording gets one of these instead. Brand, model number, UPC, store and prices are all made up. The server marks every reply that uses them as a sample answer. Delete this fallback's use once real recordings exist in vision-cache/.",
+  "note": "FICTIONAL practice-mode answers, used only for a photo that has no real recording in vision-cache/. The two sample photos in photos/ (a made-up Graco label and a made-up Baby Mart receipt) now have real NVIDIA recordings (npm run record-vision, Oct 25 2026), so they replay those instead. Any other photo in practice mode gets one of these. Brand, model number, UPC, store and prices here are all made up. The server marks every reply that uses them as a sample answer, and the screen says so.",
   "item": {
     "rejected": null,
     "readText": "SAMPLE ONLY Model SAMPLE-1042 UPC 012345678905 Graco infant car seat",
     "store": null,
     "purchasedOn": null,
     "items": [
-      { "productName": "Graco infant car seat (sample)", "brand": "Graco", "modelNumber": "SAMPLE-1042", "lotCode": null, "upc": "012345678905", "sizeText": null, "priceCents": null, "quantity": 1 }
+      {
+        "productName": "Graco infant car seat (sample)",
+        "brand": "Graco",
+        "modelNumber": "SAMPLE-1042",
+        "lotCode": null,
+        "upc": "012345678905",
+        "sizeText": null,
+        "priceCents": null,
+        "quantity": 1
+      }
     ]
   },
   "receipt": {
@@ -15,9 +24,36 @@
     "store": "Made-up Baby Mart",
     "purchasedOn": "2026-10-20",
     "items": [
-      { "productName": "Infant digital thermometer", "brand": null, "modelNumber": null, "lotCode": null, "upc": null, "sizeText": null, "priceCents": 1299, "quantity": 1 },
-      { "productName": "Nasal aspirator", "brand": null, "modelNumber": null, "lotCode": null, "upc": null, "sizeText": null, "priceCents": 849, "quantity": 1 },
-      { "productName": "Newborn diapers, 84 count", "brand": null, "modelNumber": null, "lotCode": null, "upc": null, "sizeText": "84 count", "priceCents": 2499, "quantity": 1 }
+      {
+        "productName": "Infant digital thermometer",
+        "brand": null,
+        "modelNumber": null,
+        "lotCode": null,
+        "upc": null,
+        "sizeText": null,
+        "priceCents": 1299,
+        "quantity": 1
+      },
+      {
+        "productName": "Nasal aspirator",
+        "brand": null,
+        "modelNumber": null,
+        "lotCode": null,
+        "upc": null,
+        "sizeText": null,
+        "priceCents": 849,
+        "quantity": 1
+      },
+      {
+        "productName": "Newborn diapers, 84 count",
+        "brand": null,
+        "modelNumber": null,
+        "lotCode": null,
+        "upc": null,
+        "sizeText": "84 count",
+        "priceCents": 2499,
+        "quantity": 1
+      }
     ]
   }
 }

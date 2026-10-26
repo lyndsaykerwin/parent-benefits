@@ -4,7 +4,7 @@ import path from 'path';
 import express from 'express';
 import request from 'supertest';
 import { createBundleRouter } from '../routes/bundleRoutes';
-import { createDefaultApiDeps } from '../bundleDeps';
+import { createDefaultApiDeps, makeZetarisClient } from '../bundleDeps';
 import { bodyParsers } from '../middleware/bodyLimit';
 
 // SAMPLE_MODE must work with no keys and no database.
@@ -107,5 +107,24 @@ describe('SAMPLE_MODE learning loop (README steps)', () => {
     expect(res.body.cards.some((c: any) => c.kind === 'discount' && c.verdict === 'likely')).toBe(true);
     expect(res.body.receipt.likelyBenefitsCents).toBeGreaterThan(0);
     expect(res.body.receipt.itemsChecked).toBe(0);
+  });
+});
+
+// Live app runs must never rewrite data/sample/zetaris-cache (the recording SAMPLE_MODE and the tests replay).
+describe('makeZetarisClient saved-answer writes', () => {
+  const saved = { ...process.env };
+  afterEach(() => { process.env = { ...saved }; });
+  const records = (sample: boolean) => (makeZetarisClient(sample) as unknown as { opts: { record?: boolean } }).opts.record;
+
+  it('a live run does not record unless ZETARIS_RECORD=true (set only by examples:regen --live)', () => {
+    delete process.env.ZETARIS_RECORD;
+    expect(records(false)).toBe(false);
+    process.env.ZETARIS_RECORD = 'true';
+    expect(records(false)).toBe(true);
+  });
+
+  it('SAMPLE_MODE never records, even with ZETARIS_RECORD=true', () => {
+    process.env.ZETARIS_RECORD = 'true';
+    expect(records(true)).toBe(false);
   });
 });

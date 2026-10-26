@@ -20,6 +20,8 @@ const LIVE = process.argv.includes('--live');
 // Replay the saved Zetaris answers (fast, free, repeatable) unless you pass --live, which queries Zetaris for real
 // and refreshes the saved answers in data/sample/zetaris-cache/.
 if (!LIVE) for (const k of ['ZETARIS_BASE_URL', 'ZETARIS_ORG_ID', 'ZETARIS_API_KEY']) delete process.env[k];
+// Only a deliberate --live regen may rewrite the saved answers; ordinary live app runs never do (see ZetarisOptions.record).
+if (LIVE) process.env.ZETARIS_RECORD = 'true'; else delete process.env.ZETARIS_RECORD;
 
 async function main() {
   const { createBundleRouter } = await import('../server/routes/bundleRoutes');

@@ -1,5 +1,6 @@
 // Deals routes (Story 5, plans/v2-build-plan.md Lane D).
-//   GET  /api/offer-search        live search of the trusted baby-offer sites, each result graded by the court (quiet failure)
+//   GET  /api/offer-search        live search of the trusted baby-offer sites, each result graded by the court (quiet failure);
+//                                 confident grades are saved to the shared list, once per page and fine print
 //   POST /api/offers/audit        "Audit a deal": a parent's offer through the court, saved only when it is confident (R2)
 //   GET  /api/offers/report-card  the brand totals from /api/offer-audit, plus how much of it came from parents
 import express, { Router, type NextFunction, type Request, type Response } from 'express';
@@ -27,6 +28,8 @@ export interface OfferApiDeps {
   today?: () => string;
   limits?: { search?: number; audit?: number; report?: number };
   logsDir?: string;
+  /** Start the live search as soon as the server starts (real mode with a key only), so Deals finds a ready answer. The app turns it on. */
+  prewarm?: boolean;
 }
 
 // Screenshots arrive as base64 inside the JSON body: about a third bigger than the picture (up to 5 MB).
@@ -44,8 +47,12 @@ export function createOfferRouter(deps: OfferApiDeps): Router {
 
   // ---- live search: one cached search shared by everyone, so opening Deals does not spend a credit each time ----
   const searches = createLiveSearchCache(() => runLiveSearch({
-    llm: deps.llm, memory: deps.memory, today: today(), apiKey: tavilyKey(env()), client: deps.searchClient, logsDir: deps.logsDir,
+    llm: deps.llm, memory: deps.memory, today: today(), apiKey: tavilyKey(env()), client: deps.searchClient, logsDir: deps.logsDir, store,
   }));
+  // The search plus its checks takes longer than the screen waits (about 13 seconds against 9), so the app starts it at once.
+  if (deps.prewarm && env().SAMPLE_MODE !== 'true' && (deps.searchClient || tavilyKey(env()))) {
+    searches.get(today()).catch(() => undefined); // a failure here is quiet; a later visit simply tries again
+  }
   /** How long the screen is made to wait; it gives up on its own at 10 seconds, so we answer a little sooner. */
   const WAIT_MS = 9000;
 

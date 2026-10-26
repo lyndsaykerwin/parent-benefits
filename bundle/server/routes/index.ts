@@ -28,7 +28,7 @@ export async function registerRoutes(app: Express, apiDeps: ApiDeps = createDefa
   }));
   app.use(createAgentLogRouter({ reviewerToken: apiDeps.reviewerToken }));
   app.use(createOfferAuditRouter());
-  app.use(createOfferRouter({ llm: apiDeps.llm, memory }));
+  app.use(createOfferRouter({ llm: apiDeps.llm, memory, prewarm: process.env.NODE_ENV !== 'test' }));
 
   return server;
 }

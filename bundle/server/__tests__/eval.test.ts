@@ -19,7 +19,7 @@ describe('runEval (offline: no model key, replayed Zetaris, fake families)', () 
   jest.setTimeout(120000);
   let sb: Awaited<ReturnType<typeof runEval>>;
   const logsDir = tmp();
-  beforeAll(async () => { sb = await runEval({ z: makeEvalZetaris(), logsDir }); });
+  beforeAll(async () => { sb = await runEval({ z: makeEvalZetaris({ freshVerdicts: true }), logsDir }); });
 
   it('has 8 traps, all sourced, stable across 3 runs', () => {
     expect(sb.trapsTotal).toBe(8);

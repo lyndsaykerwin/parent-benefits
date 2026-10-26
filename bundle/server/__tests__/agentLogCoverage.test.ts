@@ -107,10 +107,26 @@ describe.each(FAMILIES)('agent log coverage: %s', (id) => {
     }
     const counts: Record<string, number> = {};
     for (const l of run().agentLines) for (const k of loopsOf(l)) counts[k] = (counts[k] ?? 0) + 1;
-    // Offline, with no model: the ordinary outcome line of a court case is not a rebuttal, and "no saved grades yet" is not a reuse.
+    // Offline, with no model: the ordinary outcome line of a court case is not a rebuttal.
     expect(counts.rebuttal ?? 0).toBe(0);
-    expect(counts.saved_verdict ?? 0).toBe(0);
     expect(counts.photo_retry ?? 0).toBe(0);
+    // Saved grades: practice mode replays the recorded Zetaris answer, so an offer graded before is reused (no AI).
+    // Every reuse line is the Court's, names one offer, says so plainly, and never reuses more grades than the read found.
+    const court = run().agentLines.filter((l) => l.agent_name === 'FinePrintCourt');
+    const read = court.find((l) => /^\d+ offer\(s\) in play$/.test(l.input_summary))!;
+    expect(read.output_summary).toMatch(/^(no saved grades yet|saved grades unavailable.*|\d+ saved grade\(s\) found)$/);
+    const found = Number(/^(\d+) saved grade\(s\) found$/.exec(read.output_summary)?.[1] ?? 0);
+    const reuses = run().agentLines.filter((l) => loopsOf(l).includes('saved_verdict'));
+    expect(reuses).toHaveLength(counts.saved_verdict ?? 0);
+    expect(reuses.length).toBeLessThanOrEqual(found);
+    for (const l of reuses) {
+      expect(l.agent_name).toBe('FinePrintCourt');
+      expect(l.action).toBe('court_debate');
+      expect(l.input_summary).toMatch(/^offer \d+$/);
+      expect(l.output_summary).toMatch(/^judge: \w+: same wording as when it was graded, so the saved grade is reused \(no AI\)$/);
+    }
+    expect(new Set(reuses.map((l) => l.input_summary)).size).toBe(reuses.length);
+    if (found === 0) expect(reuses).toHaveLength(0);
   });
 
   it('the parent response carries none of it: no agent log, trace ids, debate text or SQL', () => {
@@ -139,16 +155,27 @@ describe('agent log coverage: across all six families', () => {
     expect(maya.some((l) => l.agent_name === 'FinePrintCourt' && /no saved grades yet|saved grades unavailable|saved grade\(s\) found/.test(l.output_summary))).toBe(true);
   });
 
-  it('the Court writes one outcome line per offer it judged, and an ordinary outcome ("no rebuttal needed") is not a rebuttal', () => {
+  it('every offer in court gets exactly one line: a fresh outcome or a reused saved grade; an ordinary outcome ("no rebuttal needed") is not a rebuttal', () => {
+    let fresh = 0;
+    let reused = 0;
     for (const [id, r] of runs) {
-      const outcomes = r.agentLines.filter((l) => l.agent_name === 'FinePrintCourt' && /^offer \d+ outcome$/.test(l.input_summary));
-      expect(outcomes.length).toBeGreaterThan(0);
+      const court = r.agentLines.filter((l) => l.agent_name === 'FinePrintCourt');
+      const inPlay = Number(/^(\d+) offer\(s\) in play$/.exec(court.find((l) => /offer\(s\) in play$/.test(l.input_summary))!.input_summary)![1]);
+      const outcomes = court.filter((l) => /^offer \d+ outcome$/.test(l.input_summary));
+      const reuses = court.filter((l) => loopsOf(l).includes('saved_verdict'));
       for (const o of outcomes) {
         expect(o.output_summary).toMatch(/no rebuttal needed/);
         expect(loopsOf(o)).toEqual([]);
       }
-      expect(id).toBeTruthy();
+      const ids = [...outcomes.map((l) => /^offer (\d+)/.exec(l.input_summary)![1]), ...reuses.map((l) => /^offer (\d+)/.exec(l.input_summary)![1])];
+      expect(new Set(ids).size).toBe(ids.length); // no offer is both judged and reused, or listed twice
+      expect({ id, lines: ids.length }).toEqual({ id, lines: inPlay });
+      fresh += outcomes.length;
+      reused += reuses.length;
     }
+    // Across the sample families both paths show up: some offers are judged fresh, some reuse a recorded grade.
+    expect(fresh).toBeGreaterThan(0);
+    expect(reused).toBeGreaterThan(0);
   });
 
   it('no line in any run contains an income number or a password', () => {

@@ -102,6 +102,36 @@ describe('money back on a receipt line', () => {
     expect(moneyBackFor('Infant digital thermometer')).toMatchObject({ fsaEligible: true });
     expect(moneyBackFor('Newborn diapers, 84 count')).toEqual({ fsaEligible: false });
   });
+
+  it('understands the short forms shops print on receipts', () => {
+    for (const line of ['INFANT DIGITAL THERMO', 'BABY THERM DIGITAL', 'DIG THERMOMTR', 'THERMOMETERS 2PK']) {
+      expect({ line, ...moneyBackFor(line) }).toMatchObject({ line, fsaEligible: true, fsaCategory: 'Baby thermometer', fsaAccount: 'FSA' });
+    }
+    expect(moneyBackFor('NASAL ASPRTR BABY')).toMatchObject({ fsaEligible: true, fsaCategory: 'Nasal aspirator' });
+    expect(moneyBackFor('BABY NASAL ASPIRATOR')).toMatchObject({ fsaEligible: true, fsaCategory: 'Nasal aspirator' });
+    expect(moneyBackFor('SALINE NASAL DROPS')).toMatchObject({ fsaEligible: true, fsaCategory: 'Nasal saline drops' });
+    expect(moneyBackFor('INFANT GAS DROPS')).toMatchObject({ fsaEligible: true, fsaCategory: 'Infant gas relief' });
+    expect(moneyBackFor('NURSING PAD 60CT')).toMatchObject({ fsaEligible: true, fsaCategory: 'Nursing supplies' });
+    expect(moneyBackFor('TYLENOL INFANT SUSP')).toMatchObject({ fsaEligible: true, fsaCategory: 'Infant pain reliever' });
+  });
+
+  it('does not stretch a short form into a false match', () => {
+    for (const line of [
+      'THERMAL BLANKET',        // "thermal" is not a thermometer
+      'THERMOS BOTTLE',         // a drinks flask
+      'SALT AND PEPPER',        // not saline
+      'SUN HAT',                // not sunscreen
+      'GAS STATION SNACK',      // one word of "gas drops" is not enough
+      'BREAST MILK STORAGE BAGS', // one word of "breast pump" is not enough
+      'NURSING PILLOW',         // not nursing pads
+      'ASPEN CANDLE',           // not an aspirator
+      'THE BABY DAYCARE BOOK',  // daycare is a Dependent Care FSA cost, not a health FSA/HSA item
+      'Newborn diapers, 84 count',
+      '',
+    ]) {
+      expect({ line, ...moneyBackFor(line) }).toEqual({ line, fsaEligible: false });
+    }
+  });
 });
 
 describe('location data is stripped', () => {

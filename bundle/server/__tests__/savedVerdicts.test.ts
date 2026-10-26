@@ -8,7 +8,7 @@ import os from 'os';
 import path from 'path';
 import { ZetarisClient, ZetarisUnavailable } from '../adapters/zetaris';
 import {
-  savedVerdictsSql, familyProfileSql, coachIssuesSql, offerAuditSql, fetchSavedVerdicts, canSkipAi, SAVED_VERDICT_COLUMNS,
+  savedVerdictsSql, familyProfileSql, coachIssuesSql, offerAuditSql, offerAuditBySourceSql, fetchSavedVerdicts, canSkipAi, SAVED_VERDICT_COLUMNS,
 } from '../agents/savedVerdicts';
 import { VIEWS } from '../../scripts/zetaris/register';
 import { buildQuestions, recordAll } from '../../scripts/zetaris/record';
@@ -110,7 +110,7 @@ describe('fetchSavedVerdicts', () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'saved-verdicts-'));
     try {
       const fetchFn = jest.fn().mockResolvedValue(new Response(JSON.stringify({ headers: Object.keys(ROW), data: [Object.values(ROW)] }), { status: 200 }));
-      const live = new ZetarisClient({ baseUrl: 'https://z.example', orgId: '1', apiKey: 'k', timeoutMs: 500, sampleMode: false, cacheDir: dir, fetchFn });
+      const live = new ZetarisClient({ baseUrl: 'https://z.example', orgId: '1', apiKey: 'k', timeoutMs: 500, sampleMode: false, cacheDir: dir, record: true, fetchFn });
       await fetchSavedVerdicts(live, ['7']);
       const sample = new ZetarisClient({ baseUrl: 'https://z.example', orgId: '1', apiKey: 'k', timeoutMs: 50, sampleMode: true, cacheDir: dir });
       const r = await fetchSavedVerdicts(sample, ['7']);
@@ -146,10 +146,10 @@ describe('canSkipAi', () => {
 });
 
 describe('zetaris:record', () => {
-  it('builds the fixed questions: saved verdicts, audit, every sample family profile, coach issues', () => {
+  it('builds the fixed questions: saved verdicts, audit, report card by source, every sample family profile, coach issues', () => {
     const qs = buildQuestions({ offerIds: ['2', '1'], familyIds: ['maya', 'ava'], issueLimit: 50 });
     expect(qs.map((q) => q.sql)).toEqual([
-      savedVerdictsSql(['2', '1']), offerAuditSql(), familyProfileSql('maya'), familyProfileSql('ava'), coachIssuesSql(50),
+      savedVerdictsSql(['2', '1']), offerAuditSql(), offerAuditBySourceSql(), familyProfileSql('maya'), familyProfileSql('ava'), coachIssuesSql(50),
     ]);
   });
 
@@ -174,7 +174,7 @@ describe('zetaris:record', () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'record-'));
     try {
       const fetchFn = jest.fn().mockImplementation(async () => new Response(JSON.stringify({ headers: ['x'], data: [['1']] }), { status: 200 }));
-      const z = new ZetarisClient({ baseUrl: 'https://z.example', orgId: '1', apiKey: 'k', timeoutMs: 500, sampleMode: false, cacheDir: dir, fetchFn });
+      const z = new ZetarisClient({ baseUrl: 'https://z.example', orgId: '1', apiKey: 'k', timeoutMs: 500, sampleMode: false, cacheDir: dir, record: true, fetchFn });
       const qs = buildQuestions({ offerIds: ['1'], familyIds: ['maya'], issueLimit: 10 });
       expect(await recordAll(z, qs, () => undefined)).toBe(0);
       expect(fs.readdirSync(dir)).toHaveLength(qs.length);

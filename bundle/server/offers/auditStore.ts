@@ -1,9 +1,13 @@
 /**
- * Where a parent's audited offers are kept (plans/v2-build-plan.md, R2).
+ * Where a parent's audited offers are kept (plans/v2-build-plan.md, R2), and the offers live search found (R3).
  *
  * With a database (live mode) they are rows in offer_checks with source 'user_audit', so the Zetaris views, /api/offer-audit and the next
  * parent's instant verdict all see them. Without one (practice mode, or no DATABASE_URL) a memory copy keeps the screen working;
  * it lasts until the server restarts. No family data goes in either way: the table has no family column.
+ *
+ * Live-search finds go to the same table so they join the shared list (/api/offer-audit, the Zetaris views). They keep the column's
+ * default source 'court' (graded by our own court, not a parent) and are told apart from the court's scans by agent 'live_search'.
+ * The same offer (same page) with the same fine print is saved once; a page whose fine print changed gets a new grade.
  */
 import { and, desc, eq, sql } from 'drizzle-orm';
 import * as schema from '../../shared/schema';
@@ -29,10 +33,25 @@ export interface AuditStore {
   /** Saves one agreed grade. The row must be source 'user_audit' and status 'agreed'. */
   save(row: InsertOfferCheck): Promise<void>;
   parentStats(): Promise<ParentStats>;
+  /**
+   * Saves one agreed grade of an offer live search found (source 'court', agent 'live_search'). Answers false, and saves nothing,
+   * when the same offer with the same fine print is already saved.
+   */
+  saveLiveFind(row: InsertOfferCheck): Promise<boolean>;
 }
+
+/** Marks an offer_checks row as found by live search (the "agent" column; the source stays 'court'). */
+export const LIVE_SEARCH_AGENT = 'live_search';
 
 function assertSavable(row: InsertOfferCheck): void {
   if (row.source !== 'user_audit') throw new Error("audit rows must have source 'user_audit'");
+  if (row.status !== 'agreed') throw new Error(`only agreed grades are saved (got status "${String(row.status)}")`);
+  if (row.injectionDetected) throw new Error('a grade with hidden instructions is never saved');
+}
+
+function assertLiveFind(row: InsertOfferCheck): void {
+  if ((row.source ?? 'court') !== 'court') throw new Error("live-search rows must have source 'court'");
+  if (row.agent !== LIVE_SEARCH_AGENT) throw new Error(`live-search rows must have agent '${LIVE_SEARCH_AGENT}'`);
   if (row.status !== 'agreed') throw new Error(`only agreed grades are saved (got status "${String(row.status)}")`);
   if (row.injectionDetected) throw new Error('a grade with hidden instructions is never saved');
 }
@@ -44,6 +63,7 @@ const toSaved = (r: Pick<InsertOfferCheck, 'offerId' | 'store' | 'verdict' | 'ca
 
 export function createMemoryAuditStore(): AuditStore {
   const rows = new Map<string, InsertOfferCheck>(); // newest per offer id
+  const liveFinds = new Set<string>(); // offer id + fine-print fingerprint of every saved live find
   return {
     async find(offerId) { const r = rows.get(offerId); return r ? toSaved(r) : null; },
     async save(row) { assertSavable(row); rows.set(row.offerId, row); },
@@ -51,6 +71,13 @@ export function createMemoryAuditStore(): AuditStore {
       const byStore: Record<string, number> = {};
       for (const r of rows.values()) byStore[r.store] = (byStore[r.store] ?? 0) + 1;
       return { total: rows.size, byStore };
+    },
+    async saveLiveFind(row) {
+      assertLiveFind(row);
+      const key = `${row.offerId}|${row.finePrintHash}`;
+      if (liveFinds.has(key)) return false;
+      liveFinds.add(key);
+      return true;
     },
   };
 }
@@ -81,6 +108,15 @@ export function createDbAuditStore(getDb: () => Promise<Db> = async () => (await
       let total = 0;
       for (const r of rows) { byStore[r.store] = Number(r.n); total += Number(r.n); }
       return { total, byStore };
+    },
+    async saveLiveFind(row) {
+      assertLiveFind(row);
+      const db = await getDb();
+      const [already] = await db.select({ id: t.id }).from(t)
+        .where(and(eq(t.offerId, row.offerId), eq(t.finePrintHash, row.finePrintHash), eq(t.agent, LIVE_SEARCH_AGENT))).limit(1);
+      if (already) return false;
+      await db.insert(t).values(row);
+      return true;
     },
   };
 }

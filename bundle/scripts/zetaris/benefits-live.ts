@@ -33,7 +33,7 @@ async function main() {
     const trace = new TraceLogger(`live-benefits-${family.id}`, logDir);
     const z = new ZetarisClient({
       baseUrl: process.env.ZETARIS_BASE_URL!, orgId: process.env.ZETARIS_ORG_ID!, apiKey: process.env.ZETARIS_API_KEY!,
-      timeoutMs: 90_000, sampleMode: false, cacheDir: path.resolve('data/sample/zetaris-cache'), trace,
+      timeoutMs: 90_000, sampleMode: false, cacheDir: path.resolve('data/sample/zetaris-cache'), record: true, trace,
     });
     const ctx: AgentContext = { runId: `live-benefits-${family.id}`, family, z, llm: createGenerator(), memory: {} as any, trace };
     console.log(`\n=== ${family.id} (${family.state}) ===`);

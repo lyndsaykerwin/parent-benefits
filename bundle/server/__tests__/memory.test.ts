@@ -89,6 +89,23 @@ describe('BundleMemory notes and lessons (workspace storage)', () => {
     expect(m.notesForRun('r2')).toHaveLength(1);
   });
 
+  it('a learned rule is still recalled after many runs of look-alike workspace notes (notes never crowd it out)', () => {
+    const m = new BundleMemory(path.join(dir, 'h'));
+    const rule = m.addRule('Reject offers whose savings depend on keeping a subscription active.', 'feedback:3', 0.8, ['a', 'b', 'c']);
+    const finePrint = 'Save 20% on diapers when you keep a Subscribe & Save subscription active; savings end if the subscription is cancelled.';
+    // Every run posts notes that quote the same fine print; they outscore the rule but are not case law.
+    for (let run = 0; run < 12; run++) for (let i = 0; i < 4; i++) m.addNote(`run-${run}`, `claim about offer 1328: ${finePrint}`, ['claim'], 1);
+    expect(m.recallRules(finePrint).map((r) => r.id)).toContain(rule);
+  });
+
+  it('a grading lesson is still recalled after many runs of look-alike workspace notes', () => {
+    const m = new BundleMemory(path.join(dir, 'h'));
+    const lesson = m.addLesson('A subscription discount ends when the subscription is cancelled.', '42', 0.9);
+    const finePrint = 'Save 20% on diapers with an active subscription; the discount ends if the subscription is cancelled.';
+    for (let run = 0; run < 12; run++) for (let i = 0; i < 4; i++) m.addNote(`run-${run}`, `verdict about offer 1328: ${finePrint}`, ['verdict'], 1);
+    expect(m.recallLessons(finePrint).map((r) => r.id)).toContain(lesson);
+  });
+
   it('keeps notes and lessons out of recallRules', () => {
     const m = new BundleMemory(path.join(dir, 'h'));
     m.addNote('r1', 'free shipping offer note', [], 0.9);
