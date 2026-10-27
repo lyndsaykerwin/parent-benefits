@@ -14,3 +14,4 @@ Dropped by Lyndsay: "Try this example" buttons; limiting photo library (a websit
 
 ## Status log
 - Piece B done: phone scan (gear and receipt) no longer forces the camera; button now says "Take or choose a photo" so parents can pick a photo they already took. ScanSheet tests 17/17, gear-locker acceptance 3/3, TypeScript check clean.
+- Piece A done: checking screen has no seconds counter (parent and owner); the parent checklist now lists every line at once and ticks each off when its helpers really report done (no timers); a quiet line counts finds so far ("2 things found so far · about $500", cards stay hidden). Client tests 295/295, v2 acceptance 24/24, TypeScript check clean.

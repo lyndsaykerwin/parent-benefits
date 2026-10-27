@@ -11,29 +11,27 @@ export interface CheckLine {
   key: string;
   title: string;
   caption: string;
+  /** Which real step of the run (stepsFromStream in stream.ts) ticks this line off. */
+  step: 'money' | 'recalls' | 'benefits' | 'deals' | 'double_check';
   /** The last line is "double-checked": it only shows once the run has really finished. */
   final?: boolean;
 }
 
-/** The first line shows this long after the family is known, then one more line every LINE_GAP_MS. */
-export const FIRST_LINE_MS = 600;
-export const LINE_GAP_MS = 1300;
-
 export function checkLines(family?: FamilyView): CheckLine[] {
   const lines: CheckLine[] = [
-    { key: 'benefits', title: 'State and federal family benefits', caption: 'Based on your ZIP and baby’s age' },
-    { key: 'insurance', title: 'Insurance deadline to add your baby', caption: family?.insurance ? 'Based on your insurance' : 'Based on the usual deadlines' },
+    { key: 'benefits', title: 'State and federal family benefits', caption: 'Based on your ZIP and baby’s age', step: 'benefits' },
+    { key: 'insurance', title: 'Insurance deadline to add your baby', caption: family?.insurance ? 'Based on your insurance' : 'Based on the usual deadlines', step: 'benefits' },
   ];
   const route = daycareRoute(family ?? {});
   if (route === 'dcfsa') {
-    lines.push({ key: 'daycare', title: 'Daycare tax savings and Dependent Care FSA', caption: family?.household === 'one' ? 'Based on how you earn' : 'Based on how each of you earns' });
+    lines.push({ key: 'daycare', title: 'Daycare tax savings and Dependent Care FSA', caption: family?.household === 'one' ? 'Based on how you earn' : 'Based on how each of you earns', step: 'benefits' });
   } else if (route === 'childcare_credit') {
-    lines.push({ key: 'daycare', title: 'Childcare tax credit', caption: 'Based on your self-employment' });
+    lines.push({ key: 'daycare', title: 'Childcare tax credit', caption: 'Based on your self-employment', step: 'benefits' });
   } else if (route === 'general') {
-    lines.push({ key: 'daycare', title: 'Daycare tax savings (general)', caption: 'We checked the general rules' });
+    lines.push({ key: 'daycare', title: 'Daycare tax savings (general)', caption: 'We checked the general rules', step: 'benefits' });
   }
-  lines.push({ key: 'gifts', title: 'Free registry gifts and welcome boxes', caption: 'Checked for your baby’s exact age' });
-  if (family?.hasItems) lines.push({ key: 'recalls', title: 'Your items vs. official recall lists', caption: 'Shown because your family has items' });
-  lines.push({ key: 'double_check', title: 'Every result double-checked against its official source', caption: 'A Fact-Checker re-reads each card', final: true });
+  lines.push({ key: 'gifts', title: 'Free registry gifts and welcome boxes', caption: 'Checked for your baby’s exact age', step: 'deals' });
+  if (family?.hasItems) lines.push({ key: 'recalls', title: 'Your items vs. official recall lists', caption: 'Shown because your family has items', step: 'recalls' });
+  lines.push({ key: 'double_check', title: 'Every result double-checked against its official source', caption: 'Each card is re-read before you see it', step: 'double_check', final: true });
   return lines;
 }

@@ -5,8 +5,8 @@ import VersionB from '@/pages/tabs/VersionB';
 import AgentWorkspace from '@/pages/AgentWorkspace';
 import FeedCardView from '@/components/FeedCardView';
 import { api, describeLine, familyChip, fmtUsdShort, loadRun, saveRun, type SavedRun, type TraceLine } from '@/lib/bundle';
-import { FIRST_LINE_MS, LINE_GAP_MS, checkLines, type CheckLine } from '@/lib/checking';
-import { followRun, emptyStream, pillLines, sanitizeCard, sortCards, type StreamState } from '@/lib/stream';
+import { checkLines, type CheckLine } from '@/lib/checking';
+import { followRun, emptyStream, pillLines, sanitizeCard, sortCards, stepsFromStream, type StreamState } from '@/lib/stream';
 import type { FeedCard } from '@shared/bundle';
 import { ownerApi, ownerToken } from '@/lib/howWeChecked';
 import { cn } from '@/lib/utils';
@@ -89,15 +89,40 @@ function LiveCards({ cards, today, fromSaved }: { cards: FeedCard[]; today?: str
 }
 
 /**
- * The parent's "Checking" screen. The lines come from the family's own answers and appear one at a time, about 1.3 seconds apart,
- * and stay. Only after the last line (and only once the run has really finished) does the "We found $X" card appear.
- * Nothing moves on by itself: the results open when the parent taps "View my results".
+ * What the parent's checklist line shows right now, from the run's real progress (stepsFromStream), never from a timer.
+ * The four main checks run at the same time, so a line with no news yet is "working". The last line ("double-checked")
+ * is a promise the run has really kept: it only shows done once the run has finished.
  */
-function ParentProgress({ lines, shown, ready, waiting, stream, totalCents, onReveal }: {
-  lines: CheckLine[]; shown: number; ready: boolean; waiting: boolean; stream: StreamState; totalCents: number | null; onReveal: () => void;
+export function lineState(line: CheckLine, stream: StreamState, finished: boolean): 'waiting' | 'working' | 'done' {
+  if (finished) return 'done';
+  const step = stepsFromStream(stream).find((s) => s.key === line.step)?.state ?? 'waiting';
+  if (line.final) return step === 'waiting' ? 'waiting' : 'working';
+  return step === 'waiting' ? 'working' : step;
+}
+
+/** Cards that count toward "We found $X": the same rule as the final receipt (checked money back and benefits only). */
+const counts = (c: FeedCard) => (c.kind === 'clawback' || c.kind === 'benefit') && (c.verdict === 'verified' || c.verdict === 'likely');
+
+/** "3 things found so far · about $1,240", from the parent-safe cards that have arrived (taken-back cards drop out). */
+export function foundSoFar(stream: StreamState): string | null {
+  const n = stream.cards.length;
+  if (n === 0) return null;
+  const cents = stream.cards.filter(counts).reduce((a, c) => a + (c.amountCents ?? 0), 0);
+  return `${n} ${n === 1 ? 'thing' : 'things'} found so far${cents > 0 ? ` · about ${fmtUsdShort(cents)}` : ''}`;
+}
+
+/**
+ * The parent's "Checking" screen. The lines come from the family's own answers and are all on screen from the start, so
+ * nothing jumps; each one ticks off when the helpers doing that check report they are done. A short line counts what has
+ * been found so far (the cards themselves stay hidden until the end: no flicker of half-ready cards).
+ * The "We found $X" card appears only once the run has really finished, and nothing moves on by itself: the results open
+ * when the parent taps "View my results".
+ */
+function ParentProgress({ lines, ready, finished, stream, totalCents, onReveal }: {
+  lines: CheckLine[]; ready: boolean; finished: boolean; stream: StreamState; totalCents: number | null; onReveal: () => void;
 }) {
-  const allShown = ready && shown >= lines.length;
-  const revealed = allShown && totalCents !== null;
+  const revealed = finished && totalCents !== null;
+  const found = foundSoFar(stream);
   return (
     <section aria-live="polite">
       <h1 className="mt-6 text-[30px] font-extrabold leading-[1.1] tracking-[-0.03em]">
@@ -109,19 +134,22 @@ function ParentProgress({ lines, shown, ready, waiting, stream, totalCents, onRe
         </p>
       )}
       <ol className="bundle-card mt-5 space-y-3.5 p-5" data-testid="parent-steps">
-        {!ready || shown === 0 ? <li className="flex items-center gap-3 text-[15px] text-ink-2"><Spinner /> Getting started…</li> : null}
-        {lines.slice(0, shown).map((l) => (
-          <li key={l.key} className="flex items-start gap-3">
-            <StepGlyph state="done" />
-            <span className="sr-only">Done: </span>
-            <span className="flex flex-col">
-              <span className="text-[15px] font-semibold leading-snug text-ink">{l.title}</span>
-              <span className="text-[13px] leading-snug text-ink-2">{l.caption}</span>
-            </span>
-          </li>
-        ))}
+        {!ready ? <li className="flex items-center gap-3 text-[15px] text-ink-2"><Spinner /> Getting started…</li> : lines.map((l) => {
+          const state = lineState(l, stream, finished);
+          return (
+            <li key={l.key} className="flex items-start gap-3" data-state={state}>
+              <StepIcon state={state} />
+              <span className="flex flex-col">
+                <span className={cn('text-[15px] font-semibold leading-snug', state === 'waiting' ? 'text-ink-2' : 'text-ink')}>{l.title}</span>
+                <span className="text-[13px] leading-snug text-ink-2">{l.caption}</span>
+              </span>
+            </li>
+          );
+        })}
       </ol>
-      {waiting && <p className="mt-3 flex items-center gap-2 text-[14px] font-semibold text-ink-2"><Spinner /> Still finishing the last check…</p>}
+      {!revealed && ready && (
+        <p className="tabular mt-3 min-h-[20px] text-[14px] font-semibold text-ink-2" data-testid="found-so-far">{found ?? 'Looking…'}</p>
+      )}
       {!ready && <StatusPills stream={stream} />}
       {revealed ? (
         <div className="mt-5 rounded-3xl bg-ink p-5 text-cream" data-testid="checking-reveal">
@@ -192,7 +220,6 @@ export default function Feed() {
   const [saved, setSaved] = useState<FeedCard[]>([]);
   /** The finished run, held back until the parent taps "View my results" (the owner view opens it straight away). */
   const [finished, setFinished] = useState<SavedRun | null>(null);
-  const [shown, setShown] = useState(0);
   const askedSaved = useRef(false);
 
   // Instant feed: one quick look at the run tells us the family, so its saved results show before any stream message arrives.
@@ -237,20 +264,10 @@ export default function Feed() {
   const today = run?.today ?? chipInfo.today;
   const chip = familyChip(family, today, run?.familyId ?? finished?.familyId);
 
-  // The checking lines: built from the family's answers, shown one at a time.
+  // The checking lines: built from the family's answers; each one ticks off from the run's real progress.
   const familyKey = JSON.stringify(family ?? null);
   const lines = useMemo(() => checkLines(family), [familyKey]); // eslint-disable-line react-hooks/exhaustive-deps
   const ready = !!family || !!finished;
-  // All the line timers are set up front (not chained through re-renders), so the pace is steady whatever else is happening.
-  const lineCount = lines.length;
-  useEffect(() => {
-    if (run || owner || !ready) return;
-    const timers = Array.from({ length: lineCount }, (_, k) => setTimeout(() => setShown((n) => Math.max(n, k + 1)), FIRST_LINE_MS + k * LINE_GAP_MS));
-    return () => timers.forEach(clearTimeout);
-  }, [run, owner, ready, lineCount]);
-  // "Double-checked" is a promise the run has really kept, so it waits for the run to finish.
-  const visible = finished ? shown : Math.min(shown, lineCount - 1);
-  const waiting = ready && !finished && !run && shown >= lineCount - 1;
   const total = finished ? finished.result.receipt.moneyBackCents + finished.result.receipt.likelyBenefitsCents : null;
   const reveal = () => { if (finished) { saveRun(finished); setRun(finished); } };
 
@@ -276,7 +293,7 @@ export default function Feed() {
       <AppShell chip={chip}>
         {owner
           ? <Progress lines={traceLines} stream={stream} />
-          : <ParentProgress lines={lines} shown={visible} ready={ready} waiting={waiting} stream={stream} totalCents={total} onReveal={reveal} />}
+          : <ParentProgress lines={lines} ready={ready} finished={!!finished} stream={stream} totalCents={total} onReveal={reveal} />}
         {owner && <LiveCards cards={cards} today={today} fromSaved={saved.length > 0 && stream.cards.length === 0} />}
       </AppShell>
     );

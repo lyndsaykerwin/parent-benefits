@@ -109,54 +109,73 @@ describe('S1a: onboarding asks 5 questions, with Q4 in two parts', () => {
   });
 });
 
-/** The checking screen's lines that are on screen right now (not the "Getting started…" placeholder). */
-const shownLines = () => {
-  const box = screen.queryByTestId('parent-steps');
-  return box ? within(box).queryAllByRole('listitem').filter((li) => !/Getting started/.test(li.textContent ?? '')) : [];
-};
+/** The state a checklist line shows right now ("waiting", "working" or "done"), found by its title. */
+const lineState = (title: RegExp) => within(screen.getByTestId('parent-steps')).getByText(title).closest('li')!.getAttribute('data-state');
 const tick = (ms: number) => act(async () => { jest.advanceTimersByTime(ms); });
+const card = (id: string, kind: string, amountCents: number | null) => ({ id, kind, title: `Card ${id}`, body: 'Plain body', amountCents, deadline: null, verdict: 'verified', sources: [{ label: 'Src', url: 'https://example.gov' }], traceId: 'owner-trace-id' });
 
-describe('S1b: the checking screen is honest and unhurried', () => {
+describe('S1b: the checking screen is honest and follows the real run', () => {
   // S1 — "For a two-parent home where one parent is 'Not working right now', the checking screen has NO Dependent Care FSA
-  // (or daycare tax savings) line. Lines appear one at a time and stay on screen. Only after the last line does
-  // 'We found $X for your family. View my results' appear, and nothing moves on by itself: results show only after the tap."
-  it('two parents, one not working: no Dependent Care FSA line, lines appear one by one, results wait for "View my results"', async () => {
+  // (or daycare tax savings) line. Only after the run has really finished does 'We found $X for your family. View my results'
+  // appear, and nothing moves on by itself: results show only after the tap."
+  // Oct 27: the lines are all listed at once (no timers) and each one ticks off when its helpers report done; a short
+  // line counts what has been found so far, without showing the cards themselves.
+  it('two parents, one not working: no Dependent Care FSA line, lines tick off from real progress, results wait for "View my results"', async () => {
     jest.useFakeTimers();
     const base = mayaRun();
     const family = { ...base.family, household: HOUSEHOLD.two, parent1Work: WORK.paycheck, parent2Work: WORK.notWorking, insurance: INSURANCE.job };
     const total = base.result.receipt.moneyBackCents + base.result.receipt.likelyBenefitsCents;
-    mountFeed(base.runId, {
-      runId: base.runId, familyId: 'maya', status: 'done', startedAt: new Date().toISOString(), family, today: base.today,
-      demoDate: true, result: base.result, error: null, progress: [], owner: false,
-    });
+    const status: Record<string, unknown> = {
+      runId: base.runId, familyId: 'maya', status: 'running', startedAt: new Date().toISOString(), family, today: base.today,
+      demoDate: true, result: null, error: null, progress: [], owner: false,
+    };
+    mountFeed(base.runId, status);
     await tick(0);
     expect(FakeES.last).toBeTruthy();
-    // The run's agents report in and the stream ends at once: the server is fast, the screen should not be.
-    act(() => {
-      for (const [seq, agent] of ['benefits', 'court', 'fact_checker'].entries()) {
-        FakeES.last!.emit('agent_status', { type: 'agent_status', agent, state: 'done', seq: seq + 1 });
-      }
-      FakeES.last!.emit('end', {});
-    });
+    for (let i = 0; i < 30 && !screen.queryByText(/State and federal family benefits/); i++) await tick(100);
 
-    // Wait (in small steps) for the first line, then check it is alone
-    for (let i = 0; i < 30 && shownLines().length === 0; i++) await tick(100);
-    expect(shownLines()).toHaveLength(1);
-    expect(screen.queryByRole('button', { name: /View my results/ })).toBeNull();
-
-    // About 1.2–1.5 seconds later, the second line joins it (the first stays)
-    await tick(1500);
-    expect(shownLines()).toHaveLength(2);
-
-    // Let every timer run: all lines are there, the reveal card waits, and nothing moved on by itself
-    await tick(60_000);
+    // Every line is on screen straight away; nothing is ticked off before the run says so.
     const steps = screen.getByTestId('parent-steps');
-    expect(within(steps).getByText(/State and federal family benefits/)).toBeTruthy();
     expect(within(steps).getByText(/Insurance deadline to add your baby/)).toBeTruthy();
     expect(within(steps).getByText(/Free registry gifts and welcome boxes/)).toBeTruthy();
-    expect(within(steps).getByText(/Every result double-checked against its official source/)).toBeTruthy();
+    expect(lineState(/State and federal family benefits/)).toBe('working');
+    expect(lineState(/Every result double-checked/)).toBe('waiting');
+    expect(screen.getByTestId('found-so-far').textContent).toBe('Looking…');
     expect(document.body.textContent).not.toMatch(/Dependent Care FSA/);
     expect(document.body.textContent).not.toMatch(/Daycare tax savings/i);
+
+    // The Benefits Planner finishes: its lines tick off, the deals line keeps working.
+    act(() => { FakeES.last!.emit('agent_status', { type: 'agent_status', agent: 'benefits', state: 'done', seq: 1 }); });
+    expect(lineState(/State and federal family benefits/)).toBe('done');
+    expect(lineState(/Insurance deadline to add your baby/)).toBe('done');
+    expect(lineState(/Free registry gifts and welcome boxes/)).toBe('working');
+
+    // Cards arrive: counted (money back and benefits summed), never shown; a card taken back drops out of the count.
+    act(() => {
+      FakeES.last!.emit('card_ready', { type: 'card_ready', seq: 2, card: card('b1', 'benefit', 50_000) });
+      FakeES.last!.emit('card_ready', { type: 'card_ready', seq: 3, card: card('c1', 'clawback', 12_000) });
+      FakeES.last!.emit('card_ready', { type: 'card_ready', seq: 4, card: card('d1', 'discount', 9_900) });
+    });
+    expect(screen.getByTestId('found-so-far').textContent).toBe('3 things found so far · about $620');
+    act(() => { FakeES.last!.emit('card_removed', { type: 'card_removed', seq: 5, cardId: 'c1' }); });
+    expect(screen.getByTestId('found-so-far').textContent).toBe('2 things found so far · about $500');
+    expect(screen.queryByText('Card b1')).toBeNull();
+    expect(document.body.innerHTML).not.toMatch(/owner-trace-id/);
+
+    // Everyone reports done, but "double-checked" waits for the run to really finish.
+    act(() => {
+      FakeES.last!.emit('agent_status', { type: 'agent_status', agent: 'court', state: 'done', seq: 6 });
+      FakeES.last!.emit('agent_status', { type: 'agent_status', agent: 'fact_checker', state: 'done', seq: 7 });
+    });
+    expect(lineState(/Free registry gifts and welcome boxes/)).toBe('done');
+    expect(lineState(/Every result double-checked/)).toBe('working');
+    expect(screen.queryByRole('button', { name: /View my results/ })).toBeNull();
+
+    // The run finishes: every line is done, the reveal card shows, and nothing moves on by itself.
+    Object.assign(status, { status: 'done', result: base.result });
+    act(() => { FakeES.last!.emit('end', {}); });
+    for (let i = 0; i < 30 && !screen.queryByRole('button', { name: /View my results/ }); i++) await tick(500);
+    expect(lineState(/Every result double-checked/)).toBe('done');
     const reveal = screen.getByRole('button', { name: /View my results/ });
     expect(screen.getByText(new RegExp(`We found \\${fmtUsdShort(total)} for your family`))).toBeTruthy();
     expect(screen.queryByRole('navigation', { name: 'Main' })).toBeNull();
