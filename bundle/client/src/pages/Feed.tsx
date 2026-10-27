@@ -93,8 +93,8 @@ function LiveCards({ cards, today, fromSaved }: { cards: FeedCard[]; today?: str
  * and stay. Only after the last line (and only once the run has really finished) does the "We found $X" card appear.
  * Nothing moves on by itself: the results open when the parent taps "View my results".
  */
-function ParentProgress({ lines, shown, ready, waiting, elapsed, stream, totalCents, onReveal }: {
-  lines: CheckLine[]; shown: number; ready: boolean; waiting: boolean; elapsed: number; stream: StreamState; totalCents: number | null; onReveal: () => void;
+function ParentProgress({ lines, shown, ready, waiting, stream, totalCents, onReveal }: {
+  lines: CheckLine[]; shown: number; ready: boolean; waiting: boolean; stream: StreamState; totalCents: number | null; onReveal: () => void;
 }) {
   const allShown = ready && shown >= lines.length;
   const revealed = allShown && totalCents !== null;
@@ -135,15 +135,13 @@ function ParentProgress({ lines, shown, ready, waiting, elapsed, stream, totalCe
             View my results <span aria-hidden="true" className="ml-1">→</span>
           </button>
         </div>
-      ) : (
-        <p className="tabular mt-4 text-right text-[13px] font-semibold text-ink-2">{elapsed}s</p>
-      )}
+      ) : null}
     </section>
   );
 }
 
 /** The owner's "Checking" screen: agent steps and live activity from the trace (reviewer code only). */
-function Progress({ lines, elapsed, stream }: { lines: TraceLine[]; elapsed: number; stream: StreamState }) {
+function Progress({ lines, stream }: { lines: TraceLine[]; stream: StreamState }) {
   const recent = collapse(lines).slice(-6).reverse(); // newest first, so it shows above the fold
   return (
     <section aria-live="polite">
@@ -167,10 +165,7 @@ function Progress({ lines, elapsed, stream }: { lines: TraceLine[]; elapsed: num
       </ol>
 
       <StatusPills stream={stream} />
-      <div className="mt-5 flex items-center justify-between">
-        <h2 className="eyebrow text-ink-2">Live activity</h2>
-        <span className="tabular text-[13px] font-semibold text-ink-2">{elapsed}s</span>
-      </div>
+      <h2 className="eyebrow mt-5 text-ink-2">Live activity</h2>
       <ul className="mt-2 space-y-2" data-testid="progress-lines">
         {recent.length === 0 && (
           <li className="flex items-center gap-2 rounded-2xl bg-paper px-4 py-3 text-[14px] text-ink-2"><Spinner /> Waking up the agents…</li>
@@ -193,8 +188,6 @@ export default function Feed() {
   const owner = !!ownerToken();
   const [chipInfo, setChipInfo] = useState<{ family?: SavedRun['family']; today?: string; demoDate?: boolean }>({});
   const [error, setError] = useState<string | null>(null);
-  const [elapsed, setElapsed] = useState(0);
-  const started = useRef(Date.now());
   const [stream, setStream] = useState<StreamState>(emptyStream);
   const [saved, setSaved] = useState<FeedCard[]>([]);
   /** The finished run, held back until the parent taps "View my results" (the owner view opens it straight away). */
@@ -202,21 +195,11 @@ export default function Feed() {
   const [shown, setShown] = useState(0);
   const askedSaved = useRef(false);
 
-  // Keep the "Ns" counter moving while the stream is quiet.
-  const startedAtMs = useRef<number | null>(null);
-  useEffect(() => {
-    if (run) return;
-    const t = setInterval(() => setElapsed(Math.max(0, Math.round((Date.now() - (startedAtMs.current ?? started.current)) / 1000))), 1000);
-    return () => clearInterval(t);
-  }, [run]);
-
   // Instant feed: one quick look at the run tells us the family, so its saved results show before any stream message arrives.
   useEffect(() => {
     if (run) return;
     let live = true;
     ownerApi().run(runId).then((status) => {
-      const t = Date.parse(status.startedAt || '');
-      if (live && Number.isFinite(t)) startedAtMs.current = t;
       if (!live || askedSaved.current || !status.familyId) return;
       askedSaved.current = true;
       setChipInfo((c) => c.family ? c : { family: status.family, today: status.today, demoDate: status.demoDate });
@@ -238,9 +221,6 @@ export default function Feed() {
       onStatus: (status, trace) => {
         if (trace) setLines(trace);
         setChipInfo({ family: status.family, today: status.today, demoDate: status.demoDate });
-        const t = Date.parse(status.startedAt || '');
-        if (Number.isFinite(t)) startedAtMs.current = t;
-        setElapsed(Math.round((Date.now() - (startedAtMs.current ?? started.current)) / 1000));
       },
       onDone: (status) => {
         const saved: SavedRun = { runId, familyId: status.familyId, family: status.family, today: status.today, demoDate: status.demoDate, result: status.result! };
@@ -295,8 +275,8 @@ export default function Feed() {
     return (
       <AppShell chip={chip}>
         {owner
-          ? <Progress lines={traceLines} elapsed={elapsed} stream={stream} />
-          : <ParentProgress lines={lines} shown={visible} ready={ready} waiting={waiting} elapsed={elapsed} stream={stream} totalCents={total} onReveal={reveal} />}
+          ? <Progress lines={traceLines} stream={stream} />
+          : <ParentProgress lines={lines} shown={visible} ready={ready} waiting={waiting} stream={stream} totalCents={total} onReveal={reveal} />}
         {owner && <LiveCards cards={cards} today={today} fromSaved={saved.length > 0 && stream.cards.length === 0} />}
       </AppShell>
     );
