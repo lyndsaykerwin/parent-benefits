@@ -1,6 +1,6 @@
 // Story 2: Gear scan and Gear Locker (plans/v2-build-plan.md, section 1 rulings 7 and 9, round 3 R7, and section 5).
 import { screen, cleanup, fireEvent, waitFor, within } from '@testing-library/react';
-import { fakeServer, callsTo, mayaRun, showVersionB } from './helpers';
+import { fakeServer, callsTo, goTab, mayaRun, showVersionB } from './helpers';
 
 // The phone's photo redraw needs a real canvas, which the test browser does not have: replace only that step.
 jest.mock('@/lib/photoPrep', () => ({
@@ -77,6 +77,23 @@ describe('S2: the Home scan button leads to an honest recall result and the Gear
 
   // S2 — "A receipt photo is read for money back and recalls; the Gear Locker then shows the receipt as one entry,
   // with a small picture (thumbnail) of the receipt and 'Receipt · N items'."
+  it('Savings: a clean scan is still shown as inspected gear (name, model, UPC, "No recalls found"), never swallowed', async () => {
+    fakeServer([
+      [/gear|purchase|items/i, () => ({ items: [GRACO, { productName: 'Mystery bouncer', brand: 'Acme', recall: { found: null } }], receipts: [] })],
+      [/memory/i, () => ({ family: [], learned: [] })],
+    ]);
+    showVersionB(mayaRun());
+    goTab('Savings');
+    const rows = await screen.findAllByTestId('inspected-item');
+    expect(rows[0].textContent).toMatch(/Graco SnugRide 35 Lite/);
+    expect(rows[0].textContent).not.toMatch(/Graco Graco/);
+    expect(rows[0].textContent).toMatch(/Model: 2120349 · UPC: 047406173005/);
+    expect(within(rows[0]).getByTestId('no-recalls').textContent).toMatch(/No recalls found/);
+    // "could not check" is never shown as "No recalls found"
+    expect(within(rows[1]).queryByTestId('no-recalls')).toBeNull();
+    expect(document.body.textContent).not.toMatch(/Verified Safe/i);
+  });
+
   it('A receipt: the locker shows a receipt thumbnail and "Receipt · 3 items"', async () => {
     const server = fakeServer([
       [/\/api\/photo\/read$/, () => ({ status: 'ok', rounds: 1, stored: 3, kind: 'receipt', photoId: 'ph-1', thumbnail: THUMB, store: 'Target', items: RECEIPT_ITEMS })],

@@ -161,9 +161,10 @@ function InspectedGear({ items }: { items: LockerItem[] }) {
               <div className="min-w-0 grow">
                 <p className="text-[16px] font-extrabold leading-snug">{gearTitle(it)}</p>
                 {details && <p className="text-[13.5px] text-ink-2">{details}</p>}
-                {it.recall
-                  ? <div className="mt-1.5"><RecallLine recall={it.recall} compact /></div>
-                  : <span data-testid="verified-safe" className="mt-1.5 inline-block rounded-full bg-[#E3F3EA] px-2.5 py-1 text-[12.5px] font-bold text-[#17643F]">✓ Verified Safe · 0 Recalls Found</span>}
+                {/* "No recalls found", never "Verified Safe" (round 3 R7): an empty recall list is not a safety test. */}
+                {it.recall?.found !== false
+                  ? it.recall && <div className="mt-1.5"><RecallLine recall={it.recall} compact /></div>
+                  : <span data-testid="no-recalls" className="mt-1.5 inline-block rounded-full bg-[#E3F3EA] px-2.5 py-1 text-[12.5px] font-bold text-[#17643F]">✓ No recalls found · 0 recalls{it.recall?.source ? ` on ${it.recall.source}` : ''}</span>}
               </div>
             </li>
           );

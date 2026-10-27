@@ -18,3 +18,9 @@ Deadline: submission due Oct 27, 23:45 UTC. Lyndsay had ~7% weekly usage left, s
 ## Next
 1. `git push origin main` (Lyndsay or next session).
 2. Continue the open steps in the earlier Oct 26 handoff (phone test, Nightshift check, real-mode click-through, README/demo script).
+
+## Later the same evening: Gear locker + "I got this" task
+- Savings tab now lists every scanned gear item ("Inspected nursery gear": photo, brand + name, Model · UPC, recall result), so a clean scan is never swallowed. Code: `InspectedGear` in `bundle/client/src/components/scan/GearLocker.tsx`; test in `__acceptance__/v2/s2-gear-locker.test.tsx`.
+- Badge says "No recalls found", NOT "Verified Safe" (Lyndsay's prompt asked for "Verified Safe", but plan ruling round 3 R7 forbids it and a test enforces it). "Could not check" results never get the badge. Lyndsay to confirm.
+- "I got this / Not relevant / Undo" drawers, Claimed so far and Still to claim already existed (`hooks/useClaims.ts`, `ClaimDrawers` in `pages/tabs/shared.tsx`); answers are saved per family in the browser + server. No change made; storage key was not renamed to `bundle_claimed_cards`.
+- Sample family Maya has no saved gear, so the new list is only visible after scanning a photo.
