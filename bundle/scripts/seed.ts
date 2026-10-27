@@ -69,45 +69,99 @@ export const BENEFIT_RULES: (typeof s.benefitRules.$inferInsert)[] = [
   })),
 ];
 
+/**
+ * Offer pages, each checked Oct 26, 2026 with a real page load (curl -L final URL + page title; `npm run links:check`).
+ * Every fine-print line below is copied (shortened only by dropping whole sentences) from the page next to it, read the
+ * same day. Where a store states no dollar value for a box, valueCents is our estimate of the box contents (flagged "est.").
+ */
 const OFFER_SRC = {
-  amazon: 'https://www.amazon.com/baby-reg/homepage',
-  target: 'https://www.target.com/c/baby-registry/-/N-5xtbg',
-  walmart: 'https://www.walmart.com/cp/baby-registry/1094765',
-  buybuy: 'https://www.buybuybaby.com/registry',
-  pampers: 'https://www.pampers.com/en-us/club',
-  huggies: 'https://www.huggies.com/en-us/rewards',
-  enfamil: 'https://www.enfamil.com/enfamil-family-beginnings/',
-  similac: 'https://www.similac.com/strongmoms.html',
-  honest: 'https://www.honest.com/baby-registry',
-  babylist: 'https://www.babylist.com/registry-benefits',
-  costco: 'https://www.costco.com/baby-registry.html',
-  chewy: 'https://www.chewy.com/',
+  // "Baby Registry Welcome Box - Amazon Customer Service"
+  amazonWelcomeBox: 'https://www.amazon.com/gp/help/customer/display.html?nodeId=GBLXVKVYG5SBG8HF',
+  // "Baby Registry Completion Discount" help page
+  amazonCompletion: 'https://www.amazon.com/gp/help/customer/display.html?nodeId=GV4FFW94JAGFL4RH',
+  // "Amazon.com: Subscribe & Save | Save on Everyday Essentials"
+  amazonSubscribeSave: 'https://www.amazon.com/b?node=5856181011',
+  // Target Help: "When will I receive my 15% completion coupon?"
+  targetCompletion: 'https://www.target.com/help/article/000062273',
+  // Target Help: "Baby Registry Welcome Kits"
+  targetWelcomeKit: 'https://www.target.com/help/article/000062588',
+  // "Free Baby Boxes & Baby Registry | Walmart" (FAQ: welcome box and free house cleaning)
+  walmart: 'https://www.walmart.com/cp/baby-registry/1229485',
+  // "Pampers Rewards: Earn Pampers Cash on Diapers"
+  pampers: 'https://www.pampers.com/en-us/rewards',
+  // "Everything You Need to Know about the Babylist Hello Baby Box"
+  babylistBox: 'https://www.babylist.com/hello-baby/babylist-hello-baby-box',
+  // "Babylist Shop Discount" (15% registry discount)
+  babylistDiscount: 'https://www.babylist.com/registry-discount',
+  // Enfamil Family Beginnings benefits page ("Get All the Benefits Out of Your Wonder Box")
+  enfamil: 'https://www.enfamil.com/wonderbox-gift',
+  // "MySimilac Rewards 2026 | Formula Coupons & Baby Freebies"
+  similac: 'https://www.similac.com/rewards.html',
 };
 const GENERAL = { triggerKeyword: '', minAgeDays: -280, maxAgeDays: 365 };
 
 export const OFFERS: (typeof s.offers.$inferInsert)[] = [
   // General offers: no purchase needed, open to unborn and newborn families.
-  { ...GENERAL, title: 'Free baby registry welcome box', store: 'Amazon', valueCents: 3500, finePrint: 'Requires Prime and a registry with at least one item; limited to one per household.', sourceUrl: OFFER_SRC.amazon },
-  { ...GENERAL, title: '15% registry completion discount', store: 'Target', valueCents: null, finePrint: 'One-time coupon valid for 60 days after registry creation; excludes some brands.', sourceUrl: OFFER_SRC.target },
-  { ...GENERAL, title: 'Free welcome gift bag', store: 'Walmart', valueCents: 2500, finePrint: 'Registry must be created online; in-store pickup only while supplies last.', sourceUrl: OFFER_SRC.walmart },
-  { ...GENERAL, title: 'Pampers Club rewards sign-up bonus', store: 'Pampers', valueCents: 500, finePrint: 'Points added after scanning your first diaper pack code.', sourceUrl: OFFER_SRC.pampers },
-  { ...GENERAL, title: 'Babylist registry welcome box', store: 'Babylist', valueCents: 2000, finePrint: 'Box ships after you add 10 items; shipping fee may apply.', sourceUrl: OFFER_SRC.babylist },
+  { ...GENERAL, title: 'Free baby registry welcome box', store: 'Amazon', valueCents: 3500, /* est.: Amazon states no value */
+    finePrint: 'The Welcome Box is available to customers with active Amazon Prime accounts, who create a Baby Registry, add 10 unique items from their Baby Registry Checklist and have over $10 of purchases from their registry (by themselves or others). The welcome box is only eligible to ship within the contiguous United States. This offer is a limited-time offer, while supplies last.',
+    sourceUrl: OFFER_SRC.amazonWelcomeBox },
+  { ...GENERAL, title: '15% registry completion coupon', store: 'Target', valueCents: null,
+    finePrint: "As you get close to your baby or wedding registry event date, you'll receive a 15% off storewide Target Circle offer that is redeemable twice. Some restrictions apply. Wedding and baby registries must be active for at least 14 days before your offer is generated.",
+    sourceUrl: OFFER_SRC.targetCompletion },
+  // Walmart: the $25 welcome box and the $300 home-cleaning tier are two separate rewards (row 1323 below is the cleaning).
+  { ...GENERAL, title: 'Free Baby Registry Welcome Box', store: 'Walmart', valueCents: 2500, /* est.: Walmart states no value */
+    finePrint: 'Earn your Baby Registry Welcome Box: Create your baby registry (registries created 2/1/2025 & onward are eligible). Registry must be open for 7 days. A minimum of 20 unique items added to your registry. Over $25 purchased from and through your registry at Walmart. Baby Registry Welcome Box offer is valid in the U.S., excluding PO Boxes.',
+    sourceUrl: OFFER_SRC.walmart },
+  { ...GENERAL, title: 'Pampers Rewards: $10 Pampers Cash for every 10 diaper scans', store: 'Pampers', valueCents: 1000,
+    finePrint: 'For every 10 diaper scans you will receive $10 Pampers Cash which you can redeem in our Pampers Rewards catalog. Download the Pampers Rewards mobile app from the Play Store or the App Store, enter your details to join.',
+    sourceUrl: OFFER_SRC.pampers },
+  // Age window from the Babylist page: "your arrival date must be between four weeks ago and up to nine months away".
+  { ...GENERAL, minAgeDays: -270, maxAgeDays: 28, title: 'Babylist Hello Baby Box', store: 'Babylist', valueCents: 2000, /* est.: Babylist states no value */
+    finePrint: 'Add three items to your registry from other stores. Complete 40% of your Babylist registry checklist. Make a minimum purchase totaling $30 from the Babylist Shop. Verify your address and pay $8.95 + tax, where applicable, for shipping. There is a one Hello Baby Box limit per household per year.',
+    sourceUrl: OFFER_SRC.babylistBox },
   // PLANTED TEST CASE (trap offer). This looks free but auto-enrolls into a paid
-  // membership. Fine Print Court is expected to REJECT it. Cuddle & Co is a made-up store.
+  // membership. Fine Print Court is expected to REJECT it. Cuddle & Co is a made-up store; its example.com
+  // link is never shown as a live link (blocked cards from example.com carry no link).
   { ...GENERAL, triggerKeyword: 'diaper', title: 'Free newborn diaper box', store: 'Cuddle & Co', valueCents: 4000,
     finePrint: 'Free box requires a card on file. After a 30-day trial you are automatically enrolled in a paid membership at $29.99/month until you cancel.',
     sourceUrl: 'https://example.com/cuddle-and-co/free-diaper-box' },
   // Triggered offers: shown when a matching purchase or situation appears.
-  { title: 'Bonus diaper rewards on newborn sizes', store: 'Pampers', minAgeDays: 0, maxAgeDays: 120, triggerKeyword: 'diaper', valueCents: 1000, finePrint: 'Newborn and size 1 packs only.', sourceUrl: OFFER_SRC.pampers },
-  { title: 'Huggies Rewards points on diapers and wipes', store: 'Huggies', minAgeDays: 0, maxAgeDays: 365, triggerKeyword: 'huggies', valueCents: 800, finePrint: 'Points expire after 12 months.', sourceUrl: OFFER_SRC.huggies },
-  { title: 'Free formula sample and coupons', store: 'Enfamil', minAgeDays: -60, maxAgeDays: 180, triggerKeyword: 'formula', valueCents: 3000, finePrint: 'Coupons are for Enfamil brand products only.', sourceUrl: OFFER_SRC.enfamil },
-  { title: 'StrongMoms formula savings', store: 'Similac', minAgeDays: -60, maxAgeDays: 180, triggerKeyword: 'similac', valueCents: 2500, finePrint: 'Coupon books mailed within 4 to 6 weeks.', sourceUrl: OFFER_SRC.similac },
-  { title: 'Car seat trade-in event discount', store: 'Target', minAgeDays: -90, maxAgeDays: 365, triggerKeyword: 'car seat', valueCents: 3000, finePrint: 'Bring in an old car seat; event dates are limited.', sourceUrl: 'https://www.target.com/c/car-seat-trade-in/-/N-4tfr8' },
-  { title: 'Registry completion discount on big-ticket gear', store: 'Buy Buy Baby', minAgeDays: -280, maxAgeDays: 120, triggerKeyword: 'stroller', valueCents: 2000, finePrint: 'Applies to registry items only.', sourceUrl: OFFER_SRC.buybuy },
-  { title: 'Honest Company baby bundle discount', store: 'Honest', minAgeDays: 0, maxAgeDays: 240, triggerKeyword: 'wipes', valueCents: 1500, finePrint: 'First bundle only; subscription is optional and can be skipped.', sourceUrl: OFFER_SRC.honest },
-  { title: 'Costco baby member coupon book items', store: 'Costco', minAgeDays: 0, maxAgeDays: 365, triggerKeyword: 'costco', valueCents: 1200, finePrint: 'Costco membership required.', sourceUrl: OFFER_SRC.costco },
-  { title: 'Autoship first-order discount on baby food', store: 'Chewy', minAgeDays: 150, maxAgeDays: 365, triggerKeyword: 'baby food', valueCents: 1000, finePrint: 'Autoship must remain active for 2 deliveries.', sourceUrl: OFFER_SRC.chewy },
-  { title: 'Amazon Subscribe & Save diaper discount', store: 'Amazon', minAgeDays: 0, maxAgeDays: 365, triggerKeyword: 'diaper', valueCents: 900, finePrint: 'Savings apply while the subscription is active; price can change.', sourceUrl: 'https://www.amazon.com/b?node=17938598011' },
+  { title: 'Pampers Rewards: up to $10 for inviting friends', store: 'Pampers', minAgeDays: 0, maxAgeDays: 120, triggerKeyword: 'diaper', valueCents: 1000,
+    finePrint: "Invite up to 5 loved ones to join Pampers Club. There's $2 in it for them and up to $10 for yourself!", sourceUrl: OFFER_SRC.pampers },
+  // (was Huggies Rewards: huggies.com blocks automated page loads, so the page could not be verified; replaced Oct 26)
+  // Value from the fine print itself: "Baby Registry Welcome Kit is valued at $100".
+  { ...GENERAL, title: 'Free Baby Registry Welcome Kit', store: 'Target', valueCents: 10000,
+    finePrint: 'To receive your free Baby Registry Welcome Kit: 1. Join Target Circle. 2. Create a baby registry. 3. Add 10 unique items to your Baby Registry. 4. Purchase over $10 from your registry (either by you or others). Limit one kit per year. Baby Registry Welcome Kit is valued at $100 that is a mix of samples and Target Circle Bonus. Shipping and handling fees apply. Baby Registry Welcome Kits are only available online as a Target Circle Bonus.',
+    sourceUrl: OFFER_SRC.targetWelcomeKit },
+  { title: 'Enfamil Family Beginnings rewards and formula coupons', store: 'Enfamil', minAgeDays: -60, maxAgeDays: 180, triggerKeyword: 'formula', valueCents: 3000, /* est. */
+    finePrint: 'Shop and Earn Rewards: Earn 10 points/dollar on Enfamil purchases. Discount Checks & Digital Rebates: Enjoy discounts on Enfamil products. Checks are similar to formula coupons and can be used at most major retailers.',
+    sourceUrl: OFFER_SRC.enfamil },
+  { title: 'MySimilac Rewards formula coupons', store: 'Similac', minAgeDays: -60, maxAgeDays: 180, triggerKeyword: 'similac', valueCents: 2500, /* est. */
+    finePrint: "Join MySimilac Rewards. It's fast and FREE! Baby formula coupons and samples. Redeem a Coupon = 5 Points. Scan Your Product QR Code = 1 Point. 5 scan limit per calendar month.",
+    sourceUrl: OFFER_SRC.similac },
+  // (was a Target car-seat trade-in: a seasonal event whose page is gone; replaced Oct 26 with Walmart's $300 tier)
+  { ...GENERAL, title: 'Free home cleaning with a Walmart baby registry', store: 'Walmart', valueCents: 9900,
+    finePrint: 'Free cleaning for one bedroom, one bathroom, kitchen, and common areas in a single home (worth $99) from our trusted third-party partner. Maintain your registry for at least 7 days. Add 20 or more unique items to your registry. Spend $300 on items from your registry (this can be you or someone you have invited). Available while supplies last. US, 18+ only. Limited 1 per person.',
+    sourceUrl: OFFER_SRC.walmart },
+  // (was buybuy BABY: the site's registry page is gone; replaced Oct 26)
+  // Window from the Amazon page: "begins 60 days prior to the Arrival Date… and expires 90 days after the Arrival Date".
+  { title: 'Registry completion discount on big-ticket gear', store: 'Amazon', minAgeDays: -60, maxAgeDays: 90, triggerKeyword: 'stroller', valueCents: null,
+    finePrint: 'The discount offer is 15% for Baby Registry owners at the time that they redeem their discount. Your registry must be active for at least 14 days. The Completion Discount begins 60 days prior to the Arrival Date you entered in your Baby Registry and expires 90 days after the Arrival Date. You can apply the 15% discount on orders up to a combined value of $2,000, for a maximum discount of $300.00.',
+    sourceUrl: OFFER_SRC.amazonCompletion },
+  // (was Honest Company: the old registry page is gone and no current offer page could be verified; replaced Oct 26)
+  { title: 'Babylist Shop 15% registry discount', store: 'Babylist', minAgeDays: -280, maxAgeDays: 120, triggerKeyword: 'crib', valueCents: null,
+    finePrint: "We'll automatically apply your registry discount starting 60 days before your baby's expected arrival — no code needed (up to $600 off a $4000 order). Your registry needs to be active for at least 30 days to be eligible. Some products don't qualify for the discount.",
+    sourceUrl: OFFER_SRC.babylistDiscount },
+  // (was a Costco coupon book: no such page; replaced Oct 26)
+  { title: 'Enfamil Rewards: 1,000 points when friends buy', store: 'Enfamil', minAgeDays: 0, maxAgeDays: 365, triggerKeyword: 'formula', valueCents: null,
+    finePrint: "Share the Love: We'll give you 1000 points when your friends make a purchase.", sourceUrl: OFFER_SRC.enfamil },
+  // (was Chewy Autoship: chewy.com blocks automated page loads, so the page could not be verified; replaced Oct 26)
+  { title: 'Subscribe & Save on baby food', store: 'Amazon', minAgeDays: 150, maxAgeDays: 365, triggerKeyword: 'baby food', valueCents: null,
+    finePrint: "Save time and money with up to 15% off your essentials. Save up to 15% off when receiving 5 or more products in one auto-delivery to one address. Shipping is always free. Skip or cancel any time.",
+    sourceUrl: OFFER_SRC.amazonSubscribeSave },
+  { title: 'Amazon Subscribe & Save diaper discount', store: 'Amazon', minAgeDays: 0, maxAgeDays: 365, triggerKeyword: 'diaper', valueCents: 900,
+    finePrint: 'Save up to 15% off when receiving 5 or more products in one auto-delivery to one address. Shipping is always free. Skip or cancel any time.',
+    sourceUrl: OFFER_SRC.amazonSubscribeSave },
 ];
 
 export const FSA_CATEGORIES: (typeof s.fsaEligibleCategories.$inferInsert)[] = [

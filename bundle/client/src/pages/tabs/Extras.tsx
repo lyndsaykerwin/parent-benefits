@@ -1,10 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { fmtUsd, safeSources } from '@/lib/bundle';
 import type { HomeTotals } from '@/lib/tabs';
 import { shareMessage } from '@/lib/tabs';
 import { Link } from 'wouter';
 import { forgetMyItems } from '@/lib/photoPrep';
-import { loadPlan, savePlan, type PlanInfo } from '@/lib/account';
 
 /** Small "Share this with a friend" bar. It appears after the first money tick and shares only a link to Bundle. */
 export function ShareBar({ claimedCents }: { claimedCents: number }) {
@@ -31,46 +30,9 @@ export function ShareBar({ claimedCents }: { claimedCents: number }) {
   );
 }
 
-/**
- * "Save your plan": the plan is already saved on this device, so this only offers an optional name for it.
- * No email, no sign-in. The name stays in this browser and shows on the Account tab.
- */
-export function SavePlanCard({ familyId }: { familyId: string }) {
-  const [plan, setPlan] = useState<PlanInfo>(() => loadPlan(familyId));
-  const [draft, setDraft] = useState('');
-  const [editing, setEditing] = useState(false);
-  useEffect(() => { setPlan(loadPlan(familyId)); setEditing(false); }, [familyId]);
-  const commit = (next: PlanInfo) => { setPlan(next); savePlan(familyId, next); setEditing(false); };
-
-  if (plan.name && !editing) {
-    return (
-      <section aria-label="Plan saved" data-testid="save-confirm" className="mt-3 rounded-2xl border-2 border-[#1E8A5A] bg-paper p-4">
-        <p className="eyebrow text-[#17643F]">Plan saved</p>
-        <p className="mt-1.5 text-[18px] font-extrabold leading-snug">Saved as “{plan.name}”</p>
-        <p className="mt-0.5 text-[14px] text-ink-2">On this device. No account needed.</p>
-        <button type="button" onClick={() => { setDraft(plan.name ?? ''); setEditing(true); }} className="mt-1 min-h-[44px] text-[14px] font-bold text-ink-2 underline decoration-line decoration-2 underline-offset-4">Change name</button>
-      </section>
-    );
-  }
-  if (plan.hidden && !editing) return null;
-  return (
-    <section aria-label="Save your plan" data-testid="save-card" className="bundle-card mt-3 p-4">
-      <p className="eyebrow text-coral-deep">Your plan</p>
-      <h3 className="mt-1.5 text-[18px] font-extrabold leading-snug">Your plan is saved on this device.</h3>
-      <form
-        onSubmit={(e) => { e.preventDefault(); const name = draft.trim().slice(0, 40); commit(name ? { name, hidden: false } : { name: null, hidden: true }); }}
-      >
-        <label htmlFor={`plan-name-${familyId}`} className="mt-3 block text-[15px] font-bold">Add a name for it <span className="font-semibold text-ink-2">(optional)</span></label>
-        <input
-          id={`plan-name-${familyId}`} data-testid="save-name-input" type="text" maxLength={40} autoComplete="off" placeholder="e.g. Our baby plan"
-          value={draft} onChange={(e) => setDraft(e.target.value)}
-          className="mt-1.5 block min-h-[52px] w-full rounded-xl border-2 border-line bg-paper px-3 text-[17px] font-semibold text-ink outline-none placeholder:text-ink-3 focus:border-coral"
-        />
-        <button type="submit" className="mt-3 flex min-h-[52px] w-full items-center justify-center rounded-xl bg-ink px-4 text-[16px] font-bold text-cream">Save name</button>
-      </form>
-      <button type="button" onClick={() => (editing ? setEditing(false) : commit({ name: null, hidden: true }))} className="mx-auto mt-1 flex min-h-[44px] items-center px-2 text-[15px] font-bold text-ink-2 underline decoration-line decoration-2 underline-offset-4">Not now</button>
-    </section>
-  );
+/** The plan saves itself (results on the server, the family id in this browser), so Home just says so. Naming it lives on the Account page. */
+export function PlanSavedLine() {
+  return <p data-testid="plan-saved" className="mt-3 text-[14.5px] font-semibold text-[#17643F]">✓ Your plan is saved.</p>;
 }
 
 /** "Forget my items": deletes the products saved from photos for this family, after a plain-English confirm step. */

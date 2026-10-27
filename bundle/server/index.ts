@@ -10,6 +10,7 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { bodyParsers } from './middleware/bodyLimit';
 import { sanitizeInputs } from './middleware/sanitize';
+import { testerGate, gateHintCookie, TESTER_HEADER } from './middleware/testerCode';
 
 const app = express();
 const PORT = parseInt(process.env.PORT || '5050', 10);
@@ -37,17 +38,27 @@ if (proxy) app.set('trust proxy', proxy);
     message: { error: 'Too many requests from this IP, please try again later.' },
   }));
 
+  // Which other web addresses may call this server from a browser. The phone normally loads the screens and the server from
+  // the same address, so this rarely matters; it lists the hosted address (PUBLIC_URL / FRONTEND_URL, or the address Render
+  // fills in by itself, RENDER_EXTERNAL_URL) and always keeps the laptop addresses.
+  const localOrigins = ['http://localhost:5173', `http://localhost:${PORT}`, 'http://127.0.0.1:5173', `http://127.0.0.1:${PORT}`];
+  const hostedOrigins = [process.env.PUBLIC_URL, process.env.FRONTEND_URL, process.env.RENDER_EXTERNAL_URL]
+    .filter((u): u is string => Boolean(u))
+    .map((u) => u.trim().replace(/\/+$/, ''));
   app.use(cors({
-    origin: isProd
-      ? [process.env.FRONTEND_URL].filter((u): u is string => Boolean(u))
-      : ['http://localhost:5173', `http://localhost:${PORT}`, 'http://127.0.0.1:5173'],
+    origin: [...hostedOrigins, ...localOrigins],
+    credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'x-reviewer-token'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-reviewer-token', TESTER_HEADER],
     maxAge: 86400,
   }));
 
   app.use(...bodyParsers());
   app.use('/api', sanitizeInputs);
+  // Tester entry code: only switched on when TESTER_ACCESS_CODE is set (the web host). Off on the laptop.
+  app.use(testerGate());
+  app.use(gateHintCookie());
+  if (process.env.TESTER_ACCESS_CODE) log('tester entry code is ON: /api needs the code');
 
   if (!isProd) {
     app.use((req, res, next) => {

@@ -23,7 +23,7 @@ describe('Account tab actions', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Edit ZIP code' }));
     const editor = screen.getByTestId('editor-zip');
     fireEvent.change(within(editor).getByLabelText('ZIP code'), { target: { value: '10001' } });
-    fireEvent.click(within(editor).getByRole('button', { name: 'Save and re-check' }));
+    fireEvent.click(within(editor).getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(callsTo(server, /\/api\/run$/)).toHaveLength(1));
     const sent = callsTo(server, /\/api\/run$/)[0];
     expect(sent.method).toBe('POST');
@@ -39,7 +39,7 @@ describe('Account tab actions', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Edit ZIP code' }));
     const editor = screen.getByTestId('editor-zip');
     fireEvent.change(within(editor).getByLabelText('ZIP code'), { target: { value: '12' } });
-    fireEvent.click(within(editor).getByRole('button', { name: 'Save and re-check' }));
+    fireEvent.click(within(editor).getByRole('button', { name: 'Save' }));
     expect(within(editor).getByRole('alert').textContent).toMatch(/valid 5-digit US ZIP/);
     expect(callsTo(server, /\/api\/run$/)).toHaveLength(0);
   });
@@ -52,7 +52,7 @@ describe('Account tab actions', () => {
     const editor = screen.getByTestId('editor-insurance');
     expect(editor.textContent).toMatch(/sample family, so saving makes a copy/);
     fireEvent.click(within(editor).getByRole('button', { name: /Medicaid/ }));
-    fireEvent.click(within(editor).getByRole('button', { name: 'Save and re-check' }));
+    fireEvent.click(within(editor).getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(callsTo(server, /\/api\/run$/)).toHaveLength(1));
     expect(callsTo(server, /\/api\/run$/)[0].body).not.toHaveProperty('familyId');
     expect(callsTo(server, /\/api\/run$/)[0].body).toMatchObject({ zip: '02139', insurance: 'medicaid' });
@@ -94,21 +94,17 @@ describe('Account tab actions', () => {
 });
 
 describe('Save your plan', () => {
-  it('Not now hides the card, and the name shows on the Account tab', () => {
+  it('Home just says the plan is saved; the optional name is set on the Account tab (Oct 26)', () => {
     fakeServer(QUIET);
-    const first = showVersionB(mayaRun({ familyId: 'guest-ab12cd34' }));
-    void first;
-    fireEvent.change(screen.getByTestId('save-name-input'), { target: { value: 'Our baby plan' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Save name' }));
-    openAccount();
-    expect(screen.getByTestId('family-name').textContent).toBe('Our baby plan');
-    goTab('Home');
-    expect(screen.getByTestId('save-confirm')).toBeTruthy();
-    cleanup();
-    localStorage.clear();
     showVersionB(mayaRun({ familyId: 'guest-ab12cd34' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Not now' }));
-    expect(screen.queryByTestId('save-card')).toBeNull();
+    expect(screen.getByTestId('plan-saved').textContent).toBe('✓ Your plan is saved.');
+    expect(screen.queryByRole('button', { name: 'Not now' })).toBeNull();
+    openAccount();
+    fireEvent.click(screen.getByRole('button', { name: 'Name this plan' }));
+    fireEvent.change(screen.getByLabelText(/Plan name/), { target: { value: 'Our baby plan' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save name' }));
+    expect(screen.getByTestId('family-name').textContent).toBe('Our baby plan');
+    expect(JSON.parse(localStorage.getItem('bundle:plan:guest-ab12cd34')!)).toMatchObject({ name: 'Our baby plan' });
   });
 });
 
@@ -225,15 +221,15 @@ describe('Account fixes (final QA, Oct 25)', () => {
   it('lessons from parents use plain words, not internal codes', async () => {
     fakeServer([
       [/\/memory/, () => ({ family: [], learned: [
-        { id: 'mem-7', text: 'Enfamil offer "Free box" graded approve_with_catch: true value $5.00, about 5 minutes of effort; catches: required_membership, shipping_fee', reports: null },
-        { id: 'mem-8', text: 'Hello offer "Kit" graded reject: no dollar value stated, about 3 minutes of effort; catches: negative_value', reports: null },
+        { id: 'mem-7', text: 'Enfamil offer "Free box" graded approve_with_catch: true value $5.00, about 5 minutes of effort; catches: required_membership, shipping_fee', reports: 2 },
+        { id: 'mem-8', text: 'Hello offer "Kit" graded reject: no dollar value stated, about 3 minutes of effort; catches: negative_value', reports: 1 },
       ] })],
       [/\/gear/, () => ({ items: [], receipts: [] })],
     ]);
     showVersionB(mayaRun());
     openAccount();
     const learned = await within(accountPage()).findByRole('region', { name: 'Lessons from parents' });
-    await waitFor(() => expect(learned.textContent).toMatch(/graded approved with a catch/));
+    await waitFor(() => expect(learned.textContent).toMatch(/graded ok, with a catch/));
     expect(learned.textContent).toMatch(/paid membership required, shipping fee/);
     expect(learned.textContent).toMatch(/graded blocked/);
     expect(learned.textContent).toMatch(/costs more than it is worth/);
@@ -247,8 +243,8 @@ describe('Account fixes (final QA, Oct 25)', () => {
     ]);
     showVersionB(mayaRun()); // Maya: demo date Oct 23
     openAccount();
-    const fam = await within(accountPage()).findByRole('region', { name: 'Memory about your family' });
-    await waitFor(() => expect(fam.textContent).toMatch(/Remembered from your setup · Oct 23/));
+    const fam = await within(accountPage()).findByRole('region', { name: 'What we know about your family' });
+    await waitFor(() => expect(fam.textContent).toMatch(/From your answers · Oct 23/));
     expect(fam.textContent).not.toMatch(/Oct 25/);
   });
 
@@ -259,7 +255,7 @@ describe('Account fixes (final QA, Oct 25)', () => {
     ]);
     showVersionB(mayaRun({ familyId: 'guest-ab12cd34' }));
     openAccount();
-    const fam = await within(accountPage()).findByRole('region', { name: 'Memory about your family' });
+    const fam = await within(accountPage()).findByRole('region', { name: 'What we know about your family' });
     await waitFor(() => expect(fam.textContent).toMatch(/Oct 25/));
   });
 });

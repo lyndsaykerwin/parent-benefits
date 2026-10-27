@@ -43,4 +43,18 @@ describe('createDbPhotoStore on a local Postgres', () => {
     expect(await store.deleteForFamily(a)).toBe(3); // photo rows and the email row: the plan says all of the family's rows
     expect(await store.deleteForFamily(b)).toBe(1);
   });
+
+  it('background reading: saves a photo as reading, then stores its status, message and result', async () => {
+    if (!ok) return;
+    const { createDbPhotoStore } = await import('../ingest/photo');
+    const store = createDbPhotoStore();
+    const fam = `test-lane-c-db-${Date.now()}`;
+    const id = await store.savePhoto({ familyId: fam, kind: 'gear', thumbnail: null, receiptImage: null, status: 'reading' });
+    expect((await store.getPhoto(id))?.status).toBe('reading');
+    await store.updatePhoto(id, { status: 'done', readError: null, readResult: { items: [{ productName: 'Made-up seat' }] } });
+    expect(await store.getPhoto(id)).toMatchObject({ status: 'done', readResult: { items: [{ productName: 'Made-up seat' }] } });
+    expect(await store.insertItems([{ ...row(fam, 'h9', 0), manufacturedOn: '2026-02-09', photoId: id }])).toBe(1);
+    expect((await store.listItems(fam))[0].manufacturedOn).toBe('2026-02-09');
+    await store.deleteForFamily(fam);
+  });
 });

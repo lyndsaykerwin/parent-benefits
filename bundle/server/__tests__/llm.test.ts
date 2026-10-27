@@ -5,6 +5,7 @@ import { llmModeOf } from '../../scripts/eval';
 import {
   FakeGenerator, NvidiaGenerator, OpenAICompatGenerator, ChainGenerator, askJson, createGenerator,
   generatorConfigFromEnv, ModelUnavailable, withRunDeadline, NIGHTSHIFT_HEADERS, providerLabel, isLiveModel,
+  BUSY_WAIT_BUDGET_MS, DEFAULT_VISION_FALLBACK,
 } from '../adapters/llm';
 import { startFakeOpenAiServer, type FakeOpenAiServer } from './helpers/fakeOpenAiServer';
 import { checkNightshift } from '../../scripts/check-model';
@@ -477,5 +478,81 @@ describe('busy AI service (429 / 503 / ResourceExhausted): retries with growing 
     const { g, pauses } = mk({ random: () => 1 });
     await g.generate('q').catch(() => undefined);
     expect(pauses.reduce((a, b) => a + b, 0)).toBeLessThanOrEqual(15_000);
+  });
+});
+
+describe('photo reading (see) has its own long busy budget and a fallback vision model', () => {
+  let srv: FakeOpenAiServer;
+  afterEach(async () => { await srv?.close(); });
+  const EXHAUSTED = 'ResourceExhausted: Worker local total request limit reached (16/16)';
+  const mk = (extra: Record<string, unknown> = {}) => {
+    const pauses: number[] = [];
+    const g = new OpenAICompatGenerator('k', srv.baseUrl, { reasoning: 'r', fast: 'f' }, undefined, 2000,
+      { provider: 'nvidia', sleep: async (ms: number) => { pauses.push(ms); }, random: () => 1, vision: { item: 'main/vl', receipt: 'main/vl' }, ...extra });
+    return { g, pauses };
+  };
+  const ask = (g: OpenAICompatGenerator) => g.see({ prompt: 'read', imageBase64: 'AAAA', mimeType: 'image/jpeg' });
+
+  it('keeps retrying a busy vision model far past the text agents\' 4 tries / 10 s, then answers', async () => {
+    const busy = { kind: 'status' as const, status: 503, body: EXHAUSTED };
+    srv = await startFakeOpenAiServer({ script: [busy, busy, busy, busy, busy, busy, busy, { kind: 'reply', content: 'read it' }] });
+    const { g, pauses } = mk();
+    expect(await ask(g)).toBe('read it');
+    expect(srv.requests).toHaveLength(8);
+    expect(pauses).toEqual([2000, 4000, 8000, 16000, 20000, 20000, 20000]); // doubling, capped at 20 s
+    expect(pauses.reduce((a, b) => a + b, 0)).toBeGreaterThan(BUSY_WAIT_BUDGET_MS);
+  });
+
+  it('text calls still give up after 4 tries (their budget is separate)', async () => {
+    srv = await startFakeOpenAiServer({ script: [{ kind: 'status', status: 503, body: EXHAUSTED }] });
+    const { g } = mk();
+    await expect(g.generate('q')).rejects.toMatchObject({ reason: 'busy' });
+    expect(srv.requests).toHaveLength(4);
+  });
+
+  it('tries the fallback vision model straight away when the main one is busy', async () => {
+    srv = await startFakeOpenAiServer({ script: [{ kind: 'status', status: 503, body: EXHAUSTED }, { kind: 'reply', content: 'from fallback' }] });
+    const { g, pauses } = mk({ visionFallback: 'backup/vl' });
+    expect(await ask(g)).toBe('from fallback');
+    expect(srv.requests.map((r) => r.body.model)).toEqual(['main/vl', 'backup/vl']);
+    expect(pauses).toEqual([]);
+  });
+
+  it('drops a vision model that is gone (410) and uses the other', async () => {
+    srv = await startFakeOpenAiServer({ script: [{ kind: 'status', status: 410, body: 'Gone' }, { kind: 'reply', content: 'ok' }] });
+    const { g } = mk({ visionFallback: 'backup/vl' });
+    expect(await ask(g)).toBe('ok');
+  });
+
+  it('stops with reason "busy" once the vision budget is used up', async () => {
+    srv = await startFakeOpenAiServer({ script: [{ kind: 'status', status: 503, body: EXHAUSTED }] });
+    const { g, pauses } = mk({ visionRetryBudgetMs: 10_000 });
+    await expect(ask(g)).rejects.toMatchObject({ reason: 'busy' });
+    expect(pauses.reduce((a, b) => a + b, 0)).toBeLessThanOrEqual(10_000);
+  });
+
+  it('a wrong key is not retried', async () => {
+    srv = await startFakeOpenAiServer({ script: [{ kind: 'status', status: 401 }] });
+    const { g } = mk({ visionFallback: 'backup/vl' });
+    await expect(ask(g)).rejects.toMatchObject({ reason: 'auth' });
+    expect(srv.requests).toHaveLength(1);
+  });
+
+  it('reads the fallback and the budget from settings', () => {
+    expect(generatorConfigFromEnv({}).visionFallback).toBe(DEFAULT_VISION_FALLBACK);
+    expect(generatorConfigFromEnv({ MODEL_VISION_FALLBACK: 'none' }).visionFallback).toBe('');
+    expect(generatorConfigFromEnv({ VISION_BUSY_BUDGET_SECONDS: '60' }).visionRetryBudgetMs).toBe(60_000);
+  });
+});
+
+describe('temperature', () => {
+  let srv: FakeOpenAiServer;
+  afterEach(async () => { await srv?.close(); });
+  it('text calls ask for temperature 0 (same grade every run); photo reading keeps 0.2', async () => {
+    srv = await startFakeOpenAiServer({ script: [{ kind: 'reply', content: 'ok' }] });
+    const g = new OpenAICompatGenerator('k', srv.baseUrl, { reasoning: 'r', fast: 'f' }, undefined, 2000, { vision: { item: 'v', receipt: 'v' } });
+    await g.generate('q');
+    await g.see({ prompt: 'p', imageBase64: 'A', mimeType: 'image/png' });
+    expect(srv.requests.map((r) => r.body.temperature)).toEqual([0, 0.2]);
   });
 });

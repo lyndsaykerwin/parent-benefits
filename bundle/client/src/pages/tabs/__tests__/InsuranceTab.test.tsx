@@ -66,15 +66,17 @@ describe('Questions to ask HR', () => {
     await waitFor(() => expect(screen.getByText('Copied 4 questions.')).toBeTruthy());
     expect((writeText.mock.calls[0] as unknown as string[])[0]).toMatch(/^1\. Do we have 30 or 60 days/);
   });
-  it('Email to myself uses the device share menu (Bundle sends nothing)', async () => {
+  it('Email to myself uses the device share menu on a phone (Bundle sends nothing)', async () => {
     const share = jest.fn(async () => undefined);
     Object.defineProperty(navigator, 'share', { value: share, configurable: true });
+    Object.defineProperty(navigator, 'maxTouchPoints', { value: 5, configurable: true }); // a touch phone (Oct 26: computers get a mailto: link)
     open({ insurance: 'job' });
     fireEvent.click(screen.getByRole('button', { name: /See the questions/ }));
     fireEvent.click(screen.getByRole('button', { name: 'Email to myself' }));
     await waitFor(() => expect(share).toHaveBeenCalled());
     expect((share.mock.calls[0] as unknown as [{ title: string }])[0].title).toBe('Questions to ask HR');
     delete (navigator as any).share;
+    Object.defineProperty(navigator, 'maxTouchPoints', { value: 0, configurable: true });
   });
 });
 

@@ -146,12 +146,15 @@ describe('fine print court', () => {
 
   describe('model unavailable: deterministic screen', () => {
     const off = () => new UnavailableGenerator('no key');
-    it('(a) no case law: trap approved as likely, traced as fallback', async () => {
+    it('(a) no case law: the code rules alone block the trap (card on file + paid plan at $29.99/month); a harmless offer is approved as fallback', async () => {
       const { ctx, trace } = setup([trap], off());
-      const out = await judgeOffers(ctx, IN);
+      expect(await judgeOffers(ctx, IN)).toEqual([]);
+      expect(trace.lines().find((l) => l.agent_name === 'judge')!.status).toBe('blocked');
+      const ok = setup([offer(2)], off());
+      const out = await judgeOffers(ok.ctx, IN);
       expect(out).toHaveLength(1);
       expect(out[0].verdict).toBe('likely');
-      expect(trace.lines().find((l) => l.agent_name === 'judge')!.status).toBe('fallback');
+      expect(ok.trace.lines().find((l) => l.agent_name === 'judge')!.status).toBe('fallback');
     });
     it('(b) case law on auto-renew rejects the trap and cites the rule', async () => {
       const { ctx, mem, trace } = setup([trap], off());
@@ -166,10 +169,10 @@ describe('fine print court', () => {
       mem.addRule('free trials that auto-renew into paid memberships are not free', 'test', 0.8, []);
       expect(await judgeOffers(ctx, IN)).toHaveLength(1);
     });
-    it('(c) an explicit $7.99 shipping fee is rejected, $3.99 is not', async () => {
-      const bad = setup([offer(1, { fine_print: 'Free box. $7.99 shipping applies.' })], off());
+    it('(c) a $7.99 shipping fee on a $5 offer is rejected (costs more than it is worth); $3.99 is not', async () => {
+      const bad = setup([offer(1, { value_cents: 500, fine_print: 'Free box. $7.99 shipping applies.' })], off());
       expect(await judgeOffers(bad.ctx, IN)).toEqual([]);
-      const ok = setup([offer(2, { fine_print: 'Free box. $3.99 shipping applies.' })], off());
+      const ok = setup([offer(2, { value_cents: 500, fine_print: 'Free box. $3.99 shipping applies.' })], off());
       expect(await judgeOffers(ok.ctx, IN)).toHaveLength(1);
     });
     it('(c2) thresholds and free shipping are not fees; attached fees are', async () => {
@@ -178,7 +181,7 @@ describe('fine print court', () => {
         expect(await judgeOffers(ctx, IN)).toHaveLength(1);
       }
       for (const fp of ['Shipping and handling $7.95.', 'A shipping fee of $9 applies.', 'Plus $12 postage.', 'Free box. Shipping: $6.50']) {
-        const { ctx } = setup([offer(1, { fine_print: fp })], off());
+        const { ctx } = setup([offer(1, { value_cents: 500, fine_print: fp })], off());
         expect(await judgeOffers(ctx, IN)).toEqual([]);
       }
     });
@@ -205,12 +208,13 @@ describe('fine print court', () => {
     expect(offline.trace.lines().find((l) => l.agent_name === 'judge')!.output_summary).toContain("No flagged terms found. We couldn't fully check this offer's fine print.");
   });
 
-  it('I3: the offline screen rejects offers that need a paid membership, but not the auto-renew trap (only case law catches that)', async () => {
-    for (const fp of ['Requires Prime and a registry with at least one item; limited to one per household.', 'Costco membership required.', 'Box ships after you add 10 items; shipping fee may apply.']) {
-      const { ctx } = setup([offer(1, { fine_print: fp })], new UnavailableGenerator('no key'));
+  it('I3 (Oct 26 rule): the offline screen blocks the paid-plan trap, but a membership or an unknown fee is not a block', async () => {
+    {
+      const { ctx } = setup([offer(1, { fine_print: TRAP_PRINT })], new UnavailableGenerator('no key'));
       expect(await judgeOffers(ctx, IN)).toEqual([]);
     }
-    for (const fp of ['Autoship must remain active for 2 deliveries.', 'First bundle only; subscription is optional and can be skipped.', TRAP_PRINT]) {
+    for (const fp of ['Requires Prime and a registry with at least one item; limited to one per household.', 'Costco membership required.', 'Box ships after you add 10 items; shipping fee may apply.',
+      'Autoship must remain active for 2 deliveries.', 'First bundle only; subscription is optional and can be skipped.']) {
       const { ctx } = setup([offer(1, { fine_print: fp })], new UnavailableGenerator('no key'));
       expect(await judgeOffers(ctx, IN)).toHaveLength(1);
     }
@@ -255,8 +259,8 @@ describe('fine print court', () => {
 
 describe('rebuttal round (max 1)', () => {
   beforeEach(() => { process.env.TODAY = '2026-10-23'; });
-  const FEE = 'Free box. $7.99 shipping applies.'; // the code screen rejects this
-  const feeOffer = offer(60, { title: 'Free box', store: 'Fee Co', fine_print: FEE });
+  const FEE = 'Free box. $7.99 shipping applies.'; // on a $5 offer the code screen rejects this (costs more than it is worth)
+  const feeOffer = offer(60, { title: 'Free box', store: 'Fee Co', fine_print: FEE, value_cents: 500 });
   const writer = () => { const rows: any[] = []; return { rows, insert: jest.fn(async (r: any) => { rows.push(r); return String(rows.length); }) }; };
   const rounds = (trace: TraceLogger) => trace.lines().filter((l) => l.action === 'court_debate' && /rebuttal round/.test(l.input_summary));
 

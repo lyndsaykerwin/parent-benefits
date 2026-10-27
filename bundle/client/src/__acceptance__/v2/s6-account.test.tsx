@@ -26,7 +26,7 @@ describe('S6a: Account tab with friendly memory labels', () => {
   // family' with friendly labels ('Remembered from your setup', 'Saved in Meterless memory') and no raw 'mem-' ids on
   // screen until 'Technical details' is tapped, 'What Bundle has learned from parents' with 'learned from N parent reports',
   // plus 'Forget everything' and 'Start over'. Home no longer shows 'Start over with your own details'."
-  it('shows answers, gear and friendly memory labels; mem- ids only after "Technical details"', async () => {
+  it('shows answers, gear and friendly memory labels; no mem- ids or technical words for a parent', async () => {
     fakeServer([
       [/memory/i, () => MEMORY],
       [/gear|purchase|items/i, () => ({ items: GEAR, receipts: [] })],
@@ -35,7 +35,7 @@ describe('S6a: Account tab with friendly memory labels', () => {
 
     expect(screen.queryByText(/Start over with your own details/)).toBeNull();
 
-    // Option B (Oct 25): Account is no longer a bottom tab; it opens from the family chip's "Your plan and memory".
+    // Option B (Oct 25): Account is no longer a bottom tab; it opens from the family chip's "Your plan and saved answers".
     expect(within(screen.getByRole('navigation', { name: 'Main' })).queryByRole('button', { name: /^Account/ })).toBeNull();
     openAccount();
     const page = screen.getByRole('region', { name: 'Account' });
@@ -53,23 +53,36 @@ describe('S6a: Account tab with friendly memory labels', () => {
     expect(within(locker).getByText(/Graco SnugRide 35 Lite/)).toBeTruthy();
 
     // memory, from the server, in friendly words
-    expect(await within(page).findByText(/What Bundle remembers about your family/)).toBeTruthy();
+    // Oct 26 (Lyndsay): plain words for parents; "Meterless" and "Technical details" are for the reviewer code only (see LaneA.test.tsx).
+    expect(await within(page).findByText(/What we know about your family/)).toBeTruthy();
     expect(await within(page).findByText(/Lives in ZIP 02139/)).toBeTruthy();
-    expect(within(page).getAllByText(/Remembered from your setup/).length).toBeGreaterThan(0);
-    expect(within(page).getAllByText(/Saved in Meterless memory/).length).toBeGreaterThan(0);
-    expect(within(page).getByText(/What Bundle has learned from parents/)).toBeTruthy();
-    expect(within(page).getByText(/learned from 3 parent reports/)).toBeTruthy();
+    expect(within(page).getAllByText(/From your answers/).length).toBeGreaterThan(0);
+    expect(page.textContent).not.toMatch(/Meterless/);
+    expect(within(page).getByText(/Tips from other parents/)).toBeTruthy();
+    expect(within(page).getByText(/From 3 parent reports/)).toBeTruthy();
     expect(page.textContent).not.toMatch(/mem-\d+/);
-
-    // the raw ids sit behind "Technical details"
-    fireEvent.click(within(page).getAllByRole('button', { name: /Technical details/i })[0]);
-    await waitFor(() => expect(page.textContent).toMatch(/mem-\d+/));
+    expect(within(page).queryByRole('button', { name: /Technical details/i })).toBeNull();
 
     // trust actions
     expect(within(page).getByRole('button', { name: /Forget everything/i })).toBeTruthy();
     const startOver = within(page).queryByRole('link', { name: /Start over/i }) ?? within(page).getByRole('button', { name: /Start over/i });
     fireEvent.click(startOver);
     expect(loc.history?.at(-1)).toBe('/');
+  });
+
+  it('with the reviewer code, "Technical details" reveals the raw mem- ids (Oct 26: owner only)', async () => {
+    fakeServer([[/memory/i, () => MEMORY], [/gear|purchase|items/i, () => ({ items: GEAR, receipts: [] })]]);
+    window.scrollTo = jest.fn() as unknown as typeof window.scrollTo;
+    const run = mayaRun({ familyId: 'guest-ab12cd34', family: { name: 'Your family' } });
+    const { hook } = memoryLocation({ path: `/feed/${run.runId}` });
+    render(<Router hook={hook}><VersionB run={run} owner /></Router>);
+    openAccount();
+    const page = screen.getByRole('region', { name: 'Account' });
+    expect(await within(page).findByText(/Lives in ZIP 02139/)).toBeTruthy();
+    expect(within(page).getAllByText(/Saved in Meterless memory/).length).toBeGreaterThan(0);
+    expect(page.textContent).not.toMatch(/mem-\d+/);
+    fireEvent.click(within(page).getAllByRole('button', { name: /Technical details/i })[0]);
+    await waitFor(() => expect(page.textContent).toMatch(/mem-\d+/));
   });
 });
 

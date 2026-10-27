@@ -407,6 +407,12 @@ describe('W1-OWNER: owner view split (parent response trimmed on the server)', (
     expect((await request(app).get(`/api/runs/${runId}/trace`).set('x-reviewer-token', 'wrong')).status).toBe(403);
   });
 
+  it('parentResult keeps the "coming soon" state note, and adds no key when there is none', () => {
+    const base: any = { familyId: 'ava', runId: 'r1', banner: null, cards: [], receipt: { moneyBackCents: 0, likelyBenefitsCents: 0, deadlineCount: 0, nextDeadline: null, itemsChecked: 0 } };
+    expect(parentResult({ ...base, stateNote: 'Ohio programs are coming soon.' }).stateNote).toBe('Ohio programs are coming soon.');
+    expect('stateNote' in parentResult(base)).toBe(false);
+  });
+
   it('parentResult copies only the five known receipt fields', () => {
     const r: any = { familyId: 'leo', runId: 'r1', banner: null, cards: [],
       receipt: { moneyBackCents: 1, likelyBenefitsCents: 2, deadlineCount: 3, nextDeadline: null, itemsChecked: 4, debugSql: 'SELECT * FROM v_x', memoryId: 'mem-9' } };

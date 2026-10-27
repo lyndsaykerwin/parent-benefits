@@ -3,6 +3,7 @@ import type { FeedCard } from '@shared/bundle';
 import { earners } from '@shared/eligibility';
 import { fmtUsdShort } from '@/lib/bundle';
 import { taxYearFor } from '@/lib/insurance';
+import { sendToSelf, startNote } from '@/lib/sendToSelf';
 import type { TabProps } from './shared';
 
 export type Filing = 'joint' | 'single' | 'hoh' | 'unsure';
@@ -78,13 +79,19 @@ export function FilingBooster({ props, credits, status }: { props: TabProps; cre
   // Nothing to narrow: with no range there is no reason to ask.
   if (credits.length === 0 || federal === all) return null;
 
+  const shareText = `Our baby’s tax credits for the ${year} tax year: ${lines.join(' + ')} = ${fmtUsdShort(all)}. Worth confirming with our tax preparer.`;
   async function share() {
-    const text = `Our baby’s tax credits for the ${year} tax year: ${lines.join(' + ')} = ${fmtUsdShort(all)}. Worth confirming with our tax preparer.`;
+    setNote(startNote({ title: 'Baby tax credits', text: shareText }));
+    const r = await sendToSelf({ title: 'Baby tax credits', text: shareText });
+    setNote(r.message);
+  }
+  async function copy() {
     try {
-      if (navigator.share) { await navigator.share({ title: 'Baby tax credits', text }); return; }
-    } catch { return; /* closed the share menu */ }
-    setNote('Opening your email…');
-    window.location.href = `mailto:?subject=${encodeURIComponent('Baby tax credits')}&body=${encodeURIComponent(text)}`;
+      await navigator.clipboard.writeText(shareText);
+      setNote('Copied. Paste it into a message or email.');
+    } catch {
+      setNote('Couldn’t copy. Press and hold the numbers above to copy them.');
+    }
   }
 
   if (skipped && !filing) {
@@ -106,6 +113,7 @@ export function FilingBooster({ props, credits, status }: { props: TabProps; cre
             : 'No problem. We’ll keep the range; your tax preparer can confirm.'}
         </p>
         <button type="button" onClick={share} className="mt-3 flex min-h-[48px] w-full items-center justify-center rounded-2xl border border-line bg-paper px-4 text-center text-[15px] font-bold text-ink">Send these to your partner or tax preparer</button>
+        <button type="button" onClick={copy} className="mt-2 flex min-h-[44px] w-full items-center justify-center rounded-2xl border border-line bg-paper px-4 text-center text-[15px] font-bold text-ink">Copy</button>
         <p role="status" className="min-h-[20px] text-[13px] font-semibold text-ink-2">{note}</p>
         <button type="button" onClick={() => { setAnimate(false); set(null, false); }} className="min-h-[44px] text-[14px] font-bold text-ink-2 underline decoration-line decoration-2 underline-offset-4">Change my answer</button>
       </section>
@@ -129,28 +137,31 @@ export function FilingBooster({ props, credits, status }: { props: TabProps; cre
   );
 }
 
-/** The Massachusetts 529 deduction line (MA families only) and the paycheck-form (W-4) tip. */
-export function TaxExtras({ props, filing }: { props: TabProps; filing: Filing | null }) {
+/** The Massachusetts 529 deduction line (MA families only). It sits on Savings; the filing answer comes from useFiling, so it always agrees with the Taxes booster. */
+export function Five29Card({ props }: { props: TabProps }) {
+  const { filing } = useFiling(props.run.familyId);
+  if (!isMa(props)) return null;
+  return (
+    <article aria-label="529 college savings (MA)" data-testid="card-529" className="bundle-card mt-3 p-4">
+      <p className="eyebrow text-ink-2">529 college savings (MA)</p>
+      <h3 className="mt-1.5 text-[17px] font-extrabold leading-snug tracking-[-0.01em]">State tax deduction: {five29Line(filing)}</h3>
+      <p className="mt-1 text-[15px] leading-relaxed text-ink-2">A 529 is a savings account for school with tax breaks. Massachusetts lets you deduct what you put in, up to this amount.</p>
+      <a href="https://www.savingforcollege.com/article/tax-benefits-of-massachusetts-529-plans" target="_blank" rel="noopener noreferrer" className="mt-2 inline-flex min-h-[32px] items-center rounded-full border border-line bg-cream px-3 text-[13px] font-semibold text-ink-2 underline-offset-2 hover:underline">Savingforcollege.com: MA 529 tax benefits</a>
+    </article>
+  );
+}
+
+/** The paycheck-form (W-4) tip, at the bottom of Taxes. */
+export function TaxExtras({ props }: { props: TabProps }) {
   const f = props.run.family;
   const someonePaid = (() => { const e = earners({ household: f?.household, parent1Work: f?.parent1Work, parent2Work: f?.parent2Work }); return !e || e.includes('paycheck'); })();
+  if (!someonePaid) return null;
   return (
-    <>
-      {isMa(props) && (
-        <article aria-label="529 college savings (MA)" data-testid="card-529" className="bundle-card mt-3 p-4">
-          <p className="eyebrow text-ink-2">529 college savings (MA)</p>
-          <h3 className="mt-1.5 text-[17px] font-extrabold leading-snug tracking-[-0.01em]">State tax deduction: {five29Line(filing)}</h3>
-          <p className="mt-1 text-[15px] leading-relaxed text-ink-2">A 529 is a savings account for school with tax breaks. Massachusetts lets you deduct what you put in, up to this amount.</p>
-          <a href="https://www.savingforcollege.com/article/tax-benefits-of-massachusetts-529-plans" target="_blank" rel="noopener noreferrer" className="mt-2 inline-flex min-h-[32px] items-center rounded-full border border-line bg-cream px-3 text-[13px] font-semibold text-ink-2 underline-offset-2 hover:underline">Savingforcollege.com: MA 529 tax benefits</a>
-        </article>
-      )}
-      {someonePaid && (
-        <article aria-label="Update your paycheck tax form (W-4)" data-testid="card-w4" className="bundle-card mt-3 p-4">
-          <p className="eyebrow text-ink-2">For your tax preparer</p>
-          <h3 className="mt-1.5 text-[17px] font-extrabold leading-snug tracking-[-0.01em]">Update your paycheck tax form (W-4)</h3>
-          <p className="mt-1 text-[15px] leading-relaxed text-ink-2">The W-4 tells your employer how much tax to take from each paycheck.</p>
-          <p className="mt-2 rounded-xl bg-cream px-3 py-2 text-[14px] text-ink-2">Add your baby in Step 3 (dependents) so less tax is taken from each paycheck.</p>
-        </article>
-      )}
-    </>
+    <article aria-label="Update your paycheck tax form (W-4)" data-testid="card-w4" className="bundle-card mt-3 p-4">
+      <p className="eyebrow text-ink-2">For your tax preparer</p>
+      <h3 className="mt-1.5 text-[17px] font-extrabold leading-snug tracking-[-0.01em]">Update your paycheck tax form (W-4)</h3>
+      <p className="mt-1 text-[15px] leading-relaxed text-ink-2">The W-4 tells your employer how much tax to take from each paycheck.</p>
+      <p className="mt-2 rounded-xl bg-cream px-3 py-2 text-[14px] text-ink-2">Add your baby in Step 3 (dependents) so less tax is taken from each paycheck.</p>
+    </article>
   );
 }

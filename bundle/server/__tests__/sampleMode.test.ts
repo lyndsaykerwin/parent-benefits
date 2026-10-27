@@ -45,7 +45,9 @@ describe('SAMPLE_MODE learning loop (README steps)', () => {
   const saved = { ...process.env };
   afterEach(() => { process.env = { ...saved }; });
 
-  it('maya shows the free-box trap, two reports + a reviewer approval block it, and run 2 cites the learned rule', async () => {
+  // Oct 26 blocking rule: the obvious free-box trap (card on file + paid plan) is now blocked by the code rules on run 1,
+  // so the learning loop is shown on the subtler trap (savings that only last while a subscription stays active).
+  it('maya shows the subscription-savings offer, two reports + a reviewer approval block it, and run 2 cites the learned rule', async () => {
     for (const k of ['DATABASE_URL', 'ZETARIS_BASE_URL', 'ZETARIS_ORG_ID', 'ZETARIS_API_KEY', 'MODEL_API_KEY']) delete process.env[k];
     process.env.SAMPLE_MODE = 'true';
     process.env.REVIEWER_MODE_TOKEN = 'demo';
@@ -59,14 +61,16 @@ describe('SAMPLE_MODE learning loop (README steps)', () => {
     const app = express();
     app.use(...bodyParsers());
     app.use(createBundleRouter(deps));
-    const trap = (cards: { title: string; id: string }[]) => cards.find((c) => c.title === 'Free newborn diaper box');
+    const TRAP = 'Amazon Subscribe & Save diaper discount';
+    const trap = (cards: { title: string; id: string }[]) => cards.find((c) => c.title === TRAP);
 
     const run1 = await request(app).post('/api/run?wait=true').send({ familyId: 'maya' });
     expect(run1.status).toBe(200);
     const t1 = trap(run1.body.cards);
     expect(t1).toBeDefined();
 
-    for (const note of ['free box turned into a paid monthly membership', 'the free box turned into a paid monthly membership after the trial']) {
+    expect(run1.body.blocked.map((c: { title: string }) => c.title)).toContain('Free newborn diaper box'); // the obvious trap: caught by the code rules
+    for (const note of ['My savings disappeared the moment I stopped the delivery plan, and the price kept changing.', 'The discount only counts while the plan stays active; the price changed on the second order, so the savings were gone.']) {
       const fb = await request(app).post('/api/feedback').send({ familyId: 'maya', cardId: t1!.id, kind: 'issue', note });
       expect(fb.status).toBe(200);
     }
@@ -79,7 +83,7 @@ describe('SAMPLE_MODE learning loop (README steps)', () => {
 
     const run2 = await request(app).post('/api/run?wait=true').send({ familyId: 'maya' });
     expect(trap(run2.body.cards)).toBeUndefined();
-    expect(run2.body.blocked.map((c: { title: string }) => c.title)).toContain('Free newborn diaper box'); // parent sees it in "We caught these"
+    expect(run2.body.blocked.map((c: { title: string }) => c.title)).toContain(TRAP); // parent sees it in "We caught these"
     expect(JSON.stringify(run2.body)).not.toMatch(/traceId|cited mem-|case law/i); // ...without the owner-only detail
     const file = fs.readdirSync(logsDir).filter((f) => f.startsWith('run-maya')).map((f) => fs.readFileSync(path.join(logsDir, f), 'utf8')).join('\n');
     expect(file).toMatch(/\[cited mem-/);

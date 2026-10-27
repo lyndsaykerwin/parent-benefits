@@ -19,7 +19,7 @@ type FinalVerdict = 'approve' | 'approve_with_catch' | 'reject';
  * number); the payout wait keeps both ends exactly as the fine print gave them, or stays empty.
  */
 export function buildOfferCheckRow(
-  offer: { id: number | string; store: string; sourceUrl: string },
+  offer: { id: number | string; store: string; sourceUrl: string; valueCents?: number | null },
   check: FinePrintCheck,
   verdict: FinalVerdict,
   ruleCitations: string[],
@@ -27,11 +27,14 @@ export function buildOfferCheckRow(
   model: string | null = null,
   source: 'court' | 'user_audit' = 'court',
 ): InsertOfferCheck {
+  // Face value: what the fine print states, else the offer's own listed (headline) value. True value = face minus stated fees.
+  const face = check.faceValueCents ?? offer.valueCents ?? null;
+  const trueValue = check.trueValueCents ?? (face !== null ? face - check.hiddenCostCents : null);
   return {
     ...(source === 'user_audit' ? { source } : {}), // 'court' is the column's default, so court rows stay exactly as before
     offerId: String(offer.id), store: offer.store, sourceUrl: offer.sourceUrl || null,
     finePrintHash: check.finePrintHash, agent: COURT_AGENT, model,
-    faceValueCents: check.faceValueCents, hiddenCostCents: check.hiddenCostCents, trueValueCents: check.trueValueCents,
+    faceValueCents: face, hiddenCostCents: check.hiddenCostCents, trueValueCents: trueValue,
     minPurchaseCents: check.minPurchaseCents, autoRenew: check.autoRenew, renewalPriceCents: check.renewalPriceCents,
     deadlineDate: check.deadlineDate, expired: check.expired, claimWindowDays: check.claimWindowDays,
     payoutWaitDaysMin: check.payoutWaitDaysMin, payoutWaitDaysMax: check.payoutWaitDaysMax,

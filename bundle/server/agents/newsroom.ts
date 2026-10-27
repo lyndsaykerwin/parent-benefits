@@ -22,7 +22,7 @@ export const MAX_REBUTTALS = 1;
 const MAX_LESSONS = 3;
 const MAX_PAST = 3;
 
-export interface OfferRef { id: number; store: string; title: string; finePrint: string; sourceUrl: string }
+export interface OfferRef { id: number; store: string; title: string; finePrint: string; sourceUrl: string; valueCents?: number | null }
 
 /** A grade from earlier: saved in the database, or made earlier in this same run. */
 export interface PastGrade {
@@ -138,7 +138,7 @@ export class Newsroom {
   }
 
   /** After an agreed verdict: save the grade and leave one lesson. A failure here never breaks the run. */
-  async writeBack(offer: OfferRef, check: FinePrintCheck, verdict: 'approve' | 'approve_with_catch' | 'reject', ruleIds: string[]): Promise<void> {
+  async writeBack(offer: OfferRef, check: FinePrintCheck, verdict: 'approve' | 'approve_with_catch' | 'reject', ruleIds: string[], model: string | null = null): Promise<void> {
     this.remember(offer, check, verdict);
     const writer = this.ctx.offerChecks;
     if (!writer) {
@@ -147,7 +147,7 @@ export class Newsroom {
     }
     let rowId: string;
     try {
-      rowId = await writer.insert(buildOfferCheckRow(offer, check, verdict, ruleIds, 'agreed'));
+      rowId = await writer.insert(buildOfferCheckRow(offer, check, verdict, ruleIds, 'agreed', model));
     } catch (e: any) {
       this.log('fine_print_court', 'offer_check_skipped', `offer ${offer.id}`, `grade not saved: ${String(e?.message ?? e).slice(0, 120)}`, 'fallback');
       return;

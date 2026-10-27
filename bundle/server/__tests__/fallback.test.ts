@@ -20,8 +20,8 @@ describe('bundled stand-ins (I2)', () => {
   it('drops stand-ins whose fine print needs Prime/a membership or has a shipping fee', () => {
     const titles = buildFallbackFillers(fam, '2026-10-23').approvedGeneralOffers.map((o) => o.title);
     expect(titles).not.toContain('Free baby registry welcome box');
-    expect(titles).not.toContain('Babylist registry welcome box');
-    expect(titles).toContain('15% registry completion discount');
+    expect(titles).not.toContain('Babylist Hello Baby Box'); // $8.95 shipping (Oct 26 seed: real Babylist terms)
+    expect(titles).toContain('15% registry completion coupon');
   });
 
   it('stand-in offers carry no deadline (max age is an eligibility limit, not an end date)', () => {

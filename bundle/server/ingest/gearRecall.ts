@@ -5,7 +5,7 @@
 // (no list available). It never says "safe" and never says "no recalls" without having really checked.
 import fs from 'node:fs';
 import path from 'node:path';
-import { matchRecall, typesIn, type RecallRecord } from '../agents/recallMatch';
+import { manufactureWindow, matchRecall, outsideMadeDates, typesIn, type RecallRecord } from '../agents/recallMatch';
 import { FSA_CATEGORIES } from '../../scripts/seed';
 
 export interface RecallMatchInfo { id: string; title: string; recallDate: string; url: string; summary: string }
@@ -23,7 +23,13 @@ export interface RecallResult {
   note?: string;
 }
 
-export interface CheckableItem { productName: string; brand: string | null; modelNumber: string | null; upc: string | null }
+export interface CheckableItem {
+  productName: string; brand: string | null; modelNumber: string | null; upc: string | null;
+  /** Lot or batch code from the label. */
+  lotCode?: string | null;
+  /** Date of manufacture from the label (YYYY-MM-DD or YYYY-MM): recalls cover units made between two dates. */
+  manufacturedOn?: string | null;
+}
 
 // ---------------------------------------------------------------------------
 // NHTSA car seats
@@ -65,11 +71,20 @@ function nhtsaMatches(item: CheckableItem, row: NhtsaRow): boolean {
 }
 
 export function checkCarSeat(item: CheckableItem, today: string, rows: NhtsaRow[] = loadNhtsaCarSeats()): RecallResult {
-  const hits = rows.filter((r) => nhtsaMatches(item, r));
+  const sameModel = rows.filter((r) => nhtsaMatches(item, r));
+  // A recall that names the manufacture dates it covers, and a label date outside them: this seat is not one of them.
+  const ruledOut = sameModel.filter((r) => outsideMadeDates(item.manufacturedOn, r.summary));
+  const hits = sameModel.filter((r) => !ruledOut.includes(r));
   const base = { source: 'NHTSA' as const, recordsChecked: rows.length, checkedOn: today };
-  if (!hits.length) return { found: false, ...base };
+  if (!hits.length) {
+    return ruledOut.length
+      ? { found: false, ...base, note: `Same model as NHTSA recall ${ruledOut.map((r) => r.campaignNumber).join(', ')}, but ${outsideMadeDates(item.manufacturedOn, ruledOut[0].summary)}` }
+      : { found: false, ...base };
+  }
+  const win = hits.map((r) => manufactureWindow(r.summary)).find(Boolean);
+  const note = win && !item.manufacturedOn ? `This recall covers seats made ${win.start} to ${win.end}. Check the date of manufacture on your seat's white sticker.` : undefined;
   return {
-    found: true, ...base,
+    found: true, ...base, ...(note ? { note } : {}),
     matches: hits.map((r) => ({
       id: `nhtsa-${r.campaignNumber}`, title: `NHTSA recall ${r.campaignNumber}: ${r.models.join(', ')}`.slice(0, 160), recallDate: r.recallDate,
       url: `https://www.nhtsa.gov/recalls?nhtsaId=${encodeURIComponent(r.campaignNumber)}`, summary: r.summary,
@@ -108,9 +123,11 @@ export async function checkCpsc(item: CheckableItem, today: string, z: SqlRunner
   const hits = cands.rows.filter((r) => {
     const rec: RecallRecord = {
       id: `cpsc-${str(r.recall_id)}`, source: 'cpsc', title: str(r.recall_title), productNames: [str(r.recalled_product)], description: str(r.description),
-      recallDate: str(r.recall_date).slice(0, 10), status: 'ongoing', upcs: [], models: str(r.recalled_model) ? [str(r.recalled_model)] : [], lots: [], soldAt: '', firm: '',
+      recallDate: str(r.recall_date).slice(0, 10), status: 'ongoing', upcs: [],
+      // The matcher compares model numbers in compact form (letters and digits only, lower case): "TM-ST200" -> "tmst200".
+      models: str(r.recalled_model) ? str(r.recalled_model).split(/[,;]|\s+and\s+/i).map(compact).filter((m) => m.length >= 3) : [], lots: [], soldAt: '', firm: '',
     };
-    return matchRecall({ text: item.productName, upc: item.upc, model: item.modelNumber }, rec).match;
+    return matchRecall({ text: item.productName, upc: item.upc, model: item.modelNumber, lot: item.lotCode ?? null, madeOn: item.manufacturedOn ?? null }, rec).match;
   });
   const base = { source: 'CPSC' as const, recordsChecked: Number.isFinite(checked) && checked > 0 ? checked : null, checkedOn: today };
   if (!hits.length) return { found: false, ...base };

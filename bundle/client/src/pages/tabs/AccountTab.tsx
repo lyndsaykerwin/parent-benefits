@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { GearLockerCard } from '@/components/scan/GearLocker';
 import { api, localToday, rememberFamilyId, type FamilyMemory, type RunRequest } from '@/lib/bundle';
-import { clearBrowserData, clearEdit, loadPlan, markStartOver, peekEdit, type EditKey } from '@/lib/account';
+import { clearBrowserData, clearEdit, loadPlan, markStartOver, peekEdit, savePlan, type EditKey } from '@/lib/account';
 import { stateForZip } from '@/lib/onboarding';
 import { dateLimits, dateRangeError } from '@shared/dateRange';
 import { HOUSEHOLD_LABEL, WORK_LABEL, profileRows } from '@shared/familyFacts';
@@ -39,10 +39,11 @@ function Chevron({ up }: { up: boolean }) {
 }
 
 const shortDate = (iso: string) => (/^\d{4}-\d{2}-\d{2}$/.test(iso) ? new Date(`${iso}T00:00:00Z`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' }) : '');
-const SOURCE_LABEL: Record<string, string> = { setup: 'Remembered from your setup', gear: 'Remembered from your gear locker' };
+const SOURCE_LABEL: Record<string, string> = { setup: 'From your answers', gear: 'From your Gear Locker' };
 
 export default function AccountTab(props: AccountProps) {
   const { run } = props;
+  const owner = !!props.owner;
   const family = run.family;
   const guest = !isSampleId(run.familyId);
   const rows = profileRows({ ...family, state: family?.state });
@@ -119,6 +120,8 @@ export default function AccountTab(props: AccountProps) {
     Promise.resolve().then(() => api.memory(run.familyId)).then((m) => { if (live) setMemory(m); }).catch(() => { if (live) setMemoryError(true); });
     return () => { live = false; };
   }, [run.familyId]);
+  // Lessons written automatically while grading an offer (no parent reports) are for the reviewer only.
+  const learned = (memory?.learned ?? []).filter((m) => owner || m.reports !== null);
   const [techFamily, setTechFamily] = useState(false);
   const [techLearned, setTechLearned] = useState(false);
 
@@ -141,7 +144,18 @@ export default function AccountTab(props: AccountProps) {
     }
   }
 
-  const name = isSampleId(run.familyId) ? (family?.name ?? 'Sample').replace(/\s*\(.*\)\s*$/, '').trim() : loadPlan(run.familyId).name ?? 'My saved profile';
+  // ----- the plan's optional name (it saves itself; a name is just a label on this device) -----
+  const [planName, setPlanName] = useState(() => loadPlan(run.familyId).name);
+  useEffect(() => { setPlanName(loadPlan(run.familyId).name); }, [run.familyId]);
+  const [naming, setNaming] = useState(false);
+  const [nameDraft, setNameDraft] = useState('');
+  function saveName() {
+    const n = nameDraft.trim().slice(0, 40) || null;
+    savePlan(run.familyId, { name: n, hidden: false });
+    setPlanName(n);
+    setNaming(false);
+  }
+  const name = isSampleId(run.familyId) ? (family?.name ?? 'Sample').replace(/\s*\(.*\)\s*$/, '').trim() : planName ?? 'My saved profile';
   const choices = insuranceChoices(stateForZip(draft.zip)?.code ?? family?.state);
   const workRows = draft.household === 'two' ? [['You', 'work1'], ['Your partner', 'work2']] as const : draft.household === 'one' ? [['You', 'work1']] as const : [];
 
@@ -199,9 +213,9 @@ export default function AccountTab(props: AccountProps) {
         </div>
       )}
       {formError && <p role="alert" className="mt-3 rounded-xl bg-[#FBE3E0] px-3 py-2 text-[14px] font-semibold text-[#9E2A21]">{formError}</p>}
-      <button type="button" onClick={save} disabled={saving} className="mt-3 flex min-h-[52px] w-full items-center justify-center rounded-xl bg-ink px-3 text-[16px] font-bold text-cream disabled:opacity-60">{saving ? 'Checking…' : 'Save and re-check'}</button>
+      <button type="button" onClick={save} disabled={saving} className="mt-3 flex min-h-[52px] w-full items-center justify-center rounded-xl bg-ink px-3 text-[16px] font-bold text-cream disabled:opacity-60">{saving ? 'Saving…' : 'Save'}</button>
       <button type="button" onClick={() => { setEditing(null); setFormError(null); }} disabled={saving} className="mx-auto mt-1 flex min-h-[44px] items-center px-3 text-[15px] font-bold text-ink-2 underline decoration-line decoration-2 underline-offset-4">Cancel</button>
-      <p className="mt-2 text-[12.5px] text-ink-2">Saving checks your family again with the new answer.</p>
+      <p className="mt-2 text-[12.5px] text-ink-2">We’ll update your results with this answer.</p>
     </div>
   );
 
@@ -231,11 +245,27 @@ export default function AccountTab(props: AccountProps) {
         )}
         {switching && <p role="status" className="mt-3 text-[14px] font-semibold text-ink-2">Opening {openingLabel(switching)}…</p>}
         {switchError && <p role="alert" className="mt-3 rounded-xl bg-[#FBE3E0] px-3 py-2 text-[14px] font-semibold text-[#9E2A21]">{switchError}</p>}
+        {guest && !naming && (
+          <button type="button" onClick={() => { setNameDraft(planName ?? ''); setNaming(true); }} className="mt-2 min-h-[44px] text-[14px] font-bold text-ink-2 underline decoration-line decoration-2 underline-offset-4">{planName ? 'Change name' : 'Name this plan'}</button>
+        )}
+        {guest && naming && (
+          <form className="mt-2" onSubmit={(e) => { e.preventDefault(); saveName(); }}>
+            <label htmlFor={`plan-name-${run.familyId}`} className="block text-[14px] font-bold">Plan name <span className="font-semibold text-ink-2">(optional)</span></label>
+            <input
+              id={`plan-name-${run.familyId}`} type="text" maxLength={40} autoComplete="off" placeholder="e.g. Our baby plan"
+              value={nameDraft} onChange={(e) => setNameDraft(e.target.value)} className={fieldInput}
+            />
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              <button type="button" onClick={() => setNaming(false)} className="min-h-[48px] rounded-xl border-2 border-line bg-paper px-3 text-[15px] font-bold text-ink">Cancel</button>
+              <button type="submit" className="min-h-[48px] rounded-xl bg-ink px-3 text-[15px] font-bold text-cream">Save name</button>
+            </div>
+          </form>
+        )}
         <p className="mt-3 text-[13.5px] font-semibold text-ink-2" data-testid="trust-line">Saved on this device. No account needed.</p>
       </section>
 
       <section aria-label="Plan progress" data-testid="plan-ring" className="bundle-card mt-3 flex items-center gap-4 p-4">
-        <div className="relative h-[64px] w-[64px] shrink-0" role="img" aria-label={`${pct} percent exact`}>
+        <div className="relative h-[64px] w-[64px] shrink-0" role="img" aria-label={`${pct} percent complete`}>
           <svg viewBox="0 0 64 64" width="64" height="64" aria-hidden="true">
             <circle cx="32" cy="32" r="26" fill="none" stroke="var(--line)" strokeWidth="8" />
             <circle cx="32" cy="32" r="26" fill="none" stroke="var(--coral)" strokeWidth="8" strokeLinecap="round" strokeDasharray={`${(pct / 100) * 163.4} 163.4`} transform="rotate(-90 32 32)" />
@@ -243,10 +273,10 @@ export default function AccountTab(props: AccountProps) {
           <span aria-hidden="true" className="tabular absolute inset-0 flex items-center justify-center text-[14px] font-extrabold">{pct}%</span>
         </div>
         <div className="min-w-0">
-          <p className="text-[18px] font-extrabold leading-snug">Your plan is {pct}% exact.</p>
+          <p className="text-[18px] font-extrabold leading-snug">Your numbers are {pct}% complete.</p>
           {left.length > 0 ? (
             <>
-              <p className="text-[14px] leading-snug text-ink-2">{left.length} {left.length === 1 ? 'answer' : 'answers'} left could change your numbers.</p>
+              <p className="text-[14px] leading-snug text-ink-2">Answer {left.length} more {left.length === 1 ? 'question' : 'questions'} to firm them up.</p>
               <button type="button" onClick={left[0].open} className="mt-1 min-h-[44px] text-[15px] font-bold text-coral-deep">Answer the next one →</button>
             </>
           ) : <p className="text-[14px] leading-snug text-ink-2">Every answer is in.</p>}
@@ -277,48 +307,52 @@ export default function AccountTab(props: AccountProps) {
 
       <GearLockerCard familyId={run.familyId} list />
 
-      <p className="eyebrow mt-6 text-coral-deep">What Bundle remembers about your family</p>
-      <section aria-label="Memory about your family" data-testid="memory-family" className="bundle-card mt-2 px-4 py-2">
-        {memory === null && !memoryError && <p role="status" className="py-3 text-[15px] text-ink-2">Looking at what Bundle remembers…</p>}
+      <p className="eyebrow mt-6 text-coral-deep">What we know about your family</p>
+      <section aria-label="What we know about your family" data-testid="memory-family" className="bundle-card mt-2 px-4 py-2">
+        {memory === null && !memoryError && <p role="status" className="py-3 text-[15px] text-ink-2">Looking at what we know…</p>}
         {memoryError && <p role="alert" className="py-3 text-[15px] text-ink-2">Could not read this right now. Please try again in a minute.</p>}
-        {memory && memory.family.length === 0 && <p className="py-3 text-[15px] leading-snug text-ink-2">Nothing yet. Bundle remembers your answers and your gear here, so it can check them for you.</p>}
+        {memory && memory.family.length === 0 && <p className="py-3 text-[15px] leading-snug text-ink-2">Nothing yet. Your answers and gear show up here so we can keep checking them for you.</p>}
         {memory && memory.family.length > 0 && (
           <ul className="divide-y divide-line">
             {memory.family.map((m, i) => (
               <li key={`${m.id}-${i}`} className="py-3">
                 <p className="text-[15.5px] leading-snug">{m.text}</p>
                 <p className="mt-1.5 flex flex-wrap gap-1.5 text-[12px] font-bold">
-                  <span className="rounded-full bg-[#E3F3EA] px-2.5 py-0.5 text-[#17643F]">{SOURCE_LABEL[m.source] ?? 'Remembered by Bundle'}{memoryDate(m.savedOn) ? ` · ${memoryDate(m.savedOn)}` : ''}</span>
-                  <span className="rounded-full bg-[#F1ECE4] px-2.5 py-0.5 text-ink-2">Saved in Meterless memory</span>
+                  <span className="rounded-full bg-[#E3F3EA] px-2.5 py-0.5 text-[#17643F]">{SOURCE_LABEL[m.source] ?? 'Saved for you'}{memoryDate(m.savedOn) ? ` · ${memoryDate(m.savedOn)}` : ''}</span>
+                  {owner && <span className="rounded-full bg-[#F1ECE4] px-2.5 py-0.5 text-ink-2">Saved in Meterless memory</span>}
                 </p>
                 {techFamily && <p className="mt-1 font-mono text-[12px] text-ink-2">{m.id} · source: {m.source}</p>}
               </li>
             ))}
           </ul>
         )}
-        <button type="button" aria-expanded={techFamily} onClick={() => setTechFamily((t) => !t)} className="flex min-h-[44px] items-center gap-1 text-[13.5px] font-bold text-ink-2">
-          Technical details <Chevron up={techFamily} />
-        </button>
+        {owner && (
+          <button type="button" aria-expanded={techFamily} onClick={() => setTechFamily((t) => !t)} className="flex min-h-[44px] items-center gap-1 text-[13.5px] font-bold text-ink-2">
+            Technical details <Chevron up={techFamily} />
+          </button>
+        )}
       </section>
 
-      <p className="eyebrow mt-6 text-coral-deep">What Bundle has learned from parents</p>
+      <p className="eyebrow mt-6 text-coral-deep">Tips from other parents</p>
       <section aria-label="Lessons from parents" data-testid="memory-learned" className="bundle-card mt-2 px-4 py-2">
-        {memory && memory.learned.length === 0 && <p className="py-3 text-[15px] leading-snug text-ink-2">Nothing yet. When parents report an offer or mark a card not relevant, Bundle learns from it.</p>}
-        {memory && memory.learned.length > 0 && (
+        {memory && learned.length === 0 && <p className="py-3 text-[15px] leading-snug text-ink-2">Nothing yet. When parents flag a bad offer, we warn everyone else.</p>}
+        {memory && learned.length > 0 && (
           <ul className="divide-y divide-line">
-            {memory.learned.map((m, i) => (
+            {learned.map((m, i) => (
               <li key={`${m.id}-${i}`} className="py-3">
                 <p className="text-[15.5px] leading-snug">{plainLesson(m.text)}</p>
-                <p className="mt-1 text-[13px] text-ink-2">{m.reports === null ? 'Bundle learned this while grading an offer' : `Bundle learned from ${m.reports} parent ${m.reports === 1 ? 'report' : 'reports'}`}</p>
+                <p className="mt-1 text-[13px] text-ink-2">{m.reports === null ? 'Automatic grading note (reviewer only)' : `From ${m.reports} parent ${m.reports === 1 ? 'report' : 'reports'}`}</p>
                 {techLearned && <p className="mt-1 font-mono text-[12px] text-ink-2">{m.id}</p>}
               </li>
             ))}
           </ul>
         )}
         <p className="border-t border-line py-3 text-[13.5px] text-ink-2">When you report an offer, it helps protect every family checking it.</p>
-        <button type="button" aria-expanded={techLearned} onClick={() => setTechLearned((t) => !t)} className="flex min-h-[44px] items-center gap-1 text-[13.5px] font-bold text-ink-2">
-          Technical details <Chevron up={techLearned} />
-        </button>
+        {owner && (
+          <button type="button" aria-expanded={techLearned} onClick={() => setTechLearned((t) => !t)} className="flex min-h-[44px] items-center gap-1 text-[13.5px] font-bold text-ink-2">
+            Technical details <Chevron up={techLearned} />
+          </button>
+        )}
       </section>
 
       <div className="mt-6 grid grid-cols-2 gap-2.5">
@@ -330,7 +364,7 @@ export default function AccountTab(props: AccountProps) {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(27,23,20,.55)] px-4" data-testid="forget-modal">
           <div role="alertdialog" aria-modal="true" aria-labelledby="forget-title" aria-describedby="forget-body" className="w-full max-w-[420px] rounded-3xl bg-paper p-5 shadow-xl">
             <h2 id="forget-title" className="text-[20px] font-extrabold">Forget everything?</h2>
-            <p id="forget-body" className="mt-2 text-[15px] leading-snug text-ink-2">This deletes your answers, gear and receipt photos, and the memory entries about your family, and clears your plan from this device. It can’t be undone.</p>
+            <p id="forget-body" className="mt-2 text-[15px] leading-snug text-ink-2">This deletes your saved answers, gear and receipt photos, and everything we know about your family, and clears your plan from this device. It can’t be undone.</p>
             {forgetError && <p role="alert" className="mt-3 rounded-xl bg-[#FBE3E0] px-3 py-2 text-[14px] font-semibold text-[#9E2A21]">{forgetError}</p>}
             <div className="mt-4 grid grid-cols-2 gap-2.5">
               <button ref={cancelRef} type="button" onClick={() => setForgetting(false)} disabled={forgetBusy} className="min-h-[52px] rounded-2xl border-2 border-line bg-paper px-3 text-[16px] font-bold text-ink">Keep my data</button>

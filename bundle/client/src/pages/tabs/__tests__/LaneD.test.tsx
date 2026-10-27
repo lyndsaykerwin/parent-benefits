@@ -13,12 +13,12 @@ const facts = (over: Partial<OfferFacts> = {}): OfferFacts => ({
 const card = (id: string, over: Partial<FeedCard> = {}): FeedCard => ({ id, kind: 'discount', title: id, body: '', amountCents: null, deadline: null, verdict: 'likely', sources: [{ label: 's', url: `https://x.test/${id}` }], traceId: '', ...over });
 
 describe('the lines on an offer card (R5)', () => {
-  it('says approved, catch and blocked in the court\'s own words', () => {
-    expect(courtLine(facts()).text).toBe('Fine Print Court: Approved (0 subscription traps, $0 hidden fees)');
-    expect(courtLine(facts({ subscriptionTraps: 1, hiddenFeeCents: 599 })).text).toBe('Fine Print Court: Approved (1 subscription trap, $5.99 hidden fees)');
-    expect(courtLine(facts({ court: 'approve_with_catch', catches: ['signs you up for a paid trial'] })).text).toBe('Fine Print Court: Approved with a catch: signs you up for a paid trial');
-    expect(courtLine(facts({ court: 'reject', catches: ['a paid membership is required'] })).text).toBe('Fine Print Court: Blocked: a paid membership is required');
-    expect(courtLine(facts({ ruleCheckOnly: true })).note).toMatch(/rule check only/i);
+  it('says approved, catch and blocked in plain "Fine print" words', () => {
+    expect(courtLine(facts()).text).toBe('Fine print: OK (no subscription traps, no hidden fees)');
+    expect(courtLine(facts({ subscriptionTraps: 1, hiddenFeeCents: 599 })).text).toBe('Fine print: OK (1 subscription trap, $5.99 hidden fees)');
+    expect(courtLine(facts({ court: 'approve_with_catch', catches: ['signs you up for a paid trial'] })).text).toBe('Fine print: OK, with a catch: signs you up for a paid trial');
+    expect(courtLine(facts({ court: 'reject', catches: ['a paid membership is required'] })).text).toBe('Fine print: Blocked: a paid membership is required');
+    expect(courtLine(facts({ ruleCheckOnly: true })).note).toMatch(/quick check only/i);
     expect(minutesLine(facts()).text).toBe('About 10 minutes');
     expect(valueLine(facts()).text).toBe('True value $35');
     expect(valueLine(facts({ trueValueCents: null })).text).toMatch(/not stated/);
@@ -105,6 +105,6 @@ describe('Deals screen', () => {
     expect(within(diaper).getByRole('button', { name: /I got this/ })).toBeTruthy();
     expect(within(diaper).getByRole('button', { name: /Not relevant/ })).toBeTruthy();
     expect(within(diaper).getByText(/True value \$40/)).toBeTruthy();
-    expect(within(diaper).getByText(/Rule check only/)).toBeTruthy();
+    expect(within(diaper).getByText(/Quick check only/)).toBeTruthy();
   });
 });

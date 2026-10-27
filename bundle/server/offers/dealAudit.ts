@@ -149,7 +149,7 @@ export async function auditDeal(req: AuditRequest, deps: AuditDeps): Promise<Aud
   if (full && j.standing === 'agreed' && !j.check.injectionDetected && text.length >= MIN_SAVE_TEXT_CHARS) {
     try {
       await deps.store.save(buildOfferCheckRow(
-        { id: offerId, store: req.store, sourceUrl: req.link ?? '' }, j.check, j.verdict, j.ruling.citedRuleIds, 'agreed', null, 'user_audit',
+        { id: offerId, store: req.store, sourceUrl: req.link ?? '' }, j.check, j.verdict, j.ruling.citedRuleIds, 'agreed', j.model, 'user_audit',
       ));
       saved = true;
       sharedFromParents = (await deps.store.parentStats().catch(() => null))?.total;

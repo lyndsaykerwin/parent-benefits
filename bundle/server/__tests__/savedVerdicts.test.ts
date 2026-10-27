@@ -148,7 +148,8 @@ describe('canSkipAi', () => {
 describe('zetaris:record', () => {
   it('builds the fixed questions: saved verdicts, audit, report card by source, every sample family profile, coach issues', () => {
     const qs = buildQuestions({ offerIds: ['2', '1'], familyIds: ['maya', 'ava'], issueLimit: 50 });
-    expect(qs.map((q) => q.sql)).toEqual([
+    // The first six are the original fixed questions; the all-states questions follow (allStatesReplay.test.ts covers those).
+    expect(qs.map((q) => q.sql).slice(0, 6)).toEqual([
       savedVerdictsSql(['2', '1']), offerAuditSql(), offerAuditBySourceSql(), familyProfileSql('maya'), familyProfileSql('ava'), coachIssuesSql(50),
     ]);
   });

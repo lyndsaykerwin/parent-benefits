@@ -2,7 +2,7 @@ import { useState, type ReactNode } from 'react';
 import type { FeedCard } from '@shared/bundle';
 import FeedCardView from '@/components/FeedCardView';
 import { cardState, claimableCards, homeTotals, type Stage, type TabId } from '@/lib/tabs';
-import { fmtUsdShort, type SavedRun, type TraceLine } from '@/lib/bundle';
+import { fmtUsdShort, safeSources, type SavedRun, type TraceLine } from '@/lib/bundle';
 import { cn } from '@/lib/utils';
 
 /** What every tab gets from the Version B container. */
@@ -23,6 +23,8 @@ export interface TabProps {
   stateNote: string | null;
   /** The finished run's audit lines (reviewer only; empty for a parent). */
   lines: TraceLine[];
+  /** true when the reviewer code is set (the owner view). Parents never see owner-only things. */
+  owner?: boolean;
 }
 
 export function CategoryHeader({ eyebrow, dot, title, sub }: { eyebrow: string; dot: string; title: string; sub: string }) {
@@ -35,6 +37,9 @@ export function CategoryHeader({ eyebrow, dot, title, sub }: { eyebrow: string; 
   );
 }
 
+/** "How we checked" is for cards we really checked for this family: deals (the fine print), money back and recalls. Benefits get a plain "Source" link. The owner keeps it on every card. */
+export const showsHowWeChecked = (c: FeedCard, owner?: boolean): boolean => !!owner || c.kind === 'discount' || c.kind === 'clawback' || c.kind === 'recall';
+
 /** Cards still to do, each with "I got this" and "Not relevant" when a parent can act on it. Finished and dismissed cards move to the drawers (see ClaimDrawers). */
 export function CardStack({ cards, props, deadlineLabels, extras }: { cards: FeedCard[]; props: TabProps; deadlineLabels?: Record<string, string>; extras?: Record<string, ReactNode> }) {
   const ids = new Set(claimableCards(props.cards).map((c) => c.id));
@@ -46,7 +51,8 @@ export function CardStack({ cards, props, deadlineLabels, extras }: { cards: Fee
           key={c.id}
           card={c}
           today={props.run.today}
-          detailHref={props.href(c.id)}
+          detailHref={showsHowWeChecked(c, props.owner) ? props.href(c.id) : undefined}
+          sourceHref={!showsHowWeChecked(c, props.owner) && c.kind === 'benefit' ? safeSources(c.sources)[0]?.url : undefined}
           // An expecting family has no countdown yet: every benefit deadline counts from the birth.
           deadlineLabel={deadlineLabels?.[c.id] ?? (props.stage === 'expecting' && c.kind === 'benefit' && c.deadline ? 'Starts at birth' : undefined)}
           extra={extras?.[c.id]}

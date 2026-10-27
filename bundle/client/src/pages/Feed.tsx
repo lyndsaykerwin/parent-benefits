@@ -69,7 +69,7 @@ function StatusPills({ stream }: { stream: StreamState }) {
   );
 }
 
-/** Cards to show while the check runs: the last saved results, with each fresh card replacing its saved copy. */
+/** Cards to show the owner while the check runs: the last saved results, with each fresh card replacing its saved copy. */
 export function liveCards(saved: FeedCard[], stream: StreamState): FeedCard[] {
   const fresh = new Set(stream.cards.map((c) => c.id));
   const gone = new Set(stream.removed);
@@ -220,6 +220,8 @@ export default function Feed() {
       if (!live || askedSaved.current || !status.familyId) return;
       askedSaved.current = true;
       setChipInfo((c) => c.family ? c : { family: status.family, today: status.today, demoDate: status.demoDate });
+      // The last saved results are shown to the owner only. A parent sees just the checklist, then "We found $X" (no flicker of old cards).
+      if (!ownerToken()) return;
       api.latestRun(status.familyId).then((s) => {
         if (live && s.status === 'done' && s.result && s.result.runId !== runId) {
           setSaved(s.result.cards.map((c) => sanitizeCard(c)).filter((c): c is FeedCard => !!c && c.verdict !== 'blocked'));
@@ -295,7 +297,7 @@ export default function Feed() {
         {owner
           ? <Progress lines={traceLines} elapsed={elapsed} stream={stream} />
           : <ParentProgress lines={lines} shown={visible} ready={ready} waiting={waiting} elapsed={elapsed} stream={stream} totalCents={total} onReveal={reveal} />}
-        {!(finished && !owner) && <LiveCards cards={cards} today={today} fromSaved={saved.length > 0 && stream.cards.length === 0} />}
+        {owner && <LiveCards cards={cards} today={today} fromSaved={saved.length > 0 && stream.cards.length === 0} />}
       </AppShell>
     );
   }

@@ -69,7 +69,7 @@ describe('Version B tabs, baby is here (Maya)', () => {
     expect(tab('Deals').getAttribute('aria-current')).toBe('page');
   });
 
-  it('Taxes: tax credits with "How we checked", and the Dependent Care FSA is a "Check with your job" card with no dollar amount', () => {
+  it('Taxes: tax credits with a plain "Source" link (no "How we checked" since Oct 26), and the Dependent Care FSA is a "Check with your job" card with no dollar amount', () => {
     show('maya');
     fireEvent.click(tab('Taxes'));
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('$2,640 off your taxes');
@@ -77,7 +77,8 @@ describe('Version B tabs, baby is here (Maya)', () => {
     expect(within(fsa).getByText('Check with your job')).toBeTruthy();
     expect(within(fsa).queryByTestId('card-amount')).toBeNull();
     expect(within(fsa).queryByText(/\$/)).toBeNull();
-    expect(screen.getAllByText(/How we checked/).length).toBeGreaterThanOrEqual(3);
+    expect(screen.queryAllByText(/How we checked/)).toHaveLength(0);
+    expect(screen.getAllByRole('link', { name: /^Source/ }).length).toBeGreaterThanOrEqual(2);
     expect(document.body.textContent).not.toMatch(/daycare invoice/i);
   });
 
@@ -186,19 +187,14 @@ describe('light extras', () => {
     delete (navigator as any).share;
   });
 
-  it('"Save your plan" has no sign-in: the plan is saved on this device and a name is optional', () => {
+  it('the plan saves itself: one plain line, no sign-in, no name box (Oct 26)', () => {
     show('maya');
     expect(screen.queryByText(/Continue with Google/)).toBeNull();
-    expect(screen.queryByText(/Save your list so you do not lose it/)).toBeNull();
-    const card = screen.getByTestId('save-card');
-    expect(card.textContent).toMatch(/Your plan is saved on this device\./);
-    expect(card.textContent).toMatch(/Add a name for it/);
-    expect(card.textContent).not.toMatch(/email|password|sign[- ]?in/i);
-    fireEvent.change(within(card).getByTestId('save-name-input'), { target: { value: 'Our baby plan' } });
-    fireEvent.click(within(card).getByRole('button', { name: 'Save name' }));
-    expect(screen.getByTestId('save-confirm').textContent).toMatch(/Saved as “Our baby plan”/);
-    expect(localStorage.getItem('bundle:plan:maya')).toMatch(/Our baby plan/);
+    expect(screen.getByTestId('plan-saved').textContent).toBe('✓ Your plan is saved.');
+    expect(screen.queryByTestId('save-card')).toBeNull();
+    expect(document.body.textContent).not.toMatch(/password|sign[- ]?in/i);
   });
+
 });
 
 describe('uncovered states', () => {

@@ -11,7 +11,7 @@ describe('S3: Home splits the money into three buckets', () => {
   // S3 — "Home shows 'Money back now', 'At tax time' and 'Paid family leave' with the run's real amounts; tax-time money
   // says 'when you file your 2026 taxes (spring 2027)' for a 2026 baby; the Trump Account is labelled as going into the
   // baby's account; paid leave says 'up to $1,230 a week for 12 weeks'."
-  it('Maya (born 2026): real amounts in each bucket, spring 2027, Trump Account into the baby\'s account', () => {
+  it('Maya (born 2026): real amounts in each bucket, spring 2027, Trump Account in its own baby-savings box', () => {
     const run = mayaRun();
     showVersionB(run);
     const cards = run.result.cards;
@@ -21,10 +21,14 @@ describe('S3: Home splits the money into three buckets', () => {
     expect(within(now).getByText(fmtUsdShort(sum(/^clawback-(fsa|price)-/)))).toBeTruthy(); // $48.99 for Maya
 
     const tax = bucket('At tax time');
-    expect(within(tax).getByText(fmtUsdShort(sum(/^benefit-(federal_child_tax_credit|ma_child_tax_credit|trump_account)$/)))).toBeTruthy(); // $3,640
+    expect(within(tax).getByText(fmtUsdShort(sum(/^benefit-(federal_child_tax_credit|ma_child_tax_credit)$/)))).toBeTruthy(); // $2,640
     expect(within(tax).getByText(/when you file your 2026 taxes \(spring 2027\)/i)).toBeTruthy();
-    expect(within(tax).getByText(/Trump Account/)).toBeTruthy();
-    expect(within(tax).getByText(/into (your |the )?baby[’']s account/i)).toBeTruthy();
+    // Oct 26 (Lyndsay): the Trump Account is not a tax credit, so it has its own "baby's savings account" box.
+    expect(within(tax).queryByText(/Trump Account/)).toBeNull();
+    const savings = bucket('Your baby\'s savings account');
+    expect(within(savings).getByText(/Trump Account/)).toBeTruthy();
+    expect(within(savings).getByText(fmtUsdShort(sum(/^benefit-trump_account$/)))).toBeTruthy(); // $1,000
+    expect(within(savings).getByText(/account in your baby[’']s name/i)).toBeTruthy();
 
     const leave = bucket('Paid family leave');
     expect(within(leave).getByText(/up to \$1,230 a week for 12 weeks/)).toBeTruthy();

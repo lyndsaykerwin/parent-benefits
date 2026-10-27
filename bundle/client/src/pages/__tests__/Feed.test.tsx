@@ -89,7 +89,8 @@ describe('Feed instant saved results and live cards (W4-STREAM-UI)', () => {
   const runningBody = { runId: 'r2', familyId: 'maya', status: 'running', startedAt: new Date().toISOString(), family: { name: 'maya', birthDate: null, dueDate: '2026-12-07' }, today: '2026-10-23', demoDate: false, result: null, error: null, progress: [], owner: false };
   const savedBody = { ...runningBody, runId: 'old', status: 'done', result: { familyId: 'maya', runId: 'old', receipt, cards: [mk('saved-1', 'Saved WIC card')], banner: null } };
 
-  function mount(latest: 'saved' | '404' = 'saved') {
+  function mount(latest: 'saved' | '404' = 'saved', owner = false) {
+    if (owner) sessionStorage.setItem('bundle:reviewerToken', 'test-reviewer-code'); // last run's cards are owner-only since Oct 26
     (global as any).EventSource = FakeES;
     FakeES.last = null;
     const fetchMock = jest.fn(async (url: string) => {
@@ -103,8 +104,8 @@ describe('Feed instant saved results and live cards (W4-STREAM-UI)', () => {
   }
   afterEach(() => { delete (global as any).EventSource; });
 
-  it('shows the family\'s last saved results straight away, labelled as saved', async () => {
-    mount('saved');
+  it('the owner sees the family\'s last saved results straight away, labelled as saved', async () => {
+    mount('saved', true);
     await waitFor(() => expect(screen.getByText('Saved WIC card')).toBeTruthy());
     expect(screen.getByTestId('saved-feed-note').textContent).toMatch(/last check/i);
   });
@@ -116,8 +117,8 @@ describe('Feed instant saved results and live cards (W4-STREAM-UI)', () => {
     expect(screen.queryByTestId('saved-feed-note')).toBeNull();
   });
 
-  it('streamed cards appear as they are ready, a new copy replaces the saved one, and owner fields never reach the page', async () => {
-    mount('saved');
+  it('for the owner, streamed cards appear as they are ready and a new copy replaces the saved one', async () => {
+    mount('saved', true);
     await waitFor(() => expect(FakeES.last).toBeTruthy());
     expect(FakeES.last!.url).toBe('/api/runs/r2/events');
     await waitFor(() => expect(screen.getByText('Saved WIC card')).toBeTruthy());
@@ -129,7 +130,6 @@ describe('Feed instant saved results and live cards (W4-STREAM-UI)', () => {
     await waitFor(() => expect(screen.getByText('Brand new recall')).toBeTruthy());
     expect(screen.getByText('Fresh WIC card')).toBeTruthy();
     expect(screen.queryByText('Saved WIC card')).toBeNull();
-    expect(screen.queryByText('Checking recalls…')).toBeNull(); // the family's own lines are on screen, so no second set of pills
     expect(document.body.innerHTML).not.toMatch(/owner-trace-id|real-?time/i);
   });
 

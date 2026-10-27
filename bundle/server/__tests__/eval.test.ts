@@ -44,7 +44,9 @@ describe('runEval (offline: no model key, replayed Zetaris, fake families)', () 
     expect(sb.learningDetail.ruleText).toMatch(/subscription/i);
     expect(sb.learningDetail.trapTitle).toBe('Amazon Subscribe & Save diaper discount');
     expect(sb.learning.collateralBlocked).toBe(0);
-    expect(sb.learningDetail.obviousTrap).toMatchObject({ run1Approved: true, run2Blocked: true });
+    // Oct 26 rule: the obvious trap (card on file + paid plan at $29.99/month) is now blocked by the code rules on the first run,
+    // so the learning proof rests on the subtle trap above.
+    expect(sb.learningDetail.obviousTrap).toMatchObject({ run1Approved: false });
     const run2 = fs.readFileSync(path.join(logsDir, `run-${sb.learningDetail.run2Id}.jsonl`), 'utf8');
     expect(run2).toContain(`[cited ${sb.learning.citedRuleId}]`);
     const approve = fs.readFileSync(path.join(logsDir, `run-approve-${sb.learningDetail.run1Id}.jsonl`), 'utf8');

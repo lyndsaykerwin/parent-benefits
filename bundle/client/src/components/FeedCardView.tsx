@@ -15,6 +15,8 @@ interface Props {
   pinned?: boolean;
   /** Where "How we checked" goes. Omit to hide the link (e.g. on the detail page itself). */
   detailHref?: string;
+  /** A plain "Source" link (the card's own source page), shown where "How we checked" would be. Used for benefit cards. */
+  sourceHref?: string;
   /** Shows "I got this" and "Not relevant" buttons. Leave out for cards a parent cannot act on (safety checks, coming-soon tiles). */
   actions?: { onGotIt: () => void; onNotRelevant: () => void };
   /** Replaces the deadline countdown (e.g. "Starts at birth" for an expecting family). */
@@ -39,7 +41,7 @@ const verdictStyle: Record<FeedCard['verdict'], string> = {
   blocked: 'bg-[#FBE3E0] text-[#9E2A21]',
 };
 
-export default function FeedCardView({ card, today, pinned = false, detailHref, actions, deadlineLabel, extra }: Props) {
+export default function FeedCardView({ card, today, pinned = false, detailHref, sourceHref, actions, deadlineLabel, extra }: Props) {
   const meta = KIND_META[card.kind];
   const caption = amountCaption(card);
   const soon = card.kind === 'coming_soon';
@@ -92,7 +94,7 @@ export default function FeedCardView({ card, today, pinned = false, detailHref, 
       {!facts && <p className="mt-1 text-[15px] leading-relaxed text-ink-2">{body.charAt(0).toUpperCase() + body.slice(1)}</p>}
       {facts && (
         <div className="mt-2" data-testid="offer-facts">
-          <ul className="space-y-1 text-[14px] font-semibold" aria-label="What the Fine Print Court found">
+          <ul className="space-y-1 text-[14px] font-semibold" aria-label="What the fine print says">
             {factLines(facts).map((l, i) => (
               <li key={i} className="flex items-start gap-1.5">
                 <span aria-hidden="true">{l.icon}</span>
@@ -159,8 +161,15 @@ export default function FeedCardView({ card, today, pinned = false, detailHref, 
           </Link>
         </div>
       )}
+      {!detailHref && sourceHref && !soon && (
+        <div className="mt-2 flex items-center justify-end border-t border-dashed border-line pt-1">
+          <a href={sourceHref} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-[44px] items-center gap-1 px-1 text-[14px] font-bold text-ink-2 hover:text-ink">
+            Source <ExternalIcon />
+          </a>
+        </div>
+      )}
       {actions && !soon && (
-        <div className={cn('grid grid-cols-2 gap-2.5', detailHref ? 'mt-1' : 'mt-3')}>
+        <div className={cn('grid grid-cols-2 gap-2.5', detailHref || sourceHref ? 'mt-1' : 'mt-3')}>
           <button type="button" onClick={actions.onGotIt} className="inline-flex min-h-[48px] items-center justify-center gap-1.5 rounded-2xl bg-ink px-3 text-[15px] font-bold text-cream active:scale-[.99]">
             <svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m5 12 5 5 9-10" /></svg>
             I got this

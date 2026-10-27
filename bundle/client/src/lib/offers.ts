@@ -40,13 +40,14 @@ const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one :
 
 export interface FactLine { icon: string; text: string; note?: string; tone: 'good' | 'catch' | 'blocked' | 'plain' }
 
-/** "Fine Print Court: Approved (0 subscription traps, $0 hidden fees)", "Approved with a catch: …" or "Blocked: …". */
+/** "Fine print: OK (no subscription traps, no hidden fees)", "Fine print: OK, with a catch: …" or "Fine print: Blocked: …". */
 export function courtLine(f: OfferFacts): FactLine {
-  const note = f.ruleCheckOnly ? 'Rule check only. The full AI court runs in live mode.' : undefined;
-  if (f.court === 'approve_with_catch') return { icon: '🛡️', text: `Fine Print Court: Approved with a catch: ${f.catches.join('; ') || 'read the fine print'}`, tone: 'catch', note };
-  if (f.court === 'reject') return { icon: '🛡️', text: `Fine Print Court: Blocked: ${f.catches.join('; ') || 'a catch in the fine print'}`, tone: 'blocked', note };
-  const fees = f.hiddenFeeCents === 0 ? '$0' : fmtUsd(f.hiddenFeeCents);
-  return { icon: '🛡️', text: `Fine Print Court: Approved (${plural(f.subscriptionTraps, 'subscription trap', 'subscription traps')}, ${fees} hidden fees)`, tone: 'good', note };
+  const note = f.ruleCheckOnly ? 'Quick check only. Read the terms before you sign up.' : undefined;
+  if (f.court === 'approve_with_catch') return { icon: '🛡️', text: `Fine print: OK, with a catch: ${f.catches.join('; ') || 'read the fine print'}`, tone: 'catch', note };
+  if (f.court === 'reject') return { icon: '🛡️', text: `Fine print: Blocked: ${f.catches.join('; ') || 'a catch in the fine print'}`, tone: 'blocked', note };
+  const traps = f.subscriptionTraps === 0 ? 'no subscription traps' : plural(f.subscriptionTraps, 'subscription trap', 'subscription traps');
+  const fees = f.hiddenFeeCents === 0 ? 'no hidden fees' : `${fmtUsd(f.hiddenFeeCents)} hidden fees`;
+  return { icon: '🛡️', text: `Fine print: OK (${traps}, ${fees})`, tone: 'good', note };
 }
 
 /** "About 5 minutes". The server's cautious (upper) estimate, said as a single number. */
@@ -124,7 +125,7 @@ export async function fetchReportCard(): Promise<ReportCardReply | null> {
   } catch { return null; }
 }
 
-export const verdictLabel: Record<FinePrintVerdict, string> = { approve: 'Approved', approve_with_catch: 'Approved with a catch', reject: 'Blocked' };
+export const verdictLabel: Record<FinePrintVerdict, string> = { approve: 'OK', approve_with_catch: 'OK, with a catch', reject: 'Blocked' };
 
 /** A saved grading lesson ("… graded approve_with_catch …; catches: required_membership") in plain words, using the same labels as the offer cards. */
 export function plainLesson(text: string): string {

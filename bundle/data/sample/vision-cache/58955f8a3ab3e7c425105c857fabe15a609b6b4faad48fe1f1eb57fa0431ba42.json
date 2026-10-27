@@ -1,6 +1,6 @@
 {
   "kind": "item",
   "answers": [
-    "\n{\"rejected\":null,\"readText\":\"SAMPLE IMAGE - MADE-UP LABEL FOR PRACTICE\\nGraco\\nInfant Car Seat\\nModel No.: SAMPLE-1042\\nDate of Manufacture: 2026/03/15\\nLot: SMP-0315\\nFor use with children 4-35 lb\\n0 12345 67890 5\", \"store\": null, \"purchasedOn\": null, \"items\": [{\"productName\":\"Infant Car Seat\",\"brand\":\"Graco\",\"modelNumber\":\"SAMPLE-1042\",\"lotCode\":\"SMP-0315\",\"upc\":\"0 12345 67890 5\",\"sizeText\":\"4-35 lb\",\"priceCents\":null,\"quantity\":1}]}"
+    "\n{\"rejected\":null,\"unreadable\":null,\"readText\":\"SAMPLE IMAGE - MADE-UP LABEL FOR PRACTICE\\nGraco\\nInfant Car Seat\\nModel No.: SAMPLE-1042\\nDate of Manufacture: 2026/03/15\\nLot: SMP-0315\\nFor use with children 4-35 lb\\n0 12345 67890 5\",\"store\":null,\"purchasedOn\":null,\"items\":[{\"productName\":\"Infant Car Seat\",\"brand\":\"Graco\",\"modelNumber\":\"SAMPLE-1042\",\"lotCode\":\"SMP-0315\",\"manufacturedOn\":\"2026-03-15\",\"upc\":\"0 12345 67890 5\",\"sizeText\":\"4-35 lb\",\"priceCents\":null,\"quantity\":1}]}"
   ]
 }

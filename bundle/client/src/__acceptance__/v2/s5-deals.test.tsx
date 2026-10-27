@@ -30,15 +30,15 @@ describe('S5: Deals says what is really being checked, with the exact age', () =
 
   // S5 (R5) — "Offer cards show the fine-print court's real findings instead of filler: 'Fine Print Court: Approved',
   // 'About N minutes' of effort and 'True value $X'. The sentence 'Likely a good deal' never appears."
-  it('an offer card shows "Fine Print Court: Approved", "About N minutes" and "True value $", never "Likely a good deal"', () => {
+  it('an offer card shows "Fine print: OK", "About N minutes" and "True value $", never "Likely a good deal" (Oct 26: "Fine Print Court" renamed)', () => {
     fakeServer([]); // practice mode
     showVersionB(mayaRun());
     goTab('Deals');
     const offers = screen.getAllByRole('article');
-    const approved = offers.filter((a) => /Fine Print Court: Approved/.test(a.textContent ?? ''));
+    const approved = offers.filter((a) => /Fine print: OK/.test(a.textContent ?? ''));
     expect(approved.length).toBeGreaterThan(0);
     const card = approved[0];
-    expect(within(card).getByText(/Fine Print Court: Approved/)).toBeTruthy();
+    expect(within(card).getByText(/Fine print: OK/)).toBeTruthy();
     expect(within(card).getByText(/About \d+ minutes/)).toBeTruthy();
     expect(within(card).getByText(/True value \$/)).toBeTruthy();
     expect(screen.queryByText(/Likely a good deal/)).toBeNull();
@@ -77,7 +77,7 @@ describe('S5: Audit a deal asks for specifics', () => {
     expect(call.body).toEqual(expect.objectContaining({ store: 'Bitsy Box', offer: 'A free baby box', link: 'https://example.com/bitsy-box', text: pasted }));
     expect(call.body.imageBase64).toBeUndefined();
 
-    const verdict = await screen.findByText(/Approved with a catch/i);
+    const verdict = await screen.findByText(/OK, with a catch/i);
     const verdictBox = verdict.closest('section, article, [role="status"], [aria-live]') ?? document.body;
     expect(verdictBox.textContent).toMatch(/Bitsy Box/);
     expect(screen.getByText(/Auto-renews at \$29\.99 a month after 30 days\./)).toBeTruthy();

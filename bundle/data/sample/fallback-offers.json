@@ -5,43 +5,61 @@
     "valueCents": 3500,
     "minAgeDays": -280,
     "maxAgeDays": 365,
-    "finePrint": "Requires Prime and a registry with at least one item; limited to one per household.",
-    "sourceUrl": "https://www.amazon.com/baby-reg/homepage"
+    "finePrint": "The Welcome Box is available to customers with active Amazon Prime accounts, who create a Baby Registry, add 10 unique items from their Baby Registry Checklist and have over $10 of purchases from their registry (by themselves or others). The welcome box is only eligible to ship within the contiguous United States. This offer is a limited-time offer, while supplies last.",
+    "sourceUrl": "https://www.amazon.com/gp/help/customer/display.html?nodeId=GBLXVKVYG5SBG8HF"
   },
   {
-    "title": "15% registry completion discount",
+    "title": "15% registry completion coupon",
     "store": "Target",
     "valueCents": null,
     "minAgeDays": -280,
     "maxAgeDays": 365,
-    "finePrint": "One-time coupon valid for 60 days after registry creation; excludes some brands.",
-    "sourceUrl": "https://www.target.com/c/baby-registry/-/N-5xtbg"
+    "finePrint": "As you get close to your baby or wedding registry event date, you'll receive a 15% off storewide Target Circle offer that is redeemable twice. Some restrictions apply. Wedding and baby registries must be active for at least 14 days before your offer is generated.",
+    "sourceUrl": "https://www.target.com/help/article/000062273"
   },
   {
-    "title": "Free welcome gift bag",
+    "title": "Free Baby Registry Welcome Box",
     "store": "Walmart",
     "valueCents": 2500,
     "minAgeDays": -280,
     "maxAgeDays": 365,
-    "finePrint": "Registry must be created online; in-store pickup only while supplies last.",
-    "sourceUrl": "https://www.walmart.com/cp/baby-registry/1094765"
+    "finePrint": "Earn your Baby Registry Welcome Box: Create your baby registry (registries created 2/1/2025 & onward are eligible). Registry must be open for 7 days. A minimum of 20 unique items added to your registry. Over $25 purchased from and through your registry at Walmart. Baby Registry Welcome Box offer is valid in the U.S., excluding PO Boxes.",
+    "sourceUrl": "https://www.walmart.com/cp/baby-registry/1229485"
   },
   {
-    "title": "Pampers Club rewards sign-up bonus",
+    "title": "Pampers Rewards: $10 Pampers Cash for every 10 diaper scans",
     "store": "Pampers",
-    "valueCents": 500,
+    "valueCents": 1000,
     "minAgeDays": -280,
     "maxAgeDays": 365,
-    "finePrint": "Points added after scanning your first diaper pack code.",
-    "sourceUrl": "https://www.pampers.com/en-us/club"
+    "finePrint": "For every 10 diaper scans you will receive $10 Pampers Cash which you can redeem in our Pampers Rewards catalog. Download the Pampers Rewards mobile app from the Play Store or the App Store, enter your details to join.",
+    "sourceUrl": "https://www.pampers.com/en-us/rewards"
   },
   {
-    "title": "Babylist registry welcome box",
+    "title": "Babylist Hello Baby Box",
     "store": "Babylist",
     "valueCents": 2000,
+    "minAgeDays": -270,
+    "maxAgeDays": 28,
+    "finePrint": "Add three items to your registry from other stores. Complete 40% of your Babylist registry checklist. Make a minimum purchase totaling $30 from the Babylist Shop. Verify your address and pay $8.95 + tax, where applicable, for shipping. There is a one Hello Baby Box limit per household per year.",
+    "sourceUrl": "https://www.babylist.com/hello-baby/babylist-hello-baby-box"
+  },
+  {
+    "title": "Free Baby Registry Welcome Kit",
+    "store": "Target",
+    "valueCents": 10000,
     "minAgeDays": -280,
     "maxAgeDays": 365,
-    "finePrint": "Box ships after you add 10 items; shipping fee may apply.",
-    "sourceUrl": "https://www.babylist.com/registry-benefits"
+    "finePrint": "To receive your free Baby Registry Welcome Kit: 1. Join Target Circle. 2. Create a baby registry. 3. Add 10 unique items to your Baby Registry. 4. Purchase over $10 from your registry (either by you or others). Limit one kit per year. Baby Registry Welcome Kit is valued at $100 that is a mix of samples and Target Circle Bonus. Shipping and handling fees apply. Baby Registry Welcome Kits are only available online as a Target Circle Bonus.",
+    "sourceUrl": "https://www.target.com/help/article/000062588"
+  },
+  {
+    "title": "Free home cleaning with a Walmart baby registry",
+    "store": "Walmart",
+    "valueCents": 9900,
+    "minAgeDays": -280,
+    "maxAgeDays": 365,
+    "finePrint": "Free cleaning for one bedroom, one bathroom, kitchen, and common areas in a single home (worth $99) from our trusted third-party partner. Maintain your registry for at least 7 days. Add 20 or more unique items to your registry. Spend $300 on items from your registry (this can be you or someone you have invited). Available while supplies last. US, 18+ only. Limited 1 per person.",
+    "sourceUrl": "https://www.walmart.com/cp/baby-registry/1229485"
   }
 ]

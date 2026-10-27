@@ -87,12 +87,18 @@ export function GearResult({ item, thumbnail, sample, already }: { item: Scanned
             {joinDot([
               item.modelNumber ? <span key="m">Model {item.modelNumber}</span> : null,
               item.upc ? <span key="u">UPC {item.upc}</span> : null,
+              typeof item.manufacturedOn === 'string' && item.manufacturedOn ? <span key="d">Made {item.manufacturedOn}</span> : null,
+              item.lotCode ? <span key="l">Lot {item.lotCode}</span> : null,
             ])}
             {sample && <> <SampleBadge /></>}
           </p>
         </div>
       </div>
       {item.recall && <div className="mt-3"><RecallLine recall={item.recall} /></div>}
+      {item.recall && item.recall.found !== null && item.recall.note && <p className="mt-2 text-[14px] leading-snug text-ink-2" data-testid="recall-note">{item.recall.note}</p>}
+      {!item.manufacturedOn && item.recall?.found !== true && (
+        <p className="mt-2 text-[13.5px] leading-snug text-ink-2" data-testid="no-date-tip">We couldn’t read the date made. Recalls often cover only some dates, so check the sticker for it.</p>
+      )}
       {reg && (
         <p className="mt-3 text-[15px]">
           <a href={reg} target="_blank" rel="noopener noreferrer" className="font-bold text-coral-deep underline underline-offset-2">Register it with {item.brand || 'the maker'} →</a>

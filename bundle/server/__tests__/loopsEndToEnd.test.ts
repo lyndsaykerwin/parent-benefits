@@ -5,7 +5,7 @@ import { judgeOffers, revise as reviseOffer } from '../agents/finePrintCourt';
 import { checkWithCorrections, MAX_CORRECTION_ROUNDS } from '../agents/factChecker';
 import { findClawbacks } from '../agents/clawback';
 import { planBenefits } from '../agents/benefits';
-import { readPhoto, createMemoryPhotoStore, type PhotoDeps } from '../ingest/photo';
+import { readPhoto, createMemoryPhotoStore, MAX_READ_ATTEMPTS, NO_MODEL_MESSAGE, type PhotoDeps } from '../ingest/photo';
 import { fingerprint } from '../agents/finePrintRules';
 import { BENEFIT_RULES, STATE_PROGRAM_ROWS, TAX_PARAMETER_ROWS } from '../../scripts/seed';
 import { TraceLogger } from '../agents/trace';
@@ -69,7 +69,7 @@ function courtCtx(rows: any[], llm: any, saved: any[] = []) {
 
 describe('loop 5: the Court rebuttal round (needs a scripted model)', () => {
   beforeEach(() => { process.env.TODAY = TODAY; });
-  const feeOffer = offer(60, { title: 'Free box', store: 'Fee Co', fine_print: 'Free box. $7.99 shipping applies.' });
+  const feeOffer = offer(60, { title: 'Free box', store: 'Fee Co', fine_print: 'Free box. $7.99 shipping applies.', value_cents: 500 });
 
   it('a disputed offer counts exactly one rebuttal round; the hunter, lawyer, rule and outcome lines are not extra rounds', async () => {
     const llm = new FakeGenerator(['pro', 'con', APPROVE, 'hunter rebuts', 'lawyer rebuts', APPROVE]);
@@ -333,13 +333,16 @@ describe('loop 7: photo intake retry (needs a scripted vision model; max 1)', ()
     expect(lines.find((l) => loopsOf(l).includes('photo_retry'))).toMatchObject({ agent_name: 'PhotoReader', action: 'retry_request', status: 'retrying', retry_count: 1 });
   });
 
-  it('bad twice: still one retry (the "clearer photo" request is the end of the loop, not a second retry)', async () => {
-    const { lines } = await run([BAD], 'b');
-    only(counts(lines), 'photo_retry', 1);
+  // Oct 26 (Lane C, approved by Lyndsay): a reading with problems is the model's fault, not the photo's, so it is asked
+  // again up to MAX_READ_ATTEMPTS answers (3 retries). The loop still ends: never a guessed code, never past the cap.
+  it('bad every time: at most MAX_READ_ATTEMPTS - 1 retries, then it stops without guessing a model number', async () => {
+    const { out, lines } = await run([BAD], 'b');
+    only(counts(lines), 'photo_retry', MAX_READ_ATTEMPTS - 1);
     const last = lines[lines.length - 1];
-    expect(last).toMatchObject({ action: 'retry_request', status: 'rejected' });
-    expect(last.output_summary).toMatch(/clearer photo/);
-    expect(Math.max(...lines.map((l) => l.retry_count))).toBe(1);
+    expect(last).toMatchObject({ action: 'vision_extract', status: 'rejected' });
+    expect(last.output_summary).toMatch(/no model number/);
+    expect(out).toMatchObject({ status: 'needs_clearer_photo', message: NO_MODEL_MESSAGE });
+    expect(Math.max(...lines.map((l) => l.retry_count))).toBeLessThanOrEqual(MAX_READ_ATTEMPTS - 1);
   });
 
   it('a good first reading: no retry', async () => {

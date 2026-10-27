@@ -68,7 +68,8 @@ describe('Home after "Not relevant"', () => {
     fireEvent.click(tab('Home'));
     const tax = screen.getByRole('region', { name: 'At tax time' });
     expect(within(tax).queryByText('MA child credit')).toBeNull();
-    expect(within(tax).getByText('$3,200')).toBeTruthy(); // total of what is left: $2,200 + $1,000
+    expect(within(tax).getByText('$2,200')).toBeTruthy(); // only the federal credit is left (the Trump Account has its own savings box since Oct 26)
+    expect(within(screen.getByTestId('bucket-baby-savings')).getByText('$1,000')).toBeTruthy();
     expect(JSON.parse(localStorage.getItem(`bundle:dismissed:${run.familyId}`)!)).toEqual({ 'benefit-ma_child_tax_credit': true });
     cleanup();
     show('maya');
@@ -105,7 +106,8 @@ describe('Home buckets', () => {
     run.result = { ...run.result, cards: run.result.cards.map(({ category: _c, minutes: _m, ...rest }) => rest) };
     const { hook } = memoryLocation({ path: `/feed/${run.runId}` });
     render(<Router hook={hook}><VersionB run={run} owner={false} /></Router>);
-    expect(within(screen.getByRole('region', { name: 'At tax time' })).getByText('$3,640')).toBeTruthy();
+    expect(within(screen.getByRole('region', { name: 'At tax time' })).getByText('$2,640')).toBeTruthy(); // credits only
+    expect(within(screen.getByTestId('bucket-baby-savings')).getByText('$1,000')).toBeTruthy(); // the Trump Account, even with no category stamp
     fireEvent.click(screen.getByRole('button', { name: /Quick wins/i }));
     expect(within(screen.getByRole('region', { name: 'Quick wins' })).getAllByRole('article')).toHaveLength(2);
   });
@@ -123,14 +125,17 @@ describe('Taxes: filing-status booster', () => {
     const done = screen.getByTestId('booster-taxes-result');
     expect(done.textContent).toMatch(/Now exact for “Married filing together”: Federal Child Tax Credit \$2,200 \+ Massachusetts Child and Family Tax Credit \$440/);
     expect(within(done).getByRole('button', { name: /Send these to your partner or tax preparer/ })).toBeTruthy();
+    fireEvent.click(tab('Savings')); // the 529 line lives on Savings since Oct 26, and agrees with this answer
     expect(screen.getByTestId('card-529').textContent).toContain('$2,000 (filing together)');
   });
 
-  it('shows the MA 529 line as a range until the family answers, and $1,000 for single', () => {
+  it('shows the MA 529 line (on Savings) as a range until the family answers, and $1,000 for single', () => {
     show('maya');
-    fireEvent.click(tab('Taxes'));
+    fireEvent.click(tab('Savings'));
     expect(screen.getByTestId('card-529').textContent).toContain('$1,000 single / $2,000 together');
+    fireEvent.click(tab('Taxes'));
     fireEvent.click(screen.getByRole('button', { name: 'Single' }));
+    fireEvent.click(tab('Savings'));
     expect(screen.getByTestId('card-529').textContent).toContain('$1,000 (filing single)');
   });
 
@@ -160,6 +165,7 @@ describe('Taxes: filing-status booster', () => {
     show('ava');
     fireEvent.click(tab('Taxes'));
     expect(screen.queryByTestId('booster-taxes')).toBeNull();
+    fireEvent.click(tab('Savings'));
     expect(screen.queryByTestId('card-529')).toBeNull();
   });
 

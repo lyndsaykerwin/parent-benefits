@@ -196,6 +196,7 @@ const CATCH_WORDS: Record<string, string> = {
   shipping_fee: 'shipping fee', fee_unknown: 'a fee may apply', required_membership: 'paid membership required', negative_value: 'costs more than it is worth',
   fee_over_limit: 'fee over our limit', minimum_purchase: 'minimum purchase', auto_renew: 'renews automatically', expired: 'offer ended',
   expiring_soon: 'ends soon', regions_excluded: 'not in every region',
+  ai_found_catch: 'our checker found a catch in the fine print',
 };
 export const catchWord = (t: string): string => CATCH_WORDS[t] ?? t.replace(/_/g, ' ');
 

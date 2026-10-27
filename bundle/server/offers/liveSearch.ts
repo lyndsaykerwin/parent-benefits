@@ -207,7 +207,7 @@ async function gradeResult(r: TavilyLikeResult, deps: LiveSearchDeps): Promise<F
   if (deps.store && !j.usedFallback && j.standing === 'agreed') {
     try {
       await deps.store.saveLiveFind({
-        ...buildOfferCheckRow({ id: liveOfferId(url), store, sourceUrl: url }, j.check, j.verdict, j.ruling.citedRuleIds, 'agreed'),
+        ...buildOfferCheckRow({ id: liveOfferId(url), store, sourceUrl: url, valueCents: face }, j.check, j.verdict, j.ruling.citedRuleIds, 'agreed', j.model),
         agent: LIVE_SEARCH_AGENT,
       });
     } catch { /* a save problem never costs the parent the card */ }

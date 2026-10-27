@@ -4,7 +4,7 @@ import path from 'path';
 import { BENEFIT_RULES, STATE_PROGRAM_ROWS, TAX_PARAMETER_ROWS } from '../../scripts/seed';
 import { planBenefits, revise } from '../agents/benefits';
 import {
-  challengeBenefits, eligibilityCounterSql, resolveChallenge, runEligibilityLoop, UNVERIFIED_NOTE,
+  challengeBenefits, eligibilityCounterSql, resolveChallenge, rowsForState, runEligibilityLoop, UNVERIFIED_NOTE,
   type BenefitTerms,
 } from '../agents/eligibilityLawyer';
 import { TraceLogger } from '../agents/trace';
@@ -64,19 +64,22 @@ const ctc: BenefitTerms = {
 };
 
 describe('eligibilityCounterSql: the one fixed Zetaris counter-question', () => {
-  it('is fixed text (same state, same text), asks only the two program tables, and never mentions income or household', () => {
-    const a = eligibilityCounterSql('MA');
-    expect(a).toBe(eligibilityCounterSql('MA'));
+  it('is fixed text (the same for every family and state), asks only the two program tables, and never mentions income or household', () => {
+    const a = eligibilityCounterSql();
+    expect(a).toBe(eligibilityCounterSql());
     expect(a).toMatch(/bundle_pg\.state_programs/);
     expect(a).toMatch(/bundle_pg\.tax_parameters/);
-    expect(a).toContain("state = 'MA'");
+    expect(a).not.toContain("state = '");
     expect(a).not.toMatch(/income|household|poverty|v_planner_family|families/i);
     expect(a).not.toMatch(/;\s*$/);
   });
-  it('an odd-looking state never reaches the SQL', () => {
-    const a = eligibilityCounterSql("MA' OR 1=1 --");
-    expect(a).not.toContain('1=1');
-    expect(a).toContain("state = ''");
+  it('an odd-looking state never reaches the SQL and keeps no state program rows (tax figures only)', () => {
+    const rows = [
+      { source: 'state_program', state: 'MA', code: 'MA_PFML' },
+      { source: 'tax_parameter', state: null, code: 'CHILD_TAX_CREDIT' },
+    ];
+    expect(rowsForState(rows as any, "MA' OR 1=1 --").map((r) => r.code)).toEqual(['CHILD_TAX_CREDIT']);
+    expect(rowsForState(rows as any, 'MA').map((r) => r.code)).toEqual(['MA_PFML', 'CHILD_TAX_CREDIT']);
   });
 });
 
@@ -140,7 +143,7 @@ describe('runEligibilityLoop', () => {
     const { ctx, runQuery } = ctxWith(maya, async () => res(counterRows('MA')));
     const out = await runEligibilityLoop(ctx, [mapa, ctc], TODAY);
     expect(counterCalls(runQuery)).toHaveLength(1);
-    expect(String(counterCalls(runQuery)[0][0])).toBe(eligibilityCounterSql('MA'));
+    expect(String(counterCalls(runQuery)[0][0])).toBe(eligibilityCounterSql());
     expect(out.asked).toBe(true);
     expect(out.resolutions.get('MA_PFML')!.outcome).toBe('confirmed');
     expect(out.resolutions.get('FEDERAL_CHILD_TAX_CREDIT')!.outcome).toBe('confirmed');
@@ -172,7 +175,7 @@ describe('runEligibilityLoop', () => {
       'FinePrintLawyer>BenefitsPlanner:verdict',
     ]);
     expect(posted.every((n) => n.about === 'benefit-ma_pfml')).toBe(true);
-    expect(posted[1].evidence_sql).toBe(eligibilityCounterSql('MA'));
+    expect(posted[1].evidence_sql).toBe(eligibilityCounterSql());
   });
   it('a broken workspace never stops the loop', async () => {
     const { ctx } = ctxWith(maya, async () => res(counterRows('MA')));
@@ -220,7 +223,7 @@ describe('planBenefits with the eligibility loop', () => {
     const { ctx, runQuery } = ctxWith(fl, async () => res(counterRows('FL')));
     await planBenefits(ctx, TODAY);
     expect(counterCalls(runQuery)).toHaveLength(1);
-    expect(String(counterCalls(runQuery)[0][0])).toContain("state = 'FL'");
+    expect(String(counterCalls(runQuery)[0][0])).toBe(eligibilityCounterSql()); // the same text for every state
   });
 
   it('works the same for a different state with no code change (NY)', async () => {

@@ -44,18 +44,31 @@ export type Outcome = 'confirmed' | 'dropped' | 'unverified';
 export interface Resolution { code: string; kind: ChallengeKind; outcome: Outcome; reason: string }
 
 /**
- * THE counter-question. One fixed text per state: the state's own program rows plus the federal tax figures.
- * Only the two stored rule tables are read; no family, income, household or job column appears. A state that
- * is not two capital letters is replaced by an empty string, so it can never reach the SQL.
+ * THE counter-question. ONE fixed text for every family and every state: all states' program rows (with their state)
+ * plus the federal tax figures. The family's state is applied in code (runEligibilityLoop), never in the SQL, so one
+ * saved recording answers it in practice mode for all 50 states + DC. Only the two stored rule tables are read; no
+ * family, income, household or job column appears. (The tax rows say 'federal' for state: live Zetaris rejects
+ * CAST(NULL AS varchar) inside this UNION with a parser error, checked Oct 26.)
  */
-export function eligibilityCounterSql(state: string): string {
-  const st = /^[A-Z]{2}$/.test(state) ? state : '';
+export function eligibilityCounterSql(): string {
   return (
-    "SELECT 'state_program' AS source, code, year, amount_cents, window_start_days_from_birth, window_end_days_from_birth " +
-    `FROM bundle_pg.state_programs WHERE state = '${st}' ` +
-    "UNION ALL SELECT 'tax_parameter' AS source, code, year, amount_cents, CAST(NULL AS integer) AS window_start_days_from_birth, CAST(NULL AS integer) AS window_end_days_from_birth " +
+    "SELECT 'state_program' AS source, state, code, year, amount_cents, window_start_days_from_birth, window_end_days_from_birth " +
+    'FROM bundle_pg.state_programs ' +
+    "UNION ALL SELECT 'tax_parameter' AS source, 'federal' AS state, code, year, amount_cents, CAST(NULL AS integer) AS window_start_days_from_birth, CAST(NULL AS integer) AS window_end_days_from_birth " +
     'FROM bundle_pg.tax_parameters ORDER BY source, code, year'
   );
+}
+
+/**
+ * Keep the rows that can speak for this family: every tax figure, and state program rows for the family's own state.
+ * A row with no state column at all (an older answer shape) is kept: program codes already name their state.
+ */
+export function rowsForState(rows: Row[], state: string): Row[] {
+  return rows.filter((r) => {
+    if (strOf(r, 'source') !== 'state_program') return true;
+    const st = col(r, 'state');
+    return st === undefined || String(st ?? '') === state;
+  });
 }
 
 /** The tax table names a credit without the "FEDERAL_" label the rule table uses. */
@@ -162,7 +175,7 @@ export async function runEligibilityLoop(ctx: AgentContext, terms: BenefitTerms[
     trace(ctx, 'fine_print_lawyer', 'challenge_benefits', `${terms.length} benefit(s) read`, 'nothing could be disproved with the data we have; no question asked');
     return { asked: false, resolutions };
   }
-  const sql = eligibilityCounterSql(ctx.family.state);
+  const sql = eligibilityCounterSql();
   const byCode = new Map(terms.map((t) => [t.code, t]));
   trace(ctx, 'fine_print_lawyer', 'challenge_benefits', `${terms.length} benefit(s) read`,
     `challenging ${challenges.map((c) => c.code).join(', ')}; one counter-question for Zetaris`, 'retry', 1);
@@ -176,7 +189,7 @@ export async function runEligibilityLoop(ctx: AgentContext, terms: BenefitTerms[
   let rows: Row[] | null = null;
   let why = '';
   try {
-    rows = (await ctx.z.runQuery(sql)).rows as Row[];
+    rows = rowsForState((await ctx.z.runQuery(sql)).rows as Row[], ctx.family.state);
   } catch (e: any) {
     why = String(e?.message ?? e).slice(0, 160);
   }

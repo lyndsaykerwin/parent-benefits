@@ -68,7 +68,7 @@ export function CaughtForYou({ blocked, lines, href }: { blocked: FeedCard[]; li
           <span>We caught these for you</span>
           <span className="rounded-full bg-[#FBE3E0] px-2.5 py-0.5 text-[13px] font-bold text-[#9E2A21]">{blocked.length}</span>
         </summary>
-        <p className="text-[14px] text-ink-2">Offers our Fine Print Court blocked. They are not counted in your totals.</p>
+        <p className="text-[14px] text-ink-2">Offers we blocked because of their fine print. They are not counted in your totals.</p>
         <ul className="mt-2 space-y-3 pb-4">
           {blocked.map((c) => (
             <li key={c.id} className="rounded-2xl border border-line bg-cream p-3">

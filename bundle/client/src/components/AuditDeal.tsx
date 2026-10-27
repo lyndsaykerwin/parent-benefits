@@ -115,7 +115,7 @@ export default function AuditDeal({ onBack, onSaved }: { onBack: () => void; onS
         <span aria-hidden="true">‹</span> Back
       </button>
       <h1 className="mt-1 text-[30px] font-extrabold leading-[1.1] tracking-[-0.03em]">Audit a deal</h1>
-      <p className="mt-2 text-[16px] leading-relaxed text-ink-2">Tell us about the offer. We’ll read the fine print for hidden catches. When both sides of our court agree, the verdict goes on a shared list for other parents.</p>
+      <p className="mt-2 text-[16px] leading-relaxed text-ink-2">Tell us about the offer. We’ll read the fine print for hidden catches. When our checks agree, the verdict goes on a shared list for other parents.</p>
 
       <form className="mt-4 space-y-4" onSubmit={(e) => { e.preventDefault(); if (ready) void submit(); }}>
         <div>

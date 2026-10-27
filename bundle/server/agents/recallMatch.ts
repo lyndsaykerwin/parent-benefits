@@ -19,6 +19,8 @@ export interface PurchaseItem {
   upc?: string | null;
   model?: string | null;
   lot?: string | null;
+  /** Date of manufacture from the item's label: YYYY-MM-DD or YYYY-MM. Car-seat and stroller recalls cover date ranges. */
+  madeOn?: string | null;
 }
 
 export interface RecallRecord {
@@ -191,6 +193,48 @@ export function saleWindow(text: string): { start: string; end: string | null } 
   return null;
 }
 
+const lastDay = (y: number, m: number) => new Date(Date.UTC(y, m, 0)).getUTCDate();
+const p2 = (n: number) => String(n).padStart(2, '0');
+/** One date as printed in a recall notice → [first day, last day] it can mean (a month alone covers the whole month). */
+function dateSpan(raw: string): [string, string] | null {
+  const t = raw.trim().toLowerCase().replace(/,/g, ' ').replace(/\s+/g, ' ').replace(/(\d)(st|nd|rd|th)\b/g, '$1');
+  let y = 0; let m = 0; let d = 0; let r: RegExpExecArray | null;
+  if ((r = /^(\d{4})[-\/.](\d{1,2})(?:[-\/.](\d{1,2}))?$/.exec(t))) { y = +r[1]; m = +r[2]; d = r[3] ? +r[3] : 0; }
+  else if ((r = /^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{4})$/.exec(t))) { m = +r[1]; d = +r[2]; y = +r[3]; }
+  else if ((r = /^(\d{1,2})[-\/.](\d{4})$/.exec(t))) { m = +r[1]; y = +r[2]; }
+  else if ((r = /^([a-z]+)\.?(?: (\d{1,2}))? (\d{4})$/.exec(t)) && monthIdx(r[1]) >= 0) { m = monthIdx(r[1]) + 1; d = r[2] ? +r[2] : 0; y = +r[3]; }
+  else if ((r = /^(\d{1,2}) ([a-z]+)\.? (\d{4})$/.exec(t)) && monthIdx(r[2]) >= 0) { d = +r[1]; m = monthIdx(r[2]) + 1; y = +r[3]; }
+  else return null;
+  if (y < 1990 || y > 2100 || m < 1 || m > 12 || d > lastDay(y, m)) return null;
+  const base = `${y}-${p2(m)}`;
+  return d ? [`${base}-${p2(d)}`, `${base}-${p2(d)}`] : [`${base}-01`, `${base}-${p2(lastDay(y, m))}`];
+}
+
+const ONE_DATE = `(?:${MONTH_RE}\\s+(?:\\d{1,2}(?:st|nd|rd|th)?,?\\s+)?\\d{4}|\\d{1,2}\\s+${MONTH_RE}\\s+\\d{4}|\\d{4}[-/.]\\d{1,2}(?:[-/.]\\d{1,2})?|\\d{1,2}[-/.]\\d{1,2}[-/.]\\d{4}|\\d{1,2}[-/.]\\d{4})`;
+
+/**
+ * Manufacture dates a recall covers, from notice text such as "manufactured between February 28, 2023 and March 7, 2025",
+ * "dates of manufacture from June 2021 through December 2022" or "manufactured 2023/01/01 to 2023/06/30". YYYY-MM-DD bounds.
+ */
+export function manufactureWindow(text: string): { start: string; end: string } | null {
+  const re = new RegExp(`manufactur\\w*[^.;]{0,60}?(?:between|from)?\\s*(?<a>${ONE_DATE})\\s*(?:and|through|thru|to|until|-|–)\\s*(?<b>${ONE_DATE})`, 'i');
+  const m = re.exec(text || '');
+  if (!m) return null;
+  const a = dateSpan(m.groups!.a.replace(/\./g, '')); const b = dateSpan(m.groups!.b.replace(/\./g, ''));
+  if (!a || !b || a[0] > b[1]) return null;
+  return { start: a[0], end: b[1] };
+}
+
+/** "made YYYY-MM, but the recall covers units made A to B." when the label's date rules this unit out; else null. */
+export function outsideMadeDates(madeOn: string | null | undefined, text: string): string | null {
+  const win = madeOn ? manufactureWindow(text) : null;
+  if (!madeOn || !win) return null;
+  const span = dateSpan(madeOn);
+  if (!span) return null;
+  if (span[1] < win.start || span[0] > win.end) return `made ${madeOn}, but the recall covers units made ${win.start} to ${win.end}.`;
+  return null;
+}
+
 const addMonths = (yyyymm: string, n: number) => {
   const [y, m] = yyyymm.split('-').map(Number);
   const d = new Date(Date.UTC(y, m - 1 + n, 1));
@@ -284,7 +328,12 @@ export function matchRecall(p: PurchaseItem, r: RecallRecord): MatchResult {
     // A matching model number bought outside the recall's sale dates is an earlier, unaffected unit.
     const outside = outsideSaleDates(p, r);
     if (outside) return no(id, 'outside_sale_dates', `Model ${modelHit.toUpperCase()} matches, but ${outside}`);
-    return { recallId: id, match: true, level: 'exact', reason: 'exact_model', evidence: `Exact model number match: ${modelHit.toUpperCase()} is named in recall ${id}.` };
+    // The label's date of manufacture outside the recall's manufacture dates: a unit the recall does not cover.
+    const made = outsideMadeDates(p.madeOn, `${r.description} ${r.soldAt}`);
+    if (made) return no(id, 'outside_manufacture_dates', `Model ${modelHit.toUpperCase()} matches, but ${made}`);
+    const win = p.madeOn ? manufactureWindow(`${r.description} ${r.soldAt}`) : null;
+    const madeNote = win ? ` Made ${p.madeOn}, inside the recalled manufacture dates (${win.start} to ${win.end}).` : '';
+    return { recallId: id, match: true, level: 'exact', reason: 'exact_model', evidence: `Exact model number match: ${modelHit.toUpperCase()} is named in recall ${id}.${madeNote}` };
   }
 
   // 3a. Brand.
@@ -348,6 +397,8 @@ export function matchRecall(p: PurchaseItem, r: RecallRecord): MatchResult {
   const win = r.source === 'cpsc' ? saleWindow(r.soldAt) || saleWindow(r.description) : null;
   const outside = outsideSaleDates(p, r);
   if (outside) return no(id, 'outside_sale_dates', outside.charAt(0).toUpperCase() + outside.slice(1));
+  const madeOut = outsideMadeDates(p.madeOn, `${r.description} ${r.soldAt}`);
+  if (madeOut) return no(id, 'outside_manufacture_dates', madeOut.charAt(0).toUpperCase() + madeOut.slice(1));
   if (!win && bought && r.recallDate) {
     const rd = r.recallDate.slice(0, 7);
     // FDA formula: a can bought more than 6 months after the recall began is a newer batch (stale recall).

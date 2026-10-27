@@ -170,6 +170,7 @@ export function parentResult(r: BundleResult): BundleResult {
     cards: r.cards.map((c) => parentCard(c)) as FeedCard[],
     ...(r.blocked ? { blocked: r.blocked.map((c) => parentCard(c, true)) as FeedCard[] } : {}),
     ...(typeof r.offersOnFile === 'number' ? { offersOnFile: r.offersOnFile } : {}),
+    ...(r.stateNote ? { stateNote: r.stateNote } : {}),
   };
 }
 

@@ -9,6 +9,7 @@ import Feed from "@/pages/Feed";
 import CardDetail from "@/pages/CardDetail";
 import Smarter from "@/pages/Smarter";
 import NotFound from "@/pages/not-found";
+import TesterGate from "@/components/gate/TesterGate";
 
 class ErrorBoundary extends Component<
   { children: ReactNode },
@@ -65,7 +66,9 @@ function App() {
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
-          <Router />
+          <TesterGate>
+            <Router />
+          </TesterGate>
           <Toaster />
         </TooltipProvider>
       </QueryClientProvider>

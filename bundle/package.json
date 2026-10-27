@@ -23,7 +23,8 @@
     "seed": "tsx scripts/seed.ts",
     "model:check": "tsx scripts/check-model.ts",
     "eval:live-model": "tsx scripts/eval.ts --require-model && tsx scripts/eval.ts --learning --require-model",
-    "examples:regen": "tsx scripts/regen-examples.ts"
+    "examples:regen": "tsx scripts/regen-examples.ts",
+    "links:check": "tsx server/offers/linkCheck.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",

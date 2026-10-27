@@ -45,6 +45,15 @@ export function cardMinutes(c: CardLike): number | undefined {
 export const categoryOf = (c: FeedCard): CardCategory => c.category ?? cardCategory(c);
 export const minutesOf = (c: FeedCard): number | undefined => c.minutes ?? cardMinutes(c);
 
+/**
+ * Which Home bucket a card sits in. Like categoryOf, plus one more box: the baby's savings account (the Trump Account's
+ * $1,000 deposit is money into the baby's own account, not a tax credit). Worked out from the card id, so older saved
+ * runs whose stamp still says "tax_time" land in the right box too.
+ */
+export type HomeBucket = CardCategory | 'baby_savings';
+export const isBabySavings = (c: Pick<FeedCard, 'id'>): boolean => c.id === 'benefit-trump_account';
+export const bucketOf = (c: FeedCard): HomeBucket => (isBabySavings(c) && isChecked(c) && (c.amountCents ?? 0) > 0 ? 'baby_savings' : categoryOf(c));
+
 /** Paid leave: the one number we have is Massachusetts' 2026 weekly maximum ($1,230.39, mass.gov). Other states get no figure. */
 export const MA_LEAVE = { headline: 'You can get up to $1,230 a week for 12 weeks', sub: 'Depends on your pay. Paid weekly, during leave (MA paid family leave).' } as const;
 export const OTHER_LEAVE_SUB = 'Depends on your state and your pay. Paid weekly, during leave.';

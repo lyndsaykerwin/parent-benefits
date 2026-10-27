@@ -1,7 +1,7 @@
 import os from 'os';
 import fs from 'fs';
 import path from 'path';
-import { planBenefits, revise, ruleFallbackText } from '../agents/benefits';
+import { planBenefits, revise, ruleFallbackText, rulesSql } from '../agents/benefits';
 import { BENEFIT_RULES } from '../../scripts/seed';
 import { verify } from '../agents/factChecker';
 import { TraceLogger } from '../agents/trace';
@@ -128,7 +128,7 @@ describe('benefits planner', () => {
     const { ctx, runQuery } = ctxWith(ava);
     const out = await planBenefits(ctx, TODAY);
     const sql = String(runQuery.mock.calls[0][0]);
-    expect(sql).toMatch(/scope = 'federal' OR scope = 'OH'/);
+    expect(sql).toBe(rulesSql()); // one fixed question for every state; the state is applied in code
     expect(out.map((c) => c.claim.ref)).not.toEqual(expect.arrayContaining(['MA_PFML']));
     expect(out.every((c) => !['MA_PFML', 'NY_PFL', 'CA_PFL', 'MA_CHILD_TAX_CREDIT'].includes(String(c.claim.ref)))).toBe(true);
   });
@@ -167,7 +167,8 @@ describe('benefits planner', () => {
     const { ctx, runQuery } = ctxWith({ ...maya, state: "MA' OR 1=1 --" });
     const out = await planBenefits(ctx, TODAY);
     expect(String(runQuery.mock.calls[0][0])).not.toContain('1=1');
-    expect(String(runQuery.mock.calls[0][0])).toMatch(/scope = 'federal'/);
+    expect(String(runQuery.mock.calls[0][0])).toBe(rulesSql());
+    expect(out.every((c) => ['federal'].includes(RULES.find((r) => r.code === c.claim.ref)!.scope))).toBe(true);
     expect(out.length).toBeGreaterThan(0);
   });
 

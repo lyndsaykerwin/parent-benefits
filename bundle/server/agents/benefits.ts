@@ -1,4 +1,4 @@
-import { col, addDays, today as todayIso, fmtUsd } from './sql';
+import { col, addDays, today as todayIso, fmtUsd, quoteId } from './sql';
 import { explain } from './explain';
 import { runEligibilityLoop, UNVERIFIED_NOTE, type BenefitTerms } from './eligibilityLawyer';
 import type { AgentContext, Candidate } from './types';
@@ -20,13 +20,25 @@ export const UNCOVERED_STATE_NOTE = 'Support for your state’s programs is comi
 /** The Dependent Care FSA is a work benefit we cannot see, so it is a gentle "Check with your job" card for everyone. */
 const DCFSA_CODE = 'DCFSA_LIFE_EVENT';
 
-/** Federal rules plus the rules for the family's own state (rule scope is "federal" or a 2-letter state). An odd-looking state gets federal only. */
-export function rulesSql(state: string): string {
-  const own = /^[A-Z]{2}$/.test(state) ? ` OR scope = '${state}'` : '';
+/**
+ * Every benefit rule (federal and every state's programs) in ONE fixed question. The family's state is applied in code
+ * (planBenefits), never in the SQL: the text is the same for every family, so one saved recording answers it in practice
+ * mode for all 50 states + DC (a per-state question only had saved answers for the states someone happened to record).
+ */
+export function rulesSql(): string {
   return (
     'SELECT code, title, scope, amount_cents, window_start_days_from_birth, window_end_days_from_birth, condition, source_url ' +
-    `FROM bundle_pg.benefit_rules WHERE scope = 'federal'${own} ORDER BY code`
+    'FROM bundle_pg.benefit_rules ORDER BY code'
   );
+}
+
+/**
+ * The Fact-Checker's re-read of one rule (a different query path from rulesSql). One text per rule code, the same for
+ * every family, so the recording script can save an answer for every code. factChecker.ts asks exactly this text
+ * (a test checks the two never drift apart).
+ */
+export function ruleCheckSql(code: string): string {
+  return `SELECT amount_cents, window_end_days_from_birth, scope FROM bundle_pg.benefit_rules WHERE code = ${quoteId(code)}`;
 }
 
 function log(ctx: AgentContext, action: string, input: string, output: string, status: 'ok' | 'retry' | 'blocked' | 'error' | 'fallback' = 'ok', retry = 0): string {
@@ -88,8 +100,11 @@ export const isCheckWithJob = (code: string): boolean => code === DCFSA_CODE;
 /** Work out which benefits a family likely qualifies for. Amounts and deadlines come from the rules table. */
 export async function planBenefits(ctx: AgentContext, today: string, opts: { eligibilityLoop?: boolean } = {}): Promise<Candidate[]> {
   // Only the state and the dates (both already on the family) are used. Exact income and household size are never read.
-  const rSql = rulesSql(ctx.family.state);
-  const rules = await ctx.z.runQuery(rSql);
+  const rSql = rulesSql();
+  const answer = await ctx.z.runQuery(rSql);
+  // The question returns every state's programs; keep federal rules and the family's own state only (an odd-looking
+  // state matches no rule scope, so it gets federal only).
+  const rules = { rows: answer.rows.filter((r) => { const sc = s(r, 'scope'); return sc === 'federal' || sc === ctx.family.state; }) };
 
   const born = ctx.family.birthDate;
   const due = ctx.family.dueDate;

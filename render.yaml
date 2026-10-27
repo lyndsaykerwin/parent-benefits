@@ -1,0 +1,58 @@
+# Render "Blueprint" for Bundle: the recipe Render reads to set up the website. Render only looks for this file at the
+# top of the repo, which is why it sits here and points at the app folder with rootDir.
+# Nothing is created until Lyndsay chooses New > Blueprint on render.com. Step-by-step guide: setup/render-setup.md
+# Secret values are NEVER written here: every `sync: false` line makes Render ask for the value once, in its dashboard.
+services:
+  - type: web
+    name: bundle
+    runtime: node
+    rootDir: bundle                 # the app lives in bundle/, not at the top of the repo
+    plan: 0.5c-512mb                # Render's "Starter" size (about $7/month), always on; the free size sleeps
+    region: oregon
+    buildCommand: npm ci --include=dev && npm run build   # --include=dev: the build tools (vite, esbuild) are "dev" packages
+    startCommand: npm start
+    healthCheckPath: /api/health
+    autoDeployTrigger: commit       # a new version goes live each time code is pushed to main
+    envVars:
+      # ---- Plain settings (not secret) ----
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: "24"
+      - key: SAMPLE_MODE            # false = real mode: real AI, database, Zetaris and web search
+        value: "false"
+      - key: MODEL_PROVIDER         # NVIDIA direct; the Nightshift gateway only exists on Lyndsay's Mac
+        value: nvidia
+      - key: TRUST_PROXY
+        value: "1"
+      # ---- Secrets: Render asks for each value when the Blueprint is first created ----
+      - key: TESTER_ACCESS_CODE     # the code testers type on the first screen; empty = no gate (do not leave empty here)
+        sync: false
+      - key: REVIEWER_MODE_TOKEN    # judge/owner code for the agent log; pick a NEW one, not the Mac's
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: MODEL_API_KEY
+        sync: false
+      - key: MODEL_BASE_URL
+        sync: false
+      - key: MODEL_REASONING
+        sync: false
+      - key: MODEL_FAST
+        sync: false
+      - key: ZETARIS_BASE_URL
+        sync: false
+      - key: ZETARIS_ORG_ID
+        sync: false
+      - key: ZETARIS_API_KEY
+        sync: false
+      - key: TAVILY_API_KEY
+        sync: false
+    # Keeps Meterless memory (what Bundle learns from feedback) through restarts and new versions. The app saves memory
+    # in data/hmem inside the app folder; for Node apps Render's app folder is /opt/render/project/src, so with
+    # rootDir bundle that is the path below. Costs about $0.25/month. Note: with a disk, each new version has a few
+    # seconds of downtime while it swaps over. Delete these 4 lines to skip the disk (memory then resets on each deploy).
+    disk:
+      name: hmem
+      mountPath: /opt/render/project/src/bundle/data/hmem
+      sizeGB: 1

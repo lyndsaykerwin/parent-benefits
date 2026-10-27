@@ -1,5 +1,5 @@
 // Option B (Oct 25): Account leaves the bottom bar. The family chip in the header is a button that opens a small menu with
-// "Switch family" and "Your plan and memory" (the Account screen). Typed-in families show "Your family", never "Baby Guest".
+// "Switch family" and "Your plan and saved answers" (the Account screen). Typed-in families show "Your family", never "Baby Guest".
 import { screen, cleanup, fireEvent, within, waitFor } from '@testing-library/react';
 import { fakeServer, leoRun, mayaRun, showVersionB, chipButton, openAccount, type FakeRoute } from '../../../__acceptance__/v2/helpers';
 import { familyChip, familyChipParts } from '@/lib/bundle';
@@ -36,7 +36,7 @@ describe('family chip menu', () => {
     expect(within(menu).getAllByRole('menuitemradio').map((m) => m.textContent)).toEqual([
       expect.stringMatching(/^Maya/), expect.stringMatching(/^Leo/), expect.stringMatching(/^Ava/), expect.stringMatching(/^My saved profile/),
     ]);
-    expect(within(menu).getByRole('menuitem', { name: /Your plan and memory/ })).toBeTruthy();
+    expect(within(menu).getByRole('menuitem', { name: /Your plan and saved answers/ })).toBeTruthy();
 
     fireEvent.keyDown(document, { key: 'Escape' });
     expect(screen.queryByRole('menu', { name: /Family menu/i })).toBeNull();
@@ -48,7 +48,7 @@ describe('family chip menu', () => {
     expect(screen.queryByRole('menu', { name: /Family menu/i })).toBeNull();
   });
 
-  it('"Your plan and memory" opens the Account screen and closes the menu', () => {
+  it('"Your plan and saved answers" opens the Account screen and closes the menu', () => {
     fakeServer(QUIET);
     showVersionB(mayaRun());
     openAccount();

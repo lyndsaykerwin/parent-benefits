@@ -29,7 +29,7 @@ function StatusLine({ live, saved }: { live: LiveOffers; saved: string }) {
   );
 }
 
-/** Deals: offers that passed the Fine Print Court (with what it found), new finds from the live search, offers not yet checked, and the ones we blocked. */
+/** Deals: offers whose fine print checks out (with what it found), new finds from the live search, offers not yet checked, and the ones we blocked. */
 export default function DealsTab(props: TabProps) {
   const [auditing, setAuditing] = useState(false);
   const [report, setReport] = useState<ReportCardReply | null>(null);
@@ -98,7 +98,7 @@ export default function DealsTab(props: TabProps) {
               <li key={c.id} className="rounded-2xl border border-[#F2B9B3] bg-[#FDF1EF] p-4">
                 <p className="text-[12px] font-bold uppercase tracking-[.12em] text-[#9E2A21]">Blocked by Bundle</p>
                 <h3 className="mt-1 text-[17px] font-extrabold leading-snug text-ink">{c.title}</h3>
-                <p className="mt-1 text-[15px] leading-relaxed text-ink-2"><span aria-hidden="true">🛡️ </span><strong className="font-bold text-[#9E2A21]">Fine Print Court: Blocked:</strong> {blockedReason(c)}</p>
+                <p className="mt-1 text-[15px] leading-relaxed text-ink-2"><span aria-hidden="true">🛡️ </span><strong className="font-bold text-[#9E2A21]">Fine print: Blocked:</strong> {blockedReason(c)}</p>
                 <Link href={props.href(c.id)} className="mt-1 inline-flex min-h-[44px] items-center text-[14px] font-bold text-coral-deep">See how we checked ›</Link>
                 <MemorySection card={c} lines={props.lines} />
               </li>

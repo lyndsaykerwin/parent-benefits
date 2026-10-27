@@ -84,13 +84,13 @@ describe('fine-print code rules: FP-01..FP-12 and 3 controls', () => {
   });
 });
 
-describe('finalVerdict: a code reject always overrides an AI approve', () => {
+describe('finalVerdict: a code reject always overrides an AI approve; an uncited AI reject is only a catch (Oct 26 rule)', () => {
   it.each([
     ['reject', 'approve', 'reject'],
     ['reject', 'approve_with_catch', 'reject'],
     ['approve_with_catch', 'approve', 'approve_with_catch'],
     ['approve', 'approve', 'approve'],
-    ['approve', 'reject', 'reject'],
+    ['approve', 'reject', 'approve_with_catch'],
     ['approve', 'approve_with_catch', 'approve_with_catch'],
   ] as const)('code %s + AI %s = %s', (code, ai, want) => {
     expect(finalVerdict(code, ai)).toBe(want);
@@ -152,12 +152,13 @@ describe('fine-print code rules: adversarial wording (QC round)', () => {
     expect(checkFinePrint(t, { today: T }).autoRenew).toBe(true);
   });
 
-  it('"Free wipes. $7.99 shipping." is rejected, matching the offline screen', () => {
+  it('"Free wipes. $7.99 shipping." with no value is a catch (Oct 26 rule: block only when it costs more than it is worth)', () => {
     const text = 'Free wipes. $7.99 shipping.';
-    expect(offlineProblem(text)).not.toBeNull();
+    expect(offlineProblem(text)).not.toBeNull(); // still kept out of the bundled stand-in list
     const r = checkFinePrint(text, { today: T });
     expect(r.catchTypes).toContain('fee_over_limit');
-    expect(r.verdict).toBe('reject');
+    expect(r.verdict).toBe('approve_with_catch');
+    expect(checkFinePrint(text, { today: T, listedValueCents: 500 }).verdict).toBe('reject');
     // A fee at or under $5 is a catch, not a reject.
     expect(checkFinePrint('Free wipes. $4.99 shipping.', { today: T }).verdict).toBe('approve_with_catch');
   });

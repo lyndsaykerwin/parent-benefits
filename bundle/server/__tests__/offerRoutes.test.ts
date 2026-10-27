@@ -81,7 +81,8 @@ describe('POST /api/offers/audit', () => {
     const { a, store } = app({ llm });
     const res = await audit(a, GOOD);
     expect(res.body.saved).toBe(false);
-    expect(res.body.verdict).toBe('reject');
+    // Oct 26 blocking rule (QC): an uncited Judge reject with no exact quote cannot block, but is shown as a catch.
+    expect(res.body.verdict).toBe('approve_with_catch');
     expect(await store.parentStats()).toEqual({ total: 0, byStore: {} });
   });
 

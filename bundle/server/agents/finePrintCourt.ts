@@ -1,10 +1,9 @@
-import { askJson } from '../adapters/llm';
+import { askJson, providerLabel, type AnswerInfo, type Generator } from '../adapters/llm';
 import { col, quoteInt, InvalidId, today, fmtUsd } from './sql';
 import { buildOfferFacts } from './offerFacts';
 import type { FeedCard, OfferFacts } from '../../shared/bundle';
-import type { AgentContext, Candidate, CourtRuling } from './types';
-import { offlineProblem } from './offerScreen';
-import { checkFinePrint, effortLevelFor, finalVerdict, fingerprint } from './finePrintRules';
+import type { AgentContext, Candidate } from './types';
+import { checkFinePrint, combineVerdict, effortLevelFor, finalVerdict, fingerprint, type AiRuling } from './finePrintRules';
 import type { SavedVerdict } from './savedVerdicts';
 import { newsroomFor, quoted, MAX_REBUTTALS, type Newsroom, type OfferRef } from './newsroom';
 import type { FinePrintCheck } from './types';
@@ -21,6 +20,16 @@ interface Offer {
   finePrint: string; sourceUrl: string; minAgeDays: number; maxAgeDays: number;
 }
 type Rule = { id: string; text: string; confidence: number };
+/** The Judge's ruling. It may say approve, approve_with_catch or reject; `quote` = exact fine-print words behind a catch. */
+export type CourtRuling = AiRuling;
+
+/** Which model graded: the label of the last answer (provider:model), else the configured reasoning model, else null. */
+export function modelNameOf(llm: Generator): string | null {
+  const a = (llm as { lastAnswer?: AnswerInfo }).lastAnswer;
+  if (a && (a.model || a.requested)) return providerLabel(a);
+  const m = (llm as { models?: { reasoning?: string } }).models;
+  return m?.reasoning || null;
+}
 
 function toOffer(r: Row): Offer {
   const v = col(r, 'value_cents');
@@ -60,11 +69,11 @@ function ruleMatches(finePrint: string, rule: Rule): boolean {
 /** What an offline approval says. It never claims the AI court looked at the offer. */
 export const OFFLINE_APPROVE_TEXT = "No flagged terms found. We couldn't fully check this offer's fine print.";
 
-function screen(offer: Offer, rules: Rule[]): CourtRuling {
+/** The offline ruling follows the same blocking rule as the full court: learned case law, or the code threshold. */
+function screen(offer: Offer, rules: Rule[], check: FinePrintCheck): CourtRuling {
   const hit = rules.find((r) => ruleMatches(offer.finePrint, r));
   if (hit) return { verdict: 'reject', citedRuleIds: [hit.id], reason: `Court was offline; case law applies: ${hit.text}` };
-  const problem = offlineProblem(offer.finePrint);
-  if (problem) return { verdict: 'reject', citedRuleIds: [], reason: `Court was offline; ${problem}` };
+  if (check.verdict === 'reject') return { verdict: 'reject', citedRuleIds: [], reason: `Court was offline; ${check.reasons.join('; ')}` };
   return { verdict: 'approve', citedRuleIds: [], reason: OFFLINE_APPROVE_TEXT };
 }
 
@@ -106,6 +115,8 @@ export interface Judged {
   rounds: number;
   /** What each side argued in the first round (the placeholder text when the model was unavailable). */
   arguments: { hunter: string; lawyer: string };
+  /** The model that gave the Judge's ruling (null when the AI was off). Saved in offer_checks.model. */
+  model: string | null;
 }
 
 /**
@@ -113,9 +124,9 @@ export interface Judged {
  * Judge approves is a dispute. A code approve that the Judge rejects is a dispute unless the Judge cites recalled case
  * law (the code screen cannot see case law, so that is new information, not a disagreement).
  */
-export function disagrees(code: FinePrintCheck['verdict'], ruling: CourtRuling): boolean {
+export function disagrees(code: FinePrintCheck['verdict'], ruling: Pick<CourtRuling, 'verdict' | 'citedRuleIds'>): boolean {
   if (code === 'approve_with_catch') return false;
-  if (code === 'reject') return ruling.verdict === 'approve';
+  if (code === 'reject') return ruling.verdict !== 'reject';
   return ruling.verdict === 'reject' && ruling.citedRuleIds.length === 0;
 }
 
@@ -124,27 +135,35 @@ async function judgeOne(ctx: AgentContext, offer: Offer, note: string, nr: Newsr
   const rules: Rule[] = recalled.map((r) => ({ id: r.id, text: r.text, confidence: r.confidence }));
   // One line per rule so the app can show which learned rule applied to which offer (id|confidence|parent reports|text).
   for (const r of recalled) log(ctx, 'memory', 'rule_recalled', `offer ${offer.id}`, `${r.id}|${r.confidence.toFixed(2)}|${r.reports}|${r.text}`);
-  const check = checkFinePrint(offer.finePrint, { today: ctx.today ?? today() });
+  const check = checkFinePrint(offer.finePrint, { today: ctx.today ?? today(), listedValueCents: offer.valueCents, title: offer.title });
   const past = nr.context(toRef(offer));
   const extra = note ? `\nSend-back reason: ${note}` : '';
   const hunter = await argue(ctx, 'deal_hunter', offer, extra);
   const lawyer = await argue(ctx, 'fine_print_lawyer', offer, extra);
   const basePrompt = (h: string, l: string, tail: string) =>
-    'You are the Judge in a Fine Print Court for a new-parent offer. Decide whether to approve or reject it. ' +
-    'Reject offers that are not really free or cost the parent more than they save (hidden fees, trials that auto-renew into paid plans). ' +
+    'You are the Judge in a Fine Print Court for a new-parent offer. Decide: approve, approve_with_catch or reject. ' +
+    'REJECT only if (a) it costs the parent more than it is worth (stated fees bigger than its value), or (b) it turns into a paid ' +
+    'subscription that renews automatically and needs a card or states a price. Everything else with strings attached is ' +
+    'approve_with_catch: a membership the family may already have (e.g. Prime), a stated or possible shipping fee, a minimum ' +
+    'purchase, limited stock, in-store only, region limits. An app, an account, a form or a phone call is effort, not a catch. ' +
+    'Generic site wording (menus, help-line numbers, footnotes about other offers) is not a catch. ' +
+    'For any catch, copy the exact words from the fine print into "quote". ' +
     'Binding case law (cite the ids you rely on):\n' + caseLawText(rules) + past.promptText +
     `\n\nOffer: ${quoted(offer.title)} at ${quoted(offer.store)}\nFine print: ${offer.finePrint || '(none)'}${extra}` +
     `\n\nDeal Hunter argues: ${h}\nFine Print Lawyer argues: ${l}${tail}` +
-    '\n\nReply as JSON: {"verdict":"approve"|"reject","citedRuleIds":["..."],"reason":"one plain sentence"}';
+    '\n\nReply as JSON: {"verdict":"approve"|"approve_with_catch"|"reject","citedRuleIds":["..."],"reason":"one plain sentence","quote":"exact words from the fine print, or empty"}';
   const known = new Set(rules.map((r) => r.id));
-  const fallback: CourtRuling = screen(offer, rules);
+  const fallback: CourtRuling = screen(offer, rules, check);
   const valid = (x: unknown): x is CourtRuling => {
     const v = x as any;
-    return (v?.verdict === 'approve' || v?.verdict === 'reject') && Array.isArray(v?.citedRuleIds) &&
-      v.citedRuleIds.every((i: unknown) => typeof i === 'string') && typeof v?.reason === 'string';
+    return (v?.verdict === 'approve' || v?.verdict === 'approve_with_catch' || v?.verdict === 'reject') && Array.isArray(v?.citedRuleIds) &&
+      v.citedRuleIds.every((i: unknown) => typeof i === 'string') && typeof v?.reason === 'string' &&
+      (v.quote === undefined || v.quote === null || typeof v.quote === 'string');
   };
-  const clean = (value: CourtRuling): CourtRuling =>
-    ({ verdict: value.verdict, citedRuleIds: value.citedRuleIds.filter((i) => known.has(i)), reason: value.reason.trim().slice(0, 300) });
+  const clean = (value: CourtRuling): CourtRuling => ({
+    verdict: value.verdict, citedRuleIds: value.citedRuleIds.filter((i) => known.has(i)), reason: value.reason.trim().slice(0, 300),
+    quote: typeof value.quote === 'string' ? value.quote.trim().slice(0, 300) : '',
+  });
   const logRule = (ruling: CourtRuling, fell: boolean, action: string, retry = 0) =>
     log(ctx, 'judge', fell ? 'rule_by_screen' : action, `offer ${offer.id}`,
       `${ruling.verdict}: ${ruling.reason}${ruling.citedRuleIds.length ? ` [cited ${ruling.citedRuleIds.join(', ')}]` : ''}`,
@@ -153,6 +172,7 @@ async function judgeOne(ctx: AgentContext, offer: Offer, note: string, nr: Newsr
   const first = await askJson<CourtRuling>(ctx.llm, basePrompt(hunter.text, lawyer.text, ''), valid, fallback);
   let ruling: CourtRuling = first.usedFallback ? first.value : clean(first.value);
   const usedFallback = first.usedFallback;
+  let model = usedFallback ? null : modelNameOf(ctx.llm);
   logRule(ruling, usedFallback, 'rule');
   post(ctx, 'deal_hunter', 'judge', 'claim', offer, hunter.text, 0);
   post(ctx, 'fine_print_lawyer', 'judge', 'claim', offer, lawyer.text, 0);
@@ -180,23 +200,27 @@ async function judgeOne(ctx: AgentContext, offer: Offer, note: string, nr: Newsr
       basePrompt(h2.text, l2.text, `\n\nThis is the rebuttal round and your final ruling. Your first ruling was "${ruling.verdict}": ${ruling.reason}\nThe code screen says: ${check.verdict}${check.reasons.length ? ` (${check.reasons.join('; ')})` : ''}.`),
       valid, ruling,
     );
-    if (!second.usedFallback) ruling = clean(second.value);
+    if (!second.usedFallback) { ruling = clean(second.value); model = modelNameOf(ctx.llm) ?? model; }
     logRule(ruling, false, 'rule_after_rebuttal', 1);
   }
 
-  // The stricter answer wins: a code reject always stands; an uncited Judge reject also stands (blocking is the safe side).
+  // The blocking rule (Oct 26): only the code threshold blocks (or a learned rule the Judge cites). An uncited Judge
+  // reject becomes a catch; a Judge catch counts only with an exact quote from the fine print.
   const stillDisputed = !usedFallback && disagrees(check.verdict, ruling);
-  const verdict: Judged['verdict'] = usedFallback
-    ? (ruling.verdict === 'reject' ? 'reject' : 'approve')
-    : finalVerdict(check.verdict, ruling.verdict);
-  if (verdict === 'reject' && ruling.verdict === 'approve') {
+  const combined = usedFallback ? null : combineVerdict(check, ruling, offer.finePrint);
+  const verdict: Judged['verdict'] = combined ? combined.verdict : (ruling.verdict === 'reject' ? 'reject' : 'approve');
+  const finalCheck = combined ? combined.check : check;
+  if (combined && ruling.verdict === 'reject' && verdict !== 'reject') {
+    log(ctx, AGENT, 'threshold', `offer ${offer.id}`, `Judge said reject ("${ruling.reason}") but the blocking rule only blocks when it costs more than it is worth or turns into a paid subscription: ${verdict}`);
+  }
+  if (verdict === 'reject' && ruling.verdict !== 'reject') {
     ruling = { verdict: 'reject', citedRuleIds: ruling.citedRuleIds, reason: `The code check found a problem: ${check.reasons.join('; ') || 'a fine-print rule was broken'}` };
   }
   const standing: Standing = usedFallback ? 'fallback' : stillDisputed ? 'disputed' : 'agreed';
   log(ctx, AGENT, 'court_debate', `offer ${offer.id} outcome`, `${verdict}, ${standing}${rounds ? ` after ${rounds} rebuttal round` : ', no rebuttal needed'}`,
     verdict === 'reject' ? 'blocked' : 'ok', rounds);
   post(ctx, 'judge', 'fact_checker', 'verdict', offer, `${verdict} (${standing}): ${ruling.reason}`, rounds);
-  return { ruling, usedFallback, check, verdict, standing, rounds, arguments: { hunter: hunter.text, lawyer: lawyer.text } };
+  return { ruling, usedFallback, check: finalCheck, verdict, standing, rounds, arguments: { hunter: hunter.text, lawyer: lawyer.text }, model };
 }
 
 /** Leave a note in the shared workspace when there is one. A workspace problem never stops the court. */
@@ -221,7 +245,7 @@ export async function judgeText(ctx: AgentContext, o: TextOffer): Promise<Judged
   const j = await judgeOne(ctx, offer, '', nr);
   // With the AI off, the court's offline ruling only knows a few simple problems. A parent pasting a deal still deserves everything the
   // code rules found (an auto-renewing trial, a fee), so the stricter of the code's answer and the offline ruling stands.
-  return j.usedFallback ? { ...j, verdict: finalVerdict(j.check.verdict, j.verdict) } : j;
+  return j.usedFallback ? { ...j, verdict: finalVerdict(j.check.verdict, j.verdict, j.ruling.citedRuleIds.length > 0) } : j;
 }
 
 function toCandidate(ctx: AgentContext, offer: Offer, j: Judged, retry: number, sql: string): Candidate {
@@ -259,9 +283,13 @@ function toBlockedCard(ctx: AgentContext, offer: Offer, ruling: CourtRuling): Fe
   return {
     id: `blocked-${offer.id}`, kind: 'discount', title: offer.title, body: ruling.reason,
     amountCents: null, deadline: null, verdict: 'blocked',
-    sources: offer.sourceUrl ? [{ label: `${offer.store} offer page`, url: offer.sourceUrl }] : [], traceId,
+    // A made-up demo store (example.com / .test) gets no link: a parent never sees a link that isn't a real offer page.
+    sources: offer.sourceUrl && !isDemoUrl(offer.sourceUrl) ? [{ label: `${offer.store} offer page`, url: offer.sourceUrl }] : [], traceId,
   };
 }
+
+/** Links on made-up demo hosts (example.com and friends, *.test) are never shown as live links. */
+export const isDemoUrl = (url: string): boolean => /^https?:\/\/(?:[^/]*\.)?(?:example\.(?:com|org|net)|[^/]*\.test)(?:[/:?#]|$)/i.test(url);
 
 /** Is `needle` a whole word or phrase in `hay` (a plural -s/-es is fine: "diaper" matches "diapers", "dia" does not match "diaper")? */
 function wholeWord(needle: string, hay: string): boolean {
@@ -297,7 +325,15 @@ export async function judgeOffers(
 
   const out: Candidate[] = [];
   for (const offer of picked) {
-    const reuse = nr.reusable(toRef(offer), fingerprint(offer.finePrint));
+    let reuse = nr.reusable(toRef(offer), fingerprint(offer.finePrint));
+    // A rule learned since the saved grade (parents' feedback) that matches this wording means the grade is out of date.
+    if (reuse && reuse.saved.verdict !== 'reject') {
+      const fresh = ctx.memory.recallRules(offer.finePrint).find((r) => !reuse!.saved.ruleCitations.includes(r.id) && ruleMatches(offer.finePrint, r));
+      if (fresh) {
+        log(ctx, 'judge', 'saved_grade_outdated', `offer ${offer.id}`, `not reusing the saved grade: learned rule ${fresh.id} applies to this wording`);
+        reuse = null;
+      }
+    }
     if (reuse) {
       // Skip the AI: reuse the grade both sides already agreed on.
       const { saved } = reuse;
@@ -310,7 +346,7 @@ export async function judgeOffers(
       continue;
     }
     const j = await judgeOne(ctx, offer, '', nr);
-    if (j.standing === 'agreed') await nr.writeBack(toRef(offer), j.check, j.verdict, j.ruling.citedRuleIds);
+    if (j.standing === 'agreed') await nr.writeBack(toRef(offer), j.check, j.verdict, j.ruling.citedRuleIds, j.model);
     else if (j.standing === 'disputed') log(ctx, AGENT, 'offer_check_skipped', `offer ${offer.id}`, 'grade not saved: the two sides did not agree');
     if (j.verdict !== 'reject') out.push(toCandidate(ctx, offer, j, 0, sql));
     else addBlocked(ctx, toBlockedCard(ctx, offer, j.ruling));
@@ -318,7 +354,7 @@ export async function judgeOffers(
   return out;
 }
 
-const toRef = (o: Offer): OfferRef => ({ id: o.id, store: o.store, title: o.title, finePrint: o.finePrint, sourceUrl: o.sourceUrl });
+const toRef = (o: Offer): OfferRef => ({ id: o.id, store: o.store, title: o.title, finePrint: o.finePrint, sourceUrl: o.sourceUrl, valueCents: o.valueCents });
 
 /** A retried run must not list the same offer twice: replace any earlier entry for it. */
 function addBlocked(ctx: AgentContext, card: FeedCard): void {
@@ -334,7 +370,7 @@ function addBlocked(ctx: AgentContext, card: FeedCard): void {
  */
 function savedValueScore(ctx: AgentContext, offer: Offer, saved: SavedVerdict, amountCents: number | null): Pick<FeedCard, 'valueScore'> {
   if (saved.effortMinutesEstimate === null || saved.stepsCount === null) return {};
-  const flags = checkFinePrint(offer.finePrint, { today: ctx.today ?? today() });
+  const flags = checkFinePrint(offer.finePrint, { today: ctx.today ?? today(), listedValueCents: offer.valueCents, title: offer.title });
   const minutes = saved.effortMinutesEstimate;
   const check = {
     verdict: saved.verdict === 'approve_with_catch' ? 'approve_with_catch' : 'approve',
@@ -351,7 +387,7 @@ function savedValueScore(ctx: AgentContext, offer: Offer, saved: SavedVerdict, a
  * re-read from the offer's own (unchanged) wording with the same code rules, so the numbers on the card are never typed by hand.
  */
 function savedOfferFacts(ctx: AgentContext, offer: Offer, saved: SavedVerdict, amountCents: number | null): OfferFacts {
-  const check = checkFinePrint(offer.finePrint, { today: ctx.today ?? today() });
+  const check = checkFinePrint(offer.finePrint, { today: ctx.today ?? today(), listedValueCents: offer.valueCents, title: offer.title });
   const facts = buildOfferFacts({
     check, verdict: saved.verdict === 'approve_with_catch' ? 'approve_with_catch' : 'approve', faceCents: offer.valueCents,
     ageDays: babyAgeDays(ctx), minAgeDays: offer.minAgeDays, maxAgeDays: offer.maxAgeDays,
@@ -400,7 +436,7 @@ export async function revise(c: Candidate, reason: string, ctx: AgentContext): P
     const offer = toOffer(rows[0]);
     const nr = newsroomFor(ctx, (agent, action, input, output, status) => log(ctx, agent, action, input, output, status));
     const j = await judgeOne(ctx, offer, reason, nr);
-    if (j.standing === 'agreed') await nr.writeBack(toRef(offer), j.check, j.verdict, j.ruling.citedRuleIds);
+    if (j.standing === 'agreed') await nr.writeBack(toRef(offer), j.check, j.verdict, j.ruling.citedRuleIds, j.model);
     return j.verdict !== 'reject' ? toCandidate(ctx, offer, j, c.retryCount + 1, sql) : null;
   } catch (e) {
     if (e instanceof InvalidId) return null;

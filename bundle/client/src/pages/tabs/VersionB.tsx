@@ -149,6 +149,7 @@ function VersionBInner({ run: runProp, owner, lines = [], ownerPanel }: Props) {
     run, stage, cards, claims, dismissed, act, go: changeTab, lines: owner ? lines : [],
     href: (id: string) => `/card/${encodeURIComponent(id)}?run=${encodeURIComponent(run.runId)}`,
     stateNote: comingSoonNote(run),
+    owner,
   }), [run, stage, cards, claims, dismissed, act, changeTab, owner, lines]);
 
   const demoLabel = demoDateLabel(run.demoDate, run.today);

@@ -6,8 +6,9 @@
 import type { FinePrintVerdict, OfferFacts } from '../../shared/bundle';
 import type { FinePrintCheck } from './types';
 
-/** Catch types that are a subscription: a trial that renews into a paid plan, or a membership you must buy. */
-const SUBSCRIPTION_CATCHES = new Set(['auto_renew', 'required_membership']);
+/** Catch types that are a subscription trap: a trial that renews into a paid plan. A membership the family may already
+ *  have (e.g. "needs Prime") is a catch, listed in `catches`, but not counted as a trap. */
+const SUBSCRIPTION_CATCHES = new Set(['auto_renew']);
 
 export interface OfferFactsInput {
   check: FinePrintCheck;

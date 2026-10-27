@@ -9,7 +9,7 @@ import { TraceLogger } from '../agents/trace';
 import {
   checkReading, cleanUpc, upcCheckDigitOk, visionKindFor, readPhoto, forgetItems, hashImage,
   recordVisionAnswers, createMemoryPhotoStore, NEEDS_LIVE_MODEL_MESSAGE, CLEARER_PHOTO_MESSAGE, NO_MODEL_MESSAGE,
-  PHOTO_BUSY_MESSAGE, PHOTO_FAILED_MESSAGE,
+  PHOTO_BUSY_MESSAGE, PHOTO_FAILED_MESSAGE, READ_TROUBLE_MESSAGE, MAX_READ_ATTEMPTS, repairJson, normalizeMadeOn,
   type PhotoDeps,
 } from '../ingest/photo';
 import { createPhotoRouter } from '../routes/photoRoutes';
@@ -166,14 +166,75 @@ describe('readPhoto: the retry loop', () => {
     expect(rows[0].modelNumber).toBe('RV001');
   });
 
-  it('bad twice: stops after the one retry, asks for a clearer photo, stores nothing', async () => {
+  it('bad twice is NOT the photo\'s fault: it keeps asking (up to MAX_READ_ATTEMPTS) and the third answer counts', async () => {
     const { gen, seen } = fakeVision([BAD_ITEM, BAD_ITEM, GOOD_ITEM]);
     const d = deps(gen);
     const out = await readPhoto(input(), d);
-    expect(out.status).toBe('needs_clearer_photo');
-    expect(out.status === 'needs_clearer_photo' && out.message).toBe(CLEARER_PHOTO_MESSAGE);
-    expect(seen).toHaveLength(2); // never a third call
+    expect(out.status).toBe('ok');
+    expect(out.status === 'ok' && out.rounds).toBe(3);
+    expect(seen).toHaveLength(3);
+    expect(await (d.store as ReturnType<typeof createMemoryPhotoStore>).all()).toHaveLength(1);
+  });
+
+  it('bad every time: stops at MAX_READ_ATTEMPTS, never guesses a code, and never asks for a clearer photo', async () => {
+    const { gen, seen } = fakeVision([BAD_ITEM]);
+    const d = deps(gen);
+    const out = await readPhoto(input(), d);
+    expect(seen).toHaveLength(MAX_READ_ATTEMPTS);
+    // The wrong model number and the bad UPC are dropped, so there is no code to check: the true "no model number" answer.
+    expect(out).toMatchObject({ status: 'needs_clearer_photo', message: NO_MODEL_MESSAGE });
     expect(await (d.store as ReturnType<typeof createMemoryPhotoStore>).all()).toHaveLength(0);
+  });
+
+  it('garbled every time: says "we had trouble", not "send a clearer photo"', async () => {
+    const { gen, seen } = fakeVision(['Let me think about this label... the model might be']);
+    const out = await readPhoto(input('receipt'), deps(gen));
+    expect(seen).toHaveLength(MAX_READ_ATTEMPTS);
+    expect(out).toMatchObject({ status: 'failed', message: READ_TROUBLE_MESSAGE });
+    expect(READ_TROUBLE_MESSAGE).not.toMatch(/clearer/i);
+  });
+
+  it('only asks for a clearer photo when the model itself says it cannot read the photo', async () => {
+    const { gen, seen } = fakeVision([JSON.stringify({ rejected: null, unreadable: 'too blurry', readText: '', items: [] })]);
+    const out = await readPhoto(input(), deps(gen));
+    expect(out).toMatchObject({ status: 'needs_clearer_photo', message: CLEARER_PHOTO_MESSAGE });
+    expect(seen).toHaveLength(1);
+  });
+
+  it('repairs an answer wrapped in thinking, prose and code fences without asking again', async () => {
+    const { gen, seen } = fakeVision([`<think>The label shows {model}...</think>Here you go:\n\`\`\`json\n${GOOD_ITEM}\n\`\`\``]);
+    const out = await readPhoto(input(), deps(gen));
+    expect(out.status).toBe('ok');
+    expect(seen).toHaveLength(1);
+  });
+
+  it('an empty answer (all thinking, no text) is asked again, not treated as a dead service', async () => {
+    const { gen, seen } = fakeVision([new ModelUnavailable('empty response', 'empty'), GOOD_ITEM]);
+    const out = await readPhoto(input(), deps(gen));
+    expect(out.status).toBe('ok');
+    expect(seen).toHaveLength(2);
+  });
+
+  it('reads the date of manufacture and the lot code (recalls depend on them) and stores them', async () => {
+    const answer = JSON.stringify({
+      rejected: null, unreadable: null, readText: 'MADE-UP SAMPLE BRAND Model No. SAMPLE-ST200 Date of Manufacture 2026/03/14 Lot 0314A',
+      items: [{ productName: 'Sample stroller', brand: 'Sample Brand', modelNumber: 'SAMPLE-ST200', lotCode: '0314A', manufacturedOn: '2026/03/14', upc: null }],
+    });
+    const { gen, seen } = fakeVision([answer]);
+    const d = deps(gen);
+    const out = await readPhoto(input(), d);
+    expect(out.status === 'ok' && out.items[0]).toMatchObject({ modelNumber: 'SAMPLE-ST200', lotCode: '0314A', manufacturedOn: '2026-03-14' });
+    const rows = await (d.store as ReturnType<typeof createMemoryPhotoStore>).all();
+    expect(rows[0]).toMatchObject({ manufacturedOn: '2026-03-14', lotCode: '0314A' });
+    expect(seen[0].prompt).toMatch(/manufacturedOn/);
+    expect(seen[0].prompt).toMatch(/date of manufacture/i);
+  });
+
+  it('asks again when the date of manufacture is not a real date or is not printed in the photo', async () => {
+    const bad = JSON.stringify({ rejected: null, readText: 'Model No. SAMPLE-ST200', items: [{ productName: 'Sample stroller', brand: 'Sample', modelNumber: 'SAMPLE-ST200', manufacturedOn: '2019-02-30' }] });
+    const { gen, seen } = fakeVision([bad, GOOD_ITEM]);
+    await readPhoto(input(), deps(gen));
+    expect(seen[1].prompt).toMatch(/date of manufacture "2019-02-30"/);
   });
 
   it('text that is not JSON counts as a bad reading and gets the one retry', async () => {
@@ -235,7 +296,7 @@ describe('readPhoto: the retry loop', () => {
   });
 
   it('any other model failure gets a plain "did not work" message, never "not switched on"', async () => {
-    for (const reason of ['server', 'auth', 'model', 'connect', 'empty', 'unknown'] as const) {
+    for (const reason of ['server', 'auth', 'model', 'connect', 'unknown'] as const) {
       const { gen } = fakeVision([new ModelUnavailable('failed', reason)]);
       const out = await readPhoto(input(), deps(gen));
       expect(out).toMatchObject({ status: 'unavailable', message: PHOTO_FAILED_MESSAGE });
@@ -275,12 +336,13 @@ describe('the trace shows the retry rounds', () => {
     expect(lines.map((l) => l.agent_name)).toEqual(['photo_reader', 'photo_reader', 'photo_reader']);
     expect(Math.max(...lines.map((l) => l.retry_count))).toBe(1);
   });
-  it('bad twice ends with a blocked retry_request and never goes past retry 1', async () => {
+  it('bad every time ends blocked and never goes past MAX_READ_ATTEMPTS - 1 retries', async () => {
     const { gen } = fakeVision([BAD_ITEM]);
     await readPhoto({ familyId: 'maya', kind: 'item', mimeType: 'image/png', bytes: fakePhoto('t2') }, deps(gen));
     const lines = traceLines(path.join(tmp, 'logs'));
-    expect(lines[lines.length - 1]).toMatchObject({ action: 'retry_request', status: 'blocked' });
-    expect(Math.max(...lines.map((l) => l.retry_count))).toBe(1);
+    expect(lines[lines.length - 1]).toMatchObject({ action: 'no_model_number', status: 'blocked' });
+    expect(lines.filter((l) => l.action === 'vision_extract')).toHaveLength(MAX_READ_ATTEMPTS);
+    expect(Math.max(...lines.map((l) => l.retry_count))).toBe(MAX_READ_ATTEMPTS - 1);
   });
 });
 
@@ -384,12 +446,12 @@ describe('photo routes', () => {
     });
   });
 
-  it('asks for a clearer photo after the retry fails', async () => {
+  it('a receipt the model keeps getting wrong says "we had trouble", never blaming the photo', async () => {
     const { gen, seen } = fakeVision([BAD_ITEM]);
     await withApp(deps(gen), async (url) => {
       const j = await (await post(`${url}/api/photo/read`, body('r2', { kind: 'receipt' }))).json();
-      expect(j).toMatchObject({ status: 'needs_clearer_photo', message: CLEARER_PHOTO_MESSAGE });
-      expect(seen).toHaveLength(2);
+      expect(j).toMatchObject({ status: 'failed', message: READ_TROUBLE_MESSAGE });
+      expect(seen).toHaveLength(MAX_READ_ATTEMPTS);
     });
   });
 
@@ -428,5 +490,20 @@ describe('hashImage', () => {
   it('is the sha256 of the bytes', () => {
     const b = fakePhoto('h');
     expect(hashImage(b)).toBe(crypto.createHash('sha256').update(b).digest('hex'));
+  });
+});
+
+describe('repairJson and normalizeMadeOn', () => {
+  it('pulls the reading out of thinking, prose, fences and trailing commas', () => {
+    expect(repairJson('<think>{"x":1}</think> ok ```json\n{"items":[{"productName":"a",}],"readText":"b"}\n```')).toEqual({ items: [{ productName: 'a' }], readText: 'b' });
+    expect(repairJson('thinking... </think>{"rejected":null,"items":[]}')).toEqual({ rejected: null, items: [] });
+    expect(repairJson('no json at all')).toBeUndefined();
+  });
+  it('turns label date styles into YYYY-MM-DD or YYYY-MM, and refuses impossible dates', () => {
+    expect(['2026/03/14', '03/14/2026', '2026/03', 'March 2026', 'Mar 14, 2026', '14 Mar 2026'].map((x) => normalizeMadeOn(x)))
+      .toEqual(['2026-03-14', '2026-03-14', '2026-03', '2026-03', '2026-03-14', '2026-03-14']);
+    expect(normalizeMadeOn('2026-02-30')).toBeNull();
+    expect(normalizeMadeOn('13/2026')).toBeNull();
+    expect(normalizeMadeOn('2099-01-01', new Date('2026-10-26'))).toBeNull();
   });
 });

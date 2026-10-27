@@ -150,6 +150,8 @@ export const purchaseItems = pgTable("purchase_items", {
   brand: text("brand"),
   modelNumber: text("model_number"),
   lotCode: text("lot_code"),
+  /** Date of manufacture read from a label: YYYY-MM-DD, or YYYY-MM when no day is printed (car-seat/stroller recalls use date ranges). */
+  manufacturedOn: text("manufactured_on"),
   upc: varchar("upc", { length: 14 }),
   sizeText: text("size_text"),
   quantity: integer("quantity").notNull().default(1),
@@ -175,7 +177,7 @@ export const offerChecks = pgTable("offer_checks", {
   store: text("store").notNull(),
   sourceUrl: text("source_url"),
   finePrintHash: varchar("fine_print_hash", { length: 64 }).notNull(),
-  checkedAt: timestamp("checked_at").notNull().defaultNow(),
+  checkedAt: timestamp("checked_at", { withTimezone: true }).notNull().defaultNow(), // timestamptz since Oct 26 (was read as local time)
   agent: text("agent").notNull(),
   model: text("model"),
   // Money
@@ -213,7 +215,7 @@ export const offerChecks = pgTable("offer_checks", {
   // Recall status (Strategy 2)
   recallStatus: text("recall_status", { enum: ["none_found", "open_recall", "finished"] }).notNull().default("none_found"),
   recallIds: jsonb("recall_ids").$type<string[]>().notNull().default([]),
-  recallCheckedAt: timestamp("recall_checked_at"),
+  recallCheckedAt: timestamp("recall_checked_at", { withTimezone: true }),
   /** 'court' = graded by our own scan; 'user_audit' = a parent pasted it into Audit-a-deal. */
   source: text("source", { enum: ["court", "user_audit"] }).notNull().default("court"),
 });
@@ -236,6 +238,13 @@ export const itemPhotos = pgTable("item_photos", {
   thumbnail: text("thumbnail"),
   receiptImage: text("receipt_image"),
   createdAt: timestamp("created_at").defaultNow(),
+  /** Background reading: 'reading' | 'done' | 'needs_clearer_photo' | 'rejected' | 'failed'. Added by hand on Oct 26 (migrations/0003). */
+  status: text("status").notNull().default("done"),
+  /** Plain words for the parent when the read did not finish. */
+  readError: text("read_error"),
+  /** The parent-safe reading (product facts and recall checks) once done. */
+  readResult: jsonb("read_result"),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 /** One row per card a parent marked "I got this" or "Not relevant" (latest wins per family + card). */

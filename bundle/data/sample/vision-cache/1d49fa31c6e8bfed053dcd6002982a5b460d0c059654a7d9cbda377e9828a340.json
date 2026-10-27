@@ -1,0 +1,6 @@
+{
+  "kind": "item",
+  "answers": [
+    "{\"rejected\":null,\"unreadable\":null,\"readText\":\"SAMPLE IMAGE - MADE-UP LABEL FOR PRACTICE\\nZOOBLEFERN\\nMade-up brand | Infant Car Seat\\nModel No.: ZF-CS100\\nDate of Manufacture: 2026/02/09\\nLot No.: CS0209B\\nFor use with children 4-35 lb and up to 32 in. (made-up example text)\\nNOT A REAL PRODUCT - FOR PRACTICE ONLY\",\"store\":null,\"purchasedOn\":null,\"items\":[{\"productName\":\"Infant Car Seat\",\"brand\":\"ZOOBLEFERN\",\"modelNumber\":\"ZF-CS100\",\"lotCode\":\"CS0209B\",\"manufacturedOn\":\"2026-02-09\",\"upc\":null,\"sizeText\":null,\"priceCents\":null,\"quantity\":1}]}"
+  ]
+}

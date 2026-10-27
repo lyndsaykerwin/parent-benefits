@@ -123,7 +123,7 @@ function classify(e: unknown): FailReason {
   const err = e as { status?: number; name?: string; message?: string; constructor?: { name?: string } };
   const status = typeof err?.status === 'number' ? err.status : undefined;
   if (status === 401 || status === 403) return 'auth';
-  if (status === 404) return 'model';
+  if (status === 404 || status === 410) return 'model';
   if (status === 429 || status === 503 || BUSY_WORDS.test(err?.message ?? '')) return 'busy';
   if (status !== undefined && status >= 500) return 'server';
   const name = `${err?.constructor?.name ?? ''} ${err?.name ?? ''}`;
@@ -154,6 +154,22 @@ export const BUSY_FIRST_PAUSE_MS = 1000;
 /** 1 + 2 + 4 s of pauses fits; kept well under live search's 20 s per result and the photo scan's patience. */
 export const BUSY_WAIT_BUDGET_MS = 10_000;
 
+/**
+ * Photo reading (see()) has its OWN, much longer patience, so a busy free vision service does not fail a photo,
+ * while the text agents keep the short budget above. Pauses double from 2 s up to 20 s each, about 4 minutes in all
+ * (VISION_BUSY_BUDGET_SECONDS). Photos are read in the background, so nobody stares at a spinner meanwhile.
+ */
+export const VISION_BUSY_BUDGET_MS = 240_000;
+/** Text calls: 0, so the same question gets the same answer (grades must not vary run to run). Photos: a little room. */
+export const TEXT_TEMPERATURE = 0;
+export const VISION_TEMPERATURE = 0.2;
+export const VISION_FIRST_PAUSE_MS = 2000;
+export const VISION_MAX_PAUSE_MS = 20_000;
+/** Time-outs and other server errors on a photo: at most this many extra tries (each can take a whole call time limit). */
+export const VISION_OTHER_RETRIES = 2;
+/** A second vision model on the same NVIDIA service, tried when the main one is busy (tested live Oct 26 2026). */
+export const DEFAULT_VISION_FALLBACK = 'nvidia/nemotron-3.5-super-vl-120b-a12b';
+
 export interface ProviderOptions {
   provider?: ProviderName;
   headers?: Record<string, string>;
@@ -171,6 +187,10 @@ export interface ProviderOptions {
   sleep?: (ms: number) => Promise<void>;
   random?: () => number;
   vision?: { item: string; receipt: string };
+  /** A second vision model, tried whenever the main one is busy or gone. Empty = none. */
+  visionFallback?: string;
+  /** Most waiting, in ms, across all busy retries of one photo read (default VISION_BUSY_BUDGET_MS). */
+  visionRetryBudgetMs?: number;
   runDeadlineMs?: number;
 }
 
@@ -205,11 +225,12 @@ export class OpenAICompatGenerator implements Generator {
     }) as unknown as ChatClient);
   }
 
-  private body(model: string, messages: ChatMessage[]) {
+  /** Text answers use temperature 0 (the same offer gets the same grade every run); photo reading keeps 0.2. */
+  private body(model: string, messages: ChatMessage[], vision = false) {
     const body: Parameters<ChatClient['chat']['completions']['create']>[0] = {
       model,
       messages,
-      temperature: 0.2,
+      temperature: vision ? VISION_TEMPERATURE : TEXT_TEMPERATURE,
       max_tokens: this.opts.maxTokens ?? 4096,
     };
     if (this.provider === 'nvidia' && this.opts.thinking) {
@@ -218,9 +239,9 @@ export class OpenAICompatGenerator implements Generator {
     return { ...body, ...(this.opts.extraBody ?? {}) };
   }
 
-  private async callOnce(model: string, messages: ChatMessage[]): Promise<{ text: string; model: string }> {
+  private async callOnce(model: string, messages: ChatMessage[], vision = false): Promise<{ text: string; model: string }> {
     const ac = new AbortController();
-    const req = this.client.chat.completions.create(this.body(model, messages), { signal: ac.signal, timeout: this.timeoutMs });
+    const req = this.client.chat.completions.create(this.body(model, messages, vision), { signal: ac.signal, timeout: this.timeoutMs });
     req.catch(() => {}); // the race below may abandon it
     try {
       const res = await withRunDeadline(req, this.timeoutMs, 'call time limit', 'timeout');
@@ -316,7 +337,65 @@ export class OpenAICompatGenerator implements Generator {
         { type: 'image_url', image_url: { url: `data:${req.mimeType};base64,${req.imageBase64}` } },
       ],
     });
-    return this.call(id, messages);
+    const fallback = (this.opts.visionFallback ?? '').trim();
+    return this.seeWithRetries(fallback && fallback !== id ? [id, fallback] : [id], messages);
+  }
+
+  /**
+   * Photo reading, with its own long patience (it is not part of a family run, so the run clock does not apply):
+   * - each round tries the main vision model, then the fallback model straight away if the main one is busy;
+   * - when every model is busy, waits (2, 4, 8, 16, 20, 20... s, spread at random, or what Retry-After asks) and goes again,
+   *   until about VISION_BUSY_BUDGET_MS of waiting is used up;
+   * - a model that no longer exists (404/410) is dropped; time-outs and server errors get VISION_OTHER_RETRIES more tries;
+   * - a wrong key or an empty answer is not retried here (the photo reader handles an empty answer as a garbled one).
+   */
+  private async seeWithRetries(models: string[], messages: ChatMessage[]): Promise<string> {
+    const sleep = this.opts.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
+    const random = this.opts.random ?? Math.random;
+    const budget = this.opts.visionRetryBudgetMs ?? VISION_BUSY_BUDGET_MS;
+    const live = [...models];
+    const t0 = Date.now();
+    let waited = 0;
+    let round = 0;
+    let otherFails = 0;
+    let retried = false;
+    let last: unknown;
+    const fail = (e: unknown): never => {
+      this.stats.failed++;
+      const reason = classify(e);
+      throw new ModelUnavailable(`${this.provider} (${reason}) vision call failed: ${(e as Error)?.message ?? e}`, reason);
+    };
+    for (;;) {
+      for (const m of [...live]) {
+        try {
+          const out = await this.callOnce(m, messages, true);
+          this.stats.ok++;
+          this.lastAnswer = { provider: this.provider, requested: models[0], model: out.model, ms: Date.now() - t0, retried };
+          if (!this.details.answeredBy.includes(out.model)) this.details.answeredBy.push(out.model);
+          return out.text;
+        } catch (e) {
+          last = e;
+          const reason = classify(e);
+          if (reason === 'model') { live.splice(live.indexOf(m), 1); continue; }
+          if (reason === 'busy') continue;
+          if (reason === 'timeout' || reason === 'server' || reason === 'connect') {
+            if (++otherFails > VISION_OTHER_RETRIES) fail(e);
+            continue;
+          }
+          fail(e);
+        }
+      }
+      if (!live.length) fail(last);
+      if (!retried) { retried = true; this.details.retried++; }
+      const step = Math.min(VISION_MAX_PAUSE_MS, VISION_FIRST_PAUSE_MS * 2 ** round);
+      const pause = this.opts.retryDelayMs ?? retryAfterMs(last) ?? step / 2 + random() * (step / 2);
+      if (waited + pause > budget) fail(last);
+      // One plain line in the server log per busy round (model names only, never the picture or any key).
+      if (!this.opts.sleep) process.stderr.write(`[vision] busy: ${models.filter((m) => live.includes(m)).join(' + ')}; waiting ${Math.round(pause / 1000)} s (round ${round + 1})\n`);
+      if (pause > 0) await sleep(pause);
+      waited += pause;
+      round++;
+    }
   }
 }
 
@@ -450,6 +529,10 @@ export interface GeneratorConfig {
   /** Judge model for NVIDIA direct (Nemotron 3 Super, thinking off). Empty = use the reasoning model. */
   judge?: string;
   vision?: { item: string; receipt: string };
+  /** MODEL_VISION_FALLBACK (default DEFAULT_VISION_FALLBACK; set it to "none" to switch the fallback off). */
+  visionFallback?: string;
+  /** VISION_BUSY_BUDGET_SECONDS, in ms. */
+  visionRetryBudgetMs?: number;
   runDeadlineMs?: number;
 }
 
@@ -503,6 +586,8 @@ export function generatorConfigFromEnv(env: NodeJS.ProcessEnv = process.env): Ge
       item: env.MODEL_VISION || 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning',
       receipt: env.MODEL_VISION_RECEIPT || 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning',
     },
+    visionFallback: (env.MODEL_VISION_FALLBACK ?? '').trim().toLowerCase() === 'none' ? '' : (env.MODEL_VISION_FALLBACK || DEFAULT_VISION_FALLBACK),
+    visionRetryBudgetMs: secs(env.VISION_BUSY_BUDGET_SECONDS, VISION_BUSY_BUDGET_MS / 1000),
     runDeadlineMs: secs(env.RUN_DEADLINE_SECONDS, 300),
   };
 }
@@ -534,6 +619,8 @@ export function createGenerator(cfg: GeneratorConfig = generatorConfigFromEnv())
         maxTokens: cfg.maxTokens,
         thinking: cfg.thinking,
         vision: cfg.vision,
+        visionFallback: cfg.visionFallback,
+        visionRetryBudgetMs: cfg.visionRetryBudgetMs,
         runDeadlineMs: cfg.runDeadlineMs,
       }));
     }

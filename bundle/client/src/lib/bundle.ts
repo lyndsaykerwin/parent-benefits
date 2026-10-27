@@ -120,7 +120,7 @@ export const KIND_META: Record<CardKind, { label: string; section: string; dot: 
   clawback: { label: 'Money back', section: 'Money back', dot: 'bg-kind-clawback', text: 'text-kind-clawback' },
   recall: { label: 'Recall', section: 'Safety check', dot: 'bg-kind-recall', text: 'text-kind-recall' },
   benefit: { label: 'Benefit', section: 'Benefits', dot: 'bg-coral', text: 'text-coral-deep' },
-  discount: { label: 'Discount', section: 'Deals that passed Fine Print Court', dot: 'bg-kind-discount', text: 'text-kind-discount' },
+  discount: { label: 'Discount', section: 'Deals whose fine print checks out', dot: 'bg-kind-discount', text: 'text-kind-discount' },
   coming_soon: { label: 'Coming soon', section: 'Coming soon', dot: 'bg-ink-3', text: 'text-ink-2' },
 };
 
@@ -156,7 +156,7 @@ export function amountCaption(c: FeedCard): string | null {
 const ORDER: CardKind[] = ['clawback', 'recall', 'benefit', 'discount', 'coming_soon'];
 
 /** Section title for deals that never went through Fine Print Court (bundled stand-ins shown when the court could not run). */
-export const UNCHECKED_DEALS_SECTION = 'Offers not yet checked by Fine Print Court';
+export const UNCHECKED_DEALS_SECTION = 'Offers we haven’t checked yet';
 
 export interface CardGroup { kind: CardKind; cards: FeedCard[]; /** true = offers the court has not checked */ unchecked?: boolean }
 
@@ -189,7 +189,7 @@ const AGENT_LABEL: Record<string, string> = {
   clawback: 'Clawback Finder',
   recall: 'Recall Checker',
   benefits: 'Benefits Planner',
-  fine_print_court: 'Fine Print Court',
+  fine_print_court: 'Fine print check',
   deal_hunter: 'Deal Hunter',
   fine_print_lawyer: 'Fine Print Lawyer',
   judge: 'Judge',

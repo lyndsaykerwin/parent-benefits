@@ -3,6 +3,7 @@ import { questionsToAsk } from '@shared/eligibility';
 import { taxYearFor } from '@/lib/insurance';
 import type { SavedRun } from '@/lib/bundle';
 import { useFreezeSpot } from '@/lib/scrollSpot';
+import { sendToSelf, startNote } from '@/lib/sendToSelf';
 
 const button = 'flex min-h-[52px] flex-1 items-center justify-center rounded-2xl px-4 text-[16px] font-bold transition active:scale-[.99]';
 
@@ -25,11 +26,10 @@ export default function HrQuestions({ run, onBack }: { run: SavedRun; onBack: ()
   }
 
   async function email() {
-    // The phone's own share menu (or the computer's mail program) does the sending, so Bundle never sees the questions go anywhere.
-    try {
-      if (navigator.share) { await navigator.share({ title: list.title, text }); return; }
-    } catch { /* closed the share menu: nothing to do */ return; }
-    window.location.href = `mailto:?subject=${encodeURIComponent(list.title)}&body=${encodeURIComponent(text)}`;
+    // The phone's own Share sheet (or the computer's email program) does the sending, so Bundle never sees the questions go anywhere.
+    setNote(startNote({ title: list.title, text }));
+    const r = await sendToSelf({ title: list.title, text });
+    setNote(r.message);
   }
 
   return (

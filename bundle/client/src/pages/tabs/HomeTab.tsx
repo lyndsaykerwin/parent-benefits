@@ -3,7 +3,7 @@ import { Link } from 'wouter';
 import { fmtUsdShort } from '@/lib/bundle';
 import { categorySummary, claimableCards, giftValue, homeTotals, isQuickWin, moneyNumbers, taskCards, urgentDeadlines, cardState, type TabId } from '@/lib/tabs';
 import { ComingSoonState, SectionTitle, CardStack, ClaimDrawers, type TabProps } from './shared';
-import { ForgetItemsCard, HowWeGotThisNumber, SavePlanCard, ShareBar } from './Extras';
+import { ForgetItemsCard, HowWeGotThisNumber, PlanSavedLine, ShareBar } from './Extras';
 import Buckets from './Buckets';
 import { ScanCard } from '@/components/scan/ScanButtons';
 
@@ -83,7 +83,7 @@ export default function HomeTab(props: TabProps) {
         </div>
       </div>
 
-      <SavePlanCard familyId={run.familyId} />
+      <PlanSavedLine />
 
       <ComingSoonState note={props.stateNote} />
 
@@ -127,7 +127,7 @@ export default function HomeTab(props: TabProps) {
       <SectionTitle>By category</SectionTitle>
       <div className="mt-2 grid grid-cols-2 gap-2.5">
         <Tile label="Taxes" big={fmtUsdShort(tax.cents)} small={plural(tax.count, 'benefit', 'benefits')} onClick={() => props.go('taxes')} />
-        <Tile label="Savings" big={fmtUsdShort(sav.cents)} small="starter account + money back" onClick={() => props.go('savings')} />
+        <Tile label="Savings" big={fmtUsdShort(sav.cents)} small="baby’s account + money back" onClick={() => props.go('savings')} />
         <Tile label="Insurance" big={expecting ? 'At birth' : ins.length ? `${ins.length} due soon` : 'No rush'} small={expecting ? 'deadlines start at birth' : ins[0]?.label ?? 'nothing due this month'} onClick={() => props.go('insurance')} />
         <Tile label="Deals" big={fmtUsdShort(deals.cents)} small={`${plural(deals.count, 'offer', 'offers')}${blockedCount ? `, ${blockedCount} blocked` : ''}`} onClick={() => props.go('deals')} />
       </div>

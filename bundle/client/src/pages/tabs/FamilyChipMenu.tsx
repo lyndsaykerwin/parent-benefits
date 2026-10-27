@@ -13,7 +13,7 @@ interface Props {
 
 /**
  * The family chip in the header, as a button. Tapping it opens a small menu: "Switch family" (the same list as on the
- * Account screen) and "Your plan and memory", which opens the Account screen. Closes on a tap outside, Escape, or a choice.
+ * Account screen) and "Your plan and saved answers", which opens the Account screen. Closes on a tap outside, Escape, or a choice.
  */
 export default function FamilyChipMenu({ label, familyId, onSwitch, onOpenAccount }: Props) {
   const [open, setOpen] = useState(false);
@@ -56,7 +56,7 @@ export default function FamilyChipMenu({ label, familyId, onSwitch, onOpenAccoun
             <button
               type="button" role="menuitem" onClick={() => { setOpen(false); onOpenAccount(); }}
               className="flex min-h-[44px] w-full items-center justify-between rounded-xl px-2 text-left text-[15px] font-bold text-coral-deep hover:bg-coral-tint"
-            >Your plan and memory <span aria-hidden="true">›</span></button>
+            >Your plan and saved answers <span aria-hidden="true">›</span></button>
           </div>
         </div>
       )}

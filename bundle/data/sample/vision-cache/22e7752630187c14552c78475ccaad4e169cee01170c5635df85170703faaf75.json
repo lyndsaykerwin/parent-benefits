@@ -1,0 +1,6 @@
+{
+  "kind": "item",
+  "answers": [
+    "\n{\"rejected\":null,\"unreadable\":null,\"readText\":\"SAMPLE IMAGE - MADE-UP LABEL FOR PRACTICE\\nTRUNDLEMOTH\\nMade-up brand | City Stroller\\nModel No.:\\nTM-ST200\\nDate of Manufacture:\\n2026/03/14\\nLot:\\n0314A\\nMaximum child weight 50 lb. (made-up example text)\\nNOT A REAL PRODUCT - FOR PRACTICE ONLY\",\"store\":null,\"purchasedOn\":null,\"items\":[{\"productName\":\"City Stroller\",\"brand\":\"TRUNDLEMOTH\",\"modelNumber\":\"TM-ST200\",\"lotCode\":\"0314A\",\"manufacturedOn\":\"2026-03-14\",\"upc\":null,\"sizeText\":\"50 lb.\",\"priceCents\":null,\"quantity\":1}]}"
+  ]
+}
