@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { GearLockerCard } from '@/components/scan/GearLocker';
+import { GearLockerCard, useLocker } from '@/components/scan/GearLocker';
 import { api, localToday, rememberFamilyId, type FamilyMemory, type RunRequest } from '@/lib/bundle';
 import { clearBrowserData, clearEdit, loadPlan, markStartOver, peekEdit, savePlan, type EditKey } from '@/lib/account';
 import { stateForZip } from '@/lib/onboarding';
@@ -40,6 +40,56 @@ function Chevron({ up }: { up: boolean }) {
 
 const shortDate = (iso: string) => (/^\d{4}-\d{2}-\d{2}$/.test(iso) ? new Date(`${iso}T00:00:00Z`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' }) : '');
 const SOURCE_LABEL: Record<string, string> = { setup: 'From your answers', gear: 'From your Gear Locker' };
+
+/** Every saved scan, including the individual lines read from receipt photos. */
+function NurseryGearGallery({ familyId }: { familyId: string }) {
+  const load = useLocker(familyId);
+  if (load.s === 'loading') return <p role="status" className="mt-2 text-[15px] text-ink-2">Loading saved nursery gear…</p>;
+  if (load.s === 'error') return <p role="alert" className="mt-2 text-[15px] text-ink-2">Could not load your saved purchase items right now.</p>;
+
+  const scans = [
+    ...load.locker.items.map((item) => ({
+      key: `gear-${item.id ?? item.photoId ?? item.productName}`,
+      name: item.productName,
+      detail: [item.brand, item.modelNumber ? `Model ${item.modelNumber}` : null].filter(Boolean).join(' · '),
+      thumbnail: item.thumbnail,
+      source: 'Gear scan',
+    })),
+    ...load.locker.receipts.flatMap((receipt) => (receipt.items ?? []).map((item, index) => ({
+      key: `receipt-${receipt.photoId}-${index}`,
+      name: item.productName,
+      detail: [receipt.store, receipt.purchasedOn].filter(Boolean).join(' · '),
+      thumbnail: receipt.thumbnail,
+      source: 'Receipt scan',
+    }))),
+  ];
+
+  return (
+    <section aria-label="Nursery Gear Locker" className="bundle-card mt-3 p-4">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <p className="eyebrow text-ink-2">Nursery Gear Locker</p>
+          <p className="text-[16px] font-extrabold">Saved purchase items</p>
+        </div>
+        <span className="rounded-full bg-cream px-2.5 py-1 text-[12px] font-bold text-ink-2">{scans.length} saved</span>
+      </div>
+      {scans.length === 0 ? (
+        <p className="mt-2 text-[15px] leading-snug text-ink-2">No scanned items yet. Gear labels and receipt lines you save will appear here.</p>
+      ) : (
+        <ul className="mt-3 grid grid-cols-2 gap-2" data-testid="purchase-items-gallery">
+          {scans.map((item) => (
+            <li key={item.key} className="min-w-0 rounded-2xl border border-line bg-paper p-3">
+              {item.thumbnail ? <img src={item.thumbnail} alt="" className="mb-2 h-20 w-full rounded-xl object-cover" /> : <div aria-hidden="true" className="mb-2 flex h-20 items-center justify-center rounded-xl bg-cream text-[24px]">🧾</div>}
+              <p className="text-[14px] font-extrabold leading-snug">{item.name}</p>
+              {item.detail && <p className="mt-0.5 text-[12px] leading-snug text-ink-2">{item.detail}</p>}
+              <span className="mt-2 inline-block rounded-full bg-[#E3F3EA] px-2 py-0.5 text-[11px] font-bold text-[#17643F]">{item.source}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
 
 export default function AccountTab(props: AccountProps) {
   const { run } = props;
@@ -236,7 +286,7 @@ export default function AccountTab(props: AccountProps) {
           <button
             type="button" aria-haspopup="menu" aria-expanded={menu} onClick={() => setMenu((m) => !m)}
             className="flex min-h-[44px] shrink-0 items-center gap-2 rounded-xl border-2 border-line bg-paper px-3 text-[15px] font-bold text-ink"
-          >Switch family <Chevron up={menu} /></button>
+          >Switch family / demo family <Chevron up={menu} /></button>
         </div>
         {menu && (
           <div role="menu" aria-label="Families" className="mt-3 space-y-2">
@@ -306,8 +356,9 @@ export default function AccountTab(props: AccountProps) {
       </section>
 
       <GearLockerCard familyId={run.familyId} list />
+      <NurseryGearGallery familyId={run.familyId} />
 
-      <p className="eyebrow mt-6 text-coral-deep">What we know about your family</p>
+      <p className="eyebrow mt-6 text-coral-deep">AI Memory Ledger (Meterless H-MEM)</p>
       <section aria-label="What we know about your family" data-testid="memory-family" className="bundle-card mt-2 px-4 py-2">
         {memory === null && !memoryError && <p role="status" className="py-3 text-[15px] text-ink-2">Looking at what we know…</p>}
         {memoryError && <p role="alert" className="py-3 text-[15px] text-ink-2">Could not read this right now. Please try again in a minute.</p>}
@@ -318,8 +369,9 @@ export default function AccountTab(props: AccountProps) {
               <li key={`${m.id}-${i}`} className="py-3">
                 <p className="text-[15.5px] leading-snug">{m.text}</p>
                 <p className="mt-1.5 flex flex-wrap gap-1.5 text-[12px] font-bold">
+                  <span className="rounded-full bg-[#EEE9FF] px-2.5 py-0.5 font-mono text-[#5541A1]">[{m.id || 'memory'}]</span>
                   <span className="rounded-full bg-[#E3F3EA] px-2.5 py-0.5 text-[#17643F]">{SOURCE_LABEL[m.source] ?? 'Saved for you'}{memoryDate(m.savedOn) ? ` · ${memoryDate(m.savedOn)}` : ''}</span>
-                  {owner && <span className="rounded-full bg-[#F1ECE4] px-2.5 py-0.5 text-ink-2">Saved in Meterless memory</span>}
+                  <span className="rounded-full bg-[#F1ECE4] px-2.5 py-0.5 text-ink-2">Meterless H-MEM</span>
                 </p>
                 {techFamily && <p className="mt-1 font-mono text-[12px] text-ink-2">{m.id} · source: {m.source}</p>}
               </li>
