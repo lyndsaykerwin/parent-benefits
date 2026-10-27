@@ -1,0 +1,667 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Bundle Deck</title>
+<meta name="viewport" content="width=1920">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --cream:#FBF6EF; --paper:#FFFFFF; --ink:#1B1714; --ink-2:#5C534B; --ink-3:#8A8076;
+  --line:#E9E0D4; --coral:#E4572E; --coral-deep:#B93E1A; --coral-tint:#FCE6DC; --night:#1B1714;
+  --k-claw:#1E8A5A; --k-recall:#C9352B; --k-dead:#E4572E; --k-disc:#6B4EE6; --k-soon:#8A8076;
+  --shadow:0 1px 2px rgba(27,23,20,.04),0 12px 32px rgba(27,23,20,.07);
+  --r-s:12px; --r-m:24px; --r-l:40px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:#d9d2c8}
+body{font-family:Manrope,system-ui,sans-serif;color:var(--ink);-webkit-font-smoothing:antialiased;width:1920px}
+@page{size:1920px 1080px;margin:0}
+section.slide{width:1920px;height:1080px;position:relative;overflow:hidden;background:var(--cream);padding:96px 112px;page-break-after:always;break-after:page;display:flex;flex-direction:column}
+section.slide:last-child{page-break-after:auto;break-after:auto}
+body.solo section.slide{display:none}
+body.solo section.slide.show{display:flex}
+@media print{html,body{background:none}}
+
+/* type */
+.eyebrow{font-size:20px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--coral-deep);margin-bottom:28px}
+.night .eyebrow{color:#F3A285}
+h1{font-size:84px;line-height:1.05;letter-spacing:-.025em;font-weight:800}
+h1 em,h2 em{font-style:normal;color:var(--coral)}
+.display{font-size:132px;line-height:.98;letter-spacing:-.035em;font-weight:800}
+h2{font-size:52px;line-height:1.15;letter-spacing:-.015em;font-weight:800}
+h3{font-size:30px;line-height:1.25;font-weight:800;letter-spacing:-.01em}
+.lede{font-size:32px;line-height:1.4;color:var(--ink-2);font-weight:500;max-width:1100px}
+.body{font-size:26px;line-height:1.45;color:var(--ink-2);font-weight:500}
+.cap{font-size:22px;line-height:1.35;color:var(--ink-2);font-weight:500}
+.mono{font-family:"JetBrains Mono",monospace}
+.foot{position:absolute;left:112px;right:112px;bottom:40px;display:flex;justify-content:space-between;align-items:flex-end;font-size:18px;color:var(--ink-3);font-weight:600;gap:40px}
+.foot .src{font-weight:500;max-width:1450px;line-height:1.35}
+.night .foot{color:#9C9187}
+.wordmark{font-weight:800;letter-spacing:-.04em}
+.wordmark i{font-style:normal;color:var(--coral)}
+
+/* night slides */
+section.slide.night{background:var(--night);color:#FBF6EF}
+.night .lede{color:#CFC5BA}
+
+/* cards */
+.card{background:var(--paper);border:1px solid var(--line);border-radius:var(--r-m);box-shadow:var(--shadow);padding:36px}
+.pill{display:inline-flex;align-items:center;gap:10px;font-size:18px;font-weight:700;padding:8px 16px;border-radius:999px;background:var(--coral-tint);color:var(--coral-deep)}
+.dot{width:12px;height:12px;border-radius:50%;display:inline-block;flex:none}
+.badge{display:inline-flex;align-items:center;gap:12px;padding:12px 22px;border-radius:999px;border:1.5px solid rgba(251,246,239,.25);font-size:20px;font-weight:700;color:#FBF6EF}
+
+/* phone */
+.phone.sm{zoom:.86}
+.phone{width:400px;height:836px;border-radius:62px;background:#151210;padding:13px;box-shadow:0 2px 4px rgba(0,0,0,.08),0 40px 80px rgba(27,23,20,.22);position:relative;flex:none}
+.screen{width:100%;height:100%;border-radius:50px;background:var(--cream);color:var(--ink);overflow:hidden;position:relative;font-size:16px}
+.island{position:absolute;top:11px;left:50%;transform:translateX(-50%);width:116px;height:33px;border-radius:20px;background:#000;z-index:3}
+.status{height:54px;display:flex;justify-content:space-between;align-items:center;padding:6px 32px 0 36px;font-weight:700;font-size:16px}
+.status .sig{display:flex;gap:6px;align-items:center}
+.app{padding:4px 20px 20px}
+.apphead{display:flex;justify-content:space-between;align-items:center;margin:6px 0 14px}
+.apphead .wordmark{font-size:24px}
+.avatar{font-size:13px;font-weight:700;padding:6px 12px;border-radius:999px;background:var(--paper);border:1px solid var(--line);color:var(--ink-2)}
+.preview{font-size:18px;color:var(--ink-3);font-weight:600;text-align:center;margin-top:18px;letter-spacing:.02em}
+.night .preview{color:#9C9187}
+.night .phone{box-shadow:0 0 0 2px #3A322C,0 40px 100px rgba(228,87,46,.18)}
+
+/* in-app */
+.a-h{font-size:28px;line-height:1.12;font-weight:800;letter-spacing:-.02em}
+.a-sub{font-size:15px;color:var(--ink-2);line-height:1.4;font-weight:500}
+.field{background:var(--paper);border:1px solid var(--line);border-radius:16px;padding:10px 16px;margin-top:10px}
+.field label{display:block;font-size:12px;font-weight:700;color:var(--ink-3);text-transform:uppercase;letter-spacing:.08em}
+.field div{font-size:18px;font-weight:700;margin-top:2px}
+.btn{border-radius:16px;padding:16px;text-align:center;font-weight:800;font-size:17px}
+.btn.pri{background:var(--ink);color:#fff}
+.btn.coral{background:var(--coral);color:#fff}
+.btn.sec{background:var(--coral-tint);color:var(--coral-deep);border:1.5px solid #F6C3AE}
+.fc{background:var(--paper);border:1px solid var(--line);border-radius:18px;padding:13px 15px;margin-bottom:10px}
+.fc .k{display:flex;align-items:center;gap:7px;font-size:11.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}
+.fc .t{font-size:16.5px;font-weight:800;line-height:1.25;margin-top:6px;letter-spacing:-.01em}
+.fc .d{font-size:13.5px;color:var(--ink-2);line-height:1.35;margin-top:4px;font-weight:500}
+.fc .m{display:flex;justify-content:space-between;align-items:center;margin-top:9px;font-size:12.5px;font-weight:700;color:var(--ink-3)}
+.fc .m b{color:var(--coral-deep)}
+.fc.pin{border:2px solid var(--coral);box-shadow:0 8px 20px rgba(228,87,46,.15)}
+.chip{font-size:12px;font-weight:800;padding:3px 9px;border-radius:999px}
+.tr{display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
+.tr:last-child{border-bottom:none}
+.tr .av{width:30px;height:30px;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:#fff}
+.tr .who{font-size:12.5px;font-weight:800;letter-spacing:.02em}
+.tr .say{font-size:13.5px;line-height:1.35;color:var(--ink-2);font-weight:500;margin-top:2px}
+
+/* layout helpers */
+.row{display:flex;gap:48px}
+.grow{flex:1}
+.center{align-items:center}
+.stat-n{font-size:150px;line-height:.92;letter-spacing:-.045em;font-weight:800;color:var(--coral)}
+.kicker{font-size:22px;font-weight:700;color:var(--ink)}
+
+/* ---- Oct 26 rebuild additions ---- */
+/* Placeholders: anything with class "todo" (or data-update / data-slot) must be checked before submission. */
+.todo{display:inline-flex;align-items:center;gap:8px;background:#FFF1BF;color:#5A4300;border:2px dashed #C79A00;border-radius:10px;padding:2px 10px;font-weight:800;font-size:.8em;letter-spacing:0;white-space:nowrap}
+.night .todo{background:#3A3010;color:#FFE08A;border-color:#C79A00}
+.slotcap{font-size:16px;font-weight:700;color:#8A6A00;text-align:center;margin-top:10px}
+.night .slotcap{color:#E8C55A}
+.h1s{font-size:64px;line-height:1.08;letter-spacing:-.022em;font-weight:800}
+.h1s em{font-style:normal;color:var(--coral)}
+.tbl{width:100%;border-collapse:collapse;font-size:24px}
+.tbl td{padding:13px 18px;border-bottom:1px solid var(--line);vertical-align:middle}
+.tbl tr:last-child td{border-bottom:none}
+.tbl td.k{color:var(--ink-3);font-weight:700;font-size:19px;letter-spacing:.06em;text-transform:uppercase;width:250px}
+.tbl td.v{font-weight:800}
+.ok{color:var(--k-claw);font-weight:800}
+.chipk{display:inline-block;font-size:16px;font-weight:800;padding:4px 12px;border-radius:999px;letter-spacing:.02em}
+.msg{display:grid;grid-template-columns:330px 120px 1fr;gap:16px;align-items:center;padding:13px 0;border-bottom:1px solid var(--line)}
+.msg:last-child{border-bottom:none}
+.msg .ft{font-size:18px;font-weight:800;line-height:1.3}
+.msg .ft span{color:var(--ink-3);font-weight:700}
+.msg .tx{font-size:19px;line-height:1.35;color:var(--ink-2);font-weight:500}
+.speak{display:grid;grid-template-columns:240px 1fr;gap:18px;align-items:start;padding:12px 0;border-bottom:1px solid var(--line)}
+.speak:last-child{border-bottom:none}
+.speak .who{font-size:18px;font-weight:800}
+.speak .who small{display:block;font-size:14px;color:var(--ink-3);font-weight:700;letter-spacing:.04em;text-transform:uppercase;margin-top:2px}
+.speak .say{font-size:19px;line-height:1.38;color:var(--ink-2);font-weight:500}
+.mini{font-size:19px;line-height:1.4;color:var(--ink-2);font-weight:500}
+.mini b{color:var(--ink)}
+.slotphone{width:400px;height:836px;border-radius:62px;background:#151210;padding:13px;flex:none;box-shadow:0 2px 4px rgba(0,0,0,.08),0 40px 80px rgba(27,23,20,.22)}
+</style>
+</head>
+<body>
+
+<!-- 1 TITLE · Demo + Product -->
+<section class="slide night" id="s1">
+  <div class="row" style="height:100%;align-items:center;gap:80px">
+    <div class="grow">
+      <div class="badge" style="margin-bottom:52px"><span class="dot" style="background:var(--coral)"></span>Open Agent Hackathon 2026 · Track 1: Solving Fragmented Intelligence</div>
+      <div class="wordmark" style="font-size:200px;line-height:.9">bundle<i>.</i></div>
+      <div class="display" style="font-size:88px;margin-top:36px;line-height:1.04">Your first 100 days,<br><span style="color:var(--coral)">checked.</span></div>
+      <p class="lede" style="margin-top:36px;max-width:980px">Money back, recalls, benefits and deals for new parents. Snap a label or a receipt. A team of AI agents checks every claim, and argues over every deal, before a parent sees it.</p>
+    </div>
+    <div style="margin-right:40px" data-slot="screenshot-title">
+      <div class="phone"><div class="screen"><img src="img/03-feed-receipt.png" alt="Bundle Receipt screen" style="width:100%;height:100%;display:block;object-fit:cover;object-position:top"></div></div>
+      <div class="slotcap">SLOT screenshot-title · Oct 23 screenshot, replace with V2</div>
+    </div>
+  </div>
+  <div class="foot"><span>Solo build by Lyndsay Kerwin · Sponsor tech: Zetaris + Meterless · AI: NVIDIA · Built with Claude Code · All families shown are made up</span><span>1</span></div>
+</section>
+
+<!-- 2 PROBLEM · Impact -->
+<section class="slide" id="s2">
+  <div class="eyebrow">The problem</div>
+  <h1>New parents leave money<br>and safety <em>on the table.</em></h1>
+  <div class="row" style="margin-top:64px;gap:40px">
+    <div class="card grow" style="padding:44px">
+      <div class="stat-n">$441</div>
+      <div class="kicker" style="margin-top:20px">lost per FSA holder who forfeits</div>
+      <div class="cap" style="margin-top:10px">About half of FSA (tax-free health account) holders lose money every year. Top reason: not knowing what counts.</div>
+    </div>
+    <div class="card grow" style="padding:44px">
+      <div class="stat-n">~40%</div>
+      <div class="kicker" style="margin-top:20px">of recalled car seats ever get fixed</div>
+      <div class="cap" style="margin-top:10px">Only 42% of parents register their seat, so most never hear about a recall.</div>
+    </div>
+    <div class="card grow" style="padding:44px">
+      <div class="stat-n">$20.4k</div>
+      <div class="kicker" style="margin-top:20px">what a baby's first year costs</div>
+      <div class="cap" style="margin-top:10px">Every missed refund, benefit or deadline comes out of this. BabyCenter survey of 1,399 moms.</div>
+    </div>
+  </div>
+  <div style="margin-top:40px;display:flex;align-items:center;gap:20px;flex-wrap:wrap">
+    <span class="kicker" style="margin-right:8px">And 2026 rewrote the rules:</span>
+    <span class="pill">$1,000 Trump Account</span>
+    <span class="pill">$2,200 child tax credit</span>
+    <span class="pill">$7,500 dependent-care FSA limit</span>
+    <span class="pill">$440 MA child credit</span>
+  </div>
+  <div class="foot"><span class="src">Sources: EBRI via Retail Dive (FSA) · Safe Kids Worldwide (car seats) · BabyCenter 2025 cost survey (first year) · IRS 2026 adjustments, Axios, HWH Law, Mass.gov via Kiplinger (2026 rules). Links: research/research-boston-baby-benefits.html.</span><span>2</span></div>
+</section>
+
+<!-- 3 USER · Impact, Track 1 fit -->
+<section class="slide" id="s3">
+  <div class="eyebrow">Who it's for · why it's Track 1</div>
+  <h1>What Maya's family is owed<br>is scattered across <em>five places.</em></h1>
+  <div style="flex:1;margin-top:52px;display:flex;flex-direction:column">
+    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:20px">
+      <div class="card" style="padding:26px"><div class="cap" style="font-weight:700;color:var(--ink-3)">Her own stuff</div><h3 style="margin-top:4px">Gear + receipts</h3><div class="cap" style="margin-top:8px">A car-seat label with a lot code. A pharmacy receipt with tax-free items.</div></div>
+      <div class="card" style="padding:26px"><div class="cap" style="font-weight:700;color:var(--ink-3)">Her employer</div><h3 style="margin-top:4px">Benefits plan</h3><div class="cap" style="margin-top:8px">30-day windows for insurance and dependent-care FSA.</div></div>
+      <div class="card" style="padding:26px"><div class="cap" style="font-weight:700;color:var(--ink-3)">IRS + Massachusetts</div><h3 style="margin-top:4px">2026 rules</h3><div class="cap" style="margin-top:8px">Rewritten this year. Most parents' info is stale.</div></div>
+      <div class="card" style="padding:26px"><div class="cap" style="font-weight:700;color:var(--ink-3)">CPSC · FDA · NHTSA</div><h3 style="margin-top:4px">Recalls</h3><div class="cap" style="margin-top:8px">Updated constantly. A week-old copy is dangerous.</div></div>
+      <div class="card" style="padding:26px"><div class="cap" style="font-weight:700;color:var(--ink-3)">Store sites</div><h3 style="margin-top:4px">Deal fine print</h3><div class="cap" style="margin-top:8px">A "free" diaper box that becomes a $29.99 a month membership.</div></div>
+    </div>
+    <svg width="1696" height="96" viewBox="0 0 1696 96" aria-hidden="true" style="display:block">
+      <g stroke="#E4572E" stroke-width="2.5" stroke-dasharray="7 9" fill="none" stroke-linecap="round">
+        <path d="M160 0 C160 60 848 40 848 92"/><path d="M504 0 C504 60 848 40 848 92"/><path d="M848 0 L848 92"/><path d="M1192 0 C1192 60 848 40 848 92"/><path d="M1536 0 C1536 60 848 40 848 92"/>
+      </g>
+    </svg>
+    <div class="card" style="border:2px solid var(--ink);display:flex;align-items:center;gap:40px;padding:30px 40px">
+      <div style="flex:none"><div class="cap" style="font-weight:700;color:var(--ink-3)">Sample family (made up)</div><h2 style="margin-top:2px;white-space:nowrap">Baby Maya, day 20</h2></div>
+      <div class="body" style="flex:1">Boston, MA. Parent works full-time with employer benefits. Nobody joins these five sources for her.</div>
+      <div style="flex:none;background:var(--coral);color:#fff;border-radius:18px;padding:18px 26px;font-size:24px;font-weight:800;white-space:nowrap">Insurance window: 10 days left</div>
+    </div>
+  </div>
+  <div class="foot"><span>For: a parent who is expecting or within 100 days of a birth. Demo state: Massachusetts; federal items work everywhere.</span><span>3</span></div>
+</section>
+
+<!-- 4 PRODUCT · Product & UX -->
+<section class="slide" id="s4">
+  <div class="row" style="height:100%;gap:56px">
+    <div style="width:560px;flex:none;display:flex;flex-direction:column;justify-content:center">
+      <div class="eyebrow">The product</div>
+      <h1 style="font-size:76px">One screen.<br>Everything she's <em>owed.</em></h1>
+      <p class="body" style="margin-top:28px">A few questions, or try as a guest. Snapping a receipt or a label makes it sharper.</p>
+      <div style="margin-top:28px;display:flex;flex-direction:column;gap:14px">
+        <div style="display:flex;gap:16px;align-items:baseline"><span class="dot" style="background:var(--k-claw)"></span><div class="mini"><b>Money back</b> · FSA claims, store price drops</div></div>
+        <div style="display:flex;gap:16px;align-items:baseline"><span class="dot" style="background:var(--k-recall)"></span><div class="mini"><b>Recalls</b> · her gear against live recall lists</div></div>
+        <div style="display:flex;gap:16px;align-items:baseline"><span class="dot" style="background:var(--k-dead)"></span><div class="mini"><b>Benefits + deadlines</b> · dated countdowns</div></div>
+        <div style="display:flex;gap:16px;align-items:baseline"><span class="dot" style="background:var(--k-disc)"></span><div class="mini"><b>Deals</b> · graded by Fine Print; unchecked ones say "Not yet verified"</div></div>
+      </div>
+      <p class="mini" style="margin-top:24px">Every card shows its work: the source link and how it was checked.</p>
+    </div>
+    <div class="row grow" style="gap:26px;align-items:center;justify-content:flex-end">
+      <div data-slot="screenshot-onboarding"><div class="phone sm"><div class="screen"><img src="img/01-onboarding.png" alt="Onboarding screen" style="width:100%;height:100%;display:block;object-fit:cover;object-position:top"></div></div><div class="preview">1 · Onboarding</div><div class="slotcap">SLOT screenshot-onboarding</div></div>
+      <div data-slot="screenshot-results"><div class="phone sm"><div class="screen"><img src="img/03-feed-receipt.png" alt="Results screen" style="width:100%;height:100%;display:block;object-fit:cover;object-position:top"></div></div><div class="preview">2 · Results</div><div class="slotcap">SLOT screenshot-results</div></div>
+      <div data-slot="screenshot-how-we-checked"><div class="phone sm"><div class="screen"><img src="img/court-0.png" alt="How we checked screen" style="width:100%;height:100%;display:block;object-fit:cover;object-position:top"></div></div><div class="preview">3 · How we checked</div><div class="slotcap">SLOT screenshot-how-we-checked</div></div>
+    </div>
+  </div>
+  <div class="foot"><span>Made-up sample family. <span class="todo">Screens are Oct 23 builds: replace all three after today's app changes land</span></span><span>4</span></div>
+</section>
+
+<!-- 5 PHOTO → DATA (headline) · Innovation -->
+<section class="slide" id="s5">
+  <div class="eyebrow">New way to add data · the photo reader</div>
+  <h1 class="h1s">Snap a photo. Agents get <em>clean data.</em></h1>
+  <div class="row" style="margin-top:40px;gap:36px;align-items:stretch">
+    <!-- before -->
+    <div style="width:560px;flex:none;display:flex;flex-direction:column;gap:14px">
+      <div class="cap" style="font-weight:800;color:var(--ink-3);letter-spacing:.1em;text-transform:uppercase;font-size:18px">Before: a photo</div>
+      <div class="card" style="padding:14px"><img src="img/item-graco-sample-label.png" alt="Made-up car-seat label" style="width:100%;display:block;border-radius:12px"></div>
+      <div class="row" style="gap:16px;align-items:center">
+        <div class="card" style="padding:8px;width:150px;flex:none"><img src="img/receipt-made-up-baby-mart.png" alt="Made-up receipt" style="width:100%;display:block;border-radius:8px"></div>
+        <div class="mini">Or a paper receipt. This made-up one became <b>3 rows</b>: thermometer $12.99, nasal aspirator $8.49, diapers $24.99, dated Oct 20, 2026.</div>
+      </div>
+    </div>
+    <!-- arrow -->
+    <div style="width:170px;flex:none;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:14px;text-align:center">
+      <div class="chipk" style="background:var(--ink);color:#fff">NVIDIA vision AI reads it</div>
+      <svg width="150" height="40" viewBox="0 0 150 40" aria-hidden="true"><path d="M4 20 H136" stroke="#E4572E" stroke-width="4"/><path d="M128 8 L146 20 L128 32" fill="none" stroke="#E4572E" stroke-width="4" stroke-linejoin="round"/></svg>
+      <div class="chipk" style="background:var(--coral-tint);color:var(--coral-deep)">plain code checks every field</div>
+    </div>
+    <!-- after -->
+    <div class="grow" style="display:flex;flex-direction:column;gap:14px">
+      <div class="cap" style="font-weight:800;color:var(--ink-3);letter-spacing:.1em;text-transform:uppercase;font-size:18px">After: a row agents can use</div>
+      <div class="card" style="padding:10px 18px">
+        <table class="tbl">
+          <tr><td class="k">Product</td><td class="v">Infant Car Seat</td></tr>
+          <tr><td class="k">Brand</td><td class="v">Graco</td></tr>
+          <tr><td class="k">Model number</td><td class="v mono" style="font-size:22px">SAMPLE-1042 <span class="ok" style="font-family:Manrope;font-size:18px">· seen in the photo text</span></td></tr>
+          <tr data-update="photo-mfg-date"><td class="k">Made on</td><td class="v mono" style="font-size:22px">2026-03-15 <span class="todo" style="font-family:Manrope;font-size:15px">being added Oct 26</span></td></tr>
+          <tr><td class="k">Lot code</td><td class="v mono" style="font-size:22px">SMP-0315</td></tr>
+          <tr><td class="k">UPC (barcode number)</td><td class="v mono" style="font-size:22px">012345678905 <span class="ok" style="font-family:Manrope;font-size:18px">· check digit adds up</span></td></tr>
+          <tr><td class="k">Price</td><td class="v">from receipts</td></tr>
+        </table>
+      </div>
+      <div class="mini" style="background:var(--coral-tint);border-radius:16px;padding:16px 20px">The AI can't invent a code: every code must appear in the text it read. Only product fields are kept, so card numbers, names and addresses never get saved. Unclear? One retry with the exact problems, then "please send a clearer photo."</div>
+    </div>
+  </div>
+  <div class="foot"><span>Both photos are made up. Real NVIDIA answers recorded Oct 25 (bundle/data/sample/vision-cache). Free NVIDIA vision is often busy; the app says so instead of guessing. Code: bundle/server/ingest/photo.ts</span><span>5</span></div>
+</section>
+
+<!-- 6 WHAT A PHOTO POWERS + OTHER INPUTS · Innovation, Impact -->
+<section class="slide" id="s6">
+  <div class="eyebrow">What one photo powers</div>
+  <h1 class="h1s">One photo, <em>four jobs.</em> No typing.</h1>
+  <div class="row" style="margin-top:40px;gap:28px;align-items:stretch">
+    <div class="card" style="width:300px;flex:none;background:var(--ink);color:#FBF6EF;border-color:var(--ink);display:flex;flex-direction:column;justify-content:center">
+      <div class="cap" style="color:#F3A285;font-weight:800">Saved as rows in</div>
+      <div class="mono" style="font-size:28px;margin-top:8px">purchase_items</div>
+      <div class="cap" style="color:#CFC5BA;margin-top:14px">The only purchase list the agents read. Photo itself is not kept; a small thumbnail is, with location data removed.</div>
+    </div>
+    <svg width="60" height="300" viewBox="0 0 60 300" aria-hidden="true" style="align-self:center;flex:none"><path d="M4 150 H46" stroke="#E4572E" stroke-width="4"/><path d="M38 138 L56 150 L38 162" fill="none" stroke="#E4572E" stroke-width="4"/></svg>
+    <div class="grow" style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+      <div class="card" style="padding:26px 30px"><div style="display:flex;gap:12px;align-items:center"><span class="dot" style="background:var(--k-recall)"></span><h3>Instant recall check</h3></div><div class="mini" style="margin-top:8px">Car seats against NHTSA's 69 car-seat recalls; everything else against CPSC through Zetaris. Says "found", "No recalls found" or "could not check". Never "safe".</div></div>
+      <div class="card" style="padding:26px 30px"><div style="display:flex;gap:12px;align-items:center"><span class="dot" style="background:var(--k-claw)"></span><h3>Money-back check</h3></div><div class="mini" style="margin-top:8px">Each receipt line is checked right away: can it be paid back from an FSA or HSA (tax-free health accounts)?</div></div>
+      <div class="card" style="padding:26px 30px"><div style="display:flex;gap:12px;align-items:center"><span class="dot" style="background:var(--k-disc)"></span><h3>Gear Locker</h3></div><div class="mini" style="margin-top:8px">Her saved gear and receipts, with pictures. Also remembered in Meterless memory: "Has: Infant Car Seat".</div></div>
+      <div class="card" style="padding:26px 30px"><div style="display:flex;gap:12px;align-items:center"><span class="dot" style="background:var(--k-dead)"></span><h3>Every later agent run</h3></div><div class="mini" style="margin-top:8px">ClawbackHunter and RecallChecker read the same rows through Zetaris each run, so a new recall finds old gear.</div></div>
+    </div>
+  </div>
+  <div style="margin-top:28px;display:flex;gap:14px;align-items:center;flex-wrap:wrap">
+    <span class="kicker" style="margin-right:6px">Other ways data gets in today:</span>
+    <span class="pill">Paste fine print or a screenshot into Audit-a-deal</span>
+    <span class="pill">Live deal search of trusted sites</span>
+    <span class="pill">Parent taps: Got it · Not relevant · Report issue</span>
+    <span class="pill">A few onboarding questions</span>
+    <span class="pill">Live CPSC + openFDA recall feeds</span>
+  </div>
+  <div style="margin-top:18px" data-update="photo-background-reading"><span class="todo">Design, being built Oct 26: photos are read in the background, so a parent can keep using the app while it reads. Update when it lands.</span></div>
+  <div class="foot"><span>Code: bundle/server/routes/photoRoutes.ts · ingest/gearRecall.ts · offers/dealAudit.ts · offers/liveSearch.ts</span><span>6</span></div>
+</section>
+
+<!-- 7 AGENT MAP · Technical -->
+<section class="slide" id="s7">
+  <div class="eyebrow">The agent team</div>
+  <h1 class="h1s">Specialists that check <em>each other's work.</em></h1>
+  <div style="margin-top:22px">
+  <svg viewBox="0 0 1696 720" width="1696" height="720" font-family="Manrope" aria-label="Agent map">
+    <defs>
+      <marker id="m1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#5C534B"/></marker>
+      <marker id="m2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#E4572E"/></marker>
+    </defs>
+    <!-- orchestrator -->
+    <rect x="0" y="0" width="1696" height="64" rx="20" fill="#1B1714"/>
+    <text x="28" y="41" fill="#FBF6EF" font-size="23" font-weight="800">Orchestrator <tspan fill="#CFC5BA" font-weight="600" font-size="19">(plain code) · loads the family through Zetaris · runs 4 agents at once · 300-second budget · never-empty feed · writes the trace</tspan></text>
+
+    <!-- column labels -->
+    <g font-size="15" font-weight="800" fill="#8A8076" letter-spacing="1.5">
+      <text x="0" y="100">DATA COMING IN</text><text x="350" y="100">AGENTS (RUN SIDE BY SIDE)</text><text x="1310" y="100">THE GATE</text>
+    </g>
+
+    <!-- inputs -->
+    <g font-size="20" font-weight="800" fill="#1B1714">
+      <rect x="0" y="116" width="290" height="92" rx="18" fill="#fff" stroke="#E9E0D4" stroke-width="2"/><text x="20" y="152">PhotoReader</text><text x="20" y="182" font-size="16" font-weight="600" fill="#5C534B">label or receipt → rows</text>
+      <rect x="0" y="222" width="290" height="92" rx="18" fill="#fff" stroke="#E9E0D4" stroke-width="2"/><text x="20" y="258">Live deal search</text><text x="20" y="288" font-size="16" font-weight="600" fill="#5C534B">trusted baby-deal sites</text>
+      <rect x="0" y="328" width="290" height="92" rx="18" fill="#fff" stroke="#E9E0D4" stroke-width="2"/><text x="20" y="364">Audit-a-deal</text><text x="20" y="394" font-size="16" font-weight="600" fill="#5C534B">parent pastes fine print</text>
+      <rect x="0" y="434" width="290" height="92" rx="18" fill="#fff" stroke="#E9E0D4" stroke-width="2"/><text x="20" y="470">Parent taps</text><text x="20" y="500" font-size="16" font-weight="600" fill="#5C534B">Got it · Not relevant · Report</text>
+    </g>
+
+    <!-- row A producers -->
+    <g font-size="21" font-weight="800" fill="#1B1714">
+      <rect x="350" y="116" width="280" height="190" rx="20" fill="#fff" stroke="#E9E0D4" stroke-width="2"/>
+      <circle cx="374" cy="146" r="7" fill="#1E8A5A"/><text x="390" y="153">ClawbackHunter</text>
+      <text font-size="16" font-weight="600" fill="#5C534B"><tspan x="372" y="184">Money back: FSA/HSA items</tspan><tspan x="372" dy="22">and store price drops</tspan></text>
+      <text x="372" y="282" font-size="16" font-weight="800" fill="#B93E1A">asks RecallChecker first →</text>
+
+      <rect x="660" y="116" width="280" height="190" rx="20" fill="#fff" stroke="#E9E0D4" stroke-width="2"/>
+      <circle cx="684" cy="146" r="7" fill="#C9352B"/><text x="700" y="153">RecallChecker</text>
+      <text font-size="16" font-weight="600" fill="#5C534B"><tspan x="682" y="184">Her items × live CPSC + FDA</tspan><tspan x="682" dy="22">recalls; code match rules</tspan><tspan x="682" dy="22">(UPC, model, lot first)</tspan></text>
+      <rect x="682" y="262" width="140" height="30" rx="15" fill="#FDECEA"/><text x="752" y="283" font-size="15" text-anchor="middle" fill="#A32A21">can kill a deal</text>
+
+      <rect x="970" y="116" width="280" height="190" rx="20" fill="#fff" stroke="#E9E0D4" stroke-width="2"/>
+      <circle cx="994" cy="146" r="7" fill="#E4572E"/><text x="1010" y="153">BenefitsPlanner</text>
+      <text font-size="16" font-weight="600" fill="#5C534B"><tspan x="992" y="184">Rules + birth date + state</tspan><tspan x="992" dy="22">→ dated deadlines</tspan></text>
+      <rect x="990" y="232" width="242" height="62" rx="14" fill="#FDECEA"/>
+      <text x="1004" y="257" font-size="16" fill="#A32A21">Eligibility Lawyer</text><text x="1004" y="281" font-size="14" font-weight="600" fill="#A32A21">counter-question · can drop</text>
+    </g>
+    <path d="M630 200 L656 200" stroke="#E4572E" stroke-width="3" marker-end="url(#m2)"/>
+    <path d="M660 220 L634 220" stroke="#E4572E" stroke-width="3" marker-end="url(#m2)"/>
+
+    <!-- row B court -->
+    <g font-size="20" font-weight="800" fill="#1B1714">
+      <rect x="350" y="330" width="900" height="210" rx="20" fill="#fff" stroke="#1B1714" stroke-width="2"/>
+      <text x="374" y="366" font-size="22">Fine Print <tspan font-size="16" font-weight="600" fill="#5C534B">(agent name: FinePrintCourt) · grades up to 5 deals a run</tspan></text>
+      <rect x="374" y="388" width="250" height="132" rx="14" fill="#FBF6EF" stroke="#E9E0D4"/>
+      <text x="390" y="416" font-size="17">Newsroom step</text>
+      <text font-size="14.5" font-weight="600" fill="#5C534B"><tspan x="390" y="442">reads saved grades (Zetaris)</tspan><tspan x="390" dy="20">and lessons (memory).</tspan><tspan x="390" dy="20">Same wording as before?</tspan><tspan x="390" dy="20">Reuse it, skip the AI.</tspan></text>
+      <rect x="650" y="388" width="180" height="50" rx="14" fill="#F3EEFF"/><text x="740" y="420" font-size="17" text-anchor="middle" fill="#4B33B8">Deal Hunter</text>
+      <text x="848" y="420" font-size="15" text-anchor="middle" fill="#8A8076">vs</text>
+      <rect x="866" y="388" width="200" height="50" rx="14" fill="#FDECEA"/><text x="966" y="420" font-size="17" text-anchor="middle" fill="#A32A21">Fine Print Lawyer</text>
+      <rect x="750" y="466" width="210" height="54" rx="14" fill="#1B1714"/><text x="855" y="499" font-size="17" text-anchor="middle" fill="#fff">Judge rules</text>
+      <path d="M740 438 L820 466" stroke="#8A8076" stroke-width="2"/><path d="M966 438 L890 466" stroke="#8A8076" stroke-width="2"/>
+      <rect x="1088" y="388" width="142" height="132" rx="14" fill="#FBF6EF" stroke="#E9E0D4"/>
+      <text x="1104" y="414" font-size="16">Code screen</text>
+      <text font-size="14" font-weight="600" fill="#5C534B"><tspan x="1104" y="438">grades too.</tspan><tspan x="1104" dy="19">Disagree?</tspan><tspan x="1104" dy="19">1 rebuttal.</tspan><tspan x="1104" dy="19" fill="#A32A21" font-weight="800">Stricter wins.</tspan></text>
+    </g>
+    <!-- inputs arrows -->
+    <g stroke="#5C534B" stroke-width="2.5" fill="none">
+      <path d="M290 162 L346 162" marker-end="url(#m1)"/>
+      <path d="M290 268 C320 268 320 380 346 380" marker-end="url(#m1)"/>
+      <path d="M290 374 C320 374 320 420 346 420" marker-end="url(#m1)"/>
+      <path d="M145 526 L145 576" marker-end="url(#m1)"/>
+    </g>
+
+    <!-- gate -->
+    <g font-size="22" font-weight="800" fill="#1B1714">
+      <rect x="1310" y="116" width="386" height="300" rx="20" fill="#FCE6DC" stroke="#E4572E" stroke-width="2.5"/>
+      <text x="1334" y="156">FactChecker</text>
+      <text font-size="17" font-weight="600" fill="#5C534B"><tspan x="1334" y="190">Re-checks every amount and date</tspan><tspan x="1334" dy="25">with its own data question.</tspan><tspan x="1334" dy="25">No source link, no card.</tspan></text>
+      <text font-size="17" font-weight="800" fill="#B93E1A"><tspan x="1334" y="290">Wrong number? Sent back to</tspan><tspan x="1334" dy="25">the agent that made it (max 2),</tspan><tspan x="1334" dy="25">then dropped.</tspan></text>
+      <rect x="1310" y="446" width="386" height="94" rx="20" fill="#1B1714"/>
+      <text x="1334" y="486" fill="#FBF6EF">Parent's feed</text><text x="1334" y="516" font-size="16" font-weight="600" fill="#CFC5BA">only cards that passed the gate</text>
+    </g>
+    <g stroke="#5C534B" stroke-width="2.5" fill="none">
+      <path d="M1250 210 L1306 210" marker-end="url(#m1)"/>
+      <path d="M1250 435 C1280 435 1280 360 1306 360" marker-end="url(#m1)"/>
+      <path d="M1503 416 L1503 442" marker-end="url(#m1)"/>
+    </g>
+
+    <!-- bottom: coach, zetaris, hmem -->
+    <g font-size="21" font-weight="800">
+      <rect x="0" y="580" width="290" height="140" rx="20" fill="#fff" stroke="#E9E0D4" stroke-width="2"/>
+      <text x="20" y="616" fill="#1B1714">CoachAI</text><text x="112" y="616" font-size="15" font-weight="700" fill="#8A8076">between runs</text>
+      <text font-size="15.5" font-weight="600" fill="#5C534B"><tspan x="20" y="646">2+ reports on one theme →</tspan><tspan x="20" dy="22">proposes a rule → a person</tspan><tspan x="20" dy="22">approves → saved to memory</tspan></text>
+
+      <rect x="350" y="580" width="640" height="140" rx="20" fill="#fff" stroke="#1B1714" stroke-width="2"/>
+      <text x="374" y="618" fill="#1B1714">Zetaris · the data door</text>
+      <text font-size="16" font-weight="600" fill="#5C534B"><tspan x="374" y="650">One SQL question joins private family data with live</tspan><tspan x="374" dy="23">public feeds. Each agent reads through a limited view:</tspan><tspan x="374" dy="23">the Judge never sees family data.</tspan></text>
+
+      <rect x="1020" y="580" width="676" height="140" rx="20" fill="#1B1714"/>
+      <text x="1044" y="618" fill="#FBF6EF">Meterless H-MEM · shared memory</text>
+      <text font-size="16" font-weight="600" fill="#CFC5BA"><tspan x="1044" y="650">Approved rules ("case law") the Judge must cite · one shared</tspan><tspan x="1044" dy="23">workspace per run for agent notes · graded lessons from</tspan><tspan x="1044" dy="23">past grades · each family's saved gear</tspan></text>
+    </g>
+    <g stroke="#8A8076" stroke-width="2" stroke-dasharray="6 7" fill="none">
+      <path d="M560 540 L560 576"/><path d="M800 540 L800 576"/><path d="M1150 540 L1150 576"/><path d="M1503 540 L1503 576"/>
+    </g>
+  </svg>
+  </div>
+  <div class="foot"><span>Names as they appear in the logs. Code: bundle/server/agents/ (orchestrator, clawback, recall, benefits, eligibilityLawyer, finePrintCourt, newsroom, factChecker, coach) · ingest/photo.ts · offers/</span><span>7</span></div>
+</section>
+
+<!-- 8 HOW THEY TALK · Technical, clear logs -->
+<section class="slide" id="s8">
+  <div class="eyebrow">How the agents talk</div>
+  <h1 class="h1s">They leave each other <em>notes.</em> Every one is logged.</h1>
+  <div class="row" style="margin-top:36px;gap:40px;align-items:flex-start">
+    <div style="width:520px;flex:none;display:flex;flex-direction:column;gap:18px">
+      <div class="card" style="padding:24px 28px"><div class="cap" style="font-weight:800;color:var(--coral-deep)">Channel 1</div><h3 style="margin-top:4px">A shared workspace</h3><div class="mini" style="margin-top:6px">One per run, stored in Meterless memory. Five kinds of note: <b>claim, question, answer, correction, verdict</b>, each with who sent it and who it is for.</div></div>
+      <div class="card" style="padding:24px 28px"><div class="cap" style="font-weight:800;color:var(--coral-deep)">Channel 2</div><h3 style="margin-top:4px">Direct hand-offs</h3><div class="mini" style="margin-top:6px">Every card goes to the FactChecker; a wrong one goes back to the agent that made it.</div></div>
+      <div class="card" style="padding:24px 28px"><div class="cap" style="font-weight:800;color:var(--coral-deep)">Channel 3</div><h3 style="margin-top:4px">A trace anyone can replay</h3><div class="mini" style="margin-top:6px">A 10-field log line for every step, including <span class="mono" style="font-size:17px">target_agent</span> (who it went to). Readable at <span class="mono" style="font-size:17px">GET /api/runs/:id/agent-log</span>.</div></div>
+    </div>
+    <div class="card grow" style="padding:22px 32px">
+      <div class="cap" style="font-weight:800;color:var(--ink-3);letter-spacing:.08em;text-transform:uppercase;font-size:17px">Real notes from one saved run · Oct 25, 23:51 UTC · made-up family "Ava"</div>
+      <div style="margin-top:6px">
+        <div class="msg"><div class="ft">ClawbackHunter <span>→</span><br>RecallChecker</div><div><span class="chipk" style="background:#F3EEFF;color:#4B33B8">question</span></div><div class="tx">"Is 'Infant Tylenol and saline drops' under a CPSC or FDA recall? I am about to publish a reimbursement on it."</div></div>
+        <div class="msg"><div class="ft">RecallChecker <span>→</span><br>ClawbackHunter</div><div><span class="chipk" style="background:#E3F4EA;color:#17643F">answer</span></div><div class="tx">"No open CPSC or FDA recall matched 'Infant Tylenol and saline drops'."</div></div>
+        <div class="msg"><div class="ft">BenefitsPlanner <span>→</span><br>FinePrintLawyer</div><div><span class="chipk" style="background:#F1ECE5;color:#5C534B">claim</span></div><div class="tx">"Likely eligible: Federal Child Tax Credit."</div></div>
+        <div class="msg"><div class="ft">FinePrintLawyer <span>→</span><br>BenefitsPlanner</div><div><span class="chipk" style="background:#F3EEFF;color:#4B33B8">question</span></div><div class="tx">"Shown at a fixed amount. Does the federal tax table for the baby's year give the same…"</div></div>
+        <div class="msg"><div class="ft">FinePrintLawyer <span>→</span><br>BenefitsPlanner</div><div><span class="chipk" style="background:var(--ink);color:#fff">verdict</span></div><div class="tx">"confirmed: tax table (2026) agrees on the amount"</div></div>
+        <div class="msg"><div class="ft">FactChecker <span>→</span><br>ParentFeed</div><div><span class="chipk" style="background:var(--coral-tint);color:var(--coral-deep)">approve</span></div><div class="tx">benefit card federal_child_tax_credit: "verified"</div></div>
+      </div>
+    </div>
+  </div>
+  <div class="foot"><span>Source: bundle/logs/run_bundle_ava-6d675925….jsonl · code: agents/workspace.ts, agents/trace.ts. The FactChecker's "correction" note is built and passes tests (factChecker.test.ts, loopsEndToEnd.test.ts) but has not fired in a saved run yet.</span><span>8</span></div>
+</section>
+
+<!-- 9 DEBATE · Technical, agents challenge each other -->
+<section class="slide" id="s9">
+  <div class="eyebrow">Agents that challenge each other</div>
+  <h1 class="h1s">Deals get a <em>real argument.</em></h1>
+  <div class="row" style="margin-top:34px;gap:40px;align-items:flex-start">
+    <div class="card grow" style="padding:22px 32px">
+      <div class="cap" style="font-weight:800;color:var(--ink-3);letter-spacing:.08em;text-transform:uppercase;font-size:17px">Real AI debate · "free" newborn diaper box (offer 1318) · Oct 25, 04:29 UTC</div>
+      <div style="margin-top:4px">
+        <div class="speak"><div class="who" style="color:#4B33B8">Deal Hunter<small>argues for</small></div><div class="say">"…a good deal for a new parent… The free newborn diaper box is a thoughtful gift…"</div></div>
+        <div class="speak"><div class="who" style="color:#A32A21">Fine Print Lawyer<small>argues against</small></div><div class="say">"…requires a card on file… automatic enrollment in a paid membership after a 30-day…"</div></div>
+        <div class="speak"><div class="who">Judge<small>rules</small></div><div class="say"><b style="color:#A32A21">Reject.</b> "…auto-enrolls users into a $29.99/month paid membership after 30 days, making it not truly free…"</div></div>
+        <div class="speak" style="background:var(--coral-tint);border-radius:12px;padding:12px 14px;border-bottom:none;margin:6px 0"><div class="who" style="color:var(--coral-deep)">Disagreement<small>rebuttal 1 of 1</small></div><div class="say" style="color:var(--ink)">The code screen said approve; the Judge said reject. Both sides answer once more.</div></div>
+        <div class="speak"><div class="who" style="color:#4B33B8">Deal Hunter<small>rebuttal</small></div><div class="say">"…concede that the offer is not truly free."</div></div>
+        <div class="speak"><div class="who">Judge<small>rules again</small></div><div class="say"><b style="color:#A32A21">Reject</b> stands. Still disputed with the code screen, so the grade is <b>not saved</b> for reuse.</div></div>
+      </div>
+    </div>
+    <div style="width:560px;flex:none;display:flex;flex-direction:column;gap:16px">
+      <div class="card" style="padding:22px 28px;border:2px solid var(--ink)"><h3 style="font-size:25px">The rules of the debate</h3><div class="mini" style="margin-top:8px">The AI Judge and a plain-code screen both grade. If they disagree: one rebuttal round, then the Judge rules again. A code "reject" always stands. A grade both sides don't agree on is never saved.</div></div>
+      <div class="card" style="padding:20px 28px"><h3 style="font-size:23px">Safety gate</h3><div class="mini" style="margin-top:4px">ClawbackHunter asks RecallChecker before showing money back on an item. Recalled? The deal is killed.</div></div>
+      <div class="card" style="padding:20px 28px"><h3 style="font-size:23px">Counter-question</h3><div class="mini" style="margin-top:4px">The Eligibility Lawyer tries to disprove each benefit with one data question: confirmed, dropped, or "Not yet verified".</div></div>
+      <div class="card" style="padding:20px 28px"><h3 style="font-size:23px">Send-back</h3><div class="mini" style="margin-top:4px">FactChecker returns a wrong amount or date with the exact line, max 2 rounds. Tested; not yet seen in saved logs.</div></div>
+    </div>
+  </div>
+  <div class="foot"><span>Quotes trimmed from bundle/logs/run-ava-1fcffa7e….jsonl (a run with the AI on). Only deals are debated; benefits get a counter-question; money back and recalls are fact-checked.</span><span>9</span></div>
+</section>
+
+<!-- 10 LOOP 1 · Innovation, Sponsor tech (Meterless) -->
+<section class="slide" id="s10">
+  <div class="eyebrow">Feedback loop 1 · inside the agents</div>
+  <h1 class="h1s">Rulings and parent reports become <em>rules.</em></h1>
+  <div class="row" style="margin-top:30px;gap:40px;flex:1">
+    <div style="width:980px;flex:none">
+      <svg viewBox="0 0 980 660" width="980" height="660" font-family="Manrope" aria-label="Learning loop">
+        <defs>
+          <marker id="l1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#E4572E"/></marker>
+          <marker id="l2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#5C534B"/></marker>
+        </defs>
+        <g font-weight="800" font-size="20" fill="#1B1714">
+          <!-- top row: parent path -->
+          <rect x="0" y="0" width="290" height="120" rx="20" fill="#fff" stroke="#E9E0D4" stroke-width="2"/>
+          <text x="22" y="40">Parents tap</text><text x="22" y="66">"Report issue"</text><text x="22" y="96" font-size="15" font-weight="600" fill="#5C534B">"It charged me after 30 days."</text>
+          <rect x="345" y="0" width="290" height="120" rx="20" fill="#fff" stroke="#E9E0D4" stroke-width="2"/>
+          <text x="367" y="40">CoachAI</text><text font-size="15" font-weight="600" fill="#5C534B"><tspan x="367" y="68">2+ reports share a theme →</tspan><tspan x="367" dy="21">proposes one short rule</tspan></text>
+          <rect x="690" y="0" width="290" height="120" rx="20" fill="#fff" stroke="#E9E0D4" stroke-width="2"/>
+          <text x="712" y="40">A person approves</text><text font-size="15" font-weight="600" fill="#5C534B"><tspan x="712" y="68">proposal waits in</tspan><tspan x="712" dy="21" font-family="JetBrains Mono" font-size="14">case_law_proposals</tspan></text>
+          <!-- middle: memory -->
+          <rect x="300" y="200" width="680" height="170" rx="24" fill="#1B1714"/>
+          <text x="326" y="242" fill="#FBF6EF" font-size="23">Meterless H-MEM memory</text>
+          <text font-size="16" font-weight="600" fill="#CFC5BA"><tspan x="326" y="276">Rule stored with its source and a confidence score:</tspan><tspan x="326" dy="24" fill="#F3A285" font-family="JetBrains Mono" font-size="15">0.5 + 0.1 per parent report (max 0.9)</tspan><tspan x="326" dy="30">Lessons from past rulings, each with a trust number</tspan><tspan x="326" dy="24">the FactChecker moves up (helpful) or down (wrong).</tspan></text>
+          <!-- left: rulings -->
+          <rect x="0" y="200" width="250" height="170" rx="20" fill="#fff" stroke="#E9E0D4" stroke-width="2"/>
+          <text x="22" y="240">Agreed rulings</text><text font-size="15" font-weight="600" fill="#5C534B"><tspan x="22" y="268">Each grade both sides</tspan><tspan x="22" dy="21">agree on leaves one</tspan><tspan x="22" dy="21">lesson in memory</tspan></text>
+          <!-- bottom: judge -->
+          <rect x="300" y="450" width="680" height="120" rx="20" fill="#FCE6DC" stroke="#E4572E" stroke-width="2.5"/>
+          <text x="326" y="492">Next run: the Judge's instructions list them</text>
+          <text x="326" y="526" font-size="17" font-weight="700" fill="#B93E1A">"Binding case law (cite the ids you rely on)"</text>
+          <text x="326" y="554" font-size="15" font-weight="600" fill="#5C534B">The code screen also matches approved rules by shared keywords.</text>
+          <rect x="0" y="450" width="250" height="120" rx="20" fill="#fff" stroke="#1B1714" stroke-width="2"/>
+          <text x="22" y="492">Grading changes</text><text font-size="15" font-weight="600" fill="#5C534B"><tspan x="22" y="520">Same offer, new</tspan><tspan x="22" dy="21">outcome. No code change.</tspan></text>
+        </g>
+        <g stroke="#E4572E" stroke-width="3" fill="none">
+          <path d="M290 60 L341 60" marker-end="url(#l1)"/>
+          <path d="M635 60 L686 60" marker-end="url(#l1)"/>
+          <path d="M835 120 L835 196" marker-end="url(#l1)"/>
+          <path d="M640 370 L640 446" marker-end="url(#l1)"/>
+          <path d="M300 510 L254 510" marker-end="url(#l1)"/>
+          <path d="M125 450 L125 374" stroke="#5C534B" stroke-dasharray="6 6" marker-end="url(#l2)"/>
+          <path d="M250 285 L296 285" marker-end="url(#l1)"/>
+        </g>
+        <text x="138" y="420" font-size="14" font-weight="700" fill="#5C534B" font-family="Manrope">more rulings</text>
+        <text x="0" y="630" font-size="16" font-weight="600" fill="#5C534B" font-family="Manrope">Same offer marked "Not relevant" by 2+ families → Coach proposes re-checking who it is for.</text>
+      </svg>
+    </div>
+    <div class="grow" style="display:flex;flex-direction:column;gap:16px">
+      <div class="cap" style="font-weight:800;color:var(--ink-3);letter-spacing:.08em;text-transform:uppercase;font-size:17px">Proof: eval scoreboard, Oct 25</div>
+      <div class="card" style="padding:20px 26px"><div class="pill" style="background:#F1ECE5;color:var(--ink-2)">Run 1</div><div class="mini" style="margin-top:10px">Court <b>approves</b> a "free" trial that renews as a paid membership.</div></div>
+      <div class="card" style="padding:20px 26px"><div class="pill" style="background:#F1ECE5;color:var(--ink-2)">Parents + reviewer</div><div class="mini" style="margin-top:10px">Reports → Coach rule → a person approves → saved as <span class="mono" style="font-size:17px">mem-28</span>.</div></div>
+      <div class="card" style="padding:20px 26px;border:2.5px solid var(--coral)"><div class="pill">Run 2</div><div class="mini" style="margin-top:10px">Same offer <b>blocked, citing mem-28</b>. 0 other offers wrongly blocked.</div></div>
+      <div class="cap" style="font-size:18px">Honest note: this eval ran in practice mode with the AI off, so the court used its plain-code backup. The learning path is the same.</div>
+    </div>
+  </div>
+  <div class="foot"><span>Code: agents/coach.ts (confidenceFor) · routes/bundleRoutes.ts (POST /api/case-law/:id/approve) · agents/finePrintCourt.ts · agents/newsroom.ts · bundle/logs/scoreboard.json</span><span>10</span></div>
+</section>
+
+<!-- 11 LOOP 2 · Innovation, Impact beyond one family -->
+<section class="slide" id="s11">
+  <div class="eyebrow">Feedback loop 2 · across every family</div>
+  <h1 class="h1s">Every graded deal feeds a <em>shared fine-print database.</em></h1>
+  <div style="margin-top:28px">
+    <svg viewBox="0 0 1696 300" width="1696" height="300" font-family="Manrope" aria-label="Living Fine-Print Database flow">
+      <defs><marker id="d1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#5C534B"/></marker></defs>
+      <g font-weight="800" font-size="19" fill="#1B1714">
+        <rect x="0" y="0" width="270" height="80" rx="16" fill="#fff" stroke="#E9E0D4" stroke-width="2"/><text x="20" y="34">Agent runs</text><text x="20" y="60" font-size="15" font-weight="600" fill="#5C534B">Fine Print grades deals</text>
+        <rect x="0" y="110" width="270" height="80" rx="16" fill="#fff" stroke="#E9E0D4" stroke-width="2"/><text x="20" y="144">Live deal search</text><text x="20" y="170" font-size="15" font-weight="600" fill="#5C534B">new finds, same court</text>
+        <rect x="0" y="220" width="270" height="80" rx="16" fill="#fff" stroke="#E9E0D4" stroke-width="2"/><text x="20" y="254">Parent audits</text><text x="20" y="280" font-size="15" font-weight="600" fill="#5C534B">Audit-a-deal</text>
+        <rect x="330" y="95" width="210" height="110" rx="16" fill="#FCE6DC" stroke="#E4572E" stroke-width="2"/><text x="350" y="137" fill="#B93E1A">Both sides</text><text x="350" y="163" fill="#B93E1A">agreed?</text><text x="350" y="189" font-size="14" font-weight="700" fill="#5C534B">if not: never saved</text>
+        <rect x="600" y="20" width="470" height="260" rx="22" fill="#1B1714"/>
+        <text x="624" y="62" fill="#FBF6EF" font-size="23">Living Fine-Print Database</text>
+        <text x="624" y="90" fill="#F3A285" font-size="16" font-family="JetBrains Mono" font-weight="500">table offer_checks · one row per deal</text>
+        <text font-size="15.5" font-weight="600" fill="#CFC5BA"><tspan x="624" y="124">store · source link · fine-print fingerprint</tspan><tspan x="624" dy="23">hidden cost · auto-renew · renewal price</tspan><tspan x="624" dy="23">deadline · steps · effort minutes · mail-in</tspan><tspan x="624" dy="23">catch types · verdict · rule cited · quote</tspan></text>
+        <text x="624" y="254" fill="#7DD3A8" font-size="17">No family column. Nothing about any parent.</text>
+        <rect x="1130" y="95" width="180" height="110" rx="16" fill="#fff" stroke="#1B1714" stroke-width="2"/><text x="1150" y="137">Zetaris</text><text x="1150" y="163" font-size="15" font-weight="600" fill="#5C534B">read-only views</text><text x="1150" y="186" font-size="14" font-weight="600" fill="#5C534B">over the table</text>
+        <rect x="1370" y="0" width="326" height="62" rx="14" fill="#fff" stroke="#E9E0D4" stroke-width="2"/><text x="1388" y="38" font-size="17">Same wording? Reuse, no AI</text>
+        <rect x="1370" y="78" width="326" height="62" rx="14" fill="#fff" stroke="#E9E0D4" stroke-width="2"/><text x="1388" y="116" font-size="17">2nd parent: instant answer</text>
+        <rect x="1370" y="156" width="326" height="62" rx="14" fill="#fff" stroke="#E9E0D4" stroke-width="2"/><text x="1388" y="194" font-size="17">In-app offer report card</text>
+        <rect x="1370" y="234" width="326" height="62" rx="14" fill="#FCE6DC" stroke="#E4572E" stroke-width="2"/><text x="1388" y="272" font-size="17" fill="#B93E1A">Public API (below)</text>
+      </g>
+      <g stroke="#5C534B" stroke-width="2.5" fill="none">
+        <path d="M270 40 C305 40 300 130 326 130" marker-end="url(#d1)"/><path d="M270 150 L326 150" marker-end="url(#d1)"/><path d="M270 260 C305 260 300 170 326 170" marker-end="url(#d1)"/>
+        <path d="M540 150 L596 150" marker-end="url(#d1)"/><path d="M1070 150 L1126 150" marker-end="url(#d1)"/>
+        <path d="M1310 130 C1340 130 1340 31 1366 31" marker-end="url(#d1)"/><path d="M1310 140 C1340 140 1340 109 1366 109" marker-end="url(#d1)"/><path d="M1310 160 C1340 160 1340 187 1366 187" marker-end="url(#d1)"/><path d="M1310 170 C1340 170 1340 265 1366 265" marker-end="url(#d1)"/>
+      </g>
+    </svg>
+  </div>
+  <div class="row" style="margin-top:28px;gap:32px;align-items:stretch">
+    <div class="card" style="flex:1.15;padding:22px 28px">
+      <h3 style="font-size:25px">An API other parent apps could use</h3>
+      <div class="mono" style="margin-top:12px;background:#1B1714;color:#CFC5BA;border-radius:14px;padding:16px 20px;font-size:17px;line-height:1.55"><span style="color:#F3A285">GET</span> /api/offer-audit?store=Amazon<br>{ "status": "found", "brands": [ { "store": "Amazon",<br>&nbsp;&nbsp;"offersChecked": 3, "offersCaught": 2, "catchRate": 0.667 } ] }</div>
+      <div class="mini" style="margin-top:12px">Public, read-only, rate-limited. Fields are copied one by one so no family data can leak. With nothing saved it says "none", never invents rows. Described in a standard OpenAPI file: <span class="mono" style="font-size:16px">bundle/docs/openapi/offer-audit.yaml</span>.</div>
+    </div>
+    <div class="card" style="flex:1;padding:22px 28px">
+      <h3 style="font-size:25px">Honest size today</h3>
+      <div class="mini" style="margin-top:8px">Recorded answer (Oct 25): <b>12 deals graded, 7 brands, 7 had a catch</b>. Amazon 2 of 3 · Enfamil 2 of 2 · Walmart 1 of 2 · Babylist 1 of 1 · Similac 1 of 1 · Pampers 0 of 2 · Target 0 of 1.</div>
+      <div style="margin-top:14px" data-update="offer-checks-row-count"><span class="todo">FINAL ROW COUNT after Oct 26 re-grading: [___] deals · [___] brands</span></div>
+      <div class="mini" style="margin-top:12px">Small and new. Runs on our own server today; no outside app uses it yet.</div>
+    </div>
+  </div>
+  <div class="foot"><span>Code: shared/schema.ts (offer_checks) · agents/offerChecks.ts ("agreed" only) · agents/savedVerdicts.ts · routes/offerAuditRoutes.ts · routes/offerRoutes.ts (report card, Audit-a-deal)</span><span>11</span></div>
+</section>
+
+<!-- 12 ZETARIS · Sponsor tech, what's unique -->
+<section class="slide" id="s12">
+  <div class="eyebrow">Sponsor tech · Zetaris · what's unique</div>
+  <h1 class="h1s">Without Zetaris: <em>zero personalized cards.</em></h1>
+  <div class="row" style="margin-top:36px;gap:44px;flex:1">
+    <div style="flex:1.2;display:flex;flex-direction:column;gap:20px">
+      <div class="cap" style="font-weight:800;color:var(--ink-3);letter-spacing:.08em;text-transform:uppercase;font-size:17px">The recall question RecallChecker asks today (simplified)</div>
+      <div style="background:#1B1714;border-radius:var(--r-m);padding:30px 36px;color:#FBF6EF;font-size:21px;line-height:1.6" class="mono">
+<span style="color:#F3A285">SELECT</span> i.item_text, r.recall_title, r.recall_url<br>
+<span style="color:#F3A285">FROM</span>   bundle_pg.v_purchase_items i<br>
+<span style="color:#9C9187">&nbsp;&nbsp;-- private · Neon · includes photo rows</span><br>
+<span style="color:#F3A285">JOIN</span>  (cpsc_recalls <span style="color:#F3A285">UNION ALL</span> fda_food_recalls) r<br>
+<span style="color:#9C9187">&nbsp;&nbsp;-- live · read from CPSC + openFDA, no copy</span><br>
+&nbsp;&nbsp;<span style="color:#F3A285">ON</span> r.recalled_product <span style="color:#F3A285">LIKE</span> '%' || i.upc || '%'<br>
+&nbsp;<span style="color:#F3A285">OR</span> r.recalled_product <span style="color:#F3A285">LIKE</span> '%' || i.lot_code || '%' …<br>
+<span style="color:#F3A285">WHERE</span>  i.family_id = :family
+      </div>
+      <div class="mini">A photo snapped today becomes a row that one question can join to a live government recall list. Simplified from <span class="mono" style="font-size:16px">pairsSql</span> in agents/recall.ts.</div>
+    </div>
+    <div style="flex:1;display:flex;flex-direction:column;gap:14px">
+      <div class="cap" style="font-weight:800;color:var(--ink-3);letter-spacing:.08em;text-transform:uppercase;font-size:17px">Every agent goes through the same door</div>
+      <div class="card" style="padding:18px 24px"><div class="mini"><b>A limited view per agent.</b> The Judge's view holds the offer and fine print, never family data.</div></div>
+      <div class="card" style="padding:18px 24px"><div class="mini"><b>An independent check.</b> The FactChecker asks its own question, e.g. <span class="mono" style="font-size:15px">SELECT value_cents … FROM v_judge_offers WHERE id = 1318</span>.</div></div>
+      <div class="card" style="padding:18px 24px"><div class="mini"><b>Memory of past grades.</b> The Newsroom step reads saved verdicts before any AI is called.</div></div>
+      <div class="card" style="padding:18px 24px"><div class="mini"><b>Counter-questions.</b> The Eligibility Lawyer checks benefits against state and tax tables.</div></div>
+      <div class="card" style="padding:18px 24px"><div class="mini"><b>The public API</b> and the Coach's view of parent reports.</div></div>
+    </div>
+  </div>
+  <div class="foot"><span>Spike 0 (Oct 23): 739 live recall records read in one query, ~2 s once warm. Data-quality rule across all agents: no source link, no card.</span><span>12</span></div>
+</section>
+
+<!-- 13 METERLESS · Sponsor tech, what's unique -->
+<section class="slide" id="s13">
+  <div class="eyebrow">Sponsor tech · Meterless · what's unique</div>
+  <h1 class="h1s">Without Meterless: <em>the court never learns.</em></h1>
+  <div style="margin-top:40px;display:grid;grid-template-columns:1fr 1fr;gap:24px">
+    <div class="card" style="padding:28px 34px"><div class="pill" style="background:var(--ink);color:#fff">H-MEM · case law</div><h3 style="margin-top:16px">Approved rules the Judge must cite</h3><div class="mini" style="margin-top:8px">Stored with source and confidence; a person approves first. Loaded into the Judge's instructions, not just stored.</div></div>
+    <div class="card" style="padding:28px 34px"><div class="pill" style="background:var(--ink);color:#fff">H-MEM · run workspace</div><h3 style="margin-top:16px">Where agents leave each other notes</h3><div class="mini" style="margin-top:8px">One per run: claim, question, answer, correction, verdict. Shown in the app's Agent Workspace panel.</div></div>
+    <div class="card" style="padding:28px 34px"><div class="pill" style="background:var(--ink);color:#fff">H-MEM · graded lessons</div><h3 style="margin-top:16px">Past rulings with a trust number</h3><div class="mini" style="margin-top:8px">The FactChecker marks each lesson the court used as helpful or wrong, so trust moves with results.</div></div>
+    <div class="card" style="padding:28px 34px"><div class="pill" style="background:var(--ink);color:#fff">H-MEM · family memory</div><h3 style="margin-top:16px">What this family already owns</h3><div class="mini" style="margin-top:8px">Scanned gear is remembered ("Has: Infant Car Seat"), so later runs know about it.</div></div>
+  </div>
+  <div class="row" style="margin-top:24px;gap:24px;align-items:stretch">
+    <div class="card grow" style="padding:22px 30px;background:var(--coral-tint);border-color:#F6C3AE"><div class="mini"><b>Nightshift:</b> the app's first-choice route to an AI model when it runs on the Mac; NVIDIA Nemotron directly is the backup. <b>Not used:</b> Scout Intent.</div></div>
+    <div class="mono grow" style="background:#1B1714;color:#CFC5BA;border-radius:20px;padding:18px 26px;font-size:16px;line-height:1.6">mem-28 · confidence = 0.5 + 0.1 × reports (max 0.9)<br>every memory call is one line in the trace</div>
+  </div>
+  <div class="foot"><span>Code: agents/workspace.ts · agents/newsroom.ts · agents/factChecker.ts · routes/photoRoutes.ts (rememberGear) · adapters/llm.ts (provider order). Meterless engine code vendored from its public repo.</span><span>13</span></div>
+</section>
+
+<!-- 14 STACK + RESULTS · Technical, reliability -->
+<section class="slide" id="s14">
+  <div class="eyebrow">Technical stack · results</div>
+  <h1 class="h1s">Built to be <em>checked.</em></h1>
+  <div class="row" style="margin-top:40px;gap:52px;flex:1">
+    <div style="flex:1;display:grid;grid-template-columns:1fr 1fr;gap:18px;align-content:start">
+      <div class="card" style="padding:22px 28px"><div class="cap" style="font-weight:700;color:var(--ink-3)">AI models</div><h3 style="margin-top:4px;font-size:25px">NVIDIA Nemotron + NVIDIA vision</h3></div>
+      <div class="card" style="padding:22px 28px"><div class="cap" style="font-weight:700;color:var(--ink-3)">Data door</div><h3 style="margin-top:4px;font-size:25px">Zetaris</h3></div>
+      <div class="card" style="padding:22px 28px"><div class="cap" style="font-weight:700;color:var(--ink-3)">Memory + AI routing</div><h3 style="margin-top:4px;font-size:25px">Meterless H-MEM, Nightshift</h3></div>
+      <div class="card" style="padding:22px 28px"><div class="cap" style="font-weight:700;color:var(--ink-3)">Database</div><h3 style="margin-top:4px;font-size:25px">Neon Postgres</h3></div>
+      <div class="card" style="padding:22px 28px"><div class="cap" style="font-weight:700;color:var(--ink-3)">Public data</div><h3 style="margin-top:4px;font-size:25px">CPSC · openFDA · NHTSA list</h3></div>
+      <div class="card" style="padding:22px 28px"><div class="cap" style="font-weight:700;color:var(--ink-3)">Deal search</div><h3 style="margin-top:4px;font-size:25px">Tavily web search</h3></div>
+      <div class="card" style="padding:22px 28px;grid-column:span 2"><div class="cap" style="font-weight:700;color:var(--ink-3)">App</div><h3 style="margin-top:4px;font-size:25px">React + Express · built with Claude Code</h3></div>
+      <div class="card" style="padding:22px 28px;grid-column:span 2"><div class="cap" style="font-weight:700;color:var(--ink-3)">Automated tests</div><h3 style="margin-top:4px;font-size:25px">1,194 pass, 0 fail <span class="todo" style="font-size:16px" data-update="test-count">last full run Oct 26: re-run before submitting</span></h3></div>
+    </div>
+    <div style="flex:1;display:flex;flex-direction:column;gap:22px">
+      <div><h3>Code does the math. AI explains and argues.</h3><div class="mini" style="margin-top:6px">Amounts and deadlines come from SQL. If the AI's sentence mentions a dollar figure it wasn't given, the sentence is thrown away.</div></div>
+      <div><h3>Eval scoreboard (Oct 25)</h3>
+        <div style="display:flex;gap:14px;margin-top:12px">
+          <div class="card" style="padding:16px 20px;flex:1"><div style="font-size:52px;font-weight:800;letter-spacing:-.04em;color:var(--coral);line-height:1">8/8</div><div class="cap" style="font-size:18px;margin-top:4px">planted traps caught</div></div>
+          <div class="card" style="padding:16px 20px;flex:1"><div style="font-size:52px;font-weight:800;letter-spacing:-.04em;color:var(--coral);line-height:1">0</div><div class="cap" style="font-size:18px;margin-top:4px">false alarms</div></div>
+          <div class="card" style="padding:16px 20px;flex:1"><div style="font-size:52px;font-weight:800;letter-spacing:-.04em;color:var(--coral);line-height:1">100%</div><div class="cap" style="font-size:18px;margin-top:4px">cards sourced</div></div>
+        </div>
+        <div class="mini" style="margin-top:10px;font-size:18px">3 runs, same result each time. Traps include an auto-renew offer, a wrong amount, a recalled item, a duplicate, an out-of-state family and look-alike products. Honest note: practice mode, AI off; model quality is not measured here.</div></div>
+      <div><h3>Fails safe</h3><div class="mini" style="margin-top:6px">Unsure grades are not saved. A recall check that can't run says "could not check", never "safe". A busy photo reader says so instead of guessing.</div></div>
+    </div>
+  </div>
+  <div class="foot"><span>Scoreboard: bundle/logs/scoreboard.json. Declared pre-existing: open-source app template; Meterless engine code vendored from its public repo.</span><span>14</span></div>
+</section>
+
+<!-- 15 NEXT · Future enhancements -->
+<section class="slide night" id="s15">
+  <div class="eyebrow">Future enhancements</div>
+  <h1 style="color:#FBF6EF">Next: from <em>&ldquo;found&rdquo;</em> to <em>&ldquo;done.&rdquo;</em></h1>
+  <div class="row" style="margin-top:64px;gap:28px">
+    <div class="grow" style="background:#26201C;border-radius:var(--r-m);padding:36px;border:1px solid #3A322C"><div style="font-size:52px;font-weight:800;color:var(--coral)">01</div><h3 style="margin-top:16px;color:#FBF6EF">More ways in</h3><div class="cap" style="margin-top:10px;color:#CFC5BA">Email receipts and barcode scanning. Not built yet; the data model already has a place for them.</div></div>
+    <div class="grow" style="background:#26201C;border-radius:var(--r-m);padding:36px;border:1px solid #3A322C"><div style="font-size:52px;font-weight:800;color:var(--coral)">02</div><h3 style="margin-top:16px;color:#FBF6EF">Pre-filled applications</h3><div class="cap" style="margin-top:10px;color:#CFC5BA">Form 4547, MA paid leave. Agents fill them in and stop before submitting.</div></div>
+    <div class="grow" style="background:#26201C;border-radius:var(--r-m);padding:36px;border:1px solid #3A322C"><div style="font-size:52px;font-weight:800;color:var(--coral)">03</div><h3 style="margin-top:16px;color:#FBF6EF">Open the fine-print API</h3><div class="cap" style="margin-top:10px;color:#CFC5BA">Host it with keys so other parent apps can ask "is this deal what it says?"</div></div>
+    <div class="grow" style="background:#26201C;border-radius:var(--r-m);padding:36px;border:1px solid #3A322C"><div style="font-size:52px;font-weight:800;color:var(--coral)">04</div><h3 style="margin-top:16px;color:#FBF6EF">Watching, every state</h3><div class="cap" style="margin-top:10px;color:#CFC5BA">Scheduled re-checks for new recalls and price drops. Beyond Massachusetts. A success fee: pay only when money comes back.</div></div>
+  </div>
+  <div style="margin-top:auto;display:flex;align-items:flex-end;justify-content:space-between;padding-bottom:40px">
+    <div><div class="wordmark" style="font-size:96px;line-height:1">bundle<i>.</i></div><div class="lede" style="margin-top:14px">Try it as a guest. No sign-up. <span class="todo" data-update="demo-link">add tester link here</span></div></div>
+  </div>
+  <div class="foot"><span>The north star: Estonia offers family benefits automatically once a birth is registered. Bundle brings that to US parents.</span><span>15</span></div>
+</section>
+
+<script>
+(function(){
+  var m=location.search.match(/s=(\d+)/);
+  if(m){document.body.classList.add('solo');var el=document.getElementById('s'+m[1]);if(el)el.classList.add('show');}
+})();
+</script>
+</body>
+</html>

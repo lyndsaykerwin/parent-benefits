@@ -1,7 +1,12 @@
-# Bundle submission deck (draft, Oct 23 2026)
+# Bundle submission deck (Oct 27 2026, 8 slides)
 
-**Open it:** `bundle-deck.pdf` (12 slides, 16:9). Slide images for quick review are in `slides/`. The source is one HTML file, `bundle-deck.html`; to re-make the PDF and images after an edit, run `./render.sh` (it uses Chrome in the background, no window opens).
+**Open it:** `bundle-deck.pdf` (8 slides, 16:9). Slide images: `slides/`. Source: `bundle-deck.html`; re-make the PDF and images with `./render.sh`.
+Follows section 7 of `hackathon-resources/strong-submission-examples.md`, one slide per item (the number is in each slide's top-right corner):
+1 Problem and users · 2 Solution · 3 Agent workflow (architecture diagram with Zetaris, Meterless and NVIDIA logos) · 4 Technical stack · 5 Sponsor technology · 6 What was unique (photo to data, growing family memory, agent collaboration, graded-deals API) · 7 Product visuals · 8 Future.
+Logos in `img/logos/` come from each sponsor's own website. App screenshots `img/v3-*.jpg` were taken Oct 27 from the app in practice mode (made-up family Maya).
+The earlier 15-slide version is in `old-versions/bundle-deck-2026-10-26.*`.
 
+## Earlier notes (15-slide deck, kept for history)
 ## What's in the deck
 | # | Slide | Covers (hackathon §12) |
 |---|---|---|
