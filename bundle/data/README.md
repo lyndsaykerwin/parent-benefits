@@ -29,10 +29,22 @@ and store policies are real public facts, entered or fetched by hand and kept sm
 
 ## Sample inputs (made up)
 
-- `data/sample/families.json`: 3 families. `maya` (MA, baby born 2026-10-03), `leo` (MA, due 2026-12-07, no data connected), `ava` (OH, born 2026-08-24).
-- `data/sample/plaid-transactions.json`: 15 bank-style transactions (Plaid's field shape).
-- `data/sample/amazon-orders.csv`: 3 orders, for maya.
+- `data/sample/families.json`: 6 families. `maya` (MA, baby born 2026-10-03), `leo` (MA, due 2026-12-07, no data connected), `ava` (OH, born 2026-08-24), plus `noor`, `cal` and `fern`. Same families as `input_examples/`.
+- `data/sample/purchase-items.json`: 11 made-up receipts (store, date, line items) for the sample families. Each receipt becomes `purchase_items` rows that the Clawback (money back) and Recall agents check. It replaced the older bank-style rows.
+- `data/sample/amazon-orders.csv`: 3 made-up orders, for maya (older input, kept for the CSV import path).
 - Planted test cases and what a correct run does with each: see `data/sample/README.md`.
+
+## Reference tables (real public figures, entered by hand)
+
+- `data/sample/tax-parameters.json`: 3 federal tax figures for 2026 (for example the Child Tax Credit, $2,200 per child), each with its IRS source link and the date it was checked.
+- `data/sample/state-programs.json`: 4 state programmes (for example the Massachusetts Child and Family Tax Credit), each with its condition, deadline window and official source link.
+- `data/nhtsa-car-seat-recalls.json`: 69 car-seat recalls from NHTSA (the US road-safety agency), used to check car-seat photos.
+
+## Photos and privacy
+
+- Photos people take hold hidden details (EXIF: GPS location, time, phone model). They are removed twice: the phone redraws the photo onto a blank canvas before upload (`client/src/lib/photoPrep.ts`), and the server strips any that remain before saving (`server/ingest/imageClean.ts`).
+- Sample photos in `data/sample/photos/` are drawn or staged: no people, home addresses or real card numbers. See `data/sample/photos/README.md`.
+- No real personal data is used anywhere in this project.
 
 ## Demo date
 
