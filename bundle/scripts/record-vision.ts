@@ -26,7 +26,7 @@ async function main() {
   const force = args.includes('--force');
   const ki = args.indexOf('--kind');
   const forcedKind = ki >= 0 ? (args[ki + 1] as PhotoKind) : undefined;
-  const named = args.filter((a, i) => !a.startsWith('--') && i !== ki + 1);
+  const named = args.filter((a, i) => !a.startsWith('--') && (ki < 0 || i !== ki + 1));
   const files = (named.length ? named : fs.readdirSync(PHOTO_DIR)).filter((f) => /\.(png|jpe?g)$/i.test(f));
   if (!process.env.MODEL_API_KEY) { console.error('Set MODEL_API_KEY (NVIDIA) first. Nothing was recorded.'); process.exit(2); }
   if (!files.length) { console.error(`No sample photos found in ${PHOTO_DIR}.`); process.exit(1); }
