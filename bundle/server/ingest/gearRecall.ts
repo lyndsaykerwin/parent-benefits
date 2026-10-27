@@ -62,6 +62,8 @@ function nhtsaMatches(item: CheckableItem, row: NhtsaRow): boolean {
   if (!sameBrand) return false;
   const nameWords = new Set(wordsOf(item.productName));
   const model = compact(item.modelNumber);
+  // Many recalls list the exact model numbers only in the summary ("Model Numbers: E9LJ91A, E9LJ91M, …"): a whole-word hit there counts.
+  if (model.length >= 5 && /\d/.test(model) && new RegExp(`(^|[^a-z0-9])${model}([^a-z0-9]|$)`).test(row.summary.toLowerCase())) return true;
   return row.models.some((m) => {
     const mc = compact(m);
     if (model.length >= 3 && mc.includes(model)) return true;

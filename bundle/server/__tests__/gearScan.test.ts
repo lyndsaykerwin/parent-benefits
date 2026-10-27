@@ -59,6 +59,13 @@ describe('NHTSA car-seat file', () => {
     const r = checkCarSeat({ productName: 'Graco infant car seat (sample)', brand: 'Graco', modelNumber: 'SAMPLE-1042', upc: '012345678905' }, TODAY);
     expect(r).toMatchObject({ found: false, source: 'NHTSA', recordsChecked: 69, checkedOn: TODAY });
   });
+  it('a model number listed only in the recall summary is found (judge sample: Britax Advocate 70 G3, E9LJ91A, NHTSA 12C004000)', () => {
+    const r = checkCarSeat({ productName: 'Advocate 70 G3 Convertible Car Seat', brand: 'BRITAX', modelNumber: 'E9LJ91A', upc: null, manufacturedOn: '2012-03-15' }, TODAY);
+    expect(r.found).toBe(true);
+    expect(r.matches?.map((m) => m.id)).toContain('nhtsa-12C004000');
+    // a different Britax number that is not in any summary is still "No recalls found"
+    expect(checkCarSeat({ productName: 'Advocate 70 G3 Convertible Car Seat', brand: 'BRITAX', modelNumber: 'Z1ZZ99Q', upc: null }, TODAY).found).toBe(false);
+  });
   it('a seat that IS on the list is found, with the campaign number', () => {
     const row = loadNhtsaCarSeats().find((x) => x.brands.includes('Graco') && x.models.some((m) => m.split(/\s+/).filter((w) => w.length >= 3).length >= 2))!;
     const model = row.models.find((m) => m.split(/\s+/).filter((w) => w.length >= 3).length >= 2)!;

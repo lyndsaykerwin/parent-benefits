@@ -22,3 +22,9 @@ Added Oct 26 2026 (Lane C), drawn by `draw-example-labels.py` (Python + Pillow),
 These two are shown in the Scan sheet as "what to photograph" examples (served by `GET /api/photo/examples/car-seat` and
 `/stroller`), with a "Try this example" button. Their `.browser.jpg` copies were made by redrawing the PNG on a canvas in
 Chrome at JPEG quality 0.85, exactly as the app does, so the button finds the recorded answer in practice mode.
+
+Added Oct 26 2026 for judges, drawn by `draw-judge-samples.py` (live mode; not recorded for practice mode yet):
+- `item-britax-recall-sample-label.png`: a drawn label for Britax Advocate 70 G3, model E9LJ91A, a model on NHTSA's public
+  recall 12C004000. Upload as **Gear** → shows a real recall (NHTSA list, model matched from the recall summary).
+- `receipt-maple-moon-sample.png`: a made-up store receipt. Upload as **Receipt** → thermometer, nasal aspirator, gas drops and
+  saline are FSA/HSA-eligible (money back); diapers, onesies and burp cloths are not; each line also gets a recall check.
