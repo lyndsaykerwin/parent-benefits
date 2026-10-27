@@ -34,6 +34,18 @@ describe('ScanSheet', () => {
     expect(d.textContent).toContain('We strip location data. Delete anytime.');
   });
 
+  it('on a phone, gear and receipt both let you take a new photo or pick one you already took (no camera-only lock)', () => {
+    setup(jest.fn());
+    choose(/^Gear/);
+    let input = screen.getByLabelText('Take or choose a photo', { selector: 'input' });
+    expect(input.hasAttribute('capture')).toBe(false);
+    expect(screen.getByText('Take or choose a photo', { selector: 'label' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: /Back/ }));
+    choose(/^A receipt/);
+    input = screen.getByLabelText('Take or choose a photo', { selector: 'input' });
+    expect(input.hasAttribute('capture')).toBe(false);
+  });
+
   it('gear: shows the dashed frame and exactly the white-label tip', () => {
     setup(jest.fn());
     choose(/^Gear/);

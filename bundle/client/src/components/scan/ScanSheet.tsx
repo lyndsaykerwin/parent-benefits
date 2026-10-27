@@ -36,7 +36,7 @@ export const NO_MODEL = "We couldn't find a model number. Try the white label.";
 export const TRUST_LINE = 'Photos are saved with your family’s profile only. We strip location data. Delete anytime.';
 
 /** The words under "Where are you pointing the phone". */
-const PHONE_GEAR = 'On your phone, point at the sticker on the bottom of the car seat.';
+const PHONE_GEAR = 'On your phone, point at the sticker on the bottom of the car seat, or pick a photo you already took.';
 
 function Choice({ icon, title, sub, onClick }: { icon: JSX.Element; title: string; sub: string; onClick: () => void }) {
   return (
@@ -194,8 +194,8 @@ export default function ScanSheet({ familyId, deps = REAL }: { familyId: string;
               </div>
             )}
             <label className="mt-4 flex min-h-[56px] cursor-pointer items-center justify-center gap-2 rounded-2xl bg-ink px-4 text-[17px] font-bold text-cream">
-              <CameraIcon size={20} /> {step.kind === 'gear' && tab === 'computer' ? 'Choose photo' : 'Take photo'}
-              <input type="file" accept="image/*" {...(tab === 'phone' ? { capture: 'environment' as const } : {})} className="sr-only" aria-label="Take or choose a photo" onChange={(e) => onPick(e, step.kind)} />
+              <CameraIcon size={20} /> {step.kind === 'gear' && tab === 'computer' ? 'Choose photo' : 'Take or choose a photo'}
+              <input type="file" accept="image/*" className="sr-only" aria-label="Take or choose a photo" onChange={(e) => onPick(e, step.kind)} />
             </label>
             <p className="mt-3 px-2 text-center text-[13.5px] leading-snug text-ink-2">{TRUST_LINE}</p>
             <button type="button" onClick={closeScan} className="mx-auto mt-1 flex min-h-[44px] items-center px-3 text-[15px] font-bold text-ink underline decoration-2 underline-offset-4">Cancel</button>
