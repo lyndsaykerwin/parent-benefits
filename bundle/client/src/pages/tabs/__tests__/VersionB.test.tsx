@@ -40,13 +40,15 @@ describe('Version B tabs, baby is here (Maya)', () => {
     expect(within(dialog).getByLabelText(/take or choose a photo/i)).toBeTruthy();
   });
 
-  it('Home: the big number is the run total, in "savings and tax credits" (never "cash"), with "How we got this number"', () => {
+  it('Home: three header buckets (cash back, tax return with its filing badge, leave), the run total underneath, and "How we got this number"', () => {
     const run = show('maya');
     const total = run.result.receipt.moneyBackCents + run.result.receipt.likelyBenefitsCents;
     expect(screen.getByTestId('home-total-amount').textContent).toBe(fmtUsdShort(total));
     const sub = screen.getByTestId('home-total-sub').textContent!;
-    expect(sub).toMatch(/in savings and tax credits, plus \$[\d,.]+ in free gifts/);
-    expect(document.body.textContent).not.toMatch(/\bcash\b/i);
+    expect(sub).toMatch(/Total found: \$[\d,.]+, plus \$[\d,.]+ in free gifts/);
+    expect(screen.getByTestId('header-tax-badge').textContent).toMatch(/Paid upon filing \d{4} taxes \(Spring \d{4}\)/);
+    // "cash" appears only in the "Immediate cash back" bucket label (Oct 26 ruling), never as a word for the whole total.
+    expect(document.body.textContent!.replace(/Immediate cash back/g, '')).not.toMatch(/\bcash\b/i);
     expect(screen.getByText('How we got this number')).toBeTruthy();
     // the lines inside add up to the headline
     const lines = within(screen.getByTestId('how-number')).getAllByText(/^\$[\d,.]+$/).map((e) => Number(e.textContent!.replace(/[$,]/g, '')));

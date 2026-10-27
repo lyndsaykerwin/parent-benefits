@@ -6,6 +6,8 @@ import { ComingSoonState, SectionTitle, CardStack, ClaimDrawers, type TabProps }
 import { ForgetItemsCard, HowWeGotThisNumber, PlanSavedLine, ShareBar } from './Extras';
 import Buckets from './Buckets';
 import { ScanCard } from '@/components/scan/ScanButtons';
+import { bucketOf, type HomeBucket } from '@shared/cardMeta';
+import { taxYearFor } from '@/lib/insurance';
 
 function Tile({ label, big, small, onClick }: { label: string; big: string; small: string; onClick: () => void }) {
   return (
@@ -43,6 +45,11 @@ export default function HomeTab(props: TabProps) {
   const sav = categorySummary(live, 'savings');
   const ins = urgent.filter((u) => u.tab === 'insurance');
   const deals = categorySummary(live, 'deals');
+  const year = taxYearFor(run.family, today);
+  const sumBucket = (b: HomeBucket) => live.filter((c) => bucketOf(c) === b).reduce((a, c) => a + (c.amountCents ?? 0), 0);
+  const leaveCard = live.find((c) => bucketOf(c) === 'leave');
+  // Leave is paid weekly and depends on pay, so show the weekly cap where we know it rather than adding it to a lump sum.
+  const leaveLine = !leaveCard ? '—' : leaveCard.id === 'benefit-ma_pfml' ? 'Up to $1,230/wk' : (leaveCard.amountCents ?? 0) > 0 ? fmtUsdShort(leaveCard.amountCents!) : 'Weekly';
   const giftsLine = totals.giftsCents > 0 ? `${fmtUsdShort(totals.giftsCents)} in free gifts${expecting ? ' you can get now' : ''}` : null;
 
   const giftSection = gifts.length > 0 && (
@@ -59,9 +66,30 @@ export default function HomeTab(props: TabProps) {
     <>
       <section className="bundle-card mt-5 p-5" aria-labelledby="home-total">
         <p id="home-total" className="eyebrow text-ink-2">{expecting ? 'Waiting for your family' : 'Found for your family'}</p>
-        <p data-testid="home-total-amount" className="tabular mt-1.5 text-[56px] font-extrabold leading-none tracking-[-0.04em] text-coral">{fmtUsdShort(totals.totalCents)}</p>
-        <p className="mt-1.5 text-[16px] font-semibold" data-testid="home-total-sub">
-          {expecting ? 'in savings and tax credits once baby arrives' : 'in savings and tax credits'}
+        {/* Three buckets, not one merged number: cash now, tax refund later, and leave pay are paid at very different times. */}
+        <div className="mt-3 space-y-2.5" data-testid="header-buckets">
+          <div className="flex items-baseline justify-between gap-3">
+            <span className="text-[15px] font-bold">Immediate cash back</span>
+            <b data-testid="header-cash" className="tabular text-[26px] font-extrabold leading-none text-coral">{fmtUsdShort(sumBucket('money_back'))}</b>
+          </div>
+          <div className="flex items-start justify-between gap-3">
+            <span className="flex flex-col gap-1">
+              <span className="text-[15px] font-bold">Annual tax return</span>
+              <span data-testid="header-tax-badge" className="w-fit rounded-full bg-cream px-2 py-0.5 text-[12px] font-bold text-ink-2">Paid upon filing {year} taxes (Spring {year + 1})</span>
+            </span>
+            <b data-testid="header-tax" className="tabular text-[26px] font-extrabold leading-none text-ink">{fmtUsdShort(sumBucket('tax_time'))}</b>
+          </div>
+          <div className="flex items-start justify-between gap-3">
+            <span className="flex flex-col gap-1">
+              <span className="text-[15px] font-bold">Paid family leave</span>
+              <span className="text-[12px] font-semibold text-ink-2">Wage replacement checks, paid weekly during leave</span>
+            </span>
+            <b data-testid="header-leave" className="tabular shrink-0 text-[20px] font-extrabold leading-none text-kind-clawback">{leaveLine}</b>
+          </div>
+        </div>
+        <p className="mt-3 border-t border-line pt-2.5 text-[14px] font-semibold text-ink-2" data-testid="home-total-sub">
+          Total found: <span data-testid="home-total-amount" className="tabular font-extrabold text-ink">{fmtUsdShort(totals.totalCents)}</span>
+          {expecting ? ' once baby arrives' : ''}
           {giftsLine ? `, plus ${giftsLine}` : ''}
         </p>
         <div className="mt-3 flex flex-wrap gap-2 text-[12.5px] font-bold">
