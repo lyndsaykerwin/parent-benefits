@@ -1,9 +1,9 @@
-# Task 1 brief: scaffold the Bundle repo from Colin Matthews' template (guest-only)
+# Task 1 brief: scaffold the Bundle repo from the VibeCode template (guest-only)
 
 **Overrides the plan's Task 1 text, per the spec's "Decisions locked Oct 23": guest only, no sign-in.**
 
 ## Goal
-Create `/Users/lyndsay/Documents/hackathon/bundle/` as its own git repo (branch `main`, local only, **no remote, do not push**). Start from https://github.com/colinmatthews/VibeCodeYourNextSideProject-Template at its current HEAD (`6af369a`), with everything Bundle doesn't need removed, and a dev server and test suite that work.
+Create `/Users/lyndsay/Documents/hackathon/bundle/` as its own git repo (branch `main`, local only, **no remote, do not push**). Start from the VibeCode template repository at its current HEAD (`6af369a`), with everything Bundle doesn't need removed, and a dev server and test suite that work.
 
 ## Steps
 1. Clone the template into a temp dir, then copy the tree **without `.git`** into `bundle/`. Run `git init -b main` and make the first commit: `chore: import VibeCode template 6af369a (MIT, pre-existing component)`. This commit must hold the template exactly as imported, so the pre-existing code is clearly separate from new work.

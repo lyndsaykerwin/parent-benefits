@@ -1,6 +1,6 @@
 ### Task 14: Submission packaging
 
-**Files:** Create `README.md` (sections per hackathon-checklist §6), `data/README.md` (source, licence, subset, count, regenerate, limits per source), `metadata.json`, `input_examples/` (3), `output_examples/` (3 saved real runs), `docs/architecture.md` (diagram), `LICENSE` (MIT; Colin's template credited as a pre-existing component). Modify `.env.example`.
+**Files:** Create `README.md` (sections per hackathon-checklist §6), `data/README.md` (source, licence, subset, count, regenerate, limits per source), `metadata.json`, `input_examples/` (3), `output_examples/` (3 saved real runs), `docs/architecture.md` (diagram), `LICENSE` (MIT; the VibeCode template credited as a pre-existing component). Modify `.env.example`.
 
 - [ ] Step 0: SAMPLE_MODE must run with no secrets: families from `data/sample/families.json`, `firebase-admin` init skipped, Zetaris answered from the committed cache (README states these are saved real responses, with capture timestamps), LLM falling back to deterministic text when `MODEL_API_KEY` is empty. Commit sample traces to `logs/sample/` (not ignored).
 - [ ] Step 1: Clean-setup test (in a temp dir with **no** `../.secrets` next to it):
@@ -12,7 +12,7 @@
   Expected: `≥ 9`, with no other manual steps.
 - [ ] Step 2: `git grep -nE 'npg_|AIza|akiurs|BEGIN PRIVATE KEY'` returns nothing.
 - [ ] Step 3: Check that the time from `npm run dev` to the server listening is under 30s.
-- [ ] Step 4: README names the track (Track 1: Solving Fragmented Intelligence), lists pre-existing components (Colin Matthews' template at a9542c2, Meterless H-MEM reference, Zetaris starter scripts, pre-Oct-22 research), and maps the layout to the hackathon's suggested `app/agents`-style structure. Add `metadata.json` per the HackOS spec (still unknown; ask in #help desk).
+- [ ] Step 4: README names the track (Track 1: Solving Fragmented Intelligence), lists pre-existing components (the VibeCode template at a9542c2, Meterless H-MEM reference, Zetaris starter scripts, pre-Oct-22 research), and maps the layout to the hackathon's suggested `app/agents`-style structure. Add `metadata.json` per the HackOS spec (still unknown; ask in #help desk).
 - [ ] Step 5: Commit `docs: readme, data notes, metadata, examples`.
 - [ ] Step 6 (human, Tue Oct 27): make the repo public, open its link in a logged-out private window, submit on HackOS.
 

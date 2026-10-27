@@ -543,7 +543,7 @@ index 7c42f25..adaf623 100644
 +    "built_with": "Built with Claude Code. (Cursor was listed as required in the original rules; the organizers announced it optional; confirmation on HackOS is pending.)"
    },
    "pre_existing_components": [
-     "VibeCode starter template by Colin Matthews (MIT), upstream commit 6af369a, imported in commit b2bc3be",
+     "VibeCode starter template (MIT), upstream commit 6af369a, imported in commit b2bc3be",
      "Meterless H-MEM reference implementation (Apache-2.0), vendored in vendor/hmem",
      "Zetaris getting-started patterns (zetaris-getting-started repo)",
 diff --git a/scripts/eval.ts b/scripts/eval.ts

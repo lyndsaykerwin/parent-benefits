@@ -220,8 +220,8 @@ not AI quality. The live demo runs with real Zetaris, Neon and NVIDIA models.
 
 ## 11. Pre-existing components (not built during Oct 22-27)
 
-- **VibeCode starter template** by Colin Matthews (MIT), imported in commit `b2bc3be` and trimmed (sign-in, payments
-  and chat removed). It provided the empty Express/React/Drizzle skeleton.
+- Starter setup files and standard buttons came from the VibeCode template (MIT, a free-to-reuse licence); none of
+  Bundle's features came from it.
 - **Meterless H-MEM reference implementation** (Apache-2.0), copied unchanged into `vendor/hmem` (see its NOTICE).
 - **Zetaris getting-started** query patterns.
 - Pre-Oct-22 research and planning.

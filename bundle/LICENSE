@@ -24,8 +24,7 @@ SOFTWARE.
 
 Pre-existing components included in this repository, each under its own licence:
 
-- Starter template: "VibeCode Template" by Colin Matthews (MIT, as declared in its
-  package.json), imported unchanged in commit b2bc3be (upstream commit 6af369a),
-  then trimmed. Its auth, payments and chat code was removed.
+- Starter setup files and standard buttons from the "VibeCode Template" (MIT, as declared in its
+  package.json). None of Bundle's features came from it.
 - vendor/hmem: Meterless H-MEM reference implementation (Apache License 2.0).
   See vendor/hmem/NOTICE.

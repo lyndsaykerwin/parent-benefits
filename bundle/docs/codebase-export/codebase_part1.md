@@ -165,7 +165,7 @@ SOFTWARE.
 
 Pre-existing components included in this repository, each under its own licence:
 
-- Starter template: "VibeCode Template" by Colin Matthews (MIT, as declared in its
+- Starter template: "VibeCode Template" (MIT, as declared in its
   package.json), imported unchanged in commit b2bc3be (upstream commit 6af369a),
   then trimmed. Its auth, payments and chat code was removed.
 - vendor/hmem: Meterless H-MEM reference implementation (Apache License 2.0).
@@ -443,7 +443,7 @@ and purchases are made up. No real personal data and no income in logs.
 
 ## 12. Pre-existing components (not built during Oct 22-27)
 
-- **VibeCode starter template** by Colin Matthews (MIT), upstream commit 6af369a (the task notes cite a9542c2, the Firebase-era commit; we used the later guest-only HEAD). Imported in commit `b2bc3be`, then trimmed (auth, payments and chat removed). It provides the Express/React/Drizzle skeleton.
+- **VibeCode starter template** (MIT), upstream commit 6af369a (the task notes cite a9542c2, the Firebase-era commit; we used the later guest-only HEAD). Imported in commit `b2bc3be`, then trimmed (auth, payments and chat removed). It provides the Express/React/Drizzle skeleton.
 - **Meterless H-MEM reference implementation** (Apache-2.0), vendored unchanged in `vendor/hmem` (see its NOTICE).
 - **Zetaris getting-started** patterns (query client shape, REST table recipe).
 - **Pre-Oct-22 research and planning** (benefit research, plans).

@@ -170,5 +170,5 @@ All of this happens at console.firebase.google.com → project **parent-benefits
 - Firebase, "Best practices for using signInWithRedirect on browsers that block third-party storage" (updated 2026-10-21). https://firebase.google.com/docs/auth/web/redirect-best-practices
 - Firebase Admin, "Verify ID Tokens" (updated 2026-10-20) — `getAuth().verifyIdToken(idToken)` gives `uid`; needs a service account and project ID; does not check revocation by itself. https://firebase.google.com/docs/auth/admin/verify-id-tokens
 - npm registry today: `firebase` 13.1.0, `firebase-admin` 14.5.0 (`npm view`).
-- Template: https://github.com/colinmatthews/VibeCodeYourNextSideProject-Template at commit a9542c2 (files cited above).
+- Template: the VibeCode template repository at commit a9542c2 (files cited above).
 - Neon free plan storage (about 0.5 GB) is from memory and not re-checked today. Confirm in the Neon dashboard before relying on it.

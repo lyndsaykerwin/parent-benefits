@@ -136,7 +136,7 @@ Meterless is one company with two halves.
 | **NVIDIA Nemotron** | The models that power the agents | Key and credits still to claim |
 | **Neon** | Postgres database for families, feedback and transactions | Connected |
 | **Firebase** | Sign-in (email and Google) | Set up |
-| **Colin Matthews' template** | Ready-made website: login, pages, Stripe payments, tests | Chosen |
+| **the VibeCode template** | Ready-made website: login, pages, Stripe payments, tests | Chosen |
 
 # Part 3: Data sources that actually make this cool
 

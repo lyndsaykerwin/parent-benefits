@@ -4,7 +4,7 @@
 
 **Goal:** A phone-first web app where a new-parent family gets a never-empty, verified feed of clawback, recall, discount and benefit cards. A multi-agent system produces the feed over Zetaris-federated data, and the system learns from feedback via Meterless H-MEM.
 
-**Architecture:** Colin Matthews' Express + React (Vite) + Drizzle template, at commit `a9542c2` (the last Firebase Auth version). Deterministic SQL and code compute candidates, dollar amounts and deadlines. LLM agents (NVIDIA Nemotron via an OpenAI-compatible API) explain, debate (Fine Print Court) and validate. A plain-code orchestrator runs the agents, enforces the never-empty feed and writes JSONL traces. All personalised reads go through Zetaris: a Neon Postgres datasource joined with CPSC/openFDA REST tables, with a view per agent.
+**Architecture:** the VibeCode Express + React (Vite) + Drizzle template, at commit `a9542c2` (the last Firebase Auth version). Deterministic SQL and code compute candidates, dollar amounts and deadlines. LLM agents (NVIDIA Nemotron via an OpenAI-compatible API) explain, debate (Fine Print Court) and validate. A plain-code orchestrator runs the agents, enforces the never-empty feed and writes JSONL traces. All personalised reads go through Zetaris: a Neon Postgres datasource joined with CPSC/openFDA REST tables, with a view per agent.
 
 **Tech Stack:**
 - TypeScript, Node ≥24, Express 4, React 18, Vite, Tailwind/shadcn (from the template)
@@ -114,7 +114,7 @@ vendor/hmem/                # vendored Meterless H-MEM reference
 ### Task 1: Scaffold the repo from the template's Firebase-era commit
 
 **Files:**
-- Create: `bundle/` from `colinmatthews/VibeCodeYourNextSideProject-Template` at commit `a9542c2`
+- Create: `bundle/` from `the VibeCode template` at commit `a9542c2`
 - Delete: `server/lib/firebaseStorage.ts`, `server/storage/FileStorage.ts`, the files routes/pages/components, `server/routes/chatKitRoutes.ts`, `client/src/pages/ai-chat.tsx`, the items/todo routes/pages and their tests
 - Modify: `server/routes/index.ts`, `client/src/App.tsx`, `package.json` (name `bundle`), `.env.example`, `.gitignore` (add `.env*`, `logs/*.jsonl`, `vendor/hmem/node_modules`, `data/hmem/`)
 - Create: `server/env.ts`, which loads `../.secrets/bundle.env.local`, then `.env.local`
@@ -453,7 +453,7 @@ export interface Candidate extends FeedCard { agent: string; claim: Record<strin
 
 ### Task 14: Submission packaging
 
-**Files:** Create `README.md` (sections per hackathon-checklist §6), `data/README.md` (source, licence, subset, count, regenerate, limits per source), `metadata.json`, `input_examples/` (3), `output_examples/` (3 saved real runs), `docs/architecture.md` (diagram), `LICENSE` (MIT; Colin's template credited as a pre-existing component). Modify `.env.example`.
+**Files:** Create `README.md` (sections per hackathon-checklist §6), `data/README.md` (source, licence, subset, count, regenerate, limits per source), `metadata.json`, `input_examples/` (3), `output_examples/` (3 saved real runs), `docs/architecture.md` (diagram), `LICENSE` (MIT; the VibeCode template credited as a pre-existing component). Modify `.env.example`.
 
 - [ ] Step 0: SAMPLE_MODE must run with no secrets: families from `data/sample/families.json`, `firebase-admin` init skipped, Zetaris answered from the committed cache (README states these are saved real responses, with capture timestamps), LLM falling back to deterministic text when `MODEL_API_KEY` is empty. Commit sample traces to `logs/sample/` (not ignored).
 - [ ] Step 1: Clean-setup test (in a temp dir with **no** `../.secrets` next to it):
@@ -465,7 +465,7 @@ export interface Candidate extends FeedCard { agent: string; claim: Record<strin
   Expected: `≥ 9`, with no other manual steps.
 - [ ] Step 2: `git grep -nE 'npg_|AIza|akiurs|BEGIN PRIVATE KEY'` returns nothing.
 - [ ] Step 3: Check that the time from `npm run dev` to the server listening is under 30s.
-- [ ] Step 4: README names the track (Track 1: Solving Fragmented Intelligence), lists pre-existing components (Colin Matthews' template at a9542c2, Meterless H-MEM reference, Zetaris starter scripts, pre-Oct-22 research), and maps the layout to the hackathon's suggested `app/agents`-style structure. Add `metadata.json` per the HackOS spec (still unknown; ask in #help desk).
+- [ ] Step 4: README names the track (Track 1: Solving Fragmented Intelligence), lists pre-existing components (the VibeCode template at a9542c2, Meterless H-MEM reference, Zetaris starter scripts, pre-Oct-22 research), and maps the layout to the hackathon's suggested `app/agents`-style structure. Add `metadata.json` per the HackOS spec (still unknown; ask in #help desk).
 - [ ] Step 5: Commit `docs: readme, data notes, metadata, examples`.
 - [ ] Step 6 (human, Tue Oct 27): make the repo public, open its link in a logged-out private window, submit on HackOS.
 
