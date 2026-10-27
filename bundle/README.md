@@ -90,8 +90,8 @@ Full diagram: [`docs/architecture.md`](docs/architecture.md).
 |---|---|---|
 | Data door | **Zetaris** (REST API) | One SQL layer over our Neon Postgres database and live CPSC and FDA recall feeds |
 | Memory | **Meterless H-MEM** (open source, in `vendor/hmem`, Apache-2.0) | Learned rules, the per-run agent workspace, and "what Bundle remembers" about a family's saved gear |
-| AI switchboard | **Meterless Nightshift** (Mac app) | First choice for AI calls when running on the same Mac; forwards to NVIDIA |
-| Models | **NVIDIA** Nemotron (text) and vision models | Reached through Nightshift or directly (an "OpenAI-compatible endpoint": a standard web address AI services share) |
+| AI switchboard | **Meterless Nightshift** (Mac app) | First choice for AI calls (the default `MODEL_PROVIDER=auto`) when running on the same Mac; the hosted demo calls NVIDIA directly because a website cannot reach a Mac |
+| Models | **NVIDIA** Nemotron (text) and vision models | Reached directly (an "OpenAI-compatible endpoint": a standard web address AI services share); the hosted demo uses NVIDIA |
 | Database | Neon Postgres via Drizzle | Families, purchases, feedback, saved offer grades (live mode) |
 | Web search | Tavily | Finds new offers on the web for the court to check (live mode only) |
 | Server | Node 24, Express, TypeScript | Runs the agents and streams results to the app as they finish |
@@ -153,7 +153,10 @@ Meterless's Scout Intent, Markovian and World Model engines.
 
 **Meterless Nightshift and NVIDIA.** With `MODEL_PROVIDER=auto`, AI calls go to Nightshift first (only reachable on
 the Mac it runs on), then NVIDIA directly, then fixed offline text. Money amounts and recall decisions are always
-computed by code, never by the AI.
+computed by code, never by the AI. Tested live on Oct 27, 2026 with `npm run model:check -- --provider nightshift`:
+Nightshift answered in 0.6 to 2.4 seconds, using a small model running on the Mac (Llama 3.2 1B); no NVIDIA models
+were reachable through Nightshift on this Mac, so NVIDIA is called directly. Results:
+[`progress/reviews/nightshift-check.md`](../progress/reviews/nightshift-check.md).
 
 ## 7. Sample inputs and how to reproduce
 
