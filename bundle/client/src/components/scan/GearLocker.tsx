@@ -144,8 +144,37 @@ function EmptyLocker() {
   );
 }
 
-/** A small locker card for the Savings tab (and the Account tab): how many things are saved, "Open ›", or the empty state with a scan button. `list` also names each gear item (the Account tab uses it). */
-export function GearLockerCard({ familyId, list = false }: { familyId: string; list?: boolean }) {
+/** "Brand Product", without saying the brand twice when the product name already starts with it. */
+const gearTitle = (it: LockerItem) => (it.brand && !it.productName.toLowerCase().startsWith(it.brand.toLowerCase()) ? `${it.brand} ${it.productName}` : it.productName);
+
+/** Savings tab: every scanned gear item, so a clean result (no recall, no money back) is still shown, not swallowed. */
+function InspectedGear({ items }: { items: LockerItem[] }) {
+  return (
+    <div className="mt-3" data-testid="inspected-gear">
+      <p className="text-[15px] font-extrabold">Inspected nursery gear</p>
+      <ul className="mt-1 divide-y divide-line">
+        {items.map((it, i) => {
+          const details = [it.modelNumber ? `Model: ${it.modelNumber}` : null, it.upc ? `UPC: ${it.upc}` : null].filter(Boolean).join(' · ');
+          return (
+            <li key={`${it.id ?? 'x'}-${i}`} className="flex items-start gap-3 py-3" data-testid="inspected-item">
+              <Thumb src={it.thumbnail} alt={`Photo of ${it.productName}`} kind="gear" />
+              <div className="min-w-0 grow">
+                <p className="text-[16px] font-extrabold leading-snug">{gearTitle(it)}</p>
+                {details && <p className="text-[13.5px] text-ink-2">{details}</p>}
+                {it.recall
+                  ? <div className="mt-1.5"><RecallLine recall={it.recall} compact /></div>
+                  : <span data-testid="verified-safe" className="mt-1.5 inline-block rounded-full bg-[#E3F3EA] px-2.5 py-1 text-[12.5px] font-bold text-[#17643F]">✓ Verified Safe · 0 Recalls Found</span>}
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
+/** A small locker card for the Savings tab (and the Account tab): how many things are saved, "Open ›", or the empty state with a scan button. `list` also names each gear item (the Account tab uses it); `inspected` shows each item with its recall result (the Savings tab uses it). */
+export function GearLockerCard({ familyId, list = false, inspected = false }: { familyId: string; list?: boolean; inspected?: boolean }) {
   const { openLocker, notices } = useScan();
   const load = useLocker(familyId);
   const reading = usePendingPhotos(familyId).photos.filter((p) => p.status === 'reading').length;
@@ -178,6 +207,7 @@ export function GearLockerCard({ familyId, list = false }: { familyId: string; l
           </p>
         )}
       {reading > 0 && <p className="mt-1 text-[14px] font-semibold text-ink-2" data-testid="locker-card-reading">Reading {reading} {reading === 1 ? 'photo' : 'photos'}…</p>}
+      {inspected && locker && locker.items.length > 0 && <InspectedGear items={locker.items} />}
       {list && locker && locker.items.length > 0 && (
         <ul className="mt-2 divide-y divide-line" data-testid="locker-names">
           {locker.items.map((it, i) => <li key={`${it.id ?? 'x'}-${i}`} className="py-2 text-[15px] font-bold leading-snug">{it.productName}</li>)}

@@ -66,7 +66,7 @@ export default function SavingsTab(props: TabProps) {
           </p>
         </div>
       )}
-      <GearLockerCard familyId={props.run.familyId} />
+      <GearLockerCard familyId={props.run.familyId} inspected />
       <SectionTitle>Coming soon</SectionTitle>
       <div className="mt-2 grid gap-2">
         {soon.map((c) => <FeedCardView key={c.id} card={c} today={props.run.today} />)}
