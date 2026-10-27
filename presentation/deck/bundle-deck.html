@@ -143,6 +143,7 @@ section.slide.night{background:var(--night);color:#FBF6EF}
 #s7 .phone.sm{zoom:.76}
 #s1 .card h3{font-size:34px}
 #s1 .card .cap{font-size:24px}
+*{box-shadow:none!important}
 </style>
 </head>
 <body>
@@ -158,7 +159,7 @@ section.slide.night{background:var(--night);color:#FBF6EF}
   <div class="row" style="margin-top:56px;gap:32px">
     <div class="card grow"><div class="kicker" style="color:var(--k-dead)">Benefits + deadlines</div><h3 style="margin-top:10px">$2,200 tax credit, $1,000 Trump Account, paid leave</h3><div class="cap" style="margin-top:10px">Each on a different site. Insurance must add the baby within 30 to 60 days.</div></div>
     <div class="card grow"><div class="kicker" style="color:var(--k-disc)">Fine print</div><h3 style="margin-top:10px">"Free" boxes that become $29.99 a month</h3><div class="cap" style="margin-top:10px">Registry perks hide auto-renewing memberships and fees.</div></div>
-    <div class="card grow"><div class="kicker" style="color:var(--k-recall)">Recalls</div><h3 style="margin-top:10px">Split across CPSC, FDA and NHTSA</h3><div class="cap" style="margin-top:10px">Only 42% of parents register their car seat, so most never hear of a recall.</div></div>
+    <div class="card grow"><div class="kicker" style="color:var(--k-recall)">Recalls</div><h3 style="margin-top:10px">Split across multiple government data sets</h3><div class="cap" style="margin-top:10px">Only 42% of parents register their car seat, so most never hear of a recall.</div></div>
   </div>
   <div class="card" style="margin-top:32px;border:2px solid var(--ink);display:flex;align-items:center;gap:32px;padding:26px 36px">
     <div class="kicker" style="white-space:nowrap">Our user</div>
@@ -173,7 +174,7 @@ section.slide.night{background:var(--night);color:#FBF6EF}
   <div class="row" style="height:100%;gap:56px;align-items:center">
     <div style="width:640px;flex:none">
       <div class="wordmark" style="font-size:150px;line-height:.9">bundle<i>.</i></div>
-      <h1 style="font-size:68px;margin-top:28px">Your first 100 days, <em>checked.</em></h1>
+      <h1 style="font-size:68px;margin-top:28px">Helping new parents save <em>time and money.</em></h1>
       <p class="lede" style="margin-top:28px">AI agents find what a family is owed, check every claim against its source, and learn from parent feedback.</p>
       <div style="margin-top:32px;display:flex;flex-direction:column;gap:12px">
         <div class="mini"><b>Money back</b> · FSA/HSA items, store price drops</div>
@@ -187,7 +188,7 @@ section.slide.night{background:var(--night);color:#FBF6EF}
       <div><div class="phone"><div class="screen"><img class="shot" src="img/v3-home.jpg" alt="Home: money found, in three buckets"></div></div><div class="preview">2 · What she's owed</div></div>
     </div>
   </div>
-  <div class="foot"><span>Real app screens, made-up sample family. Live demo: bundle-app-qs47.onrender.com</span><span>2</span></div>
+  <div class="foot"><span></span><span>2</span></div>
 </section>
 
 <!-- 3 AGENT WORKFLOW (architecture) -->
@@ -297,7 +298,7 @@ section.slide.night{background:var(--night);color:#FBF6EF}
     <text x="486" y="454" font-size="15" font-weight="800" fill="#B93E1A">and reused, for every family</text>
   </svg>
   </div>
-  <div class="foot"><span>Names as in the logs. Code: bundle/server/agents/ · adapters/zetaris.ts · adapters/memory.ts · adapters/llm.ts</span><span>3</span></div>
+  <div class="foot"><span></span><span>3</span></div>
 </section>
 
 <!-- 4 TECHNICAL STACK -->
@@ -324,10 +325,9 @@ section.slide.night{background:var(--night);color:#FBF6EF}
           <div class="card" style="padding:16px 20px;flex:1"><div style="font-size:52px;font-weight:800;letter-spacing:-.04em;color:var(--coral);line-height:1">100%</div><div class="cap" style="font-size:18px;margin-top:4px">cards with a source</div></div>
         </div>
         <div class="mini" style="margin-top:10px;font-size:18px">Saved runs used practice mode (AI off), so they show the checks work, not AI quality.</div></div>
-      <div><h3>1,436 automated tests pass</h3><div class="mini" style="margin-top:6px">0 failing, Oct 27. Fails safe: a check that can't run says "could not check", never "safe".</div></div>
     </div>
   </div>
-  <div class="foot"><span>Scoreboard: bundle/logs/scoreboard.json · tests: npm test, npm run test:v2</span><span>4</span></div>
+  <div class="foot"><span></span><span>4</span></div>
 </section>
 
 <!-- 5 SPONSOR TECHNOLOGY -->
@@ -358,14 +358,14 @@ section.slide.night{background:var(--night);color:#FBF6EF}
       <div class="mini" style="margin-top:auto"><b>Without it:</b> no photo reading; the court falls back to a plain rule screen.</div>
     </div>
   </div>
-  <div class="foot"><span>Not used: Meterless Scout Intent, Markovian, World Model. Nightshift runs only on the builder's Mac. Code: adapters/zetaris.ts · adapters/memory.ts · adapters/llm.ts · agents/recall.ts</span><span>5</span></div>
+  <div class="foot"><span></span><span>5</span></div>
 </section>
 
 <!-- 6 WHAT WAS UNIQUE -->
 <section class="slide" id="s6">
   <div class="sec-tag">6 · What was unique</div>
   <div class="eyebrow">What was unique</div>
-  <h1 class="h1s">Four ideas that make it <em>more than a chatbot.</em></h1>
+  <h1 class="h1s">Every photo, parent and deal makes it <em>smarter.</em></h1>
   <div style="margin-top:40px;display:grid;grid-template-columns:1fr 1fr;gap:24px;flex:1;margin-bottom:60px">
     <div class="card inn" style="border-top:6px solid var(--zet)">
       <div class="num">01 · Zetaris + NVIDIA</div>
@@ -392,7 +392,7 @@ section.slide.night{background:var(--night);color:#FBF6EF}
       <div class="proof mono" style="font-size:15px">GET /api/offer-audit?store=Amazon</div>
     </div>
   </div>
-  <div class="foot"><span>Code: ingest/photo.ts · ingest/gearRecall.ts · routes/photoRoutes.ts (rememberGear) · agents/coach.ts · agents/offerChecks.ts · routes/offerAuditRoutes.ts</span><span>6</span></div>
+  <div class="foot"><span></span><span>6</span></div>
 </section>
 
 <!-- 7 PRODUCT VISUALS -->
@@ -406,7 +406,7 @@ section.slide.night{background:var(--night);color:#FBF6EF}
     <div><div class="phone sm"><div class="screen"><img class="shot" src="img/v3-deals.jpg" alt="Deals: audit any offer"></div></div><div class="preview">Audit any deal's fine print</div></div>
     <div><div class="phone sm"><div class="screen"><img class="shot" src="img/v3-family-memory.jpg" alt="Account: what we know about your family"></div></div><div class="preview">What Bundle remembers</div></div>
   </div>
-  <div class="foot"><span>Real app screens (Oct 27), made-up sample family Maya. Try it: bundle-app-qs47.onrender.com</span><span>7</span></div>
+  <div class="foot"><span></span><span>7</span></div>
 </section>
 
 <!-- 8 FUTURE -->
@@ -424,7 +424,7 @@ section.slide.night{background:var(--night);color:#FBF6EF}
     <div class="wordmark" style="font-size:96px;line-height:1">bundle<i>.</i></div>
     <div class="lede" style="margin-top:14px">Try it as a guest, no sign-up: <b style="color:#FBF6EF">bundle-app-qs47.onrender.com</b></div>
   </div>
-  <div class="foot"><span>Solo build · Sponsor tech: Zetaris, Meterless, NVIDIA · Built with Claude Code · All families shown are made up</span><span>8</span></div>
+  <div class="foot"><span></span><span>8</span></div>
 </section>
 
 <script>
