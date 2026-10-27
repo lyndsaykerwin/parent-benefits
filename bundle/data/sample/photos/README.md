@@ -23,8 +23,18 @@ These two are shown in the Scan sheet as "what to photograph" examples (served b
 `/stroller`), with a "Try this example" button. Their `.browser.jpg` copies were made by redrawing the PNG on a canvas in
 Chrome at JPEG quality 0.85, exactly as the app does, so the button finds the recorded answer in practice mode.
 
-Added Oct 26 2026 for judges, drawn by `draw-judge-samples.py` (live mode; not recorded for practice mode yet):
+Added Oct 26 2026 for judges, drawn by `draw-judge-samples.py` (recorded for practice mode on Oct 27 2026, see below):
 - `item-britax-recall-sample-label.png`: a drawn label for Britax Advocate 70 G3, model E9LJ91A, a model on NHTSA's public
   recall 12C004000. Upload as **Gear** → shows a real recall (NHTSA list, model matched from the recall summary).
 - `receipt-maple-moon-sample.png`: a made-up store receipt. Upload as **Receipt** → thermometer, nasal aspirator, gas drops and
   saline are FSA/HSA-eligible (money back); diapers, onesies and burp cloths are not; each line also gets a recall check.
+
+Practice mode for the two judge photos (Oct 27 2026): both now have real NVIDIA answers saved in `../vision-cache/`, for
+the PNG and for its `.browser.jpg` copy. The copies were made in headless Chrome with the same canvas steps as
+`client/src/lib/photoPrep.ts` (JPEG quality 0.85); the same method re-made the older `.browser.jpg` files byte for byte.
+- Receipt → store MAPLE & MOON BABY, dated 2026-10-20, 7 lines with prices; 4 money-back (FSA/HSA) lines, 3 not.
+- Britax label → model E9LJ91A, made 2012-03-15, matches NHTSA recall 12C004000.
+Limit: the saved answer is found by the exact bytes uploaded. Chrome on a computer or Android makes the same bytes; an
+iPhone (Safari, or any iPhone browser, which all use Safari's engine) encodes JPEGs differently, and the Photos app may
+convert the picture first, so on an iPhone practice mode will likely show the made-up practice answer instead. Live mode
+(real AI, as in the live demo) reads any copy of these photos correctly.
