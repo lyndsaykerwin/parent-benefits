@@ -20,6 +20,19 @@ export function isLocalDatabaseUrl(url: string): boolean {
   }
 }
 
+/**
+ * True only for Neon's own addresses (*.neon.tech, *.neondatabase…). Only Neon speaks the websocket the Neon library uses;
+ * any other Postgres (local, Render dpg-*, etc.) would hang on that handshake, so it gets the standard `pg` library.
+ */
+export function isNeonDatabaseUrl(url: string): boolean {
+  try {
+    const host = new URL(url).hostname.toLowerCase();
+    return host.endsWith('.neon.tech') || host.includes('neondatabase');
+  } catch {
+    return false;
+  }
+}
+
 if (!process.env.DATABASE_URL) {
   throw new Error(
     "DATABASE_URL must be set. Did you forget to provision a database?",
@@ -28,8 +41,8 @@ if (!process.env.DATABASE_URL) {
 
 const url = process.env.DATABASE_URL;
 
-/** Which driver this process is using: "pg" (local Postgres) or "neon" (Neon serverless). */
-export const driver: 'pg' | 'neon' = isLocalDatabaseUrl(url) ? 'pg' : 'neon';
+/** Which driver this process is using: "neon" (Neon serverless) for Neon addresses, "pg" for every other Postgres. */
+export const driver: 'pg' | 'neon' = isNeonDatabaseUrl(url) ? 'neon' : 'pg';
 
 function connect() {
   if (driver === 'pg') {

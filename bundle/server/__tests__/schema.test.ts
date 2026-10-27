@@ -77,6 +77,10 @@ describe('isLocalDatabaseUrl', () => {
     expect(isLocalDatabaseUrl('postgresql://u:p@[::1]:5432/db')).toBe(true);
     expect(isLocalDatabaseUrl('postgresql://u:p@ep-cool-1234.us-east-2.aws.neon.tech/neondb?sslmode=require')).toBe(false);
     expect(isLocalDatabaseUrl('not a url')).toBe(false);
+    const { isNeonDatabaseUrl } = await import('../db');
+    expect(isNeonDatabaseUrl('postgresql://u:p@ep-cool-1234.us-east-2.aws.neon.tech/neondb?sslmode=require')).toBe(true);
+    expect(isNeonDatabaseUrl('postgresql://u:p@dpg-abc123-a.oregon-postgres.render.com/bundle')).toBe(false);
+    expect(isNeonDatabaseUrl('postgres://bundle:bundle@127.0.0.1:5432/bundle_test')).toBe(false);
   });
 });
 
