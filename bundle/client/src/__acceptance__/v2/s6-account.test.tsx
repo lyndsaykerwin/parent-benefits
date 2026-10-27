@@ -49,7 +49,7 @@ describe('S6a: Account tab with friendly memory labels', () => {
     expect(within(page).getByText(/Through a job/)).toBeTruthy();
 
     // gear locker
-    const locker = await within(page).findByRole('region', { name: /Gear locker/i });
+    const locker = await within(page).findByRole('region', { name: /Your gear locker card/i });
     expect(within(locker).getByText(/Graco SnugRide 35 Lite/)).toBeTruthy();
 
     // memory, from the server, in friendly words
@@ -125,21 +125,7 @@ describe('S6b: saved families, Switch family, and Back keeps your place', () => 
     expect(page.textContent).not.toMatch(/02139/);
   });
 
-  // Option B (Oct 25) — "Switch family" is also in the header's family chip menu; picking Leo there loads Leo on Home.
-  it('the family chip menu → Leo loads Leo\'s results', async () => {
-    const leo = leoRun();
-    fakeServer([
-      [/\/api\/families\/leo/i, () => familyReply(leo)],
-      [/\/api\/runs\/run-leo$/, () => familyReply(leo).run],
-      [/memory/i, () => ({ family: [], learned: [] })],
-      [/gear|purchase|items/i, () => ({ items: [], receipts: [] })],
-    ]);
-    showVersionB(mayaRun());
-    fireEvent.click(chipButton());
-    fireEvent.click(within(screen.getByRole('menu', { name: /Family menu/i })).getByRole('menuitemradio', { name: /Leo/ }));
-    await waitFor(() => expect(chipButton().textContent).toMatch(/^Family menu: Leo/));
-    expect(tab('Home').getAttribute('aria-current')).toBe('page');
-  });
+  // Oct 26: the header chip menu is gone (one-tap account button); switching family lives on the Account screen (test above).
 
   // S6 (R1) — "The browser remembers the family id (localStorage 'bundle_family_id'). Opening the app with a saved id loads
   // that family's saved results straight away, without showing the onboarding questions."

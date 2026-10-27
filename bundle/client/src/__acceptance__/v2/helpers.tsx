@@ -43,13 +43,12 @@ export const tab = (name: string) =>
 
 export const goTab = (name: string) => fireEvent.click(tab(name));
 
-/** The family chip in the header: a button that opens the family menu (Switch family, Your plan and saved answers). */
-export const chipButton = () => screen.getByRole('button', { name: /^Family menu/ });
+/** The account button in the header, left of Scan (Oct 26: one tap opens Account, no dropdown). */
+export const chipButton = () => screen.getByRole('button', { name: /^Your account/ });
 
-/** Opens the Account screen the way a parent does: tap the family chip, then "Your plan and saved answers". */
+/** Opens the Account screen the way a parent does: one tap on the account button. */
 export function openAccount() {
   fireEvent.click(chipButton());
-  fireEvent.click(within(screen.getByRole('menu', { name: /Family menu/i })).getByRole('menuitem', { name: /Your plan and saved answers/ }));
 }
 
 export type FakeRoute = [RegExp, (init: RequestInit | undefined, url: string) => unknown];
