@@ -66,6 +66,7 @@ describe('POST /api/offers/audit', () => {
     expect(first.body).toEqual(expect.objectContaining({ verdict: 'approve', mode: 'full', saved: true, sharedFromParents: 1 }));
     expect(first.body.hunter).toBe('It is free.');
     expect(first.body.lawyer).toBe('Nothing wrong.');
+    expect(first.body.valueScore).toEqual(expect.objectContaining({ effortLevel: expect.any(String), stepsCount: expect.any(Number) }));
     expect(saved).toHaveLength(1);
     expect(saved[0]).toEqual(expect.objectContaining({ source: 'user_audit', status: 'agreed', store: 'Bitsy Box', offerId: auditOfferId('Bitsy Box', 'A free baby box'), injectionDetected: false }));
     const callsAfterFirst = llm.calls;

@@ -18,6 +18,7 @@ import { judgeText, type Judged } from '../agents/finePrintCourt';
 import { buildOfferCheckRow } from '../agents/offerChecks';
 import { buildOfferFacts } from '../agents/offerFacts';
 import { checkFinePrint, fingerprint } from '../agents/finePrintRules';
+import { valueScore, worthSettings } from '../agents/valueScore';
 import { TraceLogger } from '../agents/trace';
 import type { AgentContext } from '../agents/types';
 import type { ZetarisClient } from '../adapters/zetaris';
@@ -159,6 +160,6 @@ export async function auditDeal(req: AuditRequest, deps: AuditDeps): Promise<Aud
   return { ok: true, reply: {
     verdict: j.verdict, summary: summaryFor(j), mode: full ? 'full' : 'quick', saved, facts,
     ...(sharedFromParents !== undefined ? { sharedFromParents } : {}),
-    ...(full ? { hunter: j.arguments.hunter, lawyer: j.arguments.lawyer } : {}),
+    ...(full ? { hunter: j.arguments.hunter, lawyer: j.arguments.lawyer, valueScore: valueScore(j.check, worthSettings()) } : {}),
   } };
 }

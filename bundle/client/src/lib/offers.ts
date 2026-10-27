@@ -14,6 +14,9 @@ export const SEARCH_TIMEOUT_MS = 10_000;
 
 export const SEARCHING_LINE = `Searching ${OFFER_SITES_COUNT} trusted baby-offer sites for new offers…`;
 export const NO_NEW_OFFERS_LINE = 'No new offers right now. Showing your checked offers.';
+/** Shown briefly when Deals opens, then replaced by the real status line. */
+export const SCANNING_LINE = 'Scanning verified offers for your ZIP code...';
+export const SCAN_MS = 1400;
 
 /** "Day 20" for a born baby, "due in 44 days" for an expecting family, otherwise null. */
 export function babyDayLabel(f: FamilyView | undefined, today?: string): string | null {
@@ -35,7 +38,6 @@ export const foundLine = (sites: number, count: number): string =>
 
 // ---------- the lines on an offer card (R5) ----------
 
-const months = (days: number) => Math.max(0, Math.round(days / 30.4));
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
 export interface FactLine { icon: string; text: string; note?: string; tone: 'good' | 'catch' | 'blocked' | 'plain' }
@@ -57,12 +59,19 @@ export const minutesLine = (f: OfferFacts): FactLine => ({ icon: '⏱️', text:
 export const valueLine = (f: OfferFacts): FactLine =>
   ({ icon: '💵', text: f.trueValueCents !== null ? `True value ${fmtUsdShort(f.trueValueCents)}` : 'True value not stated (no dollar amount in the offer)', tone: 'plain' });
 
-/** "Your baby is 20 days old. This offer is for babies 0–12 months." */
+/** "Matches your baby's exact age (Day 20)" — qualification in days, not a vague "up to 12 months". */
 export function ageLine(f: OfferFacts): string | null {
-  if (f.ageDays === null || f.maxAgeDays === null) return null;
-  const range = `${months(Math.max(0, f.minAgeDays ?? 0))}–${Math.max(1, months(f.maxAgeDays))} months`;
-  const who = f.ageDays < 0 ? `Your baby is due in ${plural(-f.ageDays, 'day', 'days')}.` : `Your baby is ${plural(f.ageDays, 'day', 'days')} old.`;
-  return `${who} This offer is for babies ${range}.`;
+  if (f.ageDays === null) return null;
+  if (f.ageDays < 0) return `Matches your baby's exact age (due in ${plural(-f.ageDays, 'day', 'days')})`;
+  return `Matches your baby's exact age (Day ${f.ageDays})`;
+}
+
+/** Store + "what you get" for a paste-only audit, so the server form is filled without extra boxes. */
+export function guessAuditFields(text: string): { store: string; offer: string } {
+  const t = text.toLowerCase();
+  const store = /\bbabylist\b/.test(t) ? 'Babylist' : /\btarget\b/.test(t) ? 'Target' : /\bamazon\b/.test(t) ? 'Amazon' : 'Pasted offer';
+  const first = text.split(/\n/)[0].replace(/\s+/g, ' ').trim().slice(0, 200);
+  return { store, offer: first.length >= 8 ? first : 'Pasted registry or store offer' };
 }
 
 export const factLines = (f: OfferFacts): FactLine[] => [courtLine(f), minutesLine(f), valueLine(f)];

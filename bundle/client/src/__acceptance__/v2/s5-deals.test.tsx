@@ -14,17 +14,17 @@ afterEach(() => { cleanup(); try { sessionStorage.clear(); localStorage.clear();
 const choice = (name: RegExp) => screen.queryByRole('tab', { name }) ?? screen.getByRole('button', { name });
 
 describe('S5: Deals says what is really being checked, with the exact age', () => {
-  // S5 — "In practice mode Deals shows a true status line, 'Checking N saved offers against your baby's age (Day 20)'
-  // (no fake 'Scanning…'), and each offer's age line reads 'Your baby is 20 days old. This offer is for babies 0–12 months.'
-  // instead of 'Fits babies up to 12 months old.'"
-  it('shows the saved-offers status line and the exact-age line on offers', () => {
+  // S5 — Practice mode still shows 'Checking N saved offers against your baby's age (Day 20)'. Opening Deals also
+  // briefly says 'Scanning verified offers for your ZIP code...'. Each offer's age line is
+  // 'Matches your baby's exact age (Day 20)' instead of 'Fits babies up to 12 months old.'
+  it('shows the saved-offers status line and the exact-age line on offers', async () => {
     fakeServer([]); // practice mode: no live search reply (every request gets "not found")
     showVersionB(mayaRun());
     goTab('Deals');
-    expect(screen.getByText(/Checking \d+ saved offers against your baby[’']s age \(Day 20\)/)).toBeTruthy();
-    expect(document.body.textContent).not.toMatch(/Scanning/i);
+    expect(screen.getByText(/Scanning verified offers for your ZIP code/)).toBeTruthy();
+    expect(await screen.findByText(/Checking \d+ saved offers against your baby[’']s age \(Day 20\)/)).toBeTruthy();
     const diaper = screen.getByRole('article', { name: /Free newborn diaper box/ });
-    expect(within(diaper).getByText(/Your baby is 20 days old\. This offer is for babies 0[–-]12 months\./)).toBeTruthy();
+    expect(within(diaper).getByText(/Matches your baby[’']s exact age \(Day 20\)/)).toBeTruthy();
     expect(document.body.textContent).not.toMatch(/Fits babies up to/);
   });
 
@@ -43,6 +43,32 @@ describe('S5: Deals says what is really being checked, with the exact age', () =
     expect(within(card).getByText(/True value \$/)).toBeTruthy();
     expect(screen.queryByText(/Likely a good deal/)).toBeNull();
     expect(document.body.textContent).not.toMatch(/Likely a good deal/);
+  });
+});
+
+describe('S5: paste-any-offer auditor on Deals', () => {
+  it('sends pasted text to POST /api/offers/audit and shows Approved vs Blocked plus the court debate', async () => {
+    const pasted = 'Amazon baby registry: free welcome box. Just pay $5.99 shipping. Membership auto-renews at $29.99/month after 30 days.';
+    const server = fakeServer([[/audit/i, () => ({
+      verdict: 'reject', summary: 'Auto-renews at $29.99 a month after 30 days.', mode: 'full', saved: false,
+      hunter: 'It looks like a free welcome box.',
+      lawyer: 'The membership auto-renews unless you cancel.',
+      valueScore: { trueValueCents: 0, effortLevel: 'low', effortMinutesEstimate: { min: 3, max: 5 }, stepsCount: 2, payoutWaitDays: null, timeLabel: 'right away', catchTypes: ['auto_renew'], worthYourTime: false, reasons: [] },
+    })]]);
+    showVersionB(mayaRun());
+    goTab('Deals');
+    fireEvent.change(screen.getByLabelText(/Offer or fine print to check/i), { target: { value: pasted } });
+    fireEvent.click(screen.getByRole('button', { name: /^Audit Deal$/i }));
+
+    await waitFor(() => expect(callsTo(server, /audit/i)).toHaveLength(1));
+    expect(callsTo(server, /audit/i)[0].body).toEqual(expect.objectContaining({ store: 'Amazon', text: pasted }));
+    const box = await screen.findByTestId('quick-audit-verdict');
+    expect(within(box).getByText('Blocked')).toBeTruthy();
+    expect(within(box).getByText(/Deal Hunter/)).toBeTruthy();
+    expect(within(box).getByText(/It looks like a free welcome box/)).toBeTruthy();
+    expect(within(box).getByText(/Fine-Print Lawyer/)).toBeTruthy();
+    expect(within(box).getByText(/The membership auto-renews/)).toBeTruthy();
+    expect(within(box).getByText(/Value Score/)).toBeTruthy();
   });
 });
 

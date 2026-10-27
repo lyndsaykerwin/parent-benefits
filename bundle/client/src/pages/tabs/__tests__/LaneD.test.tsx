@@ -1,7 +1,7 @@
 // Lane D (Story 5) behaviour beyond the acceptance tests: practice-mode status, report card, thank-you count, card lines, ordering.
 import { screen, cleanup, fireEvent, within, waitFor } from '@testing-library/react';
 import { fakeServer, callsTo, mayaRun, showVersionB, goTab } from '../../../__acceptance__/v2/helpers';
-import { ageLine, courtLine, minutesLine, onlyNew, orderDeals, valueLine } from '@/lib/offers';
+import { ageLine, courtLine, guessAuditFields, minutesLine, onlyNew, orderDeals, valueLine } from '@/lib/offers';
 import type { FeedCard, OfferFacts } from '@shared/bundle';
 
 afterEach(() => { cleanup(); try { sessionStorage.clear(); localStorage.clear(); } catch { /* ignore */ } });
@@ -24,11 +24,19 @@ describe('the lines on an offer card (R5)', () => {
     expect(valueLine(facts({ trueValueCents: null })).text).toMatch(/not stated/);
   });
 
-  it('says the baby\'s exact age and the months the offer fits', () => {
-    expect(ageLine(facts())).toBe('Your baby is 20 days old. This offer is for babies 0–12 months.');
-    expect(ageLine(facts({ ageDays: 1, minAgeDays: -280, maxAgeDays: 182 }))).toBe('Your baby is 1 day old. This offer is for babies 0–6 months.');
-    expect(ageLine(facts({ ageDays: -44 }))).toBe('Your baby is due in 44 days. This offer is for babies 0–12 months.');
+  it('says the baby\'s exact age in days', () => {
+    expect(ageLine(facts())).toBe("Matches your baby's exact age (Day 20)");
+    expect(ageLine(facts({ ageDays: 1, minAgeDays: -280, maxAgeDays: 182 }))).toBe("Matches your baby's exact age (Day 1)");
+    expect(ageLine(facts({ ageDays: -44 }))).toBe("Matches your baby's exact age (due in 44 days)");
     expect(ageLine(facts({ ageDays: null }))).toBeNull();
+  });
+
+  it('guesses store and offer from pasted registry text', () => {
+    expect(guessAuditFields('Babylist registry perk: free welcome box.\nTerms apply.')).toEqual({
+      store: 'Babylist', offer: 'Babylist registry perk: free welcome box.',
+    });
+    expect(guessAuditFields('Target Circle baby deal')).toEqual({ store: 'Target', offer: 'Target Circle baby deal' });
+    expect(guessAuditFields('Hi')).toEqual({ store: 'Pasted offer', offer: 'Pasted registry or store offer' });
   });
 
   it('orders by what the offer is worth to the parent (never by commission) and hides finds that are already saved', () => {

@@ -79,6 +79,8 @@ export function createOfferRouter(deps: OfferApiDeps): Router {
     const cleaned = cleanAuditRequest(req.body);
     if (!cleaned.ok) return res.status(400).json({ error: cleaned.message });
     try {
+      // FinePrintCourt grades live. A high-confidence agreed grade is saved to offer_checks with source 'user_audit'
+      // (see auditDeal), which feeds /api/offer-audit brand totals.
       const out = await auditDeal(cleaned.req, { llm: deps.llm, memory: deps.memory, store, today: today(), logsDir: deps.logsDir });
       if (!out.ok) return res.status(out.status).json({ error: out.message });
       return res.json(out.reply);

@@ -1,5 +1,5 @@
 // Shared by the server and the screen: the live offer search, the "Audit a deal" form and the offer report card.
-import type { FeedCard, FinePrintVerdict, OfferFacts } from './bundle';
+import type { FeedCard, FinePrintVerdict, OfferFacts, ValueScore } from './bundle';
 
 /** How many trusted baby-offer pages the live search reads (server/offers/liveSearch.ts has the list, and a test keeps both equal). */
 export const OFFER_SITES_COUNT = 14;
@@ -35,6 +35,8 @@ export interface AuditReply {
   /** What each side of the court argued (full mode only). */
   hunter?: string;
   lawyer?: string;
+  /** Value Score from the same fine-print numbers the court used (full mode only). */
+  valueScore?: ValueScore;
 }
 
 /** GET /api/offers/report-card: the brand totals from /api/offer-audit plus how much of it came from parents. */
